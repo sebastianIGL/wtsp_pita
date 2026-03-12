@@ -28,9 +28,17 @@ TOKEN_ACCESO = _get_env("WA_ACCESS_TOKEN", "WHATSAPP_ACCESS_TOKEN")
 ID_NUMERO_TELEFONO = _get_env("WA_PHONE_NUMBER_ID", "WHATSAPP_PHONE_NUMBER_ID")
 VERSION_GRAPH = _get_env("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION", default="v22.0")
 
-SUPABASE_URL = _get_env("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = _get_env("SUPABASE_SERVICE_ROLE_KEY")
-INGEST_API_KEY = _get_env("INGEST_API_KEY")
+
+def _supabase_url() -> Optional[str]:
+    return _get_env("SUPABASE_URL")
+
+
+def _supabase_service_role_key() -> Optional[str]:
+    return _get_env("SUPABASE_SERVICE_ROLE_KEY")
+
+
+def _ingest_api_key() -> Optional[str]:
+    return _get_env("INGEST_API_KEY")
 
 
 def _utc_now_iso() -> str:
@@ -42,17 +50,19 @@ def _normalize_phone(phone: str) -> str:
 
 
 def _supabase_rest_base() -> str:
-    if not SUPABASE_URL:
+    supabase_url = _supabase_url()
+    if not supabase_url:
         raise RuntimeError("Falta SUPABASE_URL")
-    return f"{SUPABASE_URL.rstrip('/')}/rest/v1"
+    return f"{supabase_url.rstrip('/')}/rest/v1"
 
 
 def _supabase_headers() -> dict:
-    if not SUPABASE_SERVICE_ROLE_KEY:
+    supabase_key = _supabase_service_role_key()
+    if not supabase_key:
         raise RuntimeError("Falta SUPABASE_SERVICE_ROLE_KEY")
     return {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
         "Content-Type": "application/json",
     }
 
@@ -182,7 +192,7 @@ async def receive_webhook(request: Request):
         text = msg.get("text", {}).get("body", "")
 
         prospecto = None
-        if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+        if _supabase_url() and _supabase_service_role_key():
             prospecto = await upsert_prospecto(
                 telefono_e164=from_number,
                 ultimo_texto_entrante=text,
@@ -202,7 +212,7 @@ async def receive_webhook(request: Request):
 
         await send_whatsapp_message(to=from_number, text=reply_text)
 
-        if prospecto and prospecto.get("id") and SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+        if prospecto and prospecto.get("id") and _supabase_url() and _supabase_service_role_key():
             await insertar_mensaje(
                 prospecto_id=prospecto["id"],
                 direccion="saliente",
@@ -232,12 +242,13 @@ async def ingestar_prospecto(request: Request):
                 "codigo_proyecto": "miraflores_chillan"
       }
     """
-    if INGEST_API_KEY:
+    ingest_api_key = _ingest_api_key()
+    if ingest_api_key:
         provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
-        if not provided or provided != INGEST_API_KEY:
+        if not provided or provided != ingest_api_key:
             return Response(content="Unauthorized", status_code=401)
 
-    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+    if not _supabase_url() or not _supabase_service_role_key():
         return Response(content="Supabase no está configurado", status_code=500)
 
     body = await request.json()
