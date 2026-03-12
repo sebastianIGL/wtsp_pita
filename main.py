@@ -3,6 +3,7 @@ import os
 import httpx
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timezone
+import logging
 
 try:
     from dotenv import load_dotenv
@@ -14,6 +15,25 @@ except Exception:
 
 
 app = FastAPI()
+
+logger = logging.getLogger("wtsp_pita")
+if not logger.handlers:
+    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+
+
+def _safe_httpx_error(e: Exception) -> str:
+    """Devuelve un mensaje acotado para debug sin exponer headers/secretos."""
+    if isinstance(e, httpx.HTTPStatusError):
+        status = getattr(e.response, "status_code", "?")
+        try:
+            body = e.response.text
+        except Exception:
+            body = ""
+        body = (body or "").strip().replace("\n", " ")
+        if len(body) > 600:
+            body = body[:600] + "…"
+        return f"Upstream HTTP {status}: {body}" if body else f"Upstream HTTP {status}"
+    return str(e)
 
 def _get_env(*names: str, default: Optional[str] = None) -> Optional[str]:
     for name in names:
@@ -250,64 +270,72 @@ async def ingestar_prospecto(request: Request):
                 "codigo_proyecto": "miraflores_chillan"
       }
     """
-    ingest_api_key = _ingest_api_key()
-    if ingest_api_key:
-        provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
-        if not provided or provided != ingest_api_key:
-            return Response(content="Unauthorized", status_code=401)
+    try:
+        ingest_api_key = _ingest_api_key()
+        if ingest_api_key:
+            provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+            if not provided or provided != ingest_api_key:
+                return Response(content="Unauthorized", status_code=401)
 
-    if not _supabase_url() or not _supabase_service_role_key():
-        return Response(content="Supabase no está configurado", status_code=500)
+        if not _supabase_url() or not _supabase_service_role_key():
+            return Response(content="Supabase no está configurado", status_code=500)
 
-    body = await request.json()
-    phone = _normalize_phone(
-        body.get("telefono_e164")
-        or body.get("phone_e164")
-        or body.get("telefono")
-        or body.get("phone")
-        or ""
-    )
-    nombre = (body.get("nombre") or body.get("first_name") or "").strip() or None
-    codigo_proyecto = (body.get("codigo_proyecto") or body.get("project_code") or "").strip() or None
+        body = await request.json()
+        phone = _normalize_phone(
+            body.get("telefono_e164")
+            or body.get("phone_e164")
+            or body.get("telefono")
+            or body.get("phone")
+            or ""
+        )
+        nombre = (body.get("nombre") or body.get("first_name") or "").strip() or None
+        codigo_proyecto = (body.get("codigo_proyecto") or body.get("project_code") or "").strip() or None
 
-    if not phone:
-        return Response(content="Falta telefono_e164", status_code=400)
-    if not codigo_proyecto:
-        return Response(content="Falta codigo_proyecto", status_code=400)
+        if not phone:
+            return Response(content="Falta telefono_e164", status_code=400)
+        if not codigo_proyecto:
+            return Response(content="Falta codigo_proyecto", status_code=400)
 
-    proyecto = await obtener_proyecto_por_codigo(codigo_proyecto)
-    if not proyecto:
-        return Response(content="codigo_proyecto no existe en proyectos", status_code=400)
+        proyecto = await obtener_proyecto_por_codigo(codigo_proyecto)
+        if not proyecto:
+            return Response(content="codigo_proyecto no existe en proyectos", status_code=400)
 
-    prospecto = await upsert_prospecto(
-        telefono_e164=phone,
-        nombre=nombre,
-        codigo_proyecto=codigo_proyecto,
-        estado="PLANTILLA_ENVIADA",
-        paso="INICIO",
-    )
-
-    template_vars = [
-        nombre or "",  # {{1}}
-    ]
-
-    wa_resp = await send_whatsapp_template(
-        to=phone,
-        template_name=proyecto["nombre_plantilla"],
-        language_code=proyecto.get("idioma_plantilla") or "es",
-        body_text_params=template_vars,
-    )
-
-    if prospecto and prospecto.get("id"):
-        await insertar_mensaje(
-            prospecto_id=prospecto["id"],
-            direccion="saliente",
-            text=None,
-            raw={"plantilla": proyecto["nombre_plantilla"], "parametros": template_vars, "wa": wa_resp},
-            wa_message_id=(wa_resp or {}).get("messages", [{}])[0].get("id") if isinstance(wa_resp, dict) else None,
+        prospecto = await upsert_prospecto(
+            telefono_e164=phone,
+            nombre=nombre,
+            codigo_proyecto=codigo_proyecto,
+            estado="PLANTILLA_ENVIADA",
+            paso="INICIO",
         )
 
-    return {"ok": True, "prospecto_id": (prospecto or {}).get("id")}
+        template_vars = [
+            nombre or "",  # {{1}}
+        ]
+
+        wa_resp = await send_whatsapp_template(
+            to=phone,
+            template_name=proyecto["nombre_plantilla"],
+            language_code=proyecto.get("idioma_plantilla") or "es",
+            body_text_params=template_vars,
+        )
+
+        if prospecto and prospecto.get("id"):
+            await insertar_mensaje(
+                prospecto_id=prospecto["id"],
+                direccion="saliente",
+                text=None,
+                raw={"plantilla": proyecto["nombre_plantilla"], "parametros": template_vars, "wa": wa_resp},
+                wa_message_id=(wa_resp or {}).get("messages", [{}])[0].get("id") if isinstance(wa_resp, dict) else None,
+            )
+
+        return {"ok": True, "prospecto_id": (prospecto or {}).get("id")}
+    except Exception as e:
+        logger.exception("Error en /prospectos/ingesta")
+        return Response(
+            content=_safe_httpx_error(e) or "Internal Server Error",
+            status_code=500,
+            media_type="text/plain",
+        )
 
 async def send_whatsapp_message(to: str, text: str):
     if not TOKEN_ACCESO:
