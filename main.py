@@ -30,11 +30,19 @@ VERSION_GRAPH = _get_env("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION", defau
 
 
 def _supabase_url() -> Optional[str]:
-    return _get_env("SUPABASE_URL")
+    return _get_env(
+        "SUPABASE_URL",
+        "SUPABASE_PROJECT_URL",
+        "SUPABASE_REST_URL",
+    )
 
 
 def _supabase_service_role_key() -> Optional[str]:
-    return _get_env("SUPABASE_SERVICE_ROLE_KEY")
+    return _get_env(
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "SUPABASE_SERVICE_KEY",
+        "SUPABASE_SERVICE_ROLE",
+    )
 
 
 def _ingest_api_key() -> Optional[str]:
