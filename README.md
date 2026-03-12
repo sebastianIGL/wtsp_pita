@@ -32,6 +32,22 @@ cp .env.example .env
 
 Nota: el código también acepta `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` y `WHATSAPP_GRAPH_API_VERSION` por compatibilidad.
 
+### Supabase (recomendado)
+Este proyecto persiste leads, estado y mensajes en Supabase (Postgres) vía la API REST.
+
+1) Crear un proyecto en Supabase
+
+2) Crear las tablas
+- Abrí Supabase Dashboard → SQL Editor
+- Ejecutá el script: [supabase/schema.sql](supabase/schema.sql)
+
+3) Configurar variables en Railway (o tu entorno)
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (solo backend; no exponer en frontend)
+
+Opcional:
+- `INGEST_API_KEY` (protege el endpoint `/prospectos/ingesta`)
+
 ## Ejecutar
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -40,6 +56,28 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ## Endpoints
 - `GET /webhook`: verificación de Meta (usa `hub.mode`, `hub.verify_token`, `hub.challenge`)
 - `POST /webhook`: recepción de eventos; si llega un mensaje de texto, hace un echo por Graph API
+
+## Ingesta de leads (cuando el lead llega antes de escribir)
+Si tus leads llegan antes de que el usuario escriba por WhatsApp, el primer mensaje debe ser un **template** aprobado.
+
+1) En Supabase, crea un registro en `proyectos` con:
+- `codigo` (ej. `miraflores_chillan`)
+- `nombre` (ej. `Condominio Miraflores`)
+- `ubicacion` (ej. `Chillán`)
+- `nombre_plantilla` (nombre exacto del template aprobado en Meta)
+- `idioma_plantilla` (ej. `es`)
+
+2) Llama al endpoint `/prospectos/ingesta`:
+```bash
+curl -X POST "http://localhost:8000/prospectos/ingesta" \
+	-H "Content-Type: application/json" \
+	-H "X-API-Key: TU_INGEST_API_KEY" \
+	-d '{"telefono_e164":"569XXXXXXXX","nombre":"Javiera","codigo_proyecto":"miraflores_chillan"}'
+```
+
+Esto:
+- upsertea el prospecto en Supabase
+- envía el template usando variable `{{1}}={{nombre}}`
 
 ## ¿De dónde saco cada dato?
 
