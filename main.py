@@ -6,6 +6,11 @@ from datetime import datetime, timezone
 import logging
 
 try:
+    import anthropic
+except ImportError:
+    anthropic = None
+
+try:
     from dotenv import load_dotenv
 
     load_dotenv()
@@ -47,6 +52,15 @@ TOKEN_VERIFICACION = _get_env("WA_VERIFY_TOKEN", "WHATSAPP_VERIFY_TOKEN")
 TOKEN_ACCESO = _get_env("WA_ACCESS_TOKEN", "WHATSAPP_ACCESS_TOKEN")
 ID_NUMERO_TELEFONO = _get_env("WA_PHONE_NUMBER_ID", "WHATSAPP_PHONE_NUMBER_ID")
 VERSION_GRAPH = _get_env("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION", default="v22.0")
+
+ANTHROPIC_API_KEY = _get_env("ANTHROPIC_API_KEY")
+SYSTEM_PROMPT = _get_env(
+    "SYSTEM_PROMPT",
+    default=(
+        "Eres un asistente de ventas de proyectos inmobiliarios. "
+        "Responde de forma amigable, breve y en el mismo idioma que el usuario."
+    ),
+)
 
 
 def _supabase_url() -> Optional[str]:
@@ -185,6 +199,52 @@ async def obtener_proyecto_por_codigo(codigo: str):
         return None
     return rows[0]
 
+async def obtener_historial_mensajes(prospecto_id: str, limite: int = 10) -> List[Dict]:
+    """Devuelve los últimos `limite` mensajes del prospecto, ordenados del más antiguo al más reciente."""
+    rows = await _supabase_request(
+        "GET",
+        "/mensajes",
+        params={
+            "prospecto_id": f"eq.{prospecto_id}",
+            "order": "creado_en.desc",
+            "limit": str(limite),
+            "select": "direccion,texto",
+        },
+    )
+    return list(reversed(rows or []))
+
+
+async def generar_respuesta_ia(historial: List[Dict], mensaje_actual: str) -> str:
+    """Genera una respuesta usando Claude. Si no hay API key, devuelve un eco."""
+    if not ANTHROPIC_API_KEY or anthropic is None:
+        logger.warning("ANTHROPIC_API_KEY no configurada — usando eco")
+        return f"Hola 👋 Recibí: {mensaje_actual}"
+
+    # Construye el historial de mensajes para Claude (sin el mensaje actual, ya está al final)
+    messages: List[Dict[str, str]] = []
+    for msg in historial:
+        texto = (msg.get("texto") or "").strip()
+        if not texto:
+            continue
+        role = "user" if msg["direccion"] == "entrante" else "assistant"
+        # Claude requiere que los roles se alternen; si se repiten los fusionamos
+        if messages and messages[-1]["role"] == role:
+            messages[-1]["content"] += f"\n{texto}"
+        else:
+            messages.append({"role": role, "content": texto})
+
+    messages.append({"role": "user", "content": mensaje_actual})
+
+    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    response = await client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=400,
+        system=SYSTEM_PROMPT,
+        messages=messages,
+    )
+    return response.content[0].text
+
+
 # 1) Endpoint GET para verificación del webhook
 @app.get("/webhook")
 async def verify_webhook(request: Request):
@@ -235,8 +295,14 @@ async def receive_webhook(request: Request):
                     wa_message_id=msg.get("id"),
                 )
 
-        # Respuesta simple (eco + saludo)
-        reply_text = f"Hola 👋 Recibí: {text}"
+        # Genera respuesta con IA (o eco si no hay API key)
+        historial = []
+        if prospecto and prospecto.get("id"):
+            try:
+                historial = await obtener_historial_mensajes(prospecto["id"])
+            except Exception:
+                pass
+        reply_text = await generar_respuesta_ia(historial, text)
 
         await send_whatsapp_message(to=from_number, text=reply_text)
 
@@ -378,27 +444,59 @@ async def send_whatsapp_template(
         "Content-Type": "application/json",
     }
 
-    parameters = [{"type": "text", "text": p} for p in body_text_params]
+    template_payload: Dict[str, Any] = {
+        "name": template_name,
+        "language": {"code": language_code},
+    }
+    if body_text_params:
+        parameters = [{"type": "text", "text": p} for p in body_text_params]
+        template_payload["components"] = [{"type": "body", "parameters": parameters}]
+
     data = {
         "messaging_product": "whatsapp",
         "to": to,
         "type": "template",
-        "template": {
-            "name": template_name,
-            "language": {"code": language_code},
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": parameters,
-                }
-            ],
-        },
+        "template": template_payload,
     }
 
     async with httpx.AsyncClient(timeout=20) as client:
         r = await client.post(url, headers=headers, json=data)
         r.raise_for_status()
         return r.json()
+
+
+@app.post("/test/hello-world")
+async def test_hello_world(request: Request):
+    """Envía la plantilla hello_world a un número para iniciar conversación.
+
+    Body JSON:
+      { "telefono": "569XXXXXXXX" }
+
+    Úsalo desde curl o Postman para disparar el primer mensaje y así poder
+    responder manualmente y probar el flujo completo del webhook + IA.
+    """
+    try:
+        body = await request.json()
+        phone = _normalize_phone(
+            body.get("telefono") or body.get("telefono_e164") or body.get("phone") or ""
+        )
+        if not phone:
+            return Response(content="Falta telefono", status_code=400)
+
+        wa_resp = await send_whatsapp_template(
+            to=phone,
+            template_name="hello_world",
+            language_code="en_US",
+            body_text_params=[],
+        )
+        return {"ok": True, "wa": wa_resp}
+    except Exception as e:
+        logger.exception("Error en /test/hello-world")
+        return Response(
+            content=_safe_httpx_error(e) or "Internal Server Error",
+            status_code=500,
+            media_type="text/plain",
+        )
 
 
 if __name__ == "__main__":
