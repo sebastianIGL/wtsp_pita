@@ -295,7 +295,7 @@ async def insertar_mensaje(
 async def obtener_proyecto_por_codigo(codigo: str):
     rows = await _supabase_request(
         "GET",
-        "/proyectos",
+        "/Proyecto",
         params={
             "codigo": f"eq.{codigo}",
             "select": "codigo,nombre,ubicacion,nombre_plantilla,idioma_plantilla,imagen_url",
@@ -707,6 +707,114 @@ async def test_hello_world(request: Request):
         return {"ok": True, "wa": wa_resp}
     except Exception as e:
         logger.exception("Error en /test/hello-world")
+        return Response(
+            content=_safe_httpx_error(e) or "Internal Server Error",
+            status_code=500,
+            media_type="text/plain",
+        )
+
+
+# ---------------------------------------------------------------------------
+# API para el frontend
+# ---------------------------------------------------------------------------
+
+def _check_api_key(request: Request) -> bool:
+    key = _ingest_api_key()
+    if not key:
+        return True
+    provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+    return provided == key
+
+
+@app.get("/api/proyectos")
+async def api_listar_proyectos(request: Request):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    rows = await _supabase_request(
+        "GET", "/Proyecto",
+        params={"select": "codigo,nombre,ubicacion", "order": "nombre.asc"},
+    )
+    return rows or []
+
+
+@app.get("/api/clientes")
+async def api_listar_clientes(request: Request):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    rows = await _supabase_request(
+        "GET", "/Cliente",
+        params={"select": "*", "order": "id.desc"},
+    )
+    return rows or []
+
+
+@app.post("/api/clientes")
+async def api_crear_cliente(request: Request):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+
+        nombre     = (body.get("Contacto") or "").strip()
+        telefono   = _normalize_phone(body.get("Telefono") or "")
+        proyecto_codigo = (body.get("Proyecto") or "").strip()
+        rut        = (body.get("Rut") or "").strip() or None
+        correo     = (body.get("Correo") or "").strip() or None
+        rango      = (body.get("Tramo de renta") or "").strip() or None
+        primer_msg = bool(body.get("primer mensaje", True))
+
+        if not nombre:
+            return Response(content="Falta Contacto", status_code=400)
+        if not telefono:
+            return Response(content="Falta Telefono", status_code=400)
+        if not proyecto_codigo:
+            return Response(content="Falta Proyecto", status_code=400)
+
+        # 1) Insertar en tabla Cliente
+        cliente = await _supabase_request(
+            "POST", "/Cliente",
+            json={
+                "Proyecto":        proyecto_codigo,
+                "Contacto":        nombre,
+                "Rut":             rut or "",
+                "Correo":          correo,
+                "Telefono":        telefono,
+                "Tramo de renta":  rango,
+                "primer mensaje":  primer_msg,
+            },
+            extra_headers={"Prefer": "return=representation"},
+        )
+
+        wa_result = None
+        if primer_msg:
+            # 2) Upsert en prospectos para el bot
+            await upsert_prospecto(
+                telefono_e164=telefono,
+                nombre=nombre,
+                rut=rut,
+                rango_sueldo=rango,
+                codigo_proyecto=proyecto_codigo,
+                estado="PLANTILLA_ENVIADA",
+                paso="INICIO",
+            )
+
+            # 3) Obtener proyecto y enviar template
+            proyecto = await obtener_proyecto_por_codigo(proyecto_codigo)
+            if proyecto and proyecto.get("nombre_plantilla"):
+                wa_result = await send_whatsapp_template(
+                    to=telefono,
+                    template_name=proyecto["nombre_plantilla"],
+                    language_code=proyecto.get("idioma_plantilla") or "es",
+                    body_text_params=[nombre],
+                    image_url=proyecto.get("imagen_url"),
+                )
+            else:
+                logger.warning(f"Proyecto {proyecto_codigo} sin plantilla — no se envió template")
+
+        return {"ok": True, "cliente": cliente, "wa": wa_result}
+
+    except Exception as e:
+        logger.exception("Error en /api/clientes POST")
         return Response(
             content=_safe_httpx_error(e) or "Internal Server Error",
             status_code=500,

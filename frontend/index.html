@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neurobytes — CRM Inmobiliario</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#f0f9ff', 100:'#e0f2fe', 500:'#0ea5e9', 600:'#0284c7', 700:'#0369a1', 900:'#0c4a6e' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background: #0f172a; }
+    .glass { background: rgba(255,255,255,0.04); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.08); }
+    .badge-true  { background:#064e3b; color:#6ee7b7; }
+    .badge-false { background:#1e1b4b; color:#a5b4fc; }
+    .badge-pend  { background:#292524; color:#a8a29e; }
+    input, select { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
+    input:focus, select:focus { outline:none; border-color:#0ea5e9; box-shadow:0 0 0 2px rgba(14,165,233,.25); }
+    ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-track { background:#0f172a; } ::-webkit-scrollbar-thumb { background:#334155; border-radius:3px; }
+    tr:hover td { background: rgba(255,255,255,0.03); }
+    .spinner { border:3px solid #1e293b; border-top-color:#0ea5e9; border-radius:50%; width:20px; height:20px; animation:spin .7s linear infinite; display:inline-block; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .toast { position:fixed; bottom:24px; right:24px; padding:12px 20px; border-radius:10px; font-size:14px; font-weight:500; z-index:9999; animation:slideIn .3s ease; }
+    @keyframes slideIn { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  </style>
+</head>
+<body class="min-h-screen text-slate-200 font-sans">
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="border-b border-slate-800 px-8 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-lg">N</div>
+    <div>
+      <p class="font-semibold text-white leading-none">Neurobytes</p>
+      <p class="text-xs text-slate-500 mt-0.5">CRM Inmobiliario</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 text-xs text-slate-500">
+    <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+    Bot activo en Railway
+  </div>
+</header>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<div class="px-8 pt-8 pb-6">
+  <h1 class="text-2xl font-bold text-white">Gestión de Clientes</h1>
+  <p class="text-slate-400 text-sm mt-1">Administra tus prospectos y activa el chatbot de WhatsApp</p>
+</div>
+
+<!-- ═══════════════════ STATS ═══════════════════ -->
+<div class="px-8 pb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+  <div class="glass rounded-2xl p-5">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Total clientes</p>
+    <p id="stat-total" class="text-3xl font-bold text-white mt-1">—</p>
+  </div>
+  <div class="glass rounded-2xl p-5">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">1er mensaje enviado</p>
+    <p id="stat-sent" class="text-3xl font-bold text-emerald-400 mt-1">—</p>
+  </div>
+  <div class="glass rounded-2xl p-5">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Sin contactar</p>
+    <p id="stat-pending" class="text-3xl font-bold text-indigo-400 mt-1">—</p>
+  </div>
+  <div class="glass rounded-2xl p-5">
+    <p class="text-xs text-slate-400 uppercase tracking-wider">Proyectos</p>
+    <p id="stat-projects" class="text-3xl font-bold text-sky-400 mt-1">—</p>
+  </div>
+</div>
+
+<!-- ═══════════════════ TABLA ═══════════════════ -->
+<div class="px-8 pb-16">
+  <div class="glass rounded-2xl overflow-hidden">
+
+    <!-- Toolbar -->
+    <div class="px-6 py-4 flex items-center justify-between border-b border-slate-800">
+      <div class="flex items-center gap-3">
+        <h2 class="font-semibold text-white">Clientes</h2>
+        <span id="badge-count" class="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">0</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <input id="search" type="text" placeholder="Buscar…" class="rounded-lg px-3 py-1.5 text-sm w-48" oninput="filtrarTabla()" />
+        <button onclick="abrirModal()" class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nuevo cliente
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-800">
+            <th class="px-6 py-3 text-left">Contacto</th>
+            <th class="px-6 py-3 text-left">Proyecto</th>
+            <th class="px-6 py-3 text-left">Teléfono</th>
+            <th class="px-6 py-3 text-left">RUT</th>
+            <th class="px-6 py-3 text-left">Tramo renta</th>
+            <th class="px-6 py-3 text-left">1er Mensaje</th>
+            <th class="px-6 py-3 text-left">Última gestión</th>
+          </tr>
+        </thead>
+        <tbody id="tabla-body">
+          <tr id="row-loading">
+            <td colspan="7" class="px-6 py-12 text-center text-slate-500">
+              <div class="spinner mx-auto mb-3"></div>
+              <p>Cargando clientes…</p>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL ═══════════════════ -->
+<div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="cerrarModal()"></div>
+  <div class="glass relative rounded-2xl w-full max-w-lg p-6 z-10 shadow-2xl">
+    <div class="flex items-center justify-between mb-6">
+      <h3 class="text-lg font-semibold text-white">Nuevo cliente</h3>
+      <button onclick="cerrarModal()" class="text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <form id="form-cliente" onsubmit="crearCliente(event)" class="space-y-4">
+
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Proyecto -->
+        <div class="col-span-2">
+          <label class="block text-xs text-slate-400 mb-1.5">Proyecto *</label>
+          <select id="f-proyecto" required class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Seleccionar proyecto…</option>
+          </select>
+        </div>
+
+        <!-- Contacto -->
+        <div class="col-span-2">
+          <label class="block text-xs text-slate-400 mb-1.5">Nombre contacto *</label>
+          <input id="f-contacto" type="text" placeholder="Ej: María González" required class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+
+        <!-- RUT -->
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">RUT *</label>
+          <input id="f-rut" type="text" placeholder="12.345.678-9" required class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+
+        <!-- Teléfono -->
+        <div>
+          <label class="block text-xs text-slate-400 mb-1.5">Teléfono *</label>
+          <input id="f-telefono" type="text" placeholder="56912345678" required class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+
+        <!-- Correo -->
+        <div class="col-span-2">
+          <label class="block text-xs text-slate-400 mb-1.5">Correo electrónico</label>
+          <input id="f-correo" type="email" placeholder="cliente@correo.cl" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+
+        <!-- Tramo de renta -->
+        <div class="col-span-2">
+          <label class="block text-xs text-slate-400 mb-1.5">Tramo de renta</label>
+          <select id="f-renta" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Sin especificar</option>
+            <option>Hasta $500.000</option>
+            <option>$500.001 - $700.000</option>
+            <option>$700.001 - $900.000</option>
+            <option>$900.001 - $1.200.000</option>
+            <option>Más de $1.200.000</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Primer mensaje toggle -->
+      <div class="flex items-center justify-between rounded-xl bg-slate-800/60 px-4 py-3 mt-2">
+        <div>
+          <p class="text-sm font-medium text-white">Enviar primer mensaje</p>
+          <p class="text-xs text-slate-400 mt-0.5">Dispara la plantilla de WhatsApp al guardar</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="f-primer" class="sr-only peer" checked />
+          <div class="w-11 h-6 bg-slate-600 rounded-full peer peer-checked:bg-brand-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
+        </label>
+      </div>
+
+      <!-- Botones -->
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="cerrarModal()" class="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-300 hover:bg-slate-700 text-sm transition">
+          Cancelar
+        </button>
+        <button type="submit" id="btn-submit" class="flex-1 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition flex items-center justify-center gap-2">
+          Guardar cliente
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ═══════════════════ SCRIPT ═══════════════════ -->
+<script>
+// ─── CONFIGURACIÓN ───────────────────────────────
+const CONFIG = {
+  RAILWAY_URL: 'https://wtsppita-production.up.railway.app',
+  API_KEY: 'variable.test.2026.chatbot',
+}
+
+// ─── ESTADO ──────────────────────────────────────
+let clientes = []
+let proyectos = []
+
+// ─── INIT ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  cargarProyectos()
+  cargarClientes()
+})
+
+// ─── API ──────────────────────────────────────────
+async function api(method, path, body) {
+  const res = await fetch(CONFIG.RAILWAY_URL + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': CONFIG.API_KEY,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(txt || `Error ${res.status}`)
+  }
+  return res.json()
+}
+
+// ─── PROYECTOS ────────────────────────────────────
+async function cargarProyectos() {
+  try {
+    proyectos = await api('GET', '/api/proyectos')
+    document.getElementById('stat-projects').textContent = proyectos.length
+    const sel = document.getElementById('f-proyecto')
+    proyectos.forEach(p => {
+      const opt = document.createElement('option')
+      opt.value = p.codigo
+      opt.textContent = p.nombre
+      sel.appendChild(opt)
+    })
+  } catch (e) {
+    console.error('Error cargando proyectos:', e)
+  }
+}
+
+// ─── CLIENTES ─────────────────────────────────────
+async function cargarClientes() {
+  try {
+    clientes = await api('GET', '/api/clientes')
+    renderTabla(clientes)
+    actualizarStats()
+  } catch (e) {
+    document.getElementById('tabla-body').innerHTML = `
+      <tr><td colspan="7" class="px-6 py-12 text-center text-red-400">
+        Error al conectar con Railway. ¿Está el servidor activo?
+      </td></tr>`
+  }
+}
+
+function actualizarStats() {
+  const total   = clientes.length
+  const enviado = clientes.filter(c => c['primer mensaje'] === true).length
+  const pending = clientes.filter(c => c['primer mensaje'] === false || c['primer mensaje'] === null).length
+  document.getElementById('stat-total').textContent   = total
+  document.getElementById('stat-sent').textContent    = enviado
+  document.getElementById('stat-pending').textContent = pending
+  document.getElementById('badge-count').textContent  = total
+}
+
+function renderTabla(data) {
+  const tbody = document.getElementById('tabla-body')
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center text-slate-500">
+      No hay clientes aún. ¡Crea el primero!
+    </td></tr>`
+    return
+  }
+
+  const nombreProyecto = (codigo) => {
+    const p = proyectos.find(p => p.codigo === codigo)
+    return p ? p.nombre : codigo
+  }
+
+  tbody.innerHTML = data.map(c => {
+    const primerMsg = c['primer mensaje']
+    const badge = primerMsg === true
+      ? '<span class="badge-true text-xs px-2 py-0.5 rounded-full font-medium">Enviado</span>'
+      : primerMsg === false
+      ? '<span class="badge-false text-xs px-2 py-0.5 rounded-full font-medium">Seguimiento</span>'
+      : '<span class="badge-pend text-xs px-2 py-0.5 rounded-full font-medium">Pendiente</span>'
+
+    return `<tr class="border-b border-slate-800/50 transition">
+      <td class="px-6 py-4 font-medium text-white">${esc(c.Contacto)}</td>
+      <td class="px-6 py-4 text-slate-300">${esc(nombreProyecto(c.Proyecto))}</td>
+      <td class="px-6 py-4 text-slate-300 font-mono text-xs">${esc(c.Telefono || '—')}</td>
+      <td class="px-6 py-4 text-slate-300 font-mono text-xs">${esc(c.Rut || '—')}</td>
+      <td class="px-6 py-4 text-slate-400 text-xs">${esc(c['Tramo de renta'] || '—')}</td>
+      <td class="px-6 py-4">${badge}</td>
+      <td class="px-6 py-4 text-slate-500 text-xs">${esc(c['Fecha Ult. Gestión'] || '—')}</td>
+    </tr>`
+  }).join('')
+}
+
+function filtrarTabla() {
+  const q = document.getElementById('search').value.toLowerCase()
+  const filtrado = clientes.filter(c =>
+    (c.Contacto || '').toLowerCase().includes(q) ||
+    (c.Proyecto || '').toLowerCase().includes(q) ||
+    (c.Telefono || '').toLowerCase().includes(q) ||
+    (c.Rut || '').toLowerCase().includes(q)
+  )
+  renderTabla(filtrado)
+}
+
+// ─── MODAL ────────────────────────────────────────
+function abrirModal() {
+  document.getElementById('modal').classList.remove('hidden')
+  document.getElementById('f-contacto').focus()
+}
+
+function cerrarModal() {
+  document.getElementById('modal').classList.add('hidden')
+  document.getElementById('form-cliente').reset()
+  document.getElementById('f-primer').checked = true
+  resetBtn()
+}
+
+// ─── CREAR CLIENTE ────────────────────────────────
+async function crearCliente(e) {
+  e.preventDefault()
+  const btn = document.getElementById('btn-submit')
+  btn.innerHTML = '<span class="spinner"></span> Guardando…'
+  btn.disabled = true
+
+  const primerMensaje = document.getElementById('f-primer').checked
+
+  const payload = {
+    'Proyecto':       document.getElementById('f-proyecto').value,
+    'Contacto':       document.getElementById('f-contacto').value.trim(),
+    'Rut':            document.getElementById('f-rut').value.trim(),
+    'Correo':         document.getElementById('f-correo').value.trim() || null,
+    'Telefono':       document.getElementById('f-telefono').value.trim(),
+    'Tramo de renta': document.getElementById('f-renta').value || null,
+    'primer mensaje': primerMensaje,
+  }
+
+  try {
+    await api('POST', '/api/clientes', payload)
+    cerrarModal()
+    toast(
+      primerMensaje
+        ? '✅ Cliente creado y mensaje de WhatsApp enviado'
+        : '✅ Cliente creado correctamente',
+      'success'
+    )
+    await cargarClientes()
+  } catch (err) {
+    toast('❌ ' + err.message, 'error')
+    resetBtn()
+  }
+}
+
+function resetBtn() {
+  const btn = document.getElementById('btn-submit')
+  btn.innerHTML = 'Guardar cliente'
+  btn.disabled = false
+}
+
+// ─── TOAST ────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const el = document.createElement('div')
+  el.className = `toast ${type === 'success' ? 'bg-emerald-900 text-emerald-200 border border-emerald-700' : 'bg-red-950 text-red-300 border border-red-800'}`
+  el.textContent = msg
+  document.body.appendChild(el)
+  setTimeout(() => el.remove(), 4000)
+}
+
+// ─── UTILS ───────────────────────────────────────
+function esc(str) {
+  return String(str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+}
+</script>
+</body>
+</html>
