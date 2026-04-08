@@ -288,6 +288,7 @@ async def upsert_prospecto(
     paso: Optional[str] = None,
     ultimo_texto_entrante: Optional[str] = None,
     datos: Optional[Dict] = None,
+    cliente_id: Optional[int] = None,
 ):
     row: Dict[str, Any] = {
         "telefono_e164": telefono_e164,
@@ -310,6 +311,8 @@ async def upsert_prospecto(
         row["ultimo_entrante_en"] = _utc_now_iso()
     if datos is not None:
         row["datos"] = datos
+    if cliente_id is not None:
+        row["cliente_id"] = cliente_id
 
     data = await _supabase_request(
         "POST",
@@ -356,17 +359,17 @@ async def insertar_mensaje(
     direccion: str,
     text: Optional[str],
     wa_message_id: Optional[str] = None,
+    cliente_id: Optional[int] = None,
 ):
-    await _supabase_request(
-        "POST",
-        "/mensajes",
-        json={
-            "prospecto_id": prospecto_id,
-            "direccion": direccion,
-            "texto": text,
-            "wa_id_mensaje": wa_message_id,
-        },
-    )
+    row: Dict[str, Any] = {
+        "prospecto_id": prospecto_id,
+        "direccion":    direccion,
+        "texto":        text,
+        "wa_id_mensaje": wa_message_id,
+    }
+    if cliente_id is not None:
+        row["cliente_id"] = cliente_id
+    await _supabase_request("POST", "/mensajes", json=row)
 
 
 async def insertar_documento(
@@ -657,6 +660,7 @@ async def receive_webhook(request: Request):
                 proyecto = await obtener_proyecto_por_codigo(prospecto["codigo_proyecto"])
 
         prospecto_id = (prospecto or {}).get("id")
+        cliente_id_prospecto: Optional[int] = (prospecto or {}).get("cliente_id")
 
         # ── Manejo de DOCUMENTOS (imagen o archivo) ───────────────────────
         if msg_type in ("image", "document"):
@@ -677,6 +681,7 @@ async def receive_webhook(request: Request):
                 direccion="entrante",
                 text=text,
                 wa_message_id=msg.get("id"),
+                cliente_id=cliente_id_prospecto,
             )
             try:
                 historial = await obtener_historial_mensajes(prospecto_id)
@@ -710,6 +715,7 @@ async def receive_webhook(request: Request):
                 prospecto_id=prospecto_id,
                 direccion="saliente",
                 text=reply_text,
+                cliente_id=cliente_id_prospecto,
             )
             if datos_extraidos or siguiente_paso:
                 await actualizar_datos_prospecto(
@@ -1142,6 +1148,7 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
             rango_sueldo=c.get("Tramo de renta"), codigo_proyecto=codigo_proyecto,
             estado="PLANTILLA_ENVIADA", paso="INICIO",
+            cliente_id=cliente_id,
         )
         return {"ok": True, "wa": wa}
     except Exception as e:
