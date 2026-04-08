@@ -18,7 +18,17 @@ except Exception:
     pass
 
 
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
@@ -69,12 +79,74 @@ ID_NUMERO_TELEFONO = _get_env("WA_PHONE_NUMBER_ID", "WHATSAPP_PHONE_NUMBER_ID")
 VERSION_GRAPH      = _get_env("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION", default="v22.0")
 ANTHROPIC_API_KEY  = _get_env("ANTHROPIC_API_KEY")
 
+# ---------------------------------------------------------------------------
+# Documentos requeridos y sus cantidades mínimas
+# ---------------------------------------------------------------------------
+
+DOCUMENTOS_REQUERIDOS = {
+    "liquidacion_sueldo": {"label": "Últimas 6 liquidaciones de sueldo", "cantidad": 6},
+    "carnet_identidad":   {"label": "Carnet de identidad (ambos lados)",  "cantidad": 2},
+    "antiguedad_laboral": {"label": "Certificado de antigüedad laboral",  "cantidad": 1},
+    "certificado_afp":    {"label": "Certificado de AFP",                 "cantidad": 1},
+}
+
+# Palabras clave para clasificar documentos por nombre de archivo
+_KEYWORDS_TIPO: List[tuple] = [
+    ("liquidacion_sueldo", ["liquidacion", "liquidación", "sueldo", "remuneracion", "remuneración", "renta"]),
+    ("carnet_identidad",   ["carnet", "cedula", "cédula", "ci_", "dni", "identidad", "rut"]),
+    ("antiguedad_laboral", ["antiguedad", "antigüedad", "contrato", "laboral", "empleador"]),
+    ("certificado_afp",    ["afp", "prevision", "previsión", "pension", "pensión", "retiro"]),
+]
+
+
+def clasificar_documento(nombre_archivo: str, mime_type: str = "") -> str:
+    """Clasifica el tipo de documento según el nombre del archivo."""
+    nombre_lower = (nombre_archivo or "").lower().replace(" ", "_").replace("-", "_")
+    for tipo, keywords in _KEYWORDS_TIPO:
+        if any(kw in nombre_lower for kw in keywords):
+            return tipo
+    return "otro"
+
+
+def documentos_pendientes(docs_recibidos: List[Dict]) -> Dict[str, int]:
+    """
+    Dado el listado de documentos ya recibidos, retorna cuántos faltan por tipo.
+    Solo incluye tipos con pendientes > 0.
+    """
+    conteo: Dict[str, int] = {t: 0 for t in DOCUMENTOS_REQUERIDOS}
+    for doc in docs_recibidos:
+        tipo = doc.get("tipo", "")
+        if tipo in conteo:
+            conteo[tipo] += 1
+
+    pendientes = {}
+    for tipo, cfg in DOCUMENTOS_REQUERIDOS.items():
+        faltantes = cfg["cantidad"] - conteo.get(tipo, 0)
+        if faltantes > 0:
+            pendientes[tipo] = faltantes
+    return pendientes
+
+
+def resumen_documentos(docs_recibidos: List[Dict]) -> str:
+    """Genera un texto resumido del estado de documentos para usar en el prompt."""
+    conteo: Dict[str, int] = {t: 0 for t in DOCUMENTOS_REQUERIDOS}
+    for doc in docs_recibidos:
+        if doc.get("tipo") in conteo:
+            conteo[doc["tipo"]] += 1
+
+    lineas = []
+    for tipo, cfg in DOCUMENTOS_REQUERIDOS.items():
+        recibidos = conteo.get(tipo, 0)
+        requeridos = cfg["cantidad"]
+        estado = "✅" if recibidos >= requeridos else f"⏳ ({recibidos}/{requeridos})"
+        lineas.append(f"  {estado} {cfg['label']}")
+    return "\n".join(lineas)
+
 
 # ---------------------------------------------------------------------------
 # Configuración de pasos conversacionales
 # ---------------------------------------------------------------------------
 
-# Cada valor puede usar: {nombre}, {rango_sueldo}, {datos}
 PASOS_CONFIG: Dict[str, str] = {
     "INICIO": """OBJETIVO — PASO INICIO:
 El cliente acaba de responder al mensaje inicial sobre el proyecto.
@@ -96,6 +168,8 @@ El cliente acaba de responder al mensaje inicial sobre el proyecto.
 
 4. Cuando las 3 preguntas estén respondidas → "siguiente_paso": "DOCUMENTACION"
 5. Si el cliente dice que NO le interesa    → "siguiente_paso": "NO_INTERESADO"
+6. Si el cliente pregunta algo fuera del tema (clima, otros temas), redirígelo
+   gentilmente al proceso indicando que necesitas esa información para avanzar.
 
 En datos_extraidos reporta SOLO lo que el cliente reveló en ESTE mensaje:
   "ahorro_ok": true/false  (null si no lo mencionó)
@@ -106,12 +180,11 @@ En datos_extraidos reporta SOLO lo que el cliente reveló en ESTE mensaje:
 El cliente completó las preguntas de calificación.
 Datos recopilados: {datos}
 
-1. Explícale qué documentos debe enviarte según su situación:
-
-   Todos deben enviar:
-   ▸ Cédula de identidad (ambos lados)
-   ▸ Últimas 3 liquidaciones de sueldo
+1. Explícale que para continuar necesitas los siguientes documentos:
+   ▸ Carnet de identidad (foto del frente y dorso)
+   ▸ Últimas 6 liquidaciones de sueldo
    ▸ Certificado de antigüedad laboral
+   ▸ Certificado de AFP
 
    Si ahorro_ok es true, agregar:
    ▸ Cartola de ahorro de los últimos 12 meses
@@ -119,20 +192,27 @@ Datos recopilados: {datos}
    Si complemento_renta es true, agregar:
    ▸ CI y últimas 3 liquidaciones del co-deudor
 
-2. Ofrécele una llamada telefónica si tiene dudas o necesita orientación.
-3. Queda a la espera de que envíe los documentos por este mismo chat.
+2. Indícale que puede enviar los documentos directamente por este chat (fotos o PDF).
+3. Ofrécele una llamada telefónica si tiene dudas o necesita orientación.
 4. Si confirma que enviará o ya envió documentos → "siguiente_paso": "ESPERA_DOCS".""",
 
     "ESPERA_DOCS": """OBJETIVO — PASO ESPERA DE DOCUMENTOS:
-El cliente está en proceso de enviar su documentación.
-- Responde sus consultas con amabilidad y paciencia.
-- Si confirma el envío, agradece y confirma recepción.
-- Responde preguntas sobre el proyecto con la información disponible.
-- Si confirma envío → "siguiente_paso": "DOCS_RECIBIDOS".""",
+El cliente está enviando su documentación.
 
-    "DOCS_RECIBIDOS": """Los documentos fueron recibidos.
+Estado actual de documentos recibidos:
+{estado_documentos}
+
+1. Si el cliente acaba de enviar un documento, agradece y confirma qué recibiste.
+2. Si aún faltan documentos, indícale amablemente cuáles quedan pendientes.
+3. Si YA están todos los documentos completos → "siguiente_paso": "DOCS_RECIBIDOS".
+4. Si el cliente pregunta algo fuera del tema, recuérdale qué documentos faltan
+   y que sin ellos no se puede avanzar en el proceso.
+5. Responde consultas sobre el proyecto con amabilidad.""",
+
+    "DOCS_RECIBIDOS": """Los documentos fueron recibidos completos.
 Informa al cliente que el equipo los revisará y se pondrá en contacto pronto.
-Responde cualquier consulta con amabilidad.""",
+Responde cualquier consulta con amabilidad.
+No solicites más documentos a menos que el ejecutivo lo indique.""",
 
     "NO_INTERESADO": """El cliente no está interesado actualmente.
 Responde con amabilidad, deja la puerta abierta para el futuro y despídete.""",
@@ -248,7 +328,6 @@ async def actualizar_datos_prospecto(
     nuevos_datos: Dict,
     siguiente_paso: Optional[str] = None,
 ):
-    """Hace merge de nuevos_datos en el JSONB 'datos' y opcionalmente avanza el paso."""
     rows = await _supabase_request(
         "GET",
         "/prospectos",
@@ -276,7 +355,6 @@ async def insertar_mensaje(
     prospecto_id: str,
     direccion: str,
     text: Optional[str],
-    raw: Optional[Dict[str, Any]] = None,
     wa_message_id: Optional[str] = None,
 ):
     await _supabase_request(
@@ -286,10 +364,48 @@ async def insertar_mensaje(
             "prospecto_id": prospecto_id,
             "direccion": direccion,
             "texto": text,
-            "crudo": raw,
             "wa_id_mensaje": wa_message_id,
         },
     )
+
+
+async def insertar_documento(
+    *,
+    prospecto_id: str,
+    tipo: str,
+    nombre_archivo: str,
+    url_storage: Optional[str] = None,
+    wa_media_id: Optional[str] = None,
+    mime_type: Optional[str] = None,
+) -> Dict:
+    data = await _supabase_request(
+        "POST",
+        "/documentos",
+        json={
+            "prospecto_id": prospecto_id,
+            "tipo":          tipo,
+            "nombre_archivo": nombre_archivo,
+            "url_storage":   url_storage,
+            "wa_media_id":   wa_media_id,
+            "mime_type":     mime_type,
+            "verificado":    False,
+        },
+        extra_headers={"Prefer": "return=representation"},
+    )
+    return data[0] if data else {}
+
+
+async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
+    rows = await _supabase_request(
+        "GET",
+        "/documentos",
+        params={
+            "prospecto_id": f"eq.{prospecto_id}",
+            "select": "tipo,nombre_archivo,verificado,creado_en",
+            "order": "creado_en.asc",
+        },
+    )
+    return rows or []
 
 
 async def obtener_proyecto_por_codigo(codigo: str):
@@ -320,6 +436,78 @@ async def obtener_historial_mensajes(prospecto_id: str, limite: int = 12) -> Lis
 
 
 # ---------------------------------------------------------------------------
+# WhatsApp Media — descarga y sube a Supabase Storage
+# ---------------------------------------------------------------------------
+
+async def descargar_media_whatsapp(media_id: str) -> tuple[bytes, str, str]:
+    """
+    Descarga un archivo multimedia de WhatsApp.
+    Retorna (bytes, mime_type, nombre_archivo).
+    """
+    if not TOKEN_ACCESO:
+        raise RuntimeError("Falta WA_ACCESS_TOKEN")
+
+    headers = {"Authorization": f"Bearer {TOKEN_ACCESO}"}
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        # 1) Obtener URL de descarga
+        r = await client.get(
+            f"https://graph.facebook.com/{VERSION_GRAPH}/{media_id}",
+            headers=headers,
+        )
+        r.raise_for_status()
+        info = r.json()
+        download_url = info.get("url", "")
+        mime_type = info.get("mime_type", "application/octet-stream")
+
+        # 2) Descargar el archivo
+        r2 = await client.get(download_url, headers=headers)
+        r2.raise_for_status()
+        file_bytes = r2.content
+
+    # Extensión por mime_type
+    ext_map = {
+        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp",
+        "application/pdf": "pdf",
+    }
+    ext = ext_map.get(mime_type, "bin")
+    nombre = f"{media_id}.{ext}"
+
+    return file_bytes, mime_type, nombre
+
+
+async def subir_a_storage(
+    file_bytes: bytes,
+    nombre_archivo: str,
+    prospecto_id: str,
+    mime_type: str,
+) -> str:
+    """
+    Sube un archivo al bucket documentos-clientes en Supabase Storage.
+    Retorna la URL pública (firmada).
+    """
+    supa_url = _supabase_url()
+    key = _supabase_service_role_key()
+    if not supa_url or not key:
+        raise RuntimeError("Falta configuración de Supabase")
+
+    path = f"{prospecto_id}/{nombre_archivo}"
+    upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/documentos-clientes/{path}"
+
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": mime_type,
+    }
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(upload_url, headers=headers, content=file_bytes)
+        r.raise_for_status()
+
+    # URL de acceso (requiere service role para acceder, bucket privado)
+    return f"{supa_url.rstrip('/')}/storage/v1/object/documentos-clientes/{path}"
+
+
+# ---------------------------------------------------------------------------
 # IA — respuesta con contexto de paso
 # ---------------------------------------------------------------------------
 
@@ -329,15 +517,8 @@ async def generar_respuesta_ia(
     proyecto: Optional[Dict],
     historial: List[Dict],
     mensaje_actual: str,
+    docs_recibidos: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
-    """
-    Retorna:
-      {
-        "respuesta": str,
-        "siguiente_paso": Optional[str],
-        "datos_extraidos": Dict
-      }
-    """
     if not ANTHROPIC_API_KEY or anthropic is None:
         logger.warning("ANTHROPIC_API_KEY no configurada — usando eco")
         return {"respuesta": f"Hola 👋 Recibí: {mensaje_actual}", "siguiente_paso": None, "datos_extraidos": {}}
@@ -349,13 +530,17 @@ async def generar_respuesta_ia(
     paso_actual   = prospecto.get("paso") or "INICIO"
     datos         = prospecto.get("datos") or {}
 
-    proyecto_nombre   = (proyecto or {}).get("nombre") or "nuestro proyecto"
+    proyecto_nombre    = (proyecto or {}).get("nombre") or "nuestro proyecto"
     proyecto_ubicacion = (proyecto or {}).get("ubicacion") or ""
+
+    # Estado de documentos para el paso ESPERA_DOCS
+    estado_documentos = resumen_documentos(docs_recibidos or [])
 
     instrucciones = PASOS_CONFIG.get(paso_actual, PASOS_CONFIG["INICIO"]).format(
         nombre=nombre,
         rango_sueldo=rango_sueldo,
         datos=json.dumps(datos, ensure_ascii=False, indent=2),
+        estado_documentos=estado_documentos,
     )
 
     system_prompt = f"""Eres un asistente de ventas inmobiliario profesional y empático de {proyecto_nombre}.
@@ -375,6 +560,8 @@ Paso actual:  {paso_actual}
 - Responde en español, de forma cálida y profesional.
 - Mensajes cortos (máximo 3-4 párrafos). NUNCA más de 1 pregunta a la vez.
 - Usa emojis con moderación.
+- Si el cliente pregunta algo fuera del tema del proyecto o subsidio DS19,
+  redirígelo amablemente sin ser brusco, recordándole en qué punto del proceso está.
 
 RESPONDE ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
 {{
@@ -406,7 +593,6 @@ Valores válidos de siguiente_paso: null | "DOCUMENTACION" | "ESPERA_DOCS" | "DO
     )
 
     raw = response.content[0].text.strip()
-    # Quitar markdown si Claude lo incluye
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
@@ -450,65 +636,84 @@ async def receive_webhook(request: Request):
         changes = entry["changes"][0]
         value   = changes["value"]
 
-        messages = value.get("messages", [])
-        if not messages:
+        messages_list = value.get("messages", [])
+        if not messages_list:
             return {"ok": True}
 
-        msg         = messages[0]
+        msg         = messages_list[0]
         from_number = _normalize_phone(msg["from"])
-        text        = (msg.get("text") or {}).get("body", "")
+        msg_type    = msg.get("type", "text")
 
-        if not text:
-            return {"ok": True}  # imagen, audio, etc. — ignorar por ahora
-
+        # ── Obtener o crear prospecto ──────────────────────────────────────
         prospecto = None
         proyecto  = None
 
         if _supabase_url() and _supabase_service_role_key():
             prospecto = await upsert_prospecto(
                 telefono_e164=from_number,
-                ultimo_texto_entrante=text,
                 estado="RESPONDIO",
             )
             if prospecto and prospecto.get("codigo_proyecto"):
                 proyecto = await obtener_proyecto_por_codigo(prospecto["codigo_proyecto"])
 
+        prospecto_id = (prospecto or {}).get("id")
+
+        # ── Manejo de DOCUMENTOS (imagen o archivo) ───────────────────────
+        if msg_type in ("image", "document"):
+            await _procesar_media(msg, msg_type, from_number, prospecto, prospecto_id)
+            return {"ok": True}
+
+        # ── Manejo de TEXTO ───────────────────────────────────────────────
+        text = (msg.get("text") or {}).get("body", "").strip()
+        if not text:
+            return {"ok": True}
+
         historial = []
-        if prospecto and prospecto.get("id"):
+        docs_recibidos = []
+
+        if prospecto_id:
             await insertar_mensaje(
-                prospecto_id=prospecto["id"],
+                prospecto_id=prospecto_id,
                 direccion="entrante",
                 text=text,
-                raw=payload,
                 wa_message_id=msg.get("id"),
             )
             try:
-                historial = await obtener_historial_mensajes(prospecto["id"])
+                historial = await obtener_historial_mensajes(prospecto_id)
+                docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
             except Exception:
                 pass
+
+        # Actualizar último texto
+        if prospecto_id:
+            await upsert_prospecto(
+                telefono_e164=from_number,
+                ultimo_texto_entrante=text,
+            )
 
         resultado = await generar_respuesta_ia(
             prospecto=prospecto or {},
             proyecto=proyecto,
             historial=historial,
             mensaje_actual=text,
+            docs_recibidos=docs_recibidos,
         )
 
-        reply_text     = resultado["respuesta"]
-        siguiente_paso = resultado["siguiente_paso"]
+        reply_text      = resultado["respuesta"]
+        siguiente_paso  = resultado["siguiente_paso"]
         datos_extraidos = resultado["datos_extraidos"]
 
         await send_whatsapp_message(to=from_number, text=reply_text)
 
-        if prospecto and prospecto.get("id") and _supabase_url() and _supabase_service_role_key():
+        if prospecto_id:
             await insertar_mensaje(
-                prospecto_id=prospecto["id"],
+                prospecto_id=prospecto_id,
                 direccion="saliente",
                 text=reply_text,
             )
             if datos_extraidos or siguiente_paso:
                 await actualizar_datos_prospecto(
-                    prospecto["id"],
+                    prospecto_id,
                     datos_extraidos,
                     siguiente_paso,
                 )
@@ -520,25 +725,116 @@ async def receive_webhook(request: Request):
     return {"ok": True}
 
 
+async def _procesar_media(
+    msg: Dict,
+    msg_type: str,
+    from_number: str,
+    prospecto: Optional[Dict],
+    prospecto_id: Optional[str],
+):
+    """Descarga el media de WhatsApp, lo clasifica y lo sube a Supabase Storage."""
+    try:
+        media_info = msg.get(msg_type, {})
+        media_id   = media_info.get("id", "")
+        filename   = media_info.get("filename") or media_info.get("caption") or ""
+
+        if not media_id:
+            logger.warning("Mensaje de media sin media_id")
+            return
+
+        # Descargar de WhatsApp
+        file_bytes, mime_type, nombre_generado = await descargar_media_whatsapp(media_id)
+        nombre_archivo = filename or nombre_generado
+
+        # Clasificar tipo de documento
+        tipo = clasificar_documento(nombre_archivo, mime_type)
+
+        url_storage = None
+        if prospecto_id:
+            try:
+                url_storage = await subir_a_storage(
+                    file_bytes=file_bytes,
+                    nombre_archivo=nombre_archivo,
+                    prospecto_id=prospecto_id,
+                    mime_type=mime_type,
+                )
+            except Exception as e:
+                logger.warning(f"No se pudo subir a Storage: {e}")
+
+            await insertar_documento(
+                prospecto_id=prospecto_id,
+                tipo=tipo,
+                nombre_archivo=nombre_archivo,
+                url_storage=url_storage,
+                wa_media_id=media_id,
+                mime_type=mime_type,
+            )
+
+            await insertar_mensaje(
+                prospecto_id=prospecto_id,
+                direccion="entrante",
+                text=f"[{msg_type.upper()}] {nombre_archivo} → tipo: {tipo}",
+                wa_message_id=msg.get("id"),
+            )
+
+        # Confirmar recepción y notificar pendientes
+        docs_recibidos = []
+        if prospecto_id:
+            docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
+
+        pendientes = documentos_pendientes(docs_recibidos)
+        tipo_label = DOCUMENTOS_REQUERIDOS.get(tipo, {}).get("label") or nombre_archivo
+
+        if not pendientes:
+            # Todos los documentos recibidos
+            confirmacion = (
+                f"✅ ¡Recibí tu documento ({tipo_label})!\n\n"
+                f"🎉 ¡Perfecto! Ya tenemos todos los documentos necesarios. "
+                f"El equipo los revisará y se pondrá en contacto contigo pronto."
+            )
+            if prospecto_id:
+                await actualizar_datos_prospecto(prospecto_id, {}, "DOCS_RECIBIDOS")
+        else:
+            pendientes_texto = "\n".join(
+                f"  ▸ {DOCUMENTOS_REQUERIDOS[t]['label']} ({falta} archivo{'s' if falta > 1 else ''} más)"
+                for t, falta in pendientes.items()
+            )
+            confirmacion = (
+                f"✅ ¡Recibí tu documento ({tipo_label})!\n\n"
+                f"Aún me faltan los siguientes documentos:\n{pendientes_texto}\n\n"
+                f"Puedes enviarlos directamente por este chat 📎"
+            )
+            if prospecto_id:
+                paso_actual = (prospecto or {}).get("paso", "INICIO")
+                if paso_actual not in ("ESPERA_DOCS", "DOCS_RECIBIDOS"):
+                    await actualizar_datos_prospecto(prospecto_id, {}, "ESPERA_DOCS")
+
+        await send_whatsapp_message(to=from_number, text=confirmacion)
+
+        if prospecto_id:
+            await insertar_mensaje(
+                prospecto_id=prospecto_id,
+                direccion="saliente",
+                text=confirmacion,
+            )
+
+    except Exception as e:
+        logger.exception(f"Error procesando media: {e}")
+        try:
+            await send_whatsapp_message(
+                to=from_number,
+                text="Recibí tu archivo, pero tuve un problema al procesarlo. Por favor intenta enviarlo nuevamente 🙏",
+            )
+        except Exception:
+            pass
+
+
 # ---------------------------------------------------------------------------
 # Ingesta de prospectos (primer mensaje)
 # ---------------------------------------------------------------------------
 
 @app.post("/prospectos/ingesta")
 async def ingestar_prospecto(request: Request):
-    """
-    Crea/actualiza un lead y envía el primer mensaje template.
-    Requiere header X-API-Key == INGEST_API_KEY (si está configurada).
-
-    Body JSON:
-      {
-        "telefono_e164":  "569XXXXXXXX",
-        "nombre":         "Javiera",
-        "rut":            "12.345.678-9",   (opcional)
-        "rango_sueldo":   "$800.000",        (opcional)
-        "codigo_proyecto": "ds19_hacienda_lo_errazuriz"
-      }
-    """
     try:
         ingest_api_key = _ingest_api_key()
         if ingest_api_key:
@@ -554,9 +850,9 @@ async def ingestar_prospecto(request: Request):
             body.get("telefono_e164") or body.get("phone_e164")
             or body.get("telefono") or body.get("phone") or ""
         )
-        nombre        = (body.get("nombre") or body.get("first_name") or "").strip() or None
-        rut           = (body.get("rut") or "").strip() or None
-        rango_sueldo  = (body.get("rango_sueldo") or "").strip() or None
+        nombre          = (body.get("nombre") or body.get("first_name") or "").strip() or None
+        rut             = (body.get("rut") or "").strip() or None
+        rango_sueldo    = (body.get("rango_sueldo") or "").strip() or None
         codigo_proyecto = (body.get("codigo_proyecto") or body.get("project_code") or "").strip() or None
 
         if not phone:
@@ -590,12 +886,7 @@ async def ingestar_prospecto(request: Request):
             await insertar_mensaje(
                 prospecto_id=prospecto["id"],
                 direccion="saliente",
-                text=None,
-                raw={
-                    "plantilla":   proyecto["nombre_plantilla"],
-                    "parametros":  [nombre],
-                    "wa":          wa_resp,
-                },
+                text=f"[PLANTILLA] {proyecto['nombre_plantilla']}",
                 wa_message_id=(
                     (wa_resp or {}).get("messages", [{}])[0].get("id")
                     if isinstance(wa_resp, dict) else None
@@ -690,7 +981,6 @@ async def send_whatsapp_template(
 
 @app.post("/test/hello-world")
 async def test_hello_world(request: Request):
-    """Envía la plantilla hello_world a un número de prueba."""
     try:
         body = await request.json()
         phone = _normalize_phone(
@@ -755,13 +1045,13 @@ async def api_crear_cliente(request: Request):
     try:
         body = await request.json()
 
-        nombre     = (body.get("Contacto") or "").strip()
-        telefono   = _normalize_phone(body.get("Telefono") or "")
+        nombre          = (body.get("Contacto") or "").strip()
+        telefono        = _normalize_phone(body.get("Telefono") or "")
         proyecto_codigo = (body.get("Proyecto") or "").strip()
-        rut        = (body.get("Rut") or "").strip() or None
-        correo     = (body.get("Correo") or "").strip() or None
-        rango      = (body.get("Tramo de renta") or "").strip() or None
-        primer_msg = bool(body.get("primer mensaje", True))
+        rut             = (body.get("Rut") or "").strip() or None
+        correo          = (body.get("Correo") or "").strip() or None
+        rango           = (body.get("Tramo de renta") or "").strip() or None
+        primer_msg      = bool(body.get("primer mensaje", True))
 
         if not nombre:
             return Response(content="Falta Contacto", status_code=400)
@@ -770,24 +1060,22 @@ async def api_crear_cliente(request: Request):
         if not proyecto_codigo:
             return Response(content="Falta Proyecto", status_code=400)
 
-        # 1) Insertar en tabla Cliente
         cliente = await _supabase_request(
             "POST", "/Cliente",
             json={
-                "Proyecto":        proyecto_codigo,
-                "Contacto":        nombre,
-                "Rut":             rut or "",
-                "Correo":          correo,
-                "Telefono":        telefono,
-                "Tramo de renta":  rango,
-                "primer mensaje":  primer_msg,
+                "Proyecto":       proyecto_codigo,
+                "Contacto":       nombre,
+                "Rut":            rut or "",
+                "Correo":         correo,
+                "Telefono":       telefono,
+                "Tramo de renta": rango,
+                "primer mensaje": primer_msg,
             },
             extra_headers={"Prefer": "return=representation"},
         )
 
         wa_result = None
         if primer_msg:
-            # 2) Upsert en prospectos para el bot
             await upsert_prospecto(
                 telefono_e164=telefono,
                 nombre=nombre,
@@ -797,8 +1085,6 @@ async def api_crear_cliente(request: Request):
                 estado="PLANTILLA_ENVIADA",
                 paso="INICIO",
             )
-
-            # 3) Obtener proyecto y enviar template
             proyecto = await obtener_proyecto_por_codigo(proyecto_codigo)
             if proyecto and proyecto.get("nombre_plantilla"):
                 wa_result = await send_whatsapp_template(
@@ -822,7 +1108,48 @@ async def api_crear_cliente(request: Request):
         )
 
 
-# ---------------------------------------------------------------------------
+@app.post("/api/clientes/{cliente_id}/enviar-plantilla")
+async def api_enviar_plantilla(cliente_id: int, request: Request):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        rows = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
+        if not rows:
+            return Response(content="Cliente no encontrado", status_code=404)
+        c = rows[0]
+        telefono        = _normalize_phone(c.get("Telefono") or "")
+        nombre          = (c.get("Contacto") or "").strip()
+        codigo_proyecto = (c.get("codigo_proyecto") or "").strip()
+
+        if not telefono:
+            return Response(content="Cliente sin teléfono", status_code=400)
+        if not codigo_proyecto:
+            return Response(content="Cliente sin codigo_proyecto — actualiza la BD", status_code=400)
+
+        proyecto = await obtener_proyecto_por_codigo(codigo_proyecto)
+        if not proyecto or not proyecto.get("nombre_plantilla"):
+            return Response(content=f"Proyecto '{codigo_proyecto}' sin plantilla configurada", status_code=400)
+
+        wa = await send_whatsapp_template(
+            to=telefono,
+            template_name=proyecto["nombre_plantilla"],
+            language_code=proyecto.get("idioma_plantilla") or "es_CL",
+            body_text_params=[nombre],
+            image_url=proyecto.get("imagen_url"),
+        )
+        await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json={"primer mensaje": False})
+        await upsert_prospecto(
+            telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
+            rango_sueldo=c.get("Tramo de renta"), codigo_proyecto=codigo_proyecto,
+            estado="PLANTILLA_ENVIADA", paso="INICIO",
+        )
+        return {"ok": True, "wa": wa}
+    except Exception as e:
+        logger.exception("Error en enviar-plantilla")
+        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
