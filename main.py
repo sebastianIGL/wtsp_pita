@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, BackgroundTasks
+import asyncio
 import os
 import json
 import httpx
@@ -33,6 +34,11 @@ app.add_middleware(
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+
+# Cache en memoria para deduplicar webhooks duplicados de Meta (últimos 500 wamids)
+_wamids_procesados: set = set()
+_wamids_orden: list = []
+_WAMID_MAX = 500
 
 
 # ---------------------------------------------------------------------------
@@ -586,6 +592,8 @@ Valores válidos de siguiente_paso: null | "DOCUMENTACION" | "ESPERA_DOCS" | "DO
         else:
             messages.append({"role": role, "content": texto})
     messages.append({"role": "user", "content": mensaje_actual})
+    # Prefill: fuerza a Claude a comenzar directamente con JSON
+    messages.append({"role": "assistant", "content": "{"})
 
     client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     response = await client.messages.create(
@@ -595,8 +603,9 @@ Valores válidos de siguiente_paso: null | "DOCUMENTACION" | "ESPERA_DOCS" | "DO
         messages=messages,
     )
 
-    raw = response.content[0].text.strip()
-    if raw.startswith("```"):
+    raw = "{" + response.content[0].text.strip()
+    # Limpiar si viene con markdown igual
+    if "```" in raw:
         raw = raw.split("```")[1]
         if raw.startswith("json"):
             raw = raw[4:]
@@ -631,21 +640,18 @@ async def verify_webhook(request: Request):
     return Response(content="Forbidden", status_code=403)
 
 
-@app.post("/webhook")
-async def receive_webhook(request: Request):
-    payload = await request.json()
+# Segundos de espera antes de que el bot responda (para sensación más humana)
+DELAY_RESPUESTA_SEGUNDOS = int(os.getenv("BOT_REPLY_DELAY", "3"))
+
+
+async def _procesar_webhook(msg: Dict):
+    """Procesa un mensaje de WhatsApp en background (después de devolver 200 a Meta)."""
     try:
-        entry   = payload["entry"][0]
-        changes = entry["changes"][0]
-        value   = changes["value"]
-
-        messages_list = value.get("messages", [])
-        if not messages_list:
-            return {"ok": True}
-
-        msg         = messages_list[0]
         from_number = _normalize_phone(msg["from"])
         msg_type    = msg.get("type", "text")
+
+        # Delay antes de responder — sensación humana y evita race conditions
+        await asyncio.sleep(DELAY_RESPUESTA_SEGUNDOS)
 
         # ── Obtener o crear prospecto ──────────────────────────────────────
         prospecto = None
@@ -665,12 +671,12 @@ async def receive_webhook(request: Request):
         # ── Manejo de DOCUMENTOS (imagen o archivo) ───────────────────────
         if msg_type in ("image", "document"):
             await _procesar_media(msg, msg_type, from_number, prospecto, prospecto_id)
-            return {"ok": True}
+            return
 
         # ── Manejo de TEXTO ───────────────────────────────────────────────
         text = (msg.get("text") or {}).get("body", "").strip()
         if not text:
-            return {"ok": True}
+            return
 
         historial = []
         docs_recibidos = []
@@ -689,7 +695,6 @@ async def receive_webhook(request: Request):
             except Exception:
                 pass
 
-        # Actualizar último texto
         if prospecto_id:
             await upsert_prospecto(
                 telefono_e164=from_number,
@@ -725,8 +730,40 @@ async def receive_webhook(request: Request):
                 )
 
     except Exception as e:
+        logger.exception("Error procesando webhook: %s", _safe_httpx_error(e))
+
+
+@app.post("/webhook")
+async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
+    payload = await request.json()
+    try:
+        entry   = payload["entry"][0]
+        changes = entry["changes"][0]
+        value   = changes["value"]
+
+        messages_list = value.get("messages", [])
+        if not messages_list:
+            return {"ok": True}
+
+        msg   = messages_list[0]
+        wamid = msg.get("id", "")
+
+        # Deduplicar: Meta puede reenviar el mismo evento varias veces
+        if wamid and wamid in _wamids_procesados:
+            logger.info("Webhook duplicado ignorado: %s", wamid)
+            return {"ok": True}
+        if wamid:
+            _wamids_procesados.add(wamid)
+            _wamids_orden.append(wamid)
+            if len(_wamids_orden) > _WAMID_MAX:
+                old = _wamids_orden.pop(0)
+                _wamids_procesados.discard(old)
+
+        # Devuelve 200 a Meta de inmediato y procesa en background
+        background_tasks.add_task(_procesar_webhook, msg)
+
+    except Exception:
         logger.exception("Error en /webhook")
-        return {"ok": False, "error": _safe_httpx_error(e)}
 
     return {"ok": True}
 
