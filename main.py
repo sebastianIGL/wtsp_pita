@@ -155,18 +155,21 @@ def resumen_documentos(docs_recibidos: List[Dict]) -> str:
 
 PASOS_CONFIG: Dict[str, str] = {
     "BIENVENIDA": """OBJETIVO — PASO BIENVENIDA:
-El cliente acaba de responder al mensaje inicial. No sabemos aún qué tan interesado está.
+El cliente acaba de responder al mensaje inicial. Aún no sabemos qué tan interesado está.
 
 1. Salúdalo por su nombre ({nombre}), pregúntale cómo está, de forma cercana y natural.
-2. Muéstrate disponible para ayudarlo y pregúntale si le gustaría evaluar su opción
-   de compra a través de un crédito hipotecario.
-   - NO repitas el nombre del proyecto ni los precios. Él ya los vio en el mensaje anterior.
+2. Entrega 1 o 2 datos concretos que complementen lo que vio en la plantilla y que
+   puedan generar interés: fecha de entrega, si tiene sala piloto para visitar,
+   estacionamiento disponible, o algún dato relevante de las notas del proyecto.
+   Úsalos solo si aportan valor — no los listes todos mecánicamente.
+3. Pregúntale si le gustaría evaluar su opción de compra a través de un crédito hipotecario.
+   - NO repitas precios ni el nombre del proyecto. Él ya los vio en la plantilla.
    - NO menciones documentos todavía.
-3. Si el cliente muestra interés o hace preguntas sobre el proyecto/subsidio/proceso:
-   respóndelas brevemente y luego → "siguiente_paso": "INICIO"
-4. Si el cliente dice explícitamente que NO le interesa → "siguiente_paso": "NO_INTERESADO"
-5. Si el cliente saluda o responde de forma neutra (hola, ok, bien, etc.):
-   responde cálidamente y pregunta si quiere evaluar su opción. siguiente_paso: null
+4. Si el cliente muestra interés o hace preguntas sobre el proyecto/subsidio/proceso:
+   respóndelas usando los datos del proyecto y luego → "siguiente_paso": "INICIO"
+5. Si el cliente dice explícitamente que NO le interesa → "siguiente_paso": "NO_INTERESADO"
+6. Si el cliente saluda o responde de forma neutra (hola, ok, bien, etc.):
+   responde cálidamente, entrega el dato extra y pregunta si quiere evaluar. siguiente_paso: null
 
 En datos_extraidos: {{}} (no hay nada que recolectar en este paso)""",
 
@@ -174,15 +177,15 @@ En datos_extraidos: {{}} (no hay nada que recolectar en este paso)""",
 El cliente acaba de responder al mensaje inicial sobre el proyecto.
 
 1. Salúdalo por su nombre ({nombre}) y confirma su interés.
-2. Si confirma interés, explícale el subsidio DS19 brevemente:
-   el Estado entrega 700 UF (≈ $27.889.000) como subsidio habitacional.
+2. Si confirma interés, explícale brevemente el subsidio disponible:
+   el Estado entrega {monto_subsidio} UF como subsidio habitacional para este proyecto.
 3. Luego hazle las siguientes preguntas de calificación UNA A LA VEZ.
    Revisa los datos ya recolectados para no repetir preguntas:
    Estado actual de calificación: {datos}
 
    Preguntas en orden (solo haz las que aún sean null):
    a) "ahorro_ok"          → ¿Cuenta con ahorro en libreta o cuenta de ahorro?
-                              (Se requiere mínimo 50 UF ≈ $2.000.000)
+                              (Se requiere mínimo {ahorro_minimo} UF)
    b) "trabajo_indefinido" → ¿Tiene contrato de trabajo indefinido con más de
                               6 meses de antigüedad?
    c) "complemento_renta"  → Su renta registrada es {rango_sueldo}.
@@ -439,7 +442,7 @@ async def obtener_proyecto_por_codigo(codigo: str):
         "/Proyecto",
         params={
             "codigo": f"eq.{codigo}",
-            "select": "codigo,nombre,ubicacion,nombre_plantilla,idioma_plantilla,imagen_url",
+            "select": "codigo,nombre,ubicacion,nombre_plantilla,idioma_plantilla,imagen_url,inmobiliaria,fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias",
             "limit": "1",
         },
     )
@@ -555,8 +558,37 @@ async def generar_respuesta_ia(
     paso_actual   = prospecto.get("paso") or "INICIO"
     datos         = prospecto.get("datos") or {}
 
-    proyecto_nombre    = (proyecto or {}).get("nombre") or "nuestro proyecto"
-    proyecto_ubicacion = (proyecto or {}).get("ubicacion") or ""
+    p                  = proyecto or {}
+    proyecto_nombre    = p.get("nombre") or "nuestro proyecto"
+    proyecto_ubicacion = p.get("ubicacion") or ""
+    proyecto_inmobiliaria      = p.get("inmobiliaria") or ""
+    proyecto_fecha_entrega     = p.get("fecha_entrega") or "por confirmar"
+    proyecto_ahorro_minimo     = p.get("ahorro_minimo_uf") or 50
+    proyecto_reserva_clp       = p.get("valor_reserva_clp") or ""
+    proyecto_reserva_uf        = p.get("valor_reserva_uf") or ""
+    proyecto_tiene_piloto      = p.get("tiene_piloto")
+    proyecto_estac_uf          = p.get("valor_estacionamiento_uf") or ""
+    proyecto_estac_obligatorio = p.get("estacionamiento_obligatorio")
+    proyecto_notas             = p.get("notas") or ""
+    proyecto_acepta_ds19       = p.get("acepta_ds19", True)
+    proyecto_monto_subsidio    = p.get("monto_subsidio") or 700
+    proyecto_acepta_ds1t23     = p.get("acepta_ds1_t23", False)
+    proyecto_subsidio_ds1t23   = p.get("subsidio_ds1_t23_uf") or ""
+    proyecto_tipologias        = p.get("tipologias") or []
+
+    # Construir bloque de subsidio según lo que acepta el proyecto
+    subsidios_lineas = []
+    if proyecto_acepta_ds19:
+        subsidios_lineas.append(f"DS19: {proyecto_monto_subsidio} UF")
+    if proyecto_acepta_ds1t23 and proyecto_subsidio_ds1t23:
+        subsidios_lineas.append(f"DS1 T23: {proyecto_subsidio_ds1t23} UF")
+    subsidios_texto = " | ".join(subsidios_lineas) if subsidios_lineas else "consultar"
+
+    # Estacionamiento
+    if proyecto_estac_uf:
+        estac_texto = f"{proyecto_estac_uf} UF {'(obligatorio)' if proyecto_estac_obligatorio else '(opcional)'}"
+    else:
+        estac_texto = "no disponible"
 
     # Estado de documentos para el paso ESPERA_DOCS
     estado_documentos = resumen_documentos(docs_recibidos or [])
@@ -566,6 +598,8 @@ async def generar_respuesta_ia(
         rango_sueldo=rango_sueldo,
         datos=json.dumps(datos, ensure_ascii=False, indent=2),
         estado_documentos=estado_documentos,
+        ahorro_minimo=proyecto_ahorro_minimo,
+        monto_subsidio=proyecto_monto_subsidio,
     )
 
     system_prompt = f"""Eres un asistente de ventas inmobiliario profesional y empático de {proyecto_nombre}.
@@ -575,8 +609,20 @@ Nombre:       {nombre}
 Teléfono:     {telefono}
 RUT:          {rut}
 Rango sueldo: {rango_sueldo}
-Proyecto:     {proyecto_nombre} — {proyecto_ubicacion}
 Paso actual:  {paso_actual}
+
+═══ DATOS DEL PROYECTO ═══
+Nombre:              {proyecto_nombre}
+Inmobiliaria:        {proyecto_inmobiliaria}
+Ubicación:           {proyecto_ubicacion}
+Fecha entrega:       {proyecto_fecha_entrega}
+Subsidios:           {subsidios_texto}
+Ahorro mínimo:       {proyecto_ahorro_minimo} UF
+Estacionamiento:     {estac_texto}
+Sala piloto:         {'Sí' if proyecto_tiene_piloto else 'No disponible'}
+Valor reserva:       {f'{proyecto_reserva_uf} UF / ${proyecto_reserva_clp:,.0f}' if proyecto_reserva_clp else proyecto_reserva_uf or 'consultar'}
+Tipologías:          {json.dumps(proyecto_tipologias, ensure_ascii=False)}
+Notas del proyecto:  {proyecto_notas}
 
 ═══ INSTRUCCIONES DE ESTE PASO ═══
 {instrucciones}
@@ -585,7 +631,9 @@ Paso actual:  {paso_actual}
 - Responde en español, de forma cálida y profesional.
 - Mensajes cortos (máximo 3-4 párrafos). NUNCA más de 1 pregunta a la vez.
 - Usa emojis con moderación.
-- Si el cliente pregunta algo fuera del tema del proyecto o subsidio DS19,
+- Usa los datos del proyecto para responder preguntas específicas del cliente
+  (precio, fecha, estacionamiento, etc.) sin inventar información.
+- Si el cliente pregunta algo fuera del tema del proyecto o subsidio,
   redirígelo amablemente sin ser brusco, recordándole en qué punto del proceso está.
 
 RESPONDE ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
