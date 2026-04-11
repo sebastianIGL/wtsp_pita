@@ -154,6 +154,22 @@ def resumen_documentos(docs_recibidos: List[Dict]) -> str:
 # ---------------------------------------------------------------------------
 
 PASOS_CONFIG: Dict[str, str] = {
+    "BIENVENIDA": """OBJETIVO — PASO BIENVENIDA:
+El cliente acaba de responder al mensaje inicial. No sabemos aún qué tan interesado está.
+
+1. Salúdalo por su nombre ({nombre}), pregúntale cómo está, de forma cercana y natural.
+2. Muéstrate disponible para ayudarlo y pregúntale si le gustaría evaluar su opción
+   de compra a través de un crédito hipotecario.
+   - NO repitas el nombre del proyecto ni los precios. Él ya los vio en el mensaje anterior.
+   - NO menciones documentos todavía.
+3. Si el cliente muestra interés o hace preguntas sobre el proyecto/subsidio/proceso:
+   respóndelas brevemente y luego → "siguiente_paso": "INICIO"
+4. Si el cliente dice explícitamente que NO le interesa → "siguiente_paso": "NO_INTERESADO"
+5. Si el cliente saluda o responde de forma neutra (hola, ok, bien, etc.):
+   responde cálidamente y pregunta si quiere evaluar su opción. siguiente_paso: null
+
+En datos_extraidos: {{}} (no hay nada que recolectar en este paso)""",
+
     "INICIO": """OBJETIVO — PASO INICIO:
 El cliente acaba de responder al mensaje inicial sobre el proyecto.
 
@@ -545,7 +561,7 @@ async def generar_respuesta_ia(
     # Estado de documentos para el paso ESPERA_DOCS
     estado_documentos = resumen_documentos(docs_recibidos or [])
 
-    instrucciones = PASOS_CONFIG.get(paso_actual, PASOS_CONFIG["INICIO"]).format(
+    instrucciones = PASOS_CONFIG.get(paso_actual, PASOS_CONFIG["BIENVENIDA"]).format(
         nombre=nombre,
         rango_sueldo=rango_sueldo,
         datos=json.dumps(datos, ensure_ascii=False, indent=2),
@@ -578,7 +594,7 @@ RESPONDE ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
   "siguiente_paso": null,
   "datos_extraidos": {{}}
 }}
-Valores válidos de siguiente_paso: null | "DOCUMENTACION" | "ESPERA_DOCS" | "DOCS_RECIBIDOS" | "NO_INTERESADO"
+Valores válidos de siguiente_paso: null | "BIENVENIDA" | "INICIO" | "DOCUMENTACION" | "ESPERA_DOCS" | "DOCS_RECIBIDOS" | "NO_INTERESADO"
 """
 
     messages: List[Dict[str, str]] = []
@@ -914,7 +930,7 @@ async def ingestar_prospecto(request: Request):
             rango_sueldo=rango_sueldo,
             codigo_proyecto=codigo_proyecto,
             estado="PLANTILLA_ENVIADA",
-            paso="INICIO",
+            paso="BIENVENIDA",
         )
 
         wa_resp = await send_whatsapp_template(
@@ -1126,7 +1142,7 @@ async def api_crear_cliente(request: Request):
                 rango_sueldo=rango,
                 codigo_proyecto=proyecto_codigo,
                 estado="PLANTILLA_ENVIADA",
-                paso="INICIO",
+                paso="BIENVENIDA",
             )
             proyecto = await obtener_proyecto_por_codigo(proyecto_codigo)
             if proyecto and proyecto.get("nombre_plantilla"):
@@ -1184,7 +1200,7 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
         await upsert_prospecto(
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
             rango_sueldo=c.get("Tramo de renta"), codigo_proyecto=codigo_proyecto,
-            estado="PLANTILLA_ENVIADA", paso="INICIO",
+            estado="PLANTILLA_ENVIADA", paso="BIENVENIDA",
             cliente_id=cliente_id,
         )
         return {"ok": True, "wa": wa}
