@@ -1170,13 +1170,14 @@ async def api_crear_cliente(request: Request):
         cliente = await _supabase_request(
             "POST", "/Cliente",
             json={
-                "Proyecto":       proyecto_codigo,
-                "Contacto":       nombre,
-                "Rut":            rut or "",
-                "Correo":         correo,
-                "Telefono":       telefono,
-                "Tramo de renta": rango,
-                "primer mensaje": primer_msg,
+                "Proyecto":        proyecto_codigo,
+                "codigo_proyecto": proyecto_codigo,
+                "Contacto":        nombre,
+                "Rut":             rut or "",
+                "Correo":          correo,
+                "Telefono":        telefono,
+                "Tramo de renta":  rango,
+                "primer mensaje":  primer_msg,
             },
             extra_headers={"Prefer": "return=representation"},
         )
