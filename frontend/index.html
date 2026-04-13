@@ -263,6 +263,7 @@ let clientes = []
 let proyectos = []
 let paginaActual = 1
 const POR_PAGINA = 20
+let _guardando = false
 
 // ─── TEMA ─────────────────────────────────────────
 function applyTheme(dark) {
@@ -351,9 +352,9 @@ function clientesFiltrados() {
       const fa = a['Fecha Ult. Gestión'] || ''
       const fb = b['Fecha Ult. Gestión'] || ''
       if (!fa && !fb) return 0
-      if (!fa) return 1   // sin fecha van al fondo
+      if (!fa) return 1
       if (!fb) return -1
-      return fb.localeCompare(fa)  // más reciente primero
+      return fb.localeCompare(fa)
     })
 }
 
@@ -461,26 +462,33 @@ function cerrarModal() {
 // ─── CREAR CLIENTE ────────────────────────────────
 async function crearCliente(e) {
   e.preventDefault()
+  if (_guardando) return
+  _guardando = true
   const btn = document.getElementById('btn-submit')
   btn.innerHTML = '<span class="spinner"></span> Guardando…'
   btn.disabled = true
   const pm = document.getElementById('f-primer').checked
   try {
     await api('POST', '/api/clientes', {
-      'Proyecto':       document.getElementById('f-proyecto').value,
-      'Contacto':       document.getElementById('f-contacto').value.trim(),
-      'Rut':            document.getElementById('f-rut').value.trim(),
-      'Correo':         document.getElementById('f-correo').value.trim() || null,
-      'Telefono':       document.getElementById('f-telefono').value.trim(),
-      'Tramo de renta': document.getElementById('f-renta').value || null,
-      'primer mensaje': pm,
+      'Proyecto':           document.getElementById('f-proyecto').value,
+      'Contacto':           document.getElementById('f-contacto').value.trim(),
+      'Rut':                document.getElementById('f-rut').value.trim(),
+      'Correo':             document.getElementById('f-correo').value.trim() || null,
+      'Telefono':           document.getElementById('f-telefono').value.trim(),
+      'Tramo de renta':     document.getElementById('f-renta').value || null,
+      'primer mensaje':     pm,
+      'Fecha Ult. Gestión': new Date().toISOString(),
     })
-    cerrarModal()
-    toast(pm ? '✅ Cliente creado y WhatsApp enviado' : '✅ Cliente creado correctamente', 'success')
+    const msg = pm ? '✅ Cliente creado y WhatsApp enviado' : '✅ Cliente creado correctamente'
+    btn.innerHTML = msg
+    btn.classList.remove('bg-brand-600','hover:bg-brand-700')
+    btn.classList.add('bg-emerald-700')
     await cargarClientes()
+    setTimeout(() => { cerrarModal(); toast(msg, 'success'); _guardando = false }, 1800)
   } catch(err) {
     toast('❌ ' + err.message, 'error')
     resetBtn()
+    _guardando = false
   }
 }
 
@@ -488,6 +496,8 @@ function resetBtn() {
   const btn = document.getElementById('btn-submit')
   btn.innerHTML = 'Guardar cliente'
   btn.disabled = false
+  btn.classList.remove('bg-emerald-700')
+  btn.classList.add('bg-brand-600','hover:bg-brand-700')
 }
 
 // ─── TOAST ────────────────────────────────────────

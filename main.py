@@ -1167,20 +1167,46 @@ async def api_crear_cliente(request: Request):
         if not proyecto_codigo:
             return Response(content="Falta Proyecto", status_code=400)
 
+        # Evitar duplicados: mismo teléfono + mismo proyecto
+        existente = await _supabase_request(
+            "GET", "/Cliente",
+            params={
+                "Telefono":        f"eq.{telefono}",
+                "codigo_proyecto": f"eq.{proyecto_codigo}",
+                "select":          "id",
+                "limit":           "1",
+            },
+        )
+        if existente:
+            return Response(
+                content=f"Ya existe un cliente con ese teléfono en el proyecto '{proyecto_codigo}'",
+                status_code=409,
+                media_type="text/plain",
+            )
+
+        from datetime import datetime, timezone
+        fecha_hoy = datetime.now(timezone.utc).isoformat()
+
         cliente = await _supabase_request(
             "POST", "/Cliente",
             json={
-                "Proyecto":        proyecto_codigo,
-                "codigo_proyecto": proyecto_codigo,
-                "Contacto":        nombre,
-                "Rut":             rut or "",
-                "Correo":          correo,
-                "Telefono":        telefono,
-                "Tramo de renta":  rango,
-                "primer mensaje":  primer_msg,
+                "Proyecto":           proyecto_codigo,
+                "codigo_proyecto":    proyecto_codigo,
+                "Contacto":           nombre,
+                "Rut":                rut or "",
+                "Correo":             correo,
+                "Telefono":           telefono,
+                "Tramo de renta":     rango,
+                "primer mensaje":     primer_msg,
+                "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
             },
             extra_headers={"Prefer": "return=representation"},
         )
+
+        # Extraer el id del Cliente recién creado para vincularlo al prospecto
+        cliente_id_nuevo = None
+        if isinstance(cliente, list) and cliente:
+            cliente_id_nuevo = cliente[0].get("id")
 
         wa_result = None
         if primer_msg:
@@ -1192,6 +1218,7 @@ async def api_crear_cliente(request: Request):
                 codigo_proyecto=proyecto_codigo,
                 estado="PLANTILLA_ENVIADA",
                 paso="BIENVENIDA",
+                cliente_id=cliente_id_nuevo,
             )
             proyecto = await obtener_proyecto_por_codigo(proyecto_codigo)
             if proyecto and proyecto.get("nombre_plantilla"):
