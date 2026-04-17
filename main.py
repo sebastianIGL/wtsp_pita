@@ -1,8 +1,13 @@
-from fastapi import FastAPI, Request, Response, BackgroundTasks
+from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, File, Form
 import asyncio
 import os
 import json
 import httpx
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timezone
 import logging
@@ -14,7 +19,8 @@ except ImportError:
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    import pathlib
+    load_dotenv(dotenv_path=pathlib.Path(__file__).parent / ".env", override=True)
 except Exception:
     pass
 
@@ -102,6 +108,8 @@ _KEYWORDS_TIPO: List[tuple] = [
     ("carnet_identidad",   ["carnet", "cedula", "cédula", "ci_", "dni", "identidad", "rut"]),
     ("antiguedad_laboral", ["antiguedad", "antigüedad", "contrato", "laboral", "empleador"]),
     ("certificado_afp",    ["afp", "prevision", "previsión", "pension", "pensión", "retiro"]),
+    ("libreta_ahorro",     ["libreta", "ahorro", "cartola", "cuenta_vista", "cuenta_rut", "cuentarut", "saldo"]),
+    ("informe_deudas",     ["informe_de_deudas", "informe_deuda", "deudas", "dicom", "clave_unica", "claveunica"]),
 ]
 
 
@@ -341,7 +349,7 @@ async def upsert_prospecto(
 
     data = await _supabase_request(
         "POST",
-        "/prospectos",
+        "/Prospecto",
         params={"on_conflict": "telefono_e164"},
         json=row,
         extra_headers={"Prefer": "resolution=merge-duplicates,return=representation"},
@@ -358,7 +366,7 @@ async def actualizar_datos_prospecto(
 ):
     rows = await _supabase_request(
         "GET",
-        "/prospectos",
+        "/Prospecto",
         params={"id": f"eq.{prospecto_id}", "select": "datos,paso"},
     )
     if not rows:
@@ -372,7 +380,7 @@ async def actualizar_datos_prospecto(
 
     await _supabase_request(
         "PATCH",
-        "/prospectos",
+        "/Prospecto",
         params={"id": f"eq.{prospecto_id}"},
         json=update,
     )
@@ -394,7 +402,7 @@ async def insertar_mensaje(
     }
     if cliente_id is not None:
         row["cliente_id"] = cliente_id
-    await _supabase_request("POST", "/mensajes", json=row)
+    await _supabase_request("POST", "/Mensaje", json=row)
 
 
 async def insertar_documento(
@@ -408,7 +416,7 @@ async def insertar_documento(
 ) -> Dict:
     data = await _supabase_request(
         "POST",
-        "/documentos",
+        "/Documento",
         json={
             "prospecto_id": prospecto_id,
             "tipo":          tipo,
@@ -426,7 +434,7 @@ async def insertar_documento(
 async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     rows = await _supabase_request(
         "GET",
-        "/documentos",
+        "/Documento",
         params={
             "prospecto_id": f"eq.{prospecto_id}",
             "select": "tipo,nombre_archivo,verificado,creado_en",
@@ -452,7 +460,7 @@ async def obtener_proyecto_por_codigo(codigo: str):
 async def obtener_historial_mensajes(prospecto_id: str, limite: int = 12) -> List[Dict]:
     rows = await _supabase_request(
         "GET",
-        "/mensajes",
+        "/Mensaje",
         params={
             "prospecto_id": f"eq.{prospecto_id}",
             "order": "creado_en.desc",
@@ -1283,6 +1291,258 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
     except Exception as e:
         logger.exception("Error en enviar-plantilla")
         return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
+async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
+    """Retorna el prospecto del cliente. Si no existe, lo crea con los datos del Cliente."""
+    prospectos = await _supabase_request(
+        "GET", "/Prospecto",
+        params={"cliente_id": f"eq.{cliente_id}", "select": "*", "limit": "1"},
+    )
+    if prospectos:
+        return prospectos[0]
+
+    # No existe — obtener datos del Cliente para crear el prospecto
+    clientes = await _supabase_request(
+        "GET", "/Cliente",
+        params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"},
+    )
+    if not clientes:
+        return None
+    c = clientes[0]
+
+    telefono = _normalize_phone(c.get("Telefono") or "")
+    if not telefono:
+        return None
+
+    prospecto = await upsert_prospecto(
+        telefono_e164=telefono,
+        nombre=(c.get("Contacto") or "").strip() or None,
+        rut=(c.get("Rut") or "").strip() or None,
+        rango_sueldo=c.get("Tramo de renta") or None,
+        codigo_proyecto=c.get("codigo_proyecto") or None,
+        estado="SIN_CONTACTAR",
+        cliente_id=cliente_id,
+    )
+    return prospecto
+
+
+@app.get("/api/clientes/{cliente_id}/documentos")
+async def api_documentos_cliente(cliente_id: int, request: Request):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        prospectos = await _supabase_request(
+            "GET", "/Prospecto",
+            params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"},
+        )
+        if not prospectos:
+            return []
+        prospecto_id = prospectos[0]["id"]
+        docs = await _supabase_request(
+            "GET", "/Documento",
+            params={
+                "prospecto_id": f"eq.{prospecto_id}",
+                "select": "id,tipo,nombre_archivo,url_storage,verificado,creado_en",
+                "order": "creado_en.desc",
+            },
+        )
+        return docs or []
+    except Exception as e:
+        logger.exception("Error en /api/clientes/%s/documentos", cliente_id)
+        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
+TIPOS_VALIDOS = {
+    "liquidacion_sueldo", "certificado_afp", "carnet_identidad",
+    "antiguedad_laboral", "libreta_ahorro", "informe_deudas", "otro",
+}
+
+@app.post("/api/clientes/{cliente_id}/documentos/upload")
+async def api_upload_documento(
+    cliente_id: int,
+    request: Request,
+    file: UploadFile = File(...),
+    tipo: str = Form(...),
+):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    if tipo not in TIPOS_VALIDOS:
+        return Response(content=f"Tipo inválido: {tipo}", status_code=400)
+
+    try:
+        prospecto = await _obtener_o_crear_prospecto(cliente_id)
+        if not prospecto:
+            return Response(content="Cliente no encontrado o sin teléfono", status_code=404)
+
+        prospecto_id = prospecto["id"]
+        file_bytes   = await file.read()
+        mime_type    = file.content_type or "application/octet-stream"
+
+        # Nombre único para evitar colisiones
+        ts            = int(datetime.now(timezone.utc).timestamp() * 1000)
+        nombre_seguro = file.filename.replace(" ", "_") if file.filename else f"doc_{ts}"
+        nombre_final  = f"{tipo}_{ts}_{nombre_seguro}"
+
+        url_storage = await subir_a_storage(
+            file_bytes=file_bytes,
+            nombre_archivo=nombre_final,
+            prospecto_id=prospecto_id,
+            mime_type=mime_type,
+        )
+
+        doc = await insertar_documento(
+            prospecto_id=prospecto_id,
+            tipo=tipo,
+            nombre_archivo=file.filename or nombre_final,
+            url_storage=url_storage,
+            mime_type=mime_type,
+        )
+
+        return {"ok": True, "documento": doc, "prospecto_id": prospecto_id}
+
+    except Exception as e:
+        logger.exception("Error en upload documento cliente %s", cliente_id)
+        return Response(content=_safe_httpx_error(e) or "Error al subir documento", status_code=500, media_type="text/plain")
+
+
+async def _descargar_documento_storage(url_storage: str) -> bytes:
+    key = _supabase_service_role_key()
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.get(url_storage, headers={"Authorization": f"Bearer {key}"})
+        r.raise_for_status()
+    return r.content
+
+
+async def _enviar_email_evaluacion(cliente_id: int) -> dict:
+    email_remitente = os.getenv("EMAIL_REMITENTE")
+    email_password  = os.getenv("EMAIL_PASSWORD")
+    if not email_remitente or not email_password:
+        raise RuntimeError("EMAIL_REMITENTE o EMAIL_PASSWORD no configurados")
+
+    clientes = await _supabase_request("GET", "/Cliente",
+        params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
+    if not clientes:
+        raise ValueError(f"Cliente {cliente_id} no encontrado")
+    c = clientes[0]
+
+    ejecutivos = await _supabase_request("GET", "/Ejecutivo",
+        params={"disponible": "eq.true", "select": "email,ejecutivo"})
+    destinatarios = [e["email"] for e in (ejecutivos or []) if e.get("email")]
+    if not destinatarios:
+        raise ValueError("No hay ejecutivos disponibles con email configurado")
+
+    prospectos = await _supabase_request("GET", "/Prospecto",
+        params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"})
+    docs = []
+    if prospectos:
+        docs = await _supabase_request("GET", "/Documento",
+            params={
+                "prospecto_id": f"eq.{prospectos[0]['id']}",
+                "select": "tipo,nombre_archivo,url_storage,mime_type",
+            }) or []
+
+    nombre   = (c.get("Contacto") or "Sin nombre").strip()
+    rut      = c.get("Rut") or "No registrado"
+    telefono = c.get("Telefono") or "No registrado"
+    proyecto = c.get("codigo_proyecto") or "No registrado"
+    renta    = c.get("Tramo de renta") or "No registrado"
+
+    NOMBRES_TIPO = {
+        "liquidacion_sueldo": "Liquidación de sueldo",
+        "certificado_afp": "Certificado AFP",
+        "carnet_identidad": "Cédula de identidad",
+        "libreta_ahorro": "Libreta de ahorro",
+        "informe_deudas": "Informe de deudas",
+        "antiguedad_laboral": "Antigüedad laboral",
+        "otro": "Otro documento",
+    }
+
+    filas_docs = "".join(
+        f"<tr><td style='padding:4px 12px;color:#555;'>▸ {NOMBRES_TIPO.get(d.get('tipo',''), d.get('tipo',''))}</td>"
+        f"<td style='padding:4px 12px;color:#333;'>{d.get('nombre_archivo','')}</td></tr>"
+        for d in docs
+    )
+
+    body_html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:600px;">
+      <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">
+        📋 Solicitud de Evaluación de Crédito
+      </h2>
+      <table style="border-collapse:collapse;font-size:14px;width:100%;">
+        <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;width:160px;">Nombre</td>
+          <td style="padding:8px 12px;">{nombre}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">RUT</td>
+          <td style="padding:8px 12px;">{rut}</td>
+        </tr>
+        <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
+          <td style="padding:8px 12px;">{telefono}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
+          <td style="padding:8px 12px;">{proyecto}</td>
+        </tr>
+        <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Tramo de renta</td>
+          <td style="padding:8px 12px;">{renta}</td>
+        </tr>
+      </table>
+      <h3 style="color:#1e3a5f;margin-top:24px;">Documentos adjuntos ({len(docs)})</h3>
+      <table style="border-collapse:collapse;font-size:13px;">
+        {filas_docs}
+      </table>
+      <p style="font-size:12px;color:#aaa;margin-top:24px;">
+        Generado automáticamente por el CRM WhatsApp.
+      </p>
+    </div>
+    """
+
+    msg = MIMEMultipart()
+    msg["From"]    = email_remitente
+    msg["To"]      = ", ".join(destinatarios)
+    msg["Subject"] = f"📋 Evaluación de crédito — {nombre}"
+    msg.attach(MIMEText(body_html, "html"))
+
+    for doc in docs:
+        url = doc.get("url_storage")
+        nombre_archivo = doc.get("nombre_archivo") or doc.get("tipo") or "documento"
+        if not url:
+            continue
+        try:
+            file_bytes = await _descargar_documento_storage(url)
+            mime_type  = doc.get("mime_type") or "application/octet-stream"
+            main_type, sub_type = (mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream"))
+            part = MIMEBase(main_type, sub_type)
+            part.set_payload(file_bytes)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=nombre_archivo)
+            msg.attach(part)
+        except Exception as e:
+            logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
+
+    def _smtp_send():
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(email_remitente, email_password)
+            server.sendmail(email_remitente, destinatarios, msg.as_string())
+
+    await asyncio.get_event_loop().run_in_executor(None, _smtp_send)
+    return {"enviado_a": destinatarios, "documentos_adjuntos": len(docs)}
+
+
+@app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
+async def api_enviar_evaluacion(cliente_id: int, request: Request):
+    if not _check_api_key(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        result = await _enviar_email_evaluacion(cliente_id)
+        return {"ok": True, **result}
+    except Exception as e:
+        logger.exception("Error enviando evaluación cliente %s", cliente_id)
+        return Response(content=str(e), status_code=500, media_type="text/plain")
 
 
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
