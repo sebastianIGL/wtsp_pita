@@ -781,9 +781,13 @@ async def _procesar_webhook(msg: Dict):
             docs_recibidos=docs_recibidos,
         )
 
-        reply_text      = resultado["respuesta"]
+        reply_text      = (resultado["respuesta"] or "").strip()
         siguiente_paso  = resultado["siguiente_paso"]
         datos_extraidos = resultado["datos_extraidos"]
+
+        if not reply_text:
+            logger.warning("reply_text vacío para %s, omitiendo envío", from_number)
+            return
 
         await send_whatsapp_message(to=from_number, text=reply_text)
 
