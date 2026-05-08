@@ -95,12 +95,46 @@ ANTHROPIC_API_KEY  = _get_env("ANTHROPIC_API_KEY")
 # Documentos requeridos y sus cantidades mínimas
 # ---------------------------------------------------------------------------
 
-DOCUMENTOS_REQUERIDOS = {
-    "liquidacion_sueldo": {"label": "Últimas 6 liquidaciones de sueldo", "cantidad": 6},
-    "carnet_identidad":   {"label": "Carnet de identidad (ambos lados)",  "cantidad": 2},
-    "antiguedad_laboral": {"label": "Certificado de antigüedad laboral",  "cantidad": 1},
-    "certificado_afp":    {"label": "Certificado de AFP",                 "cantidad": 1},
+# Campos de calificación que viven en columnas boolean propias (no en el blob datos)
+_CAMPOS_CALIFICACION = [
+    "tiene_rsh", "tiene_propiedad", "subsidio_previo",
+    "ahorro_ok", "trabajo_indefinido", "complemento_renta",
+]
+
+# Campos que tienen columna propia en Prospecto (no van al blob datos)
+_CAMPOS_COLUMNA_PROPIA: set = {
+    *_CAMPOS_CALIFICACION,
+    "motivo_no_interesado", "fecha_tentativa_recontacto", "opt_out",
+    "paso_origen_no_interesado",
+    "motivo_no_califica", "quiere_contacto_ejecutivo", "intencion_regularizar",
 }
+
+# Documentos base (siempre requeridos)
+_DOCS_BASE: Dict[str, Dict] = {
+    "carnet_identidad": {"label": "Cédula de identidad",  "cantidad": 2},
+    "certificado_afp":  {"label": "Certificado de AFP",   "cantidad": 1},
+}
+
+# Documentos condicionales: (tipo, config, función_condición)
+_DOCS_CONDICIONALES: List[tuple] = [
+    ("certificado_rsh",              {"label": "Certificado RSH",                  "cantidad": 1}, lambda d: d.get("tiene_rsh") is True),
+    ("liquidacion_sueldo",           {"label": "Liquidaciones de sueldo",          "cantidad": 3}, lambda d: d.get("trabajo_indefinido") is True),
+    ("antiguedad_laboral",           {"label": "Certificado de antigüedad",        "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is True),
+    ("carpeta_tributaria_sii",       {"label": "Carpeta tributaria SII",           "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is False),
+    ("declaracion_anual_impuestos",  {"label": "Declaración anual de impuestos",   "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is False),
+    ("cartola_ahorro",               {"label": "Cartola de ahorro",                "cantidad": 1}, lambda d: d.get("ahorro_ok") is True),
+    ("cedula_complementador",        {"label": "Cédula del complementador",        "cantidad": 2}, lambda d: d.get("complemento_renta") is True),
+    ("liquidaciones_complementador", {"label": "Liquidaciones del complementador", "cantidad": 3}, lambda d: d.get("complemento_renta") is True),
+]
+
+
+def _docs_requeridos(datos: Dict) -> Dict[str, Dict]:
+    """Retorna el dict de documentos aplicables según la calificación del cliente."""
+    result = dict(_DOCS_BASE)
+    for tipo, cfg, condicion in _DOCS_CONDICIONALES:
+        if condicion(datos):
+            result[tipo] = cfg
+    return result
 
 # Palabras clave para clasificar documentos por nombre de archivo
 _KEYWORDS_TIPO: List[tuple] = [
@@ -122,39 +156,34 @@ def clasificar_documento(nombre_archivo: str, mime_type: str = "") -> str:
     return "otro"
 
 
-def documentos_pendientes(docs_recibidos: List[Dict]) -> Dict[str, int]:
-    """
-    Dado el listado de documentos ya recibidos, retorna cuántos faltan por tipo.
-    Solo incluye tipos con pendientes > 0.
-    """
-    conteo: Dict[str, int] = {t: 0 for t in DOCUMENTOS_REQUERIDOS}
+def documentos_pendientes(docs_recibidos: List[Dict], datos: Optional[Dict] = None) -> Dict[str, int]:
+    """Retorna cuántos documentos faltan por tipo según la calificación del cliente."""
+    requeridos = _docs_requeridos(datos or {})
+    conteo: Dict[str, int] = {t: 0 for t in requeridos}
     for doc in docs_recibidos:
         tipo = doc.get("tipo", "")
         if tipo in conteo:
             conteo[tipo] += 1
-
     pendientes = {}
-    for tipo, cfg in DOCUMENTOS_REQUERIDOS.items():
+    for tipo, cfg in requeridos.items():
         faltantes = cfg["cantidad"] - conteo.get(tipo, 0)
         if faltantes > 0:
             pendientes[tipo] = faltantes
     return pendientes
 
 
-def resumen_documentos(docs_recibidos: List[Dict]) -> str:
-    """Genera un texto resumido del estado de documentos para usar en el prompt."""
-    conteo: Dict[str, int] = {t: 0 for t in DOCUMENTOS_REQUERIDOS}
+def resumen_documentos(docs_recibidos: List[Dict], datos: Optional[Dict] = None) -> str:
+    """Genera 'Recibidos: .../Pendientes: ...' para inyectar en el prompt ESPERA_DOCS."""
+    requeridos = _docs_requeridos(datos or {})
+    conteo: Dict[str, int] = {t: 0 for t in requeridos}
     for doc in docs_recibidos:
         if doc.get("tipo") in conteo:
             conteo[doc["tipo"]] += 1
-
-    lineas = []
-    for tipo, cfg in DOCUMENTOS_REQUERIDOS.items():
-        recibidos = conteo.get(tipo, 0)
-        requeridos = cfg["cantidad"]
-        estado = "✅" if recibidos >= requeridos else f"⏳ ({recibidos}/{requeridos})"
-        lineas.append(f"  {estado} {cfg['label']}")
-    return "\n".join(lineas)
+    recibidos_labels  = [cfg["label"] for tipo, cfg in requeridos.items() if conteo.get(tipo, 0) >= cfg["cantidad"]]
+    pendientes_labels = [cfg["label"] for tipo, cfg in requeridos.items() if conteo.get(tipo, 0) <  cfg["cantidad"]]
+    rec = ", ".join(recibidos_labels)  if recibidos_labels  else "(ninguno)"
+    pen = ", ".join(pendientes_labels) if pendientes_labels else "(ninguno)"
+    return f"Recibidos: {rec}\nPendientes: {pen}"
 
 
 # ---------------------------------------------------------------------------
@@ -162,94 +191,547 @@ def resumen_documentos(docs_recibidos: List[Dict]) -> str:
 # ---------------------------------------------------------------------------
 
 PASOS_CONFIG: Dict[str, str] = {
-    "BIENVENIDA": """OBJETIVO — PASO BIENVENIDA:
-El cliente acaba de responder al mensaje inicial. Aún no sabemos qué tan interesado está.
+"BIENVENIDA": """OBJETIVO — PASO BIENVENIDA:
+El cliente acaba de responder al mensaje inicial sobre el proyecto.
+Ya sabemos qué está interesado en al menos 1 proyecto. Tu objetivo es romper el hielo,
+generar mayor interés con un dato concreto, y obtener un si/no para avanzar
+a la calificación.
 
-1. Salúdalo por su nombre ({nombre}), pregúntale cómo está, de forma cercana y natural.
-2. Entrega 1 o 2 datos concretos que complementen lo que vio en la plantilla y que
-   puedan generar interés: fecha de entrega, si tiene sala piloto para visitar,
-   estacionamiento disponible, o algún dato relevante de las notas del proyecto.
-   Úsalos solo si aportan valor — no los listes todos mecánicamente.
-3. Pregúntale si le gustaría evaluar su opción de compra a través de un crédito hipotecario.
-   - NO repitas precios ni el nombre del proyecto. Él ya los vio en la plantilla.
-   - NO menciones documentos todavía.
-4. Si el cliente muestra interés o hace preguntas sobre el proyecto/subsidio/proceso:
-   respóndelas usando los datos del proyecto y luego → "siguiente_paso": "INICIO"
-5. Si el cliente dice explícitamente que NO le interesa → "siguiente_paso": "NO_INTERESADO"
-6. Si el cliente saluda o responde de forma neutra (hola, ok, bien, etc.):
-   responde cálidamente, entrega el dato extra y pregunta si quiere evaluar. siguiente_paso: null
+REGLAS DE REDACCIÓN:
+- Salúdalo por su nombre ({nombre}) de forma cercana y natural.
+- NO repitas precios ni el nombre del proyecto. Él ya los vio en la plantilla.
+- NO menciones documentos todavía.
+- Mantén el mensaje corto: máximo 3-4 líneas.
+- Entrega 1 dato del proyecto que aporte valor (fecha de entrega, sala piloto,
+  estacionamiento disponible, o algo relevante de las notas). UNO solo, no
+  los listes todos.
+- Termina SIEMPRE con la pregunta gancho: si quiere evaluar su opción de
+  compra con crédito hipotecario.
+
+CÓMO INTERPRETAR LA RESPUESTA DEL CLIENTE:
+
+A) INTERÉS CLARO → "siguiente_paso": "INICIO"
+   Ejemplos: "sí me interesa", "cuéntame más", "quiero saber del crédito",
+   "vamos", "dale", o cualquier pregunta concreta sobre el proyecto/subsidio
+   /proceso. En este caso, responde la pregunta si la hizo, y luego avanza.
+
+B) RECHAZO EXPLÍCITO → "siguiente_paso": "NO_INTERESADO"
+   Ejemplos: "no me interesa", "no gracias", "ya compré otro", "déjenme
+   tranquilo", "cancelar", "no quiero", "Ya use mi subsidio".
+
+C) RESPUESTA NEUTRA O AMBIGUA → "siguiente_paso": null (sigue en BIENVENIDA)
+   Ejemplos: "hola", "ok", "bien", "👍", "si" sin contexto, o silencio
+   con emoji. En este caso responde cálidamente, entrega el dato del
+   proyecto, y vuelve a hacer la pregunta gancho de forma diferente.
+
+D) PREGUNTA SOBRE OTRAS TIPOLOGÍAS → "siguiente_paso": null
+   Si el cliente pregunta por otras tipologías (si el proyecto contempla) o por otros
+   departamentos del proyecto, muéstrale las opciones disponibles que se encuentren en 
+   la misma region del primer proyecto de interes, y luego pregunta si quiere mas informacion o
+   evaluar crédito para alguna.
+
+E) FUERA DE TEMA O CONFUSIÓN → "siguiente_paso": null
+   Si el cliente parece confundido (ej. "¿quién es?", "no sé de qué me
+   hablan"), recuérdale brevemente el contexto del proyecto y pregunta
+   si quiere evaluar.
 
 En datos_extraidos: {{}} (no hay nada que recolectar en este paso)""",
 
-    "INICIO": """OBJETIVO — PASO INICIO:
-El cliente acaba de responder al mensaje inicial sobre el proyecto.
 
-1. Salúdalo por su nombre ({nombre}) y confirma su interés.
-2. Si confirma interés, explícale brevemente el subsidio disponible:
-   el Estado entrega {monto_subsidio} UF como subsidio habitacional para este proyecto.
-3. Luego hazle las siguientes preguntas de calificación UNA A LA VEZ.
-   Revisa los datos ya recolectados para no repetir preguntas:
-   Estado actual de calificación: {datos}
+"INICIO": """OBJETIVO — PASO INICIO:
+El cliente confirmó interés en evaluar su opción de compra. Ahora debes
+calificarlo haciendo 6 preguntas (3 sobre el subsidio + 3 financieras).
 
-   Preguntas en orden (solo haz las que aún sean null):
-   a) "ahorro_ok"          → ¿Cuenta con ahorro en libreta o cuenta de ahorro?
-                              (Se requiere mínimo {ahorro_minimo} UF)
-   b) "trabajo_indefinido" → ¿Tiene contrato de trabajo indefinido con más de
-                              6 meses de antigüedad?
-   c) "complemento_renta"  → Su renta registrada es {rango_sueldo}.
-                              ¿Esto incluye complemento de renta de un co-deudor?
+REGLAS DE REDACCIÓN:
+- NO vuelvas a saludar formalmente. Solo reconoce su interés brevemente
+  ("perfecto", "genial", "buenísimo") y avanza.
+- Haz UNA pregunta a la vez. Nunca agrupes preguntas en un solo mensaje.
+- Mantén cada mensaje corto: máximo 2-3 líneas.
+- Revisa los datos ya recolectados para no repetir preguntas.
+  Estado actual de calificación: {datos}
 
-4. Cuando las 3 preguntas estén respondidas → "siguiente_paso": "DOCUMENTACION"
-5. Si el cliente dice que NO le interesa    → "siguiente_paso": "NO_INTERESADO"
-6. Si el cliente pregunta algo fuera del tema (clima, otros temas), redirígelo
-   gentilmente al proceso indicando que necesitas esa información para avanzar.
+PRIMER MENSAJE DEL PASO (solo si TODAS las respuestas están en null):
+Antes de la primera pregunta, explícale en una línea el contexto:
+"El subsidio te entrega {monto_subsidio}UF para este
+proyecto. Siempre que cumplas con los requisitos de postulación."
+Luego pasa directo a la pregunta a).
+
+PREGUNTAS EN ORDEN (solo haz las que aún sean null):
+
+  REQUISITOS DEL SUBSIDIO:
+  a) "tiene_rsh"          → ¿Cuentas con Registro Social de Hogares?
+  b) "tiene_propiedad"    → ¿Tienes alguna propiedad a tu nombre?
+  c) "subsidio_previo"    → ¿Has recibido algún subsidio habitacional antes?
+
+  TRANSICIÓN: después de responder la c), antes de la d), agrega una frase
+  de puente como: "Maravilloso, con respecto a tu situación
+  financiera para la opción del crédito hipotecario."
+
+  REQUISITOS FINANCIEROS:
+  d) "ahorro_ok"          → ¿Cuentas con ahorro en tu cuenta de ahorro?
+                             (Se requiere mínimo {ahorro_minimo} UF)
+  e) "trabajo_indefinido" → ¿Tienes contrato de trabajo indefinido con más
+                             de 6 meses de antigüedad?
+  f) "complemento_renta"  → Tu renta registrada es {rango_sueldo}.
+                             ¿Esa renta es solo tuya, o la complementas con
+                             otra persona (cónyuge, conviviente, aval)?
+
+MANEJO DE RESPUESTAS AMBIGUAS:
+- Si responde "no sé" / "no estoy seguro" / "creo que sí": deja el campo
+  como null en datos_extraidos, dile dónde puede verificarlo (RSH:
+  registrosocial.gob.cl, propiedad: revisar conservador, subsidio previo:
+  consultar en Minvu) y avanza a la siguiente pregunta. Un ejecutivo
+  lo validará después.
+- Si responde con un sí/no claro: extrae el dato y avanza.
+
+REGLAS DE DECISIÓN (evaluar SOLO cuando TODAS las 7 preguntas estén
+respondidas, no antes):
+
+  1. Si "tiene_propiedad" = true   → "siguiente_paso": "NO_CALIFICA"
+  2. Si "subsidio_previo" = true   → "siguiente_paso": "NO_CALIFICA"
+  3. En cualquier otro caso        → "siguiente_paso": "DOCUMENTACION"
+
+OTROS CASOS:
+
+- Si el cliente dice que NO le interesa → "siguiente_paso": "NO_INTERESADO"
+
+- Si el cliente pregunta por otras tipologías (1D, 2D, 3D) o por otros
+  departamentos del proyecto, muéstrale las opciones disponibles desde la
+  base de datos, y luego retoma la pregunta de calificación donde quedó.
+  siguiente_paso: null
+
+- Si el cliente pregunta sobre el subsidio, el crédito o el proceso,
+  responde brevemente y luego retoma la pregunta donde quedó.
+  siguiente_paso: null
+
+- Si el cliente pregunta algo completamente fuera de tema (clima, deportes,
+  política), redirígelo de forma cálida con algo como: "Eso se escapa un
+  poco de lo que puedo ayudarte hoy 😅. Volvamos a [última pregunta]".
+  siguiente_paso: null
 
 En datos_extraidos reporta SOLO lo que el cliente reveló en ESTE mensaje:
-  "ahorro_ok": true/false  (null si no lo mencionó)
-  "trabajo_indefinido": true/false  (null si no lo mencionó)
-  "complemento_renta": true/false  (null si no lo mencionó)""",
+  "tiene_rsh": true/false (null si no lo mencionó o dijo "no sé")
+  "tiene_propiedad": true/false (null si no lo mencionó o dijo "no sé")
+  "subsidio_previo": true/false (null si no lo mencionó o dijo "no sé")
+  "ahorro_ok": true/false (null si no lo mencionó)
+  "trabajo_indefinido": true/false (null si no lo mencionó)
+  "complemento_renta": true/false (null si no lo mencionó)""",
 
-    "DOCUMENTACION": """OBJETIVO — PASO DOCUMENTACION:
-El cliente completó las preguntas de calificación.
-Datos recopilados: {datos}
+"DOCUMENTACION": """OBJETIVO — PASO DOCUMENTACION:
+El cliente completó las 6 preguntas de calificación y califica para
+avanzar. Ahora le solicitas los documentos necesarios para evaluar
+la postulación al subsidio y pre-evaluar el crédito hipotecario.
 
-1. Explícale que para continuar necesitas los siguientes documentos:
-   ▸ Carnet de identidad (foto del frente y dorso)
-   ▸ Últimas 6 liquidaciones de sueldo
-   ▸ Certificado de antigüedad laboral
+Datos recopilados (úsalos para personalizar la lista, NO los repitas
+al cliente): {datos}
+
+REGLAS DE REDACCIÓN:
+- Antes de la lista, agradece y dale contexto en una línea: "Con tus
+  respuestas estás bien encaminado. Para avanzar con la postulación
+  necesito estos documentos:"
+- Presenta la lista en formato bullet con el ícono ▸.
+- Mantén el mensaje completo, pero conciso. No agregues párrafos largos
+  de explicación a cada documento.
+
+LISTA BASE DE DOCUMENTOS (siempre se piden):
+   ▸ Cédula de identidad (foto del frente y dorso)
    ▸ Certificado de AFP
 
-   Si ahorro_ok es true, agregar:
-   ▸ Cartola de ahorro de los últimos 12 meses
+DOCUMENTOS CONDICIONALES (agregar solo si aplica):
 
-   Si complemento_renta es true, agregar:
-   ▸ CI y últimas 3 liquidaciones del co-deudor
+   Si "tiene_rsh" = true:
+     ▸ Certificado de Registro Social de Hogares
 
-2. Indícale que puede enviar los documentos directamente por este chat (fotos o PDF).
-3. Ofrécele una llamada telefónica si tiene dudas o necesita orientación.
-4. Si confirma que enviará o ya envió documentos → "siguiente_paso": "ESPERA_DOCS".""",
+   Si "trabajo_indefinido" = true:
+     ▸ Últimas 6 liquidaciones de sueldo
+     ▸ Certificado de antigüedad laboral
 
-    "ESPERA_DOCS": """OBJETIVO — PASO ESPERA DE DOCUMENTOS:
-El cliente está enviando su documentación.
+   Si "trabajo_indefinido" = false:
+     ▸ Carpeta tributaria del SII de los últimos 12 meses
+     ▸ Última declaración anual de impuestos
 
-Estado actual de documentos recibidos:
+   Si "ahorro_ok" = true:
+     ▸ Cartola de ahorro de los últimos 12 meses
+
+   Si "complemento_renta" = true:
+     ▸ Cédula de identidad del complementador
+     ▸ Últimas 3 liquidaciones de sueldo del complementador
+
+INDICACIONES AL CLIENTE:
+- Indícale que puede enviar los documentos directamente por este chat
+  (fotos legibles o PDF).
+- Si el cliente menciona dudas, confusión o preocupación sobre cómo
+  obtener los documentos, ofrécele coordinar una llamada con un
+  ejecutivo. NO ofrezcas la llamada en cada turno, solo cuando notes
+  fricción real.
+
+MANEJO DE PREGUNTAS SOBRE LOS DOCUMENTOS:
+Si el cliente pregunta dónde obtener un documento, oriéntalo brevemente:
+  - Certificado AFP → "lo descargas desde el portal de tu AFP"
+  - Liquidaciones de sueldo → "se las pides a tu empleador o las
+    descargas del portal de RRHH"
+  - Certificado de antigüedad laboral → "se lo solicitas a tu empleador"
+  - Cartola de ahorro → "la pides en la sucursal o app de tu banco"
+  - Certificado RSH → "lo descargas en registrosocial.gob.cl"
+  - Carpeta tributaria SII → "la descargas en sii.cl con tu clave tributaria"
+Después de orientarlo, retoma el flujo. siguiente_paso: null
+
+REGLAS DE DECISIÓN:
+
+- Si el cliente confirma que enviará los documentos, o si empieza a
+  enviar archivos (fotos/PDF) → "siguiente_paso": "ESPERA_DOCS"
+  No es necesario que mande todos a la vez. Apenas envíe el primero
+  o confirme que los está reuniendo, avanza al siguiente paso. En
+  ESPERA_DOCS se hace seguimiento de los pendientes.
+
+- Si el cliente dice que no puede o no quiere enviar documentos
+  → "siguiente_paso": "NO_INTERESADO"
+
+- Si el cliente pregunta por otras tipologías (1D, 2D, 3D) u otros
+  departamentos del proyecto, muéstrale las opciones desde la base
+  de datos y luego retoma la solicitud de documentos.
+  siguiente_paso: null
+
+- Si el cliente pregunta algo fuera de tema, redirígelo cálidamente
+  al envío de documentos. siguiente_paso: null
+
+En datos_extraidos: {{}} (no hay datos nuevos que extraer en este paso)""",
+
+
+"ESPERA_DOCS": """OBJETIVO — PASO ESPERA DE DOCUMENTOS:
+El cliente está en proceso de enviar su documentación. Este paso es
+multi-turno: el cliente puede enviar documentos en distintos momentos
+y el bot va llevando el control de lo recibido y lo pendiente.
+
+ESTADO ACTUAL DE DOCUMENTOS:
 {estado_documentos}
 
-1. Si el cliente acaba de enviar un documento, agradece y confirma qué recibiste.
-2. Si aún faltan documentos, indícale amablemente cuáles quedan pendientes.
-3. Si YA están todos los documentos completos → "siguiente_paso": "DOCS_RECIBIDOS".
-4. Si el cliente pregunta algo fuera del tema, recuérdale qué documentos faltan
-   y que sin ellos no se puede avanzar en el proceso.
-5. Responde consultas sobre el proyecto con amabilidad.""",
+(El estado_documentos te llega como dos listas: "Recibidos" y
+"Pendientes". Úsalas para personalizar tus respuestas. NO inventes
+documentos que no aparezcan en estas listas.)
 
-    "DOCS_RECIBIDOS": """Los documentos fueron recibidos completos.
-Informa al cliente que el equipo los revisará y se pondrá en contacto pronto.
-Responde cualquier consulta con amabilidad.
-No solicites más documentos a menos que el ejecutivo lo indique.""",
+REGLAS DE REDACCIÓN:
+- Mantén un tono cálido y de agradecimiento. Cada documento enviado
+  es un paso adelante del cliente.
+- Mensajes cortos: máximo 3-4 líneas.
+- NO repitas la lista completa de documentos en cada turno. Solo
+  menciona lo pendiente cuando aporte (ej: el cliente pregunta qué
+  falta, o lleva varios mensajes sin enviar nada).
 
-    "NO_INTERESADO": """El cliente no está interesado actualmente.
-Responde con amabilidad, deja la puerta abierta para el futuro y despídete.""",
-}
+CASOS Y CÓMO RESPONDER:
+
+A) EL CLIENTE ACABA DE ENVIAR UN DOCUMENTO (aparece nuevo en "Recibidos"):
+   - Agradece y confirma qué recibiste por nombre.
+   - Si aún quedan pendientes, menciona brevemente qué falta.
+   - Si era el último, no menciones pendientes; el flujo avanza.
+
+B) EL CLIENTE DICE "YA TE LO MANDÉ" PERO NO APARECE EN RECIBIDOS:
+   - Indícale amablemente que no te llegó el archivo y pídele que
+     lo reenvíe. No insinúes que mintió, simplemente: "no me llegó,
+     ¿puedes reenviarlo?".
+
+C) EL CLIENTE DICE QUE LO ENVIARÁ MÁS TARDE ("mañana", "después",
+   "cuando llegue a la casa"):
+   - Reconoce con calidez ("perfecto, sin apuro") y deja abierto el
+     canal. NO insistas en plazos. siguiente_paso: null
+
+D) EL CLIENTE PREGUNTA QUÉ DOCUMENTOS FALTAN:
+   - Lista los pendientes en formato bullet con ícono ▸.
+
+E) EL CLIENTE PREGUNTA DÓNDE OBTENER UN DOCUMENTO:
+   - Oriéntalo brevemente (mismas guías que en DOCUMENTACION):
+     AFP → portal AFP, RSH → registrosocial.gob.cl, etc.
+   - Después retoma. siguiente_paso: null
+
+F) EL CLIENTE PREGUNTA POR EL PROYECTO U OTRAS TIPOLOGÍAS:
+   - Responde con la información del proyecto / muéstrale otras
+     tipologías disponibles desde la base de datos.
+   - Luego retoma con un suave: "¿Pudiste reunir los documentos
+     pendientes?". siguiente_paso: null
+
+G) EL CLIENTE PREGUNTA ALGO COMPLETAMENTE FUERA DE TEMA:
+   - Redirígelo de forma cálida: "Eso se escapa un poco de lo que
+     puedo ayudarte 😅. Cuéntame, ¿pudiste reunir los documentos
+     que te pedí?". siguiente_paso: null
+
+H) EL CLIENTE DICE QUE YA NO QUIERE CONTINUAR:
+   - Acepta con respeto, sin presionar.
+   - "siguiente_paso": "NO_INTERESADO"
+
+REGLA DE DECISIÓN PRINCIPAL:
+
+- Si TODOS los documentos pendientes pasaron a recibidos
+  → "siguiente_paso": "DOCS_RECIBIDOS"
+- En cualquier otro caso → "siguiente_paso": null
+
+NOTA SOBRE VALIDACIÓN:
+Tú no validas el contenido ni la calidad de los archivos enviados
+(legibilidad, página correcta, etc). Eso lo revisa un ejecutivo
+después. NO le digas al cliente que su documento "está aprobado" o
+"está correcto"; solo confirma la recepción.
+
+En datos_extraidos: {{}} (no hay datos nuevos que extraer en este paso)""",
+
+
+"DOCS_RECIBIDOS": """OBJETIVO — PASO DOCS RECIBIDOS:
+El cliente envió todos los documentos solicitados. El embudo del bot
+se cerró exitosamente. Ahora el caso pasa a manos del ejecutivo humano.
+
+REGLAS DE REDACCIÓN:
+- Tono cálido y de cierre exitoso. El cliente hizo un esfuerzo, reconócelo.
+- En el PRIMER turno del paso, da el mensaje de cierre completo.
+- En turnos POSTERIORES, no repitas el mensaje de cierre. Solo responde
+  la consulta puntual del cliente con amabilidad y brevedad.
+- NO solicites más documentos a menos que el ejecutivo te lo indique
+  expresamente.
+- NO hagas promesas de aprobación. El equipo aún debe evaluar.
+
+MENSAJE DE CIERRE (solo en el primer turno del paso):
+Estructura sugerida (en tono natural, no plantilla rígida):
+
+  1. Agradecer el envío completo de documentos.
+  2. Explicar el siguiente paso del proceso:
+     "El equipo revisará tus antecedentes para evaluar tu pre-aprobación
+     de crédito y la postulación al subsidio."
+  3. Indicar el plazo: "Un ejecutivo se contactará contigo en las
+     próximas 24 horas hábiles."
+  4. Cerrar con una invitación abierta: "Si tienes cualquier duda
+     mientras tanto, escríbeme por aquí."
+
+CASOS Y CÓMO RESPONDER:
+
+A) EL CLIENTE PREGUNTA POR PLAZOS:
+   - Reitera: 24 horas hábiles para el primer contacto del ejecutivo.
+   - Si pregunta por plazos del proceso completo (subsidio, crédito,
+     entrega del depto), responde con la información del proyecto si
+     la tienes, o indica que el ejecutivo le dará el detalle.
+
+B) EL CLIENTE PREGUNTA POR EL PROYECTO O TIPOLOGÍAS:
+   - Responde con la información disponible.
+   - Si quiere ver otras tipologías o cambiar de tipología, indícale
+     que puede comentárselo al ejecutivo cuando lo contacte para
+     evaluarlo en conjunto. NO modifiques nada del registro actual.
+
+C) EL CLIENTE QUIERE AGREGAR O CAMBIAR INFORMACIÓN
+   (ej: "olvidé decirte que mi pareja también va en el crédito",
+        "cambié de trabajo", "tengo otro ahorro"):
+   - Reconoce con calidez: "buena info, gracias por contarme".
+   - Indícale que se lo dirás al ejecutivo para que lo considere en
+     la revisión.
+   - NO intentes actualizar campos ni pedir nuevos documentos por
+     tu cuenta. siguiente_paso: null
+
+D) EL CLIENTE DECIDE QUE YA NO QUIERE CONTINUAR:
+   - Acepta con respeto y agradece su tiempo.
+   - "siguiente_paso": "NO_INTERESADO"
+
+E) EL CLIENTE PREGUNTA ALGO FUERA DE TEMA:
+   - Responde con amabilidad si es algo cordial breve, o redirígelo
+     suavemente al estado actual: "Por aquí lo seguimos cuando el
+     ejecutivo te escriba 😊". siguiente_paso: null
+
+REGLA DE DECISIÓN:
+
+- En la mayoría de los casos → "siguiente_paso": null (paso terminal).
+- Solo si el cliente abandona explícitamente → "siguiente_paso": "NO_INTERESADO".
+
+En datos_extraidos: {{}} (no hay datos nuevos que extraer en este paso)""",
+
+"NO_INTERESADO": """OBJETIVO — PASO NO INTERESADO:
+El cliente decidió no continuar con el proceso (en cualquier punto del
+flujo). Tu objetivo NO es revertirlo a la fuerza. Tu objetivo es:
+  1. Despedirte con calidez.
+  2. Capturar el MOTIVO del rechazo (clave para remarketing futuro).
+  3. Si menciona una fecha tentativa de retomar, capturarla.
+  4. Dejar la puerta abierta sin presionar.
+
+REGLAS DE REDACCIÓN:
+- Tono cálido, sin culpa, sin presión, sin re-venta.
+- Mensajes cortos.
+- NO insistas más de UNA vez con la pregunta del motivo. Si el cliente
+  no quiere responder, respeta y despídete.
+- NO ofrezcas descuentos, alternativas comerciales, ni "déjame
+  preguntar al ejecutivo". Eso es responsabilidad humana, no del bot.
+
+FLUJO DEL PASO:
+
+PRIMER TURNO (acaba de decir que no le interesa):
+  1. Reconoce con respeto: "Entiendo, no hay problema."
+  2. Pregunta UNA sola vez por el motivo, en tono no invasivo:
+     "¿Te puedo preguntar qué fue lo que no te calzó? Así te aviso
+     si más adelante surge algo que sí encaje contigo."
+  3. siguiente_paso: null (espera respuesta del motivo).
+
+SEGUNDO TURNO (el cliente respondió el motivo, o evadió):
+  1. Agradece: "Gracias por contarme" o "Gracias por tu tiempo".
+  2. Despídete dejando la puerta abierta:
+     "Si más adelante quieres retomar, escríbeme por aquí cuando
+     gustes. ¡Que estés muy bien!"
+  3. siguiente_paso: null (paso terminal).
+
+CASOS ESPECIALES:
+
+A) EL CLIENTE RECONSIDERA Y VUELVE A MOSTRAR INTERÉS
+   (ej: "espera, ¿cuánto sería el dividendo?", "a ver, cuéntame más",
+        "ya, dale, hagámoslo"):
+   - NO te quedes en NO_INTERESADO. Responde la pregunta y avanza.
+   - Si el interés es exploratorio (preguntas generales) →
+     "siguiente_paso": "BIENVENIDA"
+   - Si el interés es directo para avanzar (calificarse, mandar docs) →
+     "siguiente_paso": "INICIO"
+
+B) EL CLIENTE NO RESPONDE EL MOTIVO O LO EVADE:
+   - Respeta. No insistas.
+   - Pasa directo a la despedida del segundo turno.
+
+C) EL CLIENTE MENCIONA UNA FECHA TENTATIVA DE RETOMAR
+   ("capaz en unos meses", "el próximo año", "cuando junte más ahorro"):
+   - Reconoce con calidez: "Perfecto, sin apuro."
+   - Despídete normal. (El sistema guardará la frase para el remarketing.)
+
+D) EL CLIENTE PIDE QUE NO LO CONTACTEN MÁS:
+   - Confirma con respeto: "Por supuesto, no te molestaré más por
+     este canal. Que estés muy bien."
+   - (El sistema marcará al cliente como opt-out.)
+
+En datos_extraidos reporta SOLO si el cliente reveló esta info en
+ESTE mensaje:
+  "motivo_no_interesado": texto libre con el motivo (ej: "ya compró
+                          otro", "precio alto", "no es buen momento",
+                          "no le gusta la ubicación", etc.)
+                          (null si no lo mencionó)
+  "fecha_tentativa_recontacto": texto libre con la fecha o referencia
+                                temporal mencionada (ej: "en 6 meses",
+                                "el próximo año", "cuando junte ahorro")
+                                (null si no lo mencionó)
+  "opt_out": true si pide que no lo contacten más, null en caso contrario""",
+  
+  "NO_CALIFICA": """OBJETIVO — PASO NO CALIFICA:
+El cliente respondió todas las preguntas de calificación en INICIO,
+pero según sus respuestas NO cumple los requisitos del subsidio
+habitacional para este proyecto.
+
+IMPORTANTE: este NO es un cierre. El cliente sigue teniendo interés
+y posiblemente capacidad económica. Tu objetivo es:
+  1. Explicarle CON CLARIDAD qué requisito específico no se cumple.
+  2. NO descartarlo: ofrecerle que un ejecutivo lo contacte para
+     evaluar alternativas (otros subsidios, crédito sin subsidio, etc.).
+  3. Capturar el motivo específico para el seguimiento posterior.
+
+Datos recopilados (úsalos para personalizar la explicación, NO los
+repitas como si fueran nuevos): {datos}
+
+REGLAS DE REDACCIÓN:
+- Tono honesto, transparente, sin culpabilizar al cliente.
+- NO uses frases negativas tipo "no calificas", "no puedes", "estás fuera".
+  Usa frases como "este subsidio en particular requiere...", "la opción
+  más conveniente para tu caso sería...".
+- NO menciones nombres específicos de subsidios (DS1, DS49, etc.).
+- NO hagas promesas de aprobación de alternativas. Solo ofrece la
+  posibilidad de que un ejecutivo evalúe.
+- Mensajes cortos, máximo 3-4 líneas.
+
+FLUJO DEL PASO:
+
+PRIMER TURNO (acaba de transitar desde INICIO):
+
+  1. Reconoce su esfuerzo en responder las preguntas:
+     "Gracias por contarme tu situación."
+
+  2. Explica qué requisito específico no se cumple, según los datos:
+
+     Si "tiene_propiedad" = true:
+       "Este subsidio en particular requiere no tener propiedades
+        a nombre del postulante."
+
+     Si "subsidio_previo" = true:
+       "Este subsidio no se puede recibir más de una vez, y según
+        me cuentas ya recibiste uno antes."
+
+     Si AMBAS son true:
+       Menciona ambos requisitos en una sola frase, sin alargar.
+
+  3. Abre la puerta a alternativas:
+     "Eso no significa que no haya opciones para ti. Existen otros
+     tipos de subsidio o créditos sin subsidio que un ejecutivo
+     puede evaluar contigo."
+
+  4. Pregunta si quiere ser contactado:
+     "¿Te gustaría que un ejecutivo te contacte para revisar las
+     alternativas?"
+
+  5. siguiente_paso: null (espera respuesta del cliente).
+
+CASOS Y CÓMO RESPONDER:
+
+A) EL CLIENTE ACEPTA SER CONTACTADO ("sí", "dale", "ya", "por favor"):
+   - Confirma con calidez: "Perfecto. Un ejecutivo te contactará
+     por este mismo WhatsApp dentro de las próximas 24 horas hábiles."
+   - Despídete cordialmente.
+   - siguiente_paso: null (paso terminal).
+
+B) EL CLIENTE RECHAZA O NO QUIERE ALTERNATIVAS:
+   - Acepta con respeto, sin insistir.
+   - Despídete dejando la puerta abierta:
+     "Sin problema. Si más adelante quieres explorar otras opciones,
+     escríbeme por aquí cuando gustes. ¡Que estés muy bien!"
+   - "siguiente_paso": "NO_INTERESADO"
+
+C) EL CLIENTE DICE QUE VA A VENDER LA PROPIEDAD O REGULARIZAR
+   SU SITUACIÓN ("voy a vender", "estoy en proceso de venta",
+   "ya casi no tengo la otra"):
+   - Reconoce con calidez: "Buena info, gracias por contarme."
+   - Indícale que se lo dirás al ejecutivo para evaluar los tiempos
+     y opciones cuando regularice.
+   - Pregunta si quiere ser contactado igualmente para conversarlo.
+   - siguiente_paso: null (espera respuesta).
+
+D) EL CLIENTE PREGUNTA POR LAS ALTERNATIVAS EN DETALLE
+   ("qué otros subsidios hay", "cómo es el crédito sin subsidio"):
+   - NO entres en detalle técnico. Responde:
+     "Hay varias opciones según tu perfil, y un ejecutivo es quien
+     mejor puede explicarte cuál te conviene. ¿Te gustaría que te
+     contacte para revisarlas?"
+   - siguiente_paso: null.
+
+E) EL CLIENTE CUESTIONA LA EVALUACIÓN ("pero yo creo que sí
+   califico", "estás equivocado"):
+   - Mantén postura sin discutir:
+     "Tiene sentido tu duda. Un ejecutivo puede revisar tu caso
+     a fondo y confirmarte. ¿Te gustaría que te contacte?"
+   - siguiente_paso: null.
+
+F) EL CLIENTE PREGUNTA POR OTRAS TIPOLOGÍAS U OTROS DEPARTAMENTOS:
+   - Indícale que los temas de calificación afectan la postulación
+     en general, no solo a una tipología específica. Pero el
+     ejecutivo puede revisar opciones completas.
+   - siguiente_paso: null.
+
+G) EL CLIENTE PREGUNTA ALGO COMPLETAMENTE FUERA DE TEMA:
+   - Redirige cálidamente: "Eso se escapa un poco de lo que puedo
+     ayudarte 😅. ¿Te gustaría que un ejecutivo te contacte para
+     ver alternativas?"
+   - siguiente_paso: null.
+
+REGLAS DE DECISIÓN (resumen):
+
+- Cliente acepta contacto del ejecutivo → siguiente_paso: null
+  (paso terminal, queda en NO_CALIFICA con flag de "quiere contacto")
+- Cliente rechaza alternativas → siguiente_paso: "NO_INTERESADO"
+- Cliente reabre interés (raro pero posible) → siguiente_paso: null
+  (el ejecutivo decide qué hacer)
+
+En datos_extraidos reporta SOLO si el cliente reveló esta info en
+ESTE mensaje:
+  "motivo_no_califica": "tiene_propiedad" / "subsidio_previo" /
+                        "ambos" — calculado en base a los datos
+                        recopilados, no a lo que el cliente diga
+                        en este paso.
+  "quiere_contacto_ejecutivo": true/false (null si aún no responde)
+  "intencion_regularizar": texto libre si menciona vender propiedad,
+                           regularizar situación, etc. (null si no
+                           lo mencionó)""",
+  }
 
 
 # ---------------------------------------------------------------------------
@@ -363,20 +845,42 @@ async def actualizar_datos_prospecto(
     prospecto_id: str,
     nuevos_datos: Dict,
     siguiente_paso: Optional[str] = None,
+    paso_origen: Optional[str] = None,
 ):
     rows = await _supabase_request(
         "GET",
         "/Prospecto",
-        params={"id": f"eq.{prospecto_id}", "select": "datos,paso"},
+        params={"id": f"eq.{prospecto_id}", "select": "datos,paso,opt_out"},
     )
     if not rows:
         return
-    merged = {**(rows[0].get("datos") or {}), **{k: v for k, v in nuevos_datos.items() if v is not None}}
 
-    update: Dict[str, Any] = {"datos": merged, "actualizado_en": _utc_now_iso()}
+    campos_columna: Dict[str, Any] = {}
+    campos_blob:    Dict[str, Any] = {}
+
+    for k, v in nuevos_datos.items():
+        if v is None:
+            continue
+        if k in _CAMPOS_COLUMNA_PROPIA:
+            # opt_out: jamás se puede pasar de true a false automáticamente
+            if k == "opt_out" and rows[0].get("opt_out") and not v:
+                continue
+            campos_columna[k] = v
+        else:
+            campos_blob[k] = v
+
+    merged_blob = {**(rows[0].get("datos") or {}), **campos_blob}
+
+    update: Dict[str, Any] = {
+        "datos": merged_blob,
+        "actualizado_en": _utc_now_iso(),
+        **campos_columna,
+    }
     if siguiente_paso:
-        update["paso"] = siguiente_paso
+        update["paso"]   = siguiente_paso
         update["estado"] = siguiente_paso
+    if paso_origen:
+        update["paso_origen_no_interesado"] = paso_origen
 
     await _supabase_request(
         "PATCH",
@@ -564,7 +1068,8 @@ async def generar_respuesta_ia(
     rut           = prospecto.get("rut") or "no registrado"
     rango_sueldo  = prospecto.get("rango_sueldo") or "no registrado"
     paso_actual   = prospecto.get("paso") or "INICIO"
-    datos         = prospecto.get("datos") or {}
+    # Construir datos de calificación desde columnas boolean dedicadas
+    datos = {campo: prospecto.get(campo) for campo in _CAMPOS_CALIFICACION}
 
     p                  = proyecto or {}
     proyecto_nombre    = p.get("nombre") or "nuestro proyecto"
@@ -598,8 +1103,8 @@ async def generar_respuesta_ia(
     else:
         estac_texto = "no disponible"
 
-    # Estado de documentos para el paso ESPERA_DOCS
-    estado_documentos = resumen_documentos(docs_recibidos or [])
+    # Estado de documentos para el paso ESPERA_DOCS (condicional según calificación)
+    estado_documentos = resumen_documentos(docs_recibidos or [], datos)
 
     instrucciones = PASOS_CONFIG.get(paso_actual, PASOS_CONFIG["BIENVENIDA"]).format(
         nombre=nombre,
@@ -650,7 +1155,7 @@ RESPONDE ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
   "siguiente_paso": null,
   "datos_extraidos": {{}}
 }}
-Valores válidos de siguiente_paso: null | "BIENVENIDA" | "INICIO" | "DOCUMENTACION" | "ESPERA_DOCS" | "DOCS_RECIBIDOS" | "NO_INTERESADO"
+Valores válidos de siguiente_paso: null | "BIENVENIDA" | "INICIO" | "DOCUMENTACION" | "ESPERA_DOCS" | "DOCS_RECIBIDOS" | "NO_INTERESADO" | "NO_CALIFICA"
 """
 
     messages: List[Dict[str, str]] = []
@@ -799,10 +1304,27 @@ async def _procesar_webhook(msg: Dict):
                 cliente_id=cliente_id_prospecto,
             )
             if datos_extraidos or siguiente_paso:
+                paso_actual_prospecto = (prospecto or {}).get("paso") or "BIENVENIDA"
+
+                # FASE 5.1 — guardar el paso de origen cuando el cliente se marca NO_INTERESADO
+                paso_origen = paso_actual_prospecto if siguiente_paso == "NO_INTERESADO" else None
+
+                # FASE 5.2 — calcular motivo_no_califica cuando transiciona a NO_CALIFICA
+                if siguiente_paso == "NO_CALIFICA":
+                    tiene_prop = datos_extraidos.get("tiene_propiedad") or (prospecto or {}).get("tiene_propiedad")
+                    sub_prev   = datos_extraidos.get("subsidio_previo")  or (prospecto or {}).get("subsidio_previo")
+                    if tiene_prop and sub_prev:
+                        datos_extraidos["motivo_no_califica"] = "ambos"
+                    elif tiene_prop:
+                        datos_extraidos["motivo_no_califica"] = "tiene_propiedad"
+                    elif sub_prev:
+                        datos_extraidos["motivo_no_califica"] = "subsidio_previo"
+
                 await actualizar_datos_prospecto(
                     prospecto_id,
                     datos_extraidos,
                     siguiente_paso,
+                    paso_origen=paso_origen,
                 )
 
     except Exception as e:
@@ -901,11 +1423,12 @@ async def _procesar_media(
         if prospecto_id:
             docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
 
-        pendientes = documentos_pendientes(docs_recibidos)
-        tipo_label = DOCUMENTOS_REQUERIDOS.get(tipo, {}).get("label") or nombre_archivo
+        datos_calificacion = {campo: (prospecto or {}).get(campo) for campo in _CAMPOS_CALIFICACION}
+        requeridos_dict    = _docs_requeridos(datos_calificacion)
+        pendientes         = documentos_pendientes(docs_recibidos, datos_calificacion)
+        tipo_label         = requeridos_dict.get(tipo, {}).get("label") or nombre_archivo
 
         if not pendientes:
-            # Todos los documentos recibidos
             confirmacion = (
                 f"✅ ¡Recibí tu documento ({tipo_label})!\n\n"
                 f"🎉 ¡Perfecto! Ya tenemos todos los documentos necesarios. "
@@ -915,8 +1438,9 @@ async def _procesar_media(
                 await actualizar_datos_prospecto(prospecto_id, {}, "DOCS_RECIBIDOS")
         else:
             pendientes_texto = "\n".join(
-                f"  ▸ {DOCUMENTOS_REQUERIDOS[t]['label']} ({falta} archivo{'s' if falta > 1 else ''} más)"
+                f"  ▸ {requeridos_dict[t]['label']} ({falta} archivo{'s' if falta > 1 else ''} más)"
                 for t, falta in pendientes.items()
+                if t in requeridos_dict
             )
             confirmacion = (
                 f"✅ ¡Recibí tu documento ({tipo_label})!\n\n"
