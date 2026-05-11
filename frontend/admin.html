@@ -226,15 +226,15 @@
 
 <script>
   const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NTg1MDQsImV4cCI6MjA1NzAzNDUwNH0.mDhQsNXFzpqtEWLMGVAMNK3_0rViuXFbV7bPMPlSZSI';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc';
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
   let _token = null;
   let _perfil = null;
 
   // ── Auth check ──────────────────────────────────────────────────────────
   async function init() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = '/login.html'; return; }
     _token = session.access_token;
     const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } });
@@ -251,7 +251,7 @@
   }
 
   async function cerrarSesion() {
-    await supabase.auth.signOut();
+    await _supabase.auth.signOut();
     window.location.href = '/login.html';
   }
 
