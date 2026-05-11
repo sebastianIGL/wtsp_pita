@@ -247,7 +247,11 @@
   }
 
   function authHeaders() {
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${_token}` };
+    return {
+      'Content-Type': 'application/json',
+      'X-API-Key': 'variable.test.2026.chatbot',
+      Authorization: `Bearer ${_token}`,
+    };
   }
 
   async function cerrarSesion() {
@@ -279,6 +283,7 @@
   // ── Usuarios ──────────────────────────────────────────────────────────
   async function cargarUsuarios() {
     const res  = await fetch('/api/usuarios', { headers: authHeaders() });
+    if (!res.ok) { toast('Error al cargar usuarios: ' + await res.text(), 'error'); return; }
     const rows = await res.json();
     const tbody = document.getElementById('tablaUsuarios');
     if (!rows.length) {
@@ -394,6 +399,7 @@
   // ── Proyectos ─────────────────────────────────────────────────────────
   async function cargarProyectos() {
     const res  = await fetch('/api/proyectos', { headers: authHeaders() });
+    if (!res.ok) { toast('Error al cargar proyectos: ' + await res.text(), 'error'); return; }
     const rows = await res.json();
     const tbody = document.getElementById('tablaProyectos');
     if (!rows.length) {
