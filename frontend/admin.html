@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — CRM Subsidios</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+<!-- Header -->
+<header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-3">
+    <a href="/" class="text-slate-400 hover:text-slate-200 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+    </a>
+    <h1 class="text-lg font-bold text-white">Panel de Administración</h1>
+  </div>
+  <div class="flex items-center gap-3">
+    <span id="adminNombre" class="text-sm text-slate-400"></span>
+    <button onclick="cerrarSesion()"
+      class="text-sm text-slate-400 hover:text-red-400 transition px-3 py-1.5 rounded-lg hover:bg-slate-700">
+      Cerrar sesión
+    </button>
+  </div>
+</header>
+
+<!-- Main -->
+<main class="max-w-5xl mx-auto px-4 py-8">
+
+  <!-- Toast -->
+  <div id="toast" class="fixed top-5 right-5 z-50 hidden max-w-xs px-4 py-3 rounded-xl shadow-xl text-sm font-medium"></div>
+
+  <!-- Tabs -->
+  <div class="flex gap-1 mb-8 bg-slate-800 p-1 rounded-xl w-fit">
+    <button onclick="mostrarTab('usuarios')" id="tab-usuarios"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition bg-blue-600 text-white">
+      Usuarios
+    </button>
+    <button onclick="mostrarTab('proyectos')" id="tab-proyectos"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      Proyectos
+    </button>
+  </div>
+
+  <!-- TAB: USUARIOS -->
+  <div id="panel-usuarios">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xl font-semibold">Usuarios del sistema</h2>
+      <button onclick="abrirModalCrear()"
+        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Nuevo usuario
+      </button>
+    </div>
+
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Nombre</th>
+            <th class="text-left px-5 py-3">RUT</th>
+            <th class="text-left px-5 py-3">Correo</th>
+            <th class="text-left px-5 py-3">Rol</th>
+            <th class="text-left px-5 py-3">Estado</th>
+            <th class="text-left px-5 py-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaUsuarios">
+          <tr><td colspan="6" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: PROYECTOS -->
+  <div id="panel-proyectos" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xl font-semibold">Proyectos y mapeos CSV</h2>
+      <p class="text-slate-400 text-sm">Los aliases CSV permiten importar clientes con nombres alternativos.</p>
+    </div>
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Código</th>
+            <th class="text-left px-5 py-3">Nombre en DB</th>
+            <th class="text-left px-5 py-3">Nombres en CSV</th>
+          </tr>
+        </thead>
+        <tbody id="tablaProyectos">
+          <tr><td colspan="3" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<!-- Modal: Crear usuario -->
+<div id="modalCrear" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+      <h3 class="font-semibold text-lg">Crear nuevo usuario</h3>
+      <button onclick="cerrarModalCrear()" class="text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <form id="formCrearUsuario" class="px-6 py-5 space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="block text-slate-300 text-xs font-medium mb-1.5">Nombre completo *</label>
+          <input id="u-nombre" type="text" required placeholder="Nombre Apellido"
+            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+        </div>
+        <div>
+          <label class="block text-slate-300 text-xs font-medium mb-1.5">RUT *</label>
+          <input id="u-rut" type="text" required placeholder="12345678-9"
+            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+        </div>
+        <div>
+          <label class="block text-slate-300 text-xs font-medium mb-1.5">Celular</label>
+          <input id="u-celular" type="text" placeholder="+569..."
+            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+        </div>
+        <div class="col-span-2">
+          <label class="block text-slate-300 text-xs font-medium mb-1.5">Correo electrónico *</label>
+          <input id="u-correo" type="email" required placeholder="usuario@empresa.cl"
+            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+        </div>
+        <div class="col-span-2">
+          <label class="block text-slate-300 text-xs font-medium mb-1.5">Rol *</label>
+          <select id="u-rol"
+            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="usuario">Usuario</option>
+            <option value="administrador">Administrador</option>
+          </select>
+        </div>
+      </div>
+      <p class="text-xs text-slate-400 bg-slate-700/50 rounded-lg px-3 py-2">
+        Se enviará un correo con la contraseña provisional al usuario creado.
+      </p>
+      <div id="errorCrear" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-3 pt-1">
+        <button type="button" onclick="cerrarModalCrear()"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-lg text-sm transition">
+          Cancelar
+        </button>
+        <button type="submit" id="btnCrearUsuario"
+          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
+          Crear usuario
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Editar usuario -->
+<div id="modalEditar" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-sm shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+      <h3 class="font-semibold text-lg">Editar usuario</h3>
+      <button onclick="cerrarModalEditar()" class="text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <form id="formEditarUsuario" class="px-6 py-5 space-y-4">
+      <input type="hidden" id="e-id" />
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Nombre</label>
+        <input id="e-nombre" type="text"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Celular</label>
+        <input id="e-celular" type="text"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Rol</label>
+        <select id="e-rol"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="usuario">Usuario</option>
+          <option value="administrador">Administrador</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Estado</label>
+        <select id="e-estado"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="1">Activo</option>
+          <option value="0">Inactivo</option>
+        </select>
+      </div>
+      <div id="errorEditar" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-3 pt-1">
+        <button type="button" onclick="cerrarModalEditar()"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-lg text-sm transition">
+          Cancelar
+        </button>
+        <button type="submit" id="btnEditarUsuario"
+          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition">
+          Guardar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NTg1MDQsImV4cCI6MjA1NzAzNDUwNH0.mDhQsNXFzpqtEWLMGVAMNK3_0rViuXFbV7bPMPlSZSI';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  let _token = null;
+  let _perfil = null;
+
+  // ── Auth check ──────────────────────────────────────────────────────────
+  async function init() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = '/login.html'; return; }
+    _token = session.access_token;
+    const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } });
+    if (!res.ok) { window.location.href = '/login.html'; return; }
+    _perfil = await res.json();
+    if (_perfil.rol !== 'administrador') { window.location.href = '/'; return; }
+    document.getElementById('adminNombre').textContent = _perfil.nombre || '';
+    cargarUsuarios();
+    cargarProyectos();
+  }
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${_token}` };
+  }
+
+  async function cerrarSesion() {
+    await supabase.auth.signOut();
+    window.location.href = '/login.html';
+  }
+
+  // ── Tabs ─────────────────────────────────────────────────────────────────
+  function mostrarTab(tab) {
+    ['usuarios', 'proyectos'].forEach(t => {
+      document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+      const btn = document.getElementById(`tab-${t}`);
+      btn.classList.toggle('bg-blue-600', t === tab);
+      btn.classList.toggle('text-white', t === tab);
+      btn.classList.toggle('text-slate-400', t !== tab);
+    });
+  }
+
+  // ── Toast ──────────────────────────────────────────────────────────────
+  function toast(msg, tipo = 'ok') {
+    const el = document.getElementById('toast');
+    el.className = `fixed top-5 right-5 z-50 max-w-xs px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition
+      ${tipo === 'ok' ? 'bg-emerald-700 text-white' : 'bg-red-700 text-white'}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 3500);
+  }
+
+  // ── Usuarios ──────────────────────────────────────────────────────────
+  async function cargarUsuarios() {
+    const res  = await fetch('/api/usuarios', { headers: authHeaders() });
+    const rows = await res.json();
+    const tbody = document.getElementById('tablaUsuarios');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-500 py-10">Sin usuarios registrados</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(u => `
+      <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+        <td class="px-5 py-3 font-medium">${u.nombre}</td>
+        <td class="px-5 py-3 text-slate-400 font-mono text-xs">${u.rut}</td>
+        <td class="px-5 py-3 text-slate-300">${u.correo}</td>
+        <td class="px-5 py-3">
+          <span class="px-2.5 py-1 rounded-full text-xs font-medium
+            ${u.rol === 'administrador' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-700 text-slate-300'}">
+            ${u.rol === 'administrador' ? 'Admin' : 'Usuario'}
+          </span>
+        </td>
+        <td class="px-5 py-3">
+          <span class="flex items-center gap-1.5 text-xs">
+            <span class="w-2 h-2 rounded-full ${u.estado == 1 ? 'bg-emerald-400' : 'bg-red-400'}"></span>
+            ${u.estado == 1 ? 'Activo' : 'Inactivo'}
+          </span>
+        </td>
+        <td class="px-5 py-3">
+          <button onclick='abrirModalEditar(${JSON.stringify(u)})'
+            class="text-blue-400 hover:text-blue-300 text-xs font-medium transition">
+            Editar
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function abrirModalCrear() {
+    document.getElementById('formCrearUsuario').reset();
+    document.getElementById('errorCrear').classList.add('hidden');
+    document.getElementById('modalCrear').classList.remove('hidden');
+  }
+  function cerrarModalCrear() {
+    document.getElementById('modalCrear').classList.add('hidden');
+  }
+
+  document.getElementById('formCrearUsuario').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btnCrearUsuario');
+    btn.disabled = true; btn.textContent = 'Creando…';
+    document.getElementById('errorCrear').classList.add('hidden');
+    try {
+      const res = await fetch('/api/usuarios', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          nombre:  document.getElementById('u-nombre').value.trim(),
+          rut:     document.getElementById('u-rut').value.trim(),
+          correo:  document.getElementById('u-correo').value.trim(),
+          celular: document.getElementById('u-celular').value.trim() || null,
+          rol:     document.getElementById('u-rol').value,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      cerrarModalCrear();
+      toast('Usuario creado. Se envió el correo con la contraseña provisional.');
+      cargarUsuarios();
+    } catch (err) {
+      const errEl = document.getElementById('errorCrear');
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Crear usuario';
+    }
+  });
+
+  function abrirModalEditar(u) {
+    document.getElementById('e-id').value      = u.id;
+    document.getElementById('e-nombre').value  = u.nombre;
+    document.getElementById('e-celular').value = u.celular || '';
+    document.getElementById('e-rol').value     = u.rol;
+    document.getElementById('e-estado').value  = u.estado;
+    document.getElementById('errorEditar').classList.add('hidden');
+    document.getElementById('modalEditar').classList.remove('hidden');
+  }
+  function cerrarModalEditar() {
+    document.getElementById('modalEditar').classList.add('hidden');
+  }
+
+  document.getElementById('formEditarUsuario').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = document.getElementById('btnEditarUsuario');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    try {
+      const id  = document.getElementById('e-id').value;
+      const res = await fetch(`/api/usuarios/${id}`, {
+        method: 'PATCH', headers: authHeaders(),
+        body: JSON.stringify({
+          nombre:  document.getElementById('e-nombre').value.trim(),
+          celular: document.getElementById('e-celular').value.trim() || null,
+          rol:     document.getElementById('e-rol').value,
+          estado:  parseInt(document.getElementById('e-estado').value),
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      cerrarModalEditar();
+      toast('Usuario actualizado correctamente.');
+      cargarUsuarios();
+    } catch (err) {
+      const errEl = document.getElementById('errorEditar');
+      errEl.textContent = err.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar';
+    }
+  });
+
+  // ── Proyectos ─────────────────────────────────────────────────────────
+  async function cargarProyectos() {
+    const res  = await fetch('/api/proyectos', { headers: authHeaders() });
+    const rows = await res.json();
+    const tbody = document.getElementById('tablaProyectos');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-slate-500 py-10">Sin proyectos</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(p => `
+      <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+        <td class="px-5 py-3 font-mono text-xs text-blue-400">${p.codigo}</td>
+        <td class="px-5 py-3 font-medium">${p.nombre}</td>
+        <td class="px-5 py-3 text-slate-400 text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ── Cerrar modales con Escape ──────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { cerrarModalCrear(); cerrarModalEditar(); }
+  });
+
+  init();
+</script>
+</body>
+</html>

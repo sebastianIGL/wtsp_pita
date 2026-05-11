@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM Subsidios — Iniciar sesión</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 60%, #0f172a 100%); min-height: 100vh; }
+    .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+    input:-webkit-autofill { -webkit-box-shadow: 0 0 0 30px #1e293b inset; -webkit-text-fill-color: #e2e8f0; }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+  <div class="w-full max-w-md">
+    <!-- Logo / Brand -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 mb-4 shadow-lg shadow-blue-500/30">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold text-white">CRM Subsidios</h1>
+      <p class="text-slate-400 text-sm mt-1">Ingresa con tu cuenta</p>
+    </div>
+
+    <!-- Card -->
+    <div class="glass rounded-2xl p-8 shadow-2xl">
+
+      <!-- Alert -->
+      <div id="alerta" class="hidden mb-5 px-4 py-3 rounded-lg text-sm font-medium"></div>
+
+      <!-- Login form -->
+      <form id="formLogin" class="space-y-5">
+        <div>
+          <label class="block text-slate-300 text-sm font-medium mb-1.5">Correo electrónico</label>
+          <input id="correo" type="email" autocomplete="email" required
+            placeholder="tu@correo.cl"
+            class="w-full bg-slate-800 border border-slate-600 text-slate-100 rounded-lg px-4 py-3 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                   placeholder-slate-500 transition" />
+        </div>
+        <div>
+          <label class="block text-slate-300 text-sm font-medium mb-1.5">Contraseña</label>
+          <div class="relative">
+            <input id="password" type="password" autocomplete="current-password" required
+              placeholder="••••••••"
+              class="w-full bg-slate-800 border border-slate-600 text-slate-100 rounded-lg px-4 py-3 pr-12 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                     placeholder-slate-500 transition" />
+            <button type="button" id="togglePwd"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition">
+              <svg id="eyeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7
+                     -1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" id="btnLogin"
+          class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold
+                 rounded-lg py-3 text-sm transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+          Iniciar sesión
+        </button>
+      </form>
+
+      <!-- Change password form (provisional) -->
+      <form id="formCambio" class="hidden space-y-5">
+        <div class="mb-2">
+          <div class="flex items-center gap-2 text-amber-400 mb-1">
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+            </svg>
+            <span class="font-semibold text-sm">Contraseña provisional detectada</span>
+          </div>
+          <p class="text-slate-400 text-sm">Crea una contraseña permanente para continuar.</p>
+        </div>
+        <div>
+          <label class="block text-slate-300 text-sm font-medium mb-1.5">Nueva contraseña</label>
+          <input id="nuevaPwd" type="password" required minlength="8" placeholder="Mínimo 8 caracteres"
+            class="w-full bg-slate-800 border border-slate-600 text-slate-100 rounded-lg px-4 py-3 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition" />
+        </div>
+        <div>
+          <label class="block text-slate-300 text-sm font-medium mb-1.5">Confirmar contraseña</label>
+          <input id="confirmarPwd" type="password" required minlength="8" placeholder="Repite tu contraseña"
+            class="w-full bg-slate-800 border border-slate-600 text-slate-100 rounded-lg px-4 py-3 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-slate-500 transition" />
+        </div>
+        <button type="submit" id="btnCambio"
+          class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold
+                 rounded-lg py-3 text-sm transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed">
+          Guardar nueva contraseña
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-slate-600 text-xs mt-6">CRM Subsidios &copy; 2026</p>
+  </div>
+
+<script>
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NTg1MDQsImV4cCI6MjA1NzAzNDUwNH0.mDhQsNXFzpqtEWLMGVAMNK3_0rViuXFbV7bPMPlSZSI';
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  let _session = null;
+
+  function mostrarAlerta(msg, tipo = 'error') {
+    const el = document.getElementById('alerta');
+    el.className = `mb-5 px-4 py-3 rounded-lg text-sm font-medium ${tipo === 'error' ? 'bg-red-900/60 text-red-300 border border-red-700' : 'bg-green-900/60 text-green-300 border border-green-700'}`;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function ocultarAlerta() { document.getElementById('alerta').classList.add('hidden'); }
+
+  // Toggle password visibility
+  document.getElementById('togglePwd').addEventListener('click', () => {
+    const pwd = document.getElementById('password');
+    pwd.type = pwd.type === 'password' ? 'text' : 'password';
+  });
+
+  // Login
+  document.getElementById('formLogin').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    ocultarAlerta();
+    const btn = document.getElementById('btnLogin');
+    btn.disabled = true;
+    btn.textContent = 'Ingresando…';
+    const correo   = document.getElementById('correo').value.trim();
+    const password = document.getElementById('password').value;
+    try {
+      const { data, error } = await _supabase.auth.signInWithPassword({ email: correo, password });
+      if (error) throw error;
+      _session = data.session;
+      // Check if provisional password
+      const res  = await fetch('/api/usuarios/me', {
+        headers: { Authorization: `Bearer ${_session.access_token}` }
+      });
+      const user = await res.json();
+      if (user.password_provisional) {
+        document.getElementById('formLogin').classList.add('hidden');
+        document.getElementById('formCambio').classList.remove('hidden');
+        mostrarAlerta('Debes crear una contraseña permanente para continuar.', 'info');
+      } else {
+        window.location.href = '/';
+      }
+    } catch (err) {
+      mostrarAlerta(err.message || 'Error al iniciar sesión');
+      btn.disabled = false;
+      btn.textContent = 'Iniciar sesión';
+    }
+  });
+
+  // Change password
+  document.getElementById('formCambio').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    ocultarAlerta();
+    const btn    = document.getElementById('btnCambio');
+    const nueva  = document.getElementById('nuevaPwd').value;
+    const conf   = document.getElementById('confirmarPwd').value;
+    if (nueva !== conf) { mostrarAlerta('Las contraseñas no coinciden'); return; }
+    if (nueva.length < 8) { mostrarAlerta('Mínimo 8 caracteres'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    try {
+      const res = await fetch('/api/auth/cambiar-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_session.access_token}` },
+        body: JSON.stringify({ nueva_password: nueva }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      mostrarAlerta('✓ Contraseña actualizada. Redirigiendo…', 'ok');
+      setTimeout(() => window.location.href = '/', 1500);
+    } catch (err) {
+      mostrarAlerta(err.message || 'Error al cambiar contraseña');
+      btn.disabled = false;
+      btn.textContent = 'Guardar nueva contraseña';
+    }
+  });
+
+  // If already logged in, redirect
+  _supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) window.location.href = '/';
+  });
+</script>
+</body>
+</html>

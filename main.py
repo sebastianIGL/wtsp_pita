@@ -4,6 +4,11 @@ import os
 import json
 import httpx
 import smtplib
+import csv
+import io
+import random
+import string
+import unicodedata
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -89,6 +94,7 @@ TOKEN_VERIFICACION = _get_env("WA_VERIFY_TOKEN", "WHATSAPP_VERIFY_TOKEN")
 TOKEN_ACCESO       = _get_env("WA_ACCESS_TOKEN", "WHATSAPP_ACCESS_TOKEN")
 ID_NUMERO_TELEFONO = _get_env("WA_PHONE_NUMBER_ID", "WHATSAPP_PHONE_NUMBER_ID")
 VERSION_GRAPH      = _get_env("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION", default="v22.0")
+WA_WABA_ID         = _get_env("WA_WABA_ID", "WHATSAPP_WABA_ID")
 ANTHROPIC_API_KEY  = _get_env("ANTHROPIC_API_KEY")
 
 # ---------------------------------------------------------------------------
@@ -1648,6 +1654,366 @@ async def test_hello_world(request: Request):
 
 
 # ---------------------------------------------------------------------------
+# Auth JWT (Supabase)
+# ---------------------------------------------------------------------------
+
+async def _get_usuario_actual(request: Request) -> Optional[Dict]:
+    """Verifica el JWT de Supabase y retorna el perfil del usuario, o None."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    supa_url = _supabase_url()
+    key = _supabase_service_role_key()
+    if not supa_url or not key:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{supa_url}/auth/v1/user",
+                headers={"Authorization": f"Bearer {token}", "apikey": key},
+            )
+            if r.status_code != 200:
+                return None
+            user_id = r.json().get("id")
+            if not user_id:
+                return None
+        perfiles = await _supabase_request(
+            "GET", "/Usuario",
+            params={"id": f"eq.{user_id}", "select": "*", "limit": "1"},
+        )
+        return perfiles[0] if perfiles else None
+    except Exception:
+        return None
+
+
+def _solo_admin(perfil: Optional[Dict]) -> bool:
+    return bool(perfil and perfil.get("rol") == "administrador")
+
+
+def _generar_password_temporal() -> str:
+    chars = string.ascii_letters + string.digits
+    return "".join(random.choices(chars, k=10))
+
+
+async def _crear_usuario_supabase_auth(correo: str, password: str) -> str:
+    supa_url = _supabase_url()
+    key = _supabase_service_role_key()
+    async with httpx.AsyncClient(timeout=20) as client:
+        r = await client.post(
+            f"{supa_url}/auth/v1/admin/users",
+            headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
+            json={"email": correo, "password": password, "email_confirm": True},
+        )
+        r.raise_for_status()
+        return r.json()["id"]
+
+
+async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str):
+    email_remitente = os.getenv("EMAIL_REMITENTE")
+    email_password  = os.getenv("EMAIL_PASSWORD")
+    if not email_remitente or not email_password:
+        raise RuntimeError("EMAIL_REMITENTE o EMAIL_PASSWORD no configurados")
+    body_html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;">
+      <h2 style="color:#1e3a5f;">🏠 Bienvenido/a al CRM de Subsidios</h2>
+      <p>Hola <strong>{nombre}</strong>, tu cuenta ha sido creada exitosamente.</p>
+      <table style="border-collapse:collapse;font-size:14px;width:100%;">
+        <tr><td style="padding:6px 12px;font-weight:bold;color:#555;">Correo:</td>
+            <td style="padding:6px 12px;">{correo}</td></tr>
+        <tr style="background:#f9f9f9;">
+          <td style="padding:6px 12px;font-weight:bold;color:#555;">Contraseña provisional:</td>
+          <td style="padding:6px 12px;">
+            <code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:16px;">{password_temp}</code>
+          </td>
+        </tr>
+      </table>
+      <p style="margin-top:16px;padding:12px;background:#fff3cd;border-left:4px solid #e6a817;color:#856404;">
+        ⚠️ Al ingresar por primera vez, el sistema te pedirá que cambies esta contraseña.
+      </p>
+      <p style="color:#666;font-size:13px;">Accede con tu correo y esta contraseña provisional.</p>
+    </div>"""
+    msg = MIMEMultipart()
+    msg["From"]    = email_remitente
+    msg["To"]      = correo
+    msg["Subject"] = "🔑 Tu cuenta en CRM Subsidios — Contraseña provisional"
+    msg.attach(MIMEText(body_html, "html"))
+    def _send():
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(email_remitente, email_password)
+            server.sendmail(email_remitente, [correo], msg.as_string())
+    await asyncio.get_event_loop().run_in_executor(None, _send)
+
+
+def _normalizar_nombre(s: str) -> str:
+    nfkd = unicodedata.normalize("NFKD", (s or "").lower().strip())
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
+
+
+async def _buscar_codigo_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[str]:
+    nombre_norm = _normalizar_nombre(nombre_csv)
+    for p in proyectos_cache:
+        if _normalizar_nombre(p.get("nombre", "")) == nombre_norm:
+            return p["codigo"]
+        for alias in (p.get("nombres_csv") or []):
+            if _normalizar_nombre(alias) == nombre_norm:
+                return p["codigo"]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# API — Usuarios
+# ---------------------------------------------------------------------------
+
+@app.get("/api/usuarios/me")
+async def api_usuario_actual(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    return perfil
+
+
+@app.get("/api/usuarios")
+async def api_listar_usuarios(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    rows = await _supabase_request("GET", "/Usuario", params={"select": "*", "order": "created_at.desc"})
+    return rows or []
+
+
+@app.post("/api/usuarios")
+async def api_crear_usuario(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    try:
+        body    = await request.json()
+        nombre  = (body.get("nombre") or "").strip()
+        rut     = (body.get("rut") or "").strip()
+        correo  = (body.get("correo") or "").strip()
+        celular = (body.get("celular") or "").strip() or None
+        rol     = body.get("rol", "usuario")
+        if not nombre or not rut or not correo:
+            return Response(content="Faltan campos obligatorios: nombre, rut, correo", status_code=400)
+        if rol not in ("usuario", "administrador"):
+            return Response(content="rol debe ser 'usuario' o 'administrador'", status_code=400)
+        password_temp = _generar_password_temporal()
+        user_id = await _crear_usuario_supabase_auth(correo, password_temp)
+        await _supabase_request("POST", "/Usuario", json={
+            "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
+            "celular": celular, "rol": rol, "password_provisional": True,
+        })
+        await _enviar_email_bienvenida(correo, nombre, password_temp)
+        return {"ok": True, "usuario_id": user_id}
+    except Exception as e:
+        logger.exception("Error creando usuario")
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
+@app.patch("/api/usuarios/{usuario_id}")
+async def api_actualizar_usuario(usuario_id: str, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    try:
+        body   = await request.json()
+        update = {k: body[k] for k in ("nombre", "celular", "rol", "estado") if k in body}
+        if not update:
+            return Response(content="Nada que actualizar", status_code=400)
+        await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{usuario_id}"}, json=update)
+        return {"ok": True}
+    except Exception as e:
+        return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
+@app.post("/api/auth/cambiar-password")
+async def api_cambiar_password(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body  = await request.json()
+        nueva = (body.get("nueva_password") or "").strip()
+        if len(nueva) < 8:
+            return Response(content="La contraseña debe tener al menos 8 caracteres", status_code=400)
+        token    = request.headers.get("Authorization", "")[7:]
+        supa_url = _supabase_url()
+        key      = _supabase_service_role_key()
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.put(
+                f"{supa_url}/auth/v1/user",
+                headers={"Authorization": f"Bearer {token}", "apikey": key, "Content-Type": "application/json"},
+                json={"password": nueva},
+            )
+            r.raise_for_status()
+        await _supabase_request("PATCH", "/Usuario",
+            params={"id": f"eq.{perfil['id']}"},
+            json={"password_provisional": False})
+        return {"ok": True}
+    except Exception as e:
+        return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# API — Templates WhatsApp (dinámico desde Meta)
+# ---------------------------------------------------------------------------
+
+@app.get("/api/templates")
+async def api_listar_templates(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not WA_WABA_ID:
+        return Response(content="WA_WABA_ID no configurado en el servidor", status_code=500)
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            r = await client.get(
+                f"https://graph.facebook.com/{VERSION_GRAPH}/{WA_WABA_ID}/message_templates",
+                params={"status": "APPROVED", "limit": "100"},
+                headers={"Authorization": f"Bearer {TOKEN_ACCESO}"},
+            )
+            r.raise_for_status()
+        return {
+            "templates": [
+                {"name": t["name"], "language": t.get("language", "es"), "category": t.get("category", ""), "components": t.get("components", [])}
+                for t in r.json().get("data", [])
+            ]
+        }
+    except Exception as e:
+        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# API — Importar clientes desde CSV
+# ---------------------------------------------------------------------------
+
+@app.post("/api/clientes/importar")
+async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    usuario_id = perfil["id"]
+    try:
+        content = await file.read()
+        try:
+            text = content.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            text = content.decode("latin-1")
+        reader = csv.DictReader(io.StringIO(text))
+        todos_proyectos = await _supabase_request(
+            "GET", "/Proyecto",
+            params={"select": "codigo,nombre,nombres_csv"},
+        ) or []
+        creados, duplicados, errores = 0, [], []
+        for i, row in enumerate(reader):
+            fila = i + 2
+            try:
+                nombre_proyecto = (row.get("Proyecto") or "").strip()
+                nombre          = (row.get("Contacto") or "").strip()
+                rut             = (row.get("Rut") or "").strip()
+                correo          = (row.get("Correo") or "").strip() or None
+                tel_raw         = (row.get("Teléfono") or row.get("Telefono") or "").strip()
+                telefono        = _normalize_phone(tel_raw)
+                estado_crm      = (row.get("Estado") or "").strip() or None
+                tramo_renta     = (row.get("Tramo de renta") or "").strip() or None
+                sub_raw         = (row.get("Tiene subsidio") or "").strip().lower()
+                tiene_subsidio  = True if sub_raw in ("si","sí","yes","1") else (False if sub_raw in ("no","0") else None)
+                tipo_subsidio   = (row.get("Tipo subsidio") or "").strip() or None
+                prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
+                tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
+
+                if not nombre or not telefono:
+                    errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío"})
+                    continue
+                if not nombre_proyecto:
+                    errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío"})
+                    continue
+                codigo_proyecto = await _buscar_codigo_proyecto(nombre_proyecto, todos_proyectos)
+                if not codigo_proyecto:
+                    errores.append({"fila": fila, "nombre": nombre, "motivo": f"Proyecto '{nombre_proyecto}' sin mapeo"})
+                    continue
+                existente = await _supabase_request(
+                    "GET", "/Cliente",
+                    params={"Telefono": f"eq.{telefono}", "select": "id,usuario_id", "limit": "1"},
+                )
+                if existente:
+                    owner_id = existente[0].get("usuario_id")
+                    owner_nombre = "otro usuario"
+                    if owner_id:
+                        op = await _supabase_request("GET", "/Usuario",
+                            params={"id": f"eq.{owner_id}", "select": "nombre", "limit": "1"})
+                        if op:
+                            owner_nombre = op[0].get("nombre", "otro usuario")
+                    duplicados.append({"fila": fila, "nombre": nombre, "telefono": telefono, "propietario": owner_nombre})
+                    continue
+                await _supabase_request("POST", "/Cliente",
+                    json={
+                        "Proyecto": nombre_proyecto, "codigo_proyecto": codigo_proyecto,
+                        "Contacto": nombre, "Rut": rut, "Correo": correo, "Telefono": telefono,
+                        "estado_crm": estado_crm, "Tramo de renta": tramo_renta,
+                        "tiene_subsidio": tiene_subsidio, "tipo_subsidio": tipo_subsidio,
+                        "tiene_propiedad": tiene_propiedad, "primer mensaje": True,
+                        "wtsp_habilitado": True, "usuario_id": usuario_id,
+                        "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                    },
+                    extra_headers={"Prefer": "return=minimal"})
+                creados += 1
+            except Exception as ex:
+                errores.append({"fila": fila, "motivo": str(ex)})
+        return {
+            "ok": True, "creados": creados,
+            "duplicados": len(duplicados), "errores": len(errores),
+            "detalle_duplicados": duplicados, "detalle_errores": errores,
+        }
+    except Exception as e:
+        logger.exception("Error importando clientes")
+        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
+# API — Enviar primer WhatsApp seleccionando template
+# ---------------------------------------------------------------------------
+
+@app.post("/api/clientes/{cliente_id}/enviar-wtsp")
+async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body          = await request.json()
+        template_name = (body.get("template_name") or "").strip()
+        language_code = (body.get("language_code") or "es").strip()
+        if not template_name:
+            return Response(content="Falta template_name", status_code=400)
+        rows = await _supabase_request("GET", "/Cliente",
+            params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
+        if not rows:
+            return Response(content="Cliente no encontrado", status_code=404)
+        c        = rows[0]
+        telefono = _normalize_phone(c.get("Telefono") or "")
+        nombre   = (c.get("Contacto") or "").strip()
+        codigo   = c.get("codigo_proyecto") or ""
+        if not telefono:
+            return Response(content="Cliente sin teléfono", status_code=400)
+        wa = await send_whatsapp_template(
+            to=telefono, template_name=template_name, language_code=language_code,
+            body_text_params=[nombre], image_url=None,
+        )
+        await _supabase_request("PATCH", "/Cliente",
+            params={"id": f"eq.{cliente_id}"},
+            json={"primer mensaje": False, "wtsp_habilitado": False})
+        await upsert_prospecto(
+            telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
+            rango_sueldo=c.get("Tramo de renta"), codigo_proyecto=codigo,
+            estado="PLANTILLA_ENVIADA", paso="BIENVENIDA", cliente_id=cliente_id,
+        )
+        return {"ok": True, "wa": wa}
+    except Exception as e:
+        logger.exception("Error en enviar-wtsp cliente %s", cliente_id)
+        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
+# ---------------------------------------------------------------------------
 # API para el frontend
 # ---------------------------------------------------------------------------
 
@@ -1672,12 +2038,13 @@ async def api_listar_proyectos(request: Request):
 
 @app.get("/api/clientes")
 async def api_listar_clientes(request: Request):
-    if not _check_api_key(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil and not _check_api_key(request):
         return Response(content="Unauthorized", status_code=401)
-    rows = await _supabase_request(
-        "GET", "/Cliente",
-        params={"select": "*", "order": "id.desc"},
-    )
+    params: Dict[str, str] = {"select": "*", "order": "id.desc"}
+    if perfil and perfil.get("rol") != "administrador":
+        params["usuario_id"] = f"eq.{perfil['id']}"
+    rows = await _supabase_request("GET", "/Cliente", params=params)
     return rows or []
 
 

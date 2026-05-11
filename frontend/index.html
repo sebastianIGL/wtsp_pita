@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Neurobytes — CRM Inmobiliario</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -111,11 +112,20 @@
       <p class="text-xs sub-text mt-0.5">CRM Inmobiliario</p>
     </div>
   </div>
-  <div class="flex items-center gap-4">
+  <div class="flex items-center gap-3">
+    <!-- Admin link (hidden unless admin) -->
+    <a id="admin-link" href="/admin.html" class="hidden text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition">
+      Panel Admin
+    </a>
+    <!-- User info -->
     <div class="flex items-center gap-2 text-xs sidebar-text">
       <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
-      Bot activo en Railway
+      <span id="user-name">…</span>
     </div>
+    <!-- Sign out -->
+    <button onclick="cerrarSesion()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition" title="Cerrar sesión">
+      Salir
+    </button>
     <!-- Botón sol/luna -->
     <button id="theme-toggle" onclick="toggleTheme()" class="theme-btn w-9 h-9 rounded-xl flex items-center justify-center glass hover:scale-110" title="Cambiar tema">
       <span id="theme-icon" class="text-lg">🌙</span>
@@ -164,6 +174,10 @@
         <select id="filtro-proyecto" class="rounded-lg px-3 py-1.5 text-sm" onchange="aplicarFiltros()">
           <option value="">Todos los proyectos</option>
         </select>
+        <button onclick="abrirImport()" class="flex items-center gap-2 bg-slate-600 hover:bg-slate-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          Importar CSV
+        </button>
         <button onclick="abrirModal()" class="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Nuevo cliente
@@ -444,13 +458,79 @@
   </div>
 </div>
 
+<!-- ═══════════════════ MODAL IMPORTAR CSV ═══════════════════ -->
+<div id="modal-import" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+  <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarImport()"></div>
+  <div class="glass relative rounded-2xl w-full max-w-md p-6 z-10 shadow-2xl">
+    <div class="flex items-center justify-between mb-5">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <h3 class="text-lg font-semibold val-text">Importar clientes desde CSV</h3>
+      </div>
+      <button onclick="cerrarImport()" class="sidebar-text hover:text-brand-500 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="import-form">
+      <p class="text-xs sidebar-text mb-4">El archivo debe tener columnas: <span class="val-text font-mono">Proyecto, Contacto, Rut, Correo, Teléfono, Estado, Tramo de renta, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
+      <form onsubmit="importarCSV(event)" class="space-y-4">
+        <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
+          <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
+          <svg class="w-8 h-8 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <p id="csv-file-label" class="text-sm sidebar-text">Arrastra tu CSV aquí o haz clic para seleccionar</p>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="cerrarImport()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">Cancelar</button>
+          <button type="submit" id="btn-importar" class="flex-1 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition flex items-center justify-center gap-2">
+            Importar
+          </button>
+        </div>
+      </form>
+    </div>
+    <div id="import-results" class="hidden"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL TEMPLATE WHATSAPP ═══════════════════ -->
+<div id="modal-template" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+  <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarSelectorTemplate()"></div>
+  <div class="glass relative rounded-2xl w-full max-w-lg z-10 shadow-2xl overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b eval-divider">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <h3 class="font-semibold val-text">Seleccionar plantilla de WhatsApp</h3>
+      </div>
+      <button onclick="cerrarSelectorTemplate()" class="sidebar-text hover:text-brand-500 transition rounded-lg p-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="px-6 pt-3 pb-1">
+      <p id="template-destino" class="text-sm sidebar-text"></p>
+    </div>
+    <div id="template-lista" class="px-6 py-3 max-h-80 overflow-y-auto space-y-2"></div>
+    <div class="px-6 pb-5 flex gap-3 border-t eval-divider pt-4">
+      <button onclick="cerrarSelectorTemplate()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">Cancelar</button>
+      <button id="btn-enviar-template" onclick="enviarConTemplate()" disabled
+        class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+        Enviar WhatsApp
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ SCRIPT ═══════════════════ -->
 <script>
+const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co'
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE0NTg1MDQsImV4cCI6MjA1NzAzNDUwNH0.mDhQsNXFzpqtEWLMGVAMNK3_0rViuXFbV7bPMPlSZSI'
+const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+
 const CONFIG = {
-  RAILWAY_URL: 'http://localhost:8000',
+  RAILWAY_URL: '',
   API_KEY: 'variable.test.2026.chatbot',
 }
 
+let _token  = null
+let _perfil = null
 let clientes = []
 let proyectos = []
 let paginaActual = 1
@@ -472,17 +552,54 @@ function toggleTheme() {
 const savedTheme = localStorage.getItem('theme')
 applyTheme(savedTheme === 'dark')
 
-// ─── INIT ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// ─── AUTH ─────────────────────────────────────────
+async function initAuth() {
+  const { data: { session } } = await _supabase.auth.getSession()
+  if (!session) { window.location.href = '/login.html'; return }
+  _token = session.access_token
+
+  _supabase.auth.onAuthStateChange((event, s) => {
+    if (!s) { window.location.href = '/login.html'; return }
+    _token = s.access_token
+  })
+
+  try {
+    const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
+    _perfil = await res.json()
+    document.getElementById('user-name').textContent = _perfil.nombre || _perfil.correo || ''
+    if (_perfil.rol === 'administrador') document.getElementById('admin-link').classList.remove('hidden')
+  } catch(e) { console.warn('Perfil:', e) }
+
+  // 3-hour inactivity logout
+  let _inact
+  function resetInact() {
+    clearTimeout(_inact)
+    _inact = setTimeout(async () => { await _supabase.auth.signOut(); window.location.href = '/login.html' }, 3 * 60 * 60 * 1000)
+  }
+  ;['click','keydown','mousemove','touchstart'].forEach(ev => document.addEventListener(ev, resetInact))
+  resetInact()
+
   cargarProyectos()
   cargarClientes()
+}
+
+async function cerrarSesion() {
+  await _supabase.auth.signOut()
+  window.location.href = '/login.html'
+}
+
+// ─── INIT ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initAuth()
 })
 
 // ─── API ──────────────────────────────────────────
 async function api(method, path, body) {
+  const headers = { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY }
+  if (_token) headers['Authorization'] = `Bearer ${_token}`
   const res = await fetch(CONFIG.RAILWAY_URL + path, {
     method,
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': CONFIG.API_KEY },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) { const txt = await res.text(); throw new Error(txt || `Error ${res.status}`) }
@@ -577,12 +694,10 @@ function renderTabla(data) {
       ? `<span class="badge-follow text-xs px-2.5 py-1 rounded-full font-medium">🔄 Seguimiento</span>`
       : `<span class="badge-pend text-xs px-2.5 py-1 rounded-full font-medium">⏳ Pendiente</span>`
 
-    const btnWA = pm === true
-      ? `<button onclick="enviarPlantilla(${c.id}, '${esc(c.Contacto)}')"
-           class="text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition">
-           Enviar WhatsApp
-         </button>`
-      : ''
+    const btnWA = `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
+        class="text-xs px-3 py-1.5 rounded-lg ${pm === true ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
+        ${pm === true ? 'Reenviar WA' : 'Enviar WA'}
+      </button>`
 
     const accion = `<div class="flex items-center gap-2">
       ${btnWA}
@@ -632,15 +747,150 @@ function irPagina(n) {
   renderPaginacion(filtrados.length)
 }
 
-// ─── ENVIAR PLANTILLA A CLIENTE EXISTENTE ─────────
-async function enviarPlantilla(id, nombre) {
-  if (!confirm(`¿Enviar plantilla de WhatsApp a ${nombre}?`)) return
+// ─── TEMPLATE SELECTOR ────────────────────────────
+let _tmplClienteId = null
+let _tmplClienteNombre = null
+
+async function abrirSelectorTemplate(id, nombre) {
+  _tmplClienteId = id
+  _tmplClienteNombre = nombre
+  document.getElementById('template-destino').textContent = `Destinatario: ${nombre}`
+  document.getElementById('btn-enviar-template').disabled = true
+  document.getElementById('btn-enviar-template').innerHTML = 'Enviar WhatsApp'
+  const lista = document.getElementById('template-lista')
+  lista.innerHTML = '<div class="text-center py-6 sidebar-text"><div class="spinner mx-auto mb-3"></div>Cargando plantillas…</div>'
+  document.getElementById('modal-template').classList.remove('hidden')
   try {
-    await api('POST', `/api/clientes/${id}/enviar-plantilla`, {})
-    toast(`✅ Plantilla enviada a ${nombre}`, 'success')
+    const data = await api('GET', '/api/templates')
+    const templates = data.templates || []
+    if (!templates.length) {
+      lista.innerHTML = '<p class="text-center py-6 sidebar-text text-sm">No hay plantillas aprobadas.</p>'
+      return
+    }
+    lista.innerHTML = templates.map(t => {
+      const body = (t.components || []).find(c => c.type === 'BODY')
+      const preview = body ? esc((body.text || '').slice(0, 100)) + (body.text && body.text.length > 100 ? '…' : '') : ''
+      return `<label class="flex items-start gap-3 p-3 rounded-xl cursor-pointer border border-transparent hover:border-brand-500 tmpl-opt transition">
+        <input type="radio" name="wa-template" value="${esc(t.name)}" class="mt-0.5 shrink-0 accent-sky-500" />
+        <div class="min-w-0">
+          <p class="text-sm font-medium val-text">${esc(t.name)}</p>
+          <p class="text-xs sidebar-text">${esc(t.language || '')} · ${esc(t.category || '')}</p>
+          ${preview ? `<p class="text-xs sidebar-text mt-1 italic truncate">${preview}</p>` : ''}
+        </div>
+      </label>`
+    }).join('')
+    document.querySelectorAll('.tmpl-opt input').forEach(input => {
+      input.addEventListener('change', () => {
+        document.querySelectorAll('.tmpl-opt').forEach(o => { o.classList.remove('border-brand-500'); o.classList.add('border-transparent') })
+        input.closest('.tmpl-opt').classList.replace('border-transparent', 'border-brand-500')
+        document.getElementById('btn-enviar-template').disabled = false
+      })
+    })
+  } catch(e) {
+    lista.innerHTML = `<p class="text-center py-6 err-text text-sm">Error: ${esc(e.message)}</p>`
+  }
+}
+
+function cerrarSelectorTemplate() {
+  document.getElementById('modal-template').classList.add('hidden')
+}
+
+async function enviarConTemplate() {
+  const sel = document.querySelector('input[name="wa-template"]:checked')
+  if (!sel) return
+  const btn = document.getElementById('btn-enviar-template')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> Enviando…'
+  try {
+    await api('POST', `/api/clientes/${_tmplClienteId}/enviar-wtsp`, { template_name: sel.value })
+    toast(`✅ WhatsApp enviado a ${_tmplClienteNombre}`, 'success')
+    cerrarSelectorTemplate()
     await cargarClientes()
   } catch(e) {
     toast('❌ ' + e.message, 'error')
+    btn.disabled = false
+    btn.innerHTML = 'Enviar WhatsApp'
+  }
+}
+
+// ─── CSV IMPORT ───────────────────────────────────
+function abrirImport() {
+  document.getElementById('modal-import').classList.remove('hidden')
+  document.getElementById('import-form').classList.remove('hidden')
+  document.getElementById('import-results').classList.add('hidden')
+  document.getElementById('csv-file').value = ''
+  document.getElementById('csv-file-label').textContent = 'Arrastra tu CSV aquí o haz clic para seleccionar'
+  document.getElementById('csv-drop').classList.remove('has-file')
+  const btn = document.getElementById('btn-importar')
+  btn.disabled = false; btn.innerHTML = 'Importar'
+}
+
+function cerrarImport() {
+  document.getElementById('modal-import').classList.add('hidden')
+}
+
+function onCsvSelect(input) {
+  const file = input.files[0]
+  const drop  = document.getElementById('csv-drop')
+  const label = document.getElementById('csv-file-label')
+  if (file) {
+    drop.classList.add('has-file')
+    label.textContent = `📎 ${file.name}`
+  } else {
+    drop.classList.remove('has-file')
+    label.textContent = 'Arrastra tu CSV aquí o haz clic para seleccionar'
+  }
+}
+
+async function importarCSV(e) {
+  e.preventDefault()
+  const file = document.getElementById('csv-file').files[0]
+  if (!file) return
+  const btn = document.getElementById('btn-importar')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> Importando…'
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    const res = await fetch('/api/clientes/importar', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${_token}` },
+      body: fd,
+    })
+    if (!res.ok) throw new Error(await res.text())
+    const data = await res.json()
+    document.getElementById('import-form').classList.add('hidden')
+    const results = document.getElementById('import-results')
+    results.classList.remove('hidden')
+    results.innerHTML = `
+      <div class="space-y-4">
+        <div class="grid grid-cols-3 gap-3 text-center">
+          <div class="glass rounded-xl p-3">
+            <p class="text-2xl font-bold text-emerald-400">${data.importados || 0}</p>
+            <p class="text-xs sidebar-text mt-1">Importados</p>
+          </div>
+          <div class="glass rounded-xl p-3">
+            <p class="text-2xl font-bold text-amber-400">${data.duplicados || 0}</p>
+            <p class="text-xs sidebar-text mt-1">Duplicados</p>
+          </div>
+          <div class="glass rounded-xl p-3">
+            <p class="text-2xl font-bold text-red-400">${data.errores || 0}</p>
+            <p class="text-xs sidebar-text mt-1">Errores</p>
+          </div>
+        </div>
+        ${(data.detalle_errores || []).length ? `
+          <div class="max-h-36 overflow-y-auto space-y-1 p-3 glass rounded-xl">
+            <p class="text-xs sidebar-text font-semibold mb-2">Detalle:</p>
+            ${data.detalle_errores.map(d => `<p class="text-xs err-text">• ${esc(d)}</p>`).join('')}
+          </div>` : ''}
+        <button onclick="cerrarImport()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
+          Cerrar
+        </button>
+      </div>`
+    await cargarClientes()
+  } catch(e) {
+    toast('❌ ' + e.message, 'error')
+    btn.disabled = false; btn.innerHTML = 'Importar'
   }
 }
 
@@ -709,6 +959,11 @@ function toast(msg, type='success') {
 function esc(str) {
   return String(str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarImport()
+})
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
 const TIPOS_DOC = {
