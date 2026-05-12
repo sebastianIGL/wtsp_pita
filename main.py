@@ -1709,10 +1709,22 @@ async def _crear_usuario_supabase_auth(correo: str, password: str) -> str:
         return r.json()["id"]
 
 
-async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str):
+async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, detalle_error: str = None, usuario_id: str = None):
+    try:
+        await _supabase_request("POST", "/log_correos", json={
+            "tipo": tipo, "destinatario": destinatario, "asunto": asunto,
+            "estado": estado, "detalle_error": detalle_error, "usuario_id": usuario_id,
+        })
+    except Exception as e:
+        logger.warning("No se pudo guardar log de correo: %s", e)
+
+
+async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str, usuario_id: str = None):
     email_remitente = os.getenv("EMAIL_REMITENTE")
     email_password  = os.getenv("EMAIL_PASSWORD")
+    asunto = "🔑 Tu cuenta en CRM Subsidios — Contraseña provisional"
     if not email_remitente or not email_password:
+        await _log_correo("bienvenida", correo, asunto, "error", "EMAIL_REMITENTE o EMAIL_PASSWORD no configurados", usuario_id)
         raise RuntimeError("EMAIL_REMITENTE o EMAIL_PASSWORD no configurados")
     body_html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;">
       <h2 style="color:#1e3a5f;">🏠 Bienvenido/a al CRM de Subsidios</h2>
@@ -1735,13 +1747,18 @@ async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str)
     msg = MIMEMultipart()
     msg["From"]    = email_remitente
     msg["To"]      = correo
-    msg["Subject"] = "🔑 Tu cuenta en CRM Subsidios — Contraseña provisional"
+    msg["Subject"] = asunto
     msg.attach(MIMEText(body_html, "html"))
     def _send():
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(email_remitente, email_password)
             server.sendmail(email_remitente, [correo], msg.as_string())
-    await asyncio.get_event_loop().run_in_executor(None, _send)
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, _send)
+        await _log_correo("bienvenida", correo, asunto, "enviado", usuario_id=usuario_id)
+    except Exception as e:
+        await _log_correo("bienvenida", correo, asunto, "error", str(e), usuario_id)
+        raise
 
 
 def _normalizar_nombre(s: str) -> str:
@@ -1803,11 +1820,23 @@ async def api_crear_usuario(request: Request):
             "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
             "celular": celular, "rol": rol, "password_provisional": True,
         })
-        await _enviar_email_bienvenida(correo, nombre, password_temp)
+        await _enviar_email_bienvenida(correo, nombre, password_temp, usuario_id=user_id)
         return {"ok": True, "usuario_id": user_id}
     except Exception as e:
         logger.exception("Error creando usuario")
         return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
+@app.get("/api/log-correos")
+async def api_log_correos(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    rows = await _supabase_request(
+        "GET", "/log_correos",
+        params={"select": "*", "order": "created_at.desc", "limit": "100"},
+    )
+    return rows or []
 
 
 @app.patch("/api/usuarios/{usuario_id}")

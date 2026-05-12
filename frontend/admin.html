@@ -44,6 +44,10 @@
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
       Proyectos
     </button>
+    <button onclick="mostrarTab('logs')" id="tab-logs"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      Log correos
+    </button>
   </div>
 
   <!-- TAB: USUARIOS -->
@@ -73,6 +77,33 @@
         </thead>
         <tbody id="tablaUsuarios">
           <tr><td colspan="6" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: LOGS CORREOS -->
+  <div id="panel-logs" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xl font-semibold">Log de correos enviados</h2>
+      <button onclick="cargarLogs()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Fecha</th>
+            <th class="text-left px-5 py-3">Tipo</th>
+            <th class="text-left px-5 py-3">Destinatario</th>
+            <th class="text-left px-5 py-3">Estado</th>
+            <th class="text-left px-5 py-3">Detalle error</th>
+          </tr>
+        </thead>
+        <tbody id="tablaLogs">
+          <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -261,13 +292,39 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'proyectos'].forEach(t => {
+    ['usuarios', 'proyectos', 'logs'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-blue-600', t === tab);
       btn.classList.toggle('text-white', t === tab);
       btn.classList.toggle('text-slate-400', t !== tab);
     });
+    if (tab === 'logs') cargarLogs();
+  }
+
+  async function cargarLogs() {
+    const tbody = document.getElementById('tablaLogs');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    const res = await fetch('/api/log-correos', { headers: authHeaders() });
+    if (!res.ok) { toast('Error al cargar logs: ' + await res.text(), 'error'); return; }
+    const rows = await res.json();
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Sin registros todavía</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const fecha = new Date(r.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+      const badge = r.estado === 'enviado'
+        ? '<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-900/50 text-emerald-300">✓ Enviado</span>'
+        : '<span class="px-2 py-0.5 rounded-full text-xs bg-red-900/50 text-red-300">✗ Error</span>';
+      return `<tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${fecha}</td>
+        <td class="px-5 py-3 text-slate-300 text-xs capitalize">${r.tipo}</td>
+        <td class="px-5 py-3 text-slate-300">${r.destinatario}</td>
+        <td class="px-5 py-3">${badge}</td>
+        <td class="px-5 py-3 text-red-400 text-xs">${r.detalle_error || '—'}</td>
+      </tr>`;
+    }).join('');
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────
