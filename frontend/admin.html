@@ -278,11 +278,7 @@
   }
 
   function authHeaders() {
-    return {
-      'Content-Type': 'application/json',
-      'X-API-Key': 'variable.test.2026.chatbot',
-      Authorization: `Bearer ${_token}`,
-    };
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${_token}` };
   }
 
   async function cerrarSesion() {

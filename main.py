@@ -2044,17 +2044,11 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
 # API para el frontend
 # ---------------------------------------------------------------------------
 
-def _check_api_key(request: Request) -> bool:
-    key = _ingest_api_key()
-    if not key:
-        return True
-    provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
-    return provided == key
 
 
 @app.get("/api/proyectos")
 async def api_listar_proyectos(request: Request):
-    if not _check_api_key(request):
+    if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
     rows = await _supabase_request(
         "GET", "/Proyecto",
@@ -2066,7 +2060,7 @@ async def api_listar_proyectos(request: Request):
 @app.get("/api/clientes")
 async def api_listar_clientes(request: Request):
     perfil = await _get_usuario_actual(request)
-    if not perfil and not _check_api_key(request):
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     params: Dict[str, str] = {"select": "*", "order": "id.desc"}
     if perfil and perfil.get("rol") != "administrador":
@@ -2077,7 +2071,8 @@ async def api_listar_clientes(request: Request):
 
 @app.post("/api/clientes")
 async def api_crear_cliente(request: Request):
-    if not _check_api_key(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     try:
         body = await request.json()
@@ -2129,6 +2124,7 @@ async def api_crear_cliente(request: Request):
                 "Tramo de renta":     rango,
                 "primer mensaje":     primer_msg,
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
+                "usuario_id":         perfil["id"],
             },
             extra_headers={"Prefer": "return=representation"},
         )
@@ -2175,7 +2171,7 @@ async def api_crear_cliente(request: Request):
 
 @app.post("/api/clientes/{cliente_id}/enviar-plantilla")
 async def api_enviar_plantilla(cliente_id: int, request: Request):
-    if not _check_api_key(request):
+    if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
     try:
         rows = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
@@ -2251,7 +2247,7 @@ async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
 
 @app.get("/api/clientes/{cliente_id}/documentos")
 async def api_documentos_cliente(cliente_id: int, request: Request):
-    if not _check_api_key(request):
+    if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
     try:
         prospectos = await _supabase_request(
@@ -2287,7 +2283,7 @@ async def api_upload_documento(
     file: UploadFile = File(...),
     tipo: str = Form(...),
 ):
-    if not _check_api_key(request):
+    if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
     if tipo not in TIPOS_VALIDOS:
         return Response(content=f"Tipo inválido: {tipo}", status_code=400)
@@ -2457,7 +2453,7 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
 
 @app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
 async def api_enviar_evaluacion(cliente_id: int, request: Request):
-    if not _check_api_key(request):
+    if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
     try:
         result = await _enviar_email_evaluacion(cliente_id)
