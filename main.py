@@ -1720,12 +1720,12 @@ async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, de
 
 
 async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str, usuario_id: str = None):
-    email_remitente = os.getenv("EMAIL_REMITENTE")
-    email_password  = os.getenv("EMAIL_PASSWORD")
-    asunto = "🔑 Tu cuenta en CRM Subsidios — Contraseña provisional"
-    if not email_remitente or not email_password:
-        await _log_correo("bienvenida", correo, asunto, "error", "EMAIL_REMITENTE o EMAIL_PASSWORD no configurados", usuario_id)
-        raise RuntimeError("EMAIL_REMITENTE o EMAIL_PASSWORD no configurados")
+    api_key = os.getenv("RESEND_API_KEY")
+    asunto  = "🔑 Tu cuenta en CRM Subsidios — Contraseña provisional"
+    if not api_key:
+        await _log_correo("bienvenida", correo, asunto, "error", "RESEND_API_KEY no configurado", usuario_id)
+        raise RuntimeError("RESEND_API_KEY no configurado")
+    from_addr = os.getenv("EMAIL_REMITENTE", "CRM Subsidios <onboarding@resend.dev>")
     body_html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;">
       <h2 style="color:#1e3a5f;">🏠 Bienvenido/a al CRM de Subsidios</h2>
       <p>Hola <strong>{nombre}</strong>, tu cuenta ha sido creada exitosamente.</p>
@@ -1744,17 +1744,14 @@ async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str,
       </p>
       <p style="color:#666;font-size:13px;">Accede con tu correo y esta contraseña provisional.</p>
     </div>"""
-    msg = MIMEMultipart()
-    msg["From"]    = email_remitente
-    msg["To"]      = correo
-    msg["Subject"] = asunto
-    msg.attach(MIMEText(body_html, "html"))
-    def _send():
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
-            server.login(email_remitente, email_password)
-            server.sendmail(email_remitente, [correo], msg.as_string())
     try:
-        await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(None, _send), timeout=35)
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={"from": from_addr, "to": [correo], "subject": asunto, "html": body_html},
+            )
+            r.raise_for_status()
         await _log_correo("bienvenida", correo, asunto, "enviado", usuario_id=usuario_id)
     except Exception as e:
         await _log_correo("bienvenida", correo, asunto, "error", str(e), usuario_id)
