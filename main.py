@@ -1750,11 +1750,11 @@ async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str,
     msg["Subject"] = asunto
     msg.attach(MIMEText(body_html, "html"))
     def _send():
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
             server.login(email_remitente, email_password)
             server.sendmail(email_remitente, [correo], msg.as_string())
     try:
-        await asyncio.get_event_loop().run_in_executor(None, _send)
+        await asyncio.wait_for(asyncio.get_event_loop().run_in_executor(None, _send), timeout=35)
         await _log_correo("bienvenida", correo, asunto, "enviado", usuario_id=usuario_id)
     except Exception as e:
         await _log_correo("bienvenida", correo, asunto, "error", str(e), usuario_id)
@@ -1820,7 +1820,8 @@ async def api_crear_usuario(request: Request):
             "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
             "celular": celular, "rol": rol, "password_provisional": True,
         })
-        await _enviar_email_bienvenida(correo, nombre, password_temp, usuario_id=user_id)
+        # Enviar correo en segundo plano para no bloquear la respuesta
+        asyncio.create_task(_enviar_email_bienvenida(correo, nombre, password_temp, usuario_id=user_id))
         return {"ok": True, "usuario_id": user_id}
     except Exception as e:
         logger.exception("Error creando usuario")
