@@ -1696,7 +1696,7 @@ async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
         r = await client.post(
             f"{supa_url}/auth/v1/invite",
             headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
-            json={"email": correo, "data": {"nombre": nombre, "rol": rol}},
+            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{os.getenv('SITE_URL', 'http://localhost:8000')}/reset-password.html"},
         )
         r.raise_for_status()
         return r.json()["id"]
