@@ -6,8 +6,6 @@ import httpx
 import smtplib
 import csv
 import io
-import random
-import string
 import unicodedata
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -1691,19 +1689,14 @@ def _solo_admin(perfil: Optional[Dict]) -> bool:
     return bool(perfil and perfil.get("rol") == "administrador")
 
 
-def _generar_password_temporal() -> str:
-    chars = string.ascii_letters + string.digits
-    return "".join(random.choices(chars, k=10))
-
-
-async def _crear_usuario_supabase_auth(correo: str, password: str) -> str:
+async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
     supa_url = _supabase_url()
     key = _supabase_service_role_key()
     async with httpx.AsyncClient(timeout=20) as client:
         r = await client.post(
-            f"{supa_url}/auth/v1/admin/users",
+            f"{supa_url}/auth/v1/invite",
             headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
-            json={"email": correo, "password": password, "email_confirm": True},
+            json={"email": correo, "data": {"nombre": nombre, "rol": rol}},
         )
         r.raise_for_status()
         return r.json()["id"]
@@ -1718,44 +1711,6 @@ async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, de
     except Exception as e:
         logger.warning("No se pudo guardar log de correo: %s", e)
 
-
-async def _enviar_email_bienvenida(correo: str, nombre: str, password_temp: str, usuario_id: str = None):
-    api_key = os.getenv("RESEND_API_KEY")
-    asunto  = "🔑 Tu cuenta en CRM Subsidios — Contraseña provisional"
-    if not api_key:
-        await _log_correo("bienvenida", correo, asunto, "error", "RESEND_API_KEY no configurado", usuario_id)
-        raise RuntimeError("RESEND_API_KEY no configurado")
-    from_addr = os.getenv("EMAIL_REMITENTE", "CRM Subsidios <onboarding@resend.dev>")
-    body_html = f"""<div style="font-family:Arial,sans-serif;max-width:600px;">
-      <h2 style="color:#1e3a5f;">🏠 Bienvenido/a al CRM de Subsidios</h2>
-      <p>Hola <strong>{nombre}</strong>, tu cuenta ha sido creada exitosamente.</p>
-      <table style="border-collapse:collapse;font-size:14px;width:100%;">
-        <tr><td style="padding:6px 12px;font-weight:bold;color:#555;">Correo:</td>
-            <td style="padding:6px 12px;">{correo}</td></tr>
-        <tr style="background:#f9f9f9;">
-          <td style="padding:6px 12px;font-weight:bold;color:#555;">Contraseña provisional:</td>
-          <td style="padding:6px 12px;">
-            <code style="background:#f0f0f0;padding:4px 8px;border-radius:4px;font-size:16px;">{password_temp}</code>
-          </td>
-        </tr>
-      </table>
-      <p style="margin-top:16px;padding:12px;background:#fff3cd;border-left:4px solid #e6a817;color:#856404;">
-        ⚠️ Al ingresar por primera vez, el sistema te pedirá que cambies esta contraseña.
-      </p>
-      <p style="color:#666;font-size:13px;">Accede con tu correo y esta contraseña provisional.</p>
-    </div>"""
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(
-                "https://api.resend.com/emails",
-                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={"from": from_addr, "to": [correo], "subject": asunto, "html": body_html},
-            )
-            r.raise_for_status()
-        await _log_correo("bienvenida", correo, asunto, "enviado", usuario_id=usuario_id)
-    except Exception as e:
-        await _log_correo("bienvenida", correo, asunto, "error", str(e), usuario_id)
-        raise
 
 
 def _normalizar_nombre(s: str) -> str:
@@ -1809,16 +1764,14 @@ async def api_crear_usuario(request: Request):
         rol     = body.get("rol", "usuario")
         if not nombre or not rut or not correo:
             return Response(content="Faltan campos obligatorios: nombre, rut, correo", status_code=400)
-        if rol not in ("usuario", "administrador"):
-            return Response(content="rol debe ser 'usuario' o 'administrador'", status_code=400)
-        password_temp = _generar_password_temporal()
-        user_id = await _crear_usuario_supabase_auth(correo, password_temp)
+        if rol not in ("ejecutivo", "administrador"):
+            return Response(content="rol debe ser 'ejecutivo' o 'administrador'", status_code=400)
+        user_id = await _invitar_usuario_supabase(correo, nombre, rol)
         await _supabase_request("POST", "/Usuario", json={
             "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
-            "celular": celular, "rol": rol, "password_provisional": True,
+            "celular": celular, "rol": rol, "password_provisional": False,
         })
-        # Enviar correo en segundo plano para no bloquear la respuesta
-        asyncio.create_task(_enviar_email_bienvenida(correo, nombre, password_temp, usuario_id=user_id))
+        asyncio.create_task(_log_correo("invitacion", correo, "Invitación al CRM", "enviado", usuario_id=user_id))
         return {"ok": True, "usuario_id": user_id}
     except Exception as e:
         logger.exception("Error creando usuario")
