@@ -1990,7 +1990,7 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
 
         body_param_count = 0
         if body_comp:
-            body_param_count = len(re.findall(r'\{\{\d+\}\}', body_comp.get("text", "")))
+            body_param_count = len(re.findall(r'\{\{[^}]+\}\}', body_comp.get("text", "")))
 
         # Pool de valores para rellenar los params en orden
         pool = [
