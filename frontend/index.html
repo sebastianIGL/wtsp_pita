@@ -771,7 +771,7 @@ async function abrirSelectorTemplate(id, nombre) {
       const body = (t.components || []).find(c => c.type === 'BODY')
       const preview = body ? esc((body.text || '').slice(0, 100)) + (body.text && body.text.length > 100 ? '…' : '') : ''
       return `<label class="flex items-start gap-3 p-3 rounded-xl cursor-pointer border border-transparent hover:border-brand-500 tmpl-opt transition">
-        <input type="radio" name="wa-template" value="${esc(t.name)}" data-language="${esc(t.language || 'es_CL')}" class="mt-0.5 shrink-0 accent-sky-500" />
+        <input type="radio" name="wa-template" value="${esc(t.name)}" data-language="${esc(t.language || 'es_CL')}" data-components="${esc(JSON.stringify(t.components || []))}" class="mt-0.5 shrink-0 accent-sky-500" />
         <div class="min-w-0">
           <p class="text-sm font-medium val-text">${esc(t.name)}</p>
           <p class="text-xs sidebar-text">${esc(t.language || '')} · ${esc(t.category || '')}</p>
@@ -802,7 +802,9 @@ async function enviarConTemplate() {
   btn.disabled = true
   btn.innerHTML = '<span class="spinner"></span> Enviando…'
   try {
-    await api('POST', `/api/clientes/${_tmplClienteId}/enviar-wtsp`, { template_name: sel.value, language_code: sel.dataset.language || 'es_CL' })
+    let components = []
+    try { components = JSON.parse(sel.dataset.components || '[]') } catch(_) {}
+    await api('POST', `/api/clientes/${_tmplClienteId}/enviar-wtsp`, { template_name: sel.value, language_code: sel.dataset.language || 'es_CL', components })
     toast(`✅ WhatsApp enviado a ${_tmplClienteNombre}`, 'success')
     cerrarSelectorTemplate()
     await cargarClientes()

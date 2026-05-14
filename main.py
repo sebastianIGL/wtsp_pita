@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, Fil
 import asyncio
 import os
 import json
+import re
 import httpx
 import smtplib
 import csv
@@ -1962,7 +1963,8 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
     try:
         body          = await request.json()
         template_name = (body.get("template_name") or "").strip()
-        language_code = (body.get("language_code") or "es").strip()
+        language_code = (body.get("language_code") or "es_CL").strip()
+        components_meta = body.get("components") or []
         if not template_name:
             return Response(content="Falta template_name", status_code=400)
         rows = await _supabase_request("GET", "/Cliente",
@@ -1975,9 +1977,33 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         codigo   = c.get("codigo_proyecto") or ""
         if not telefono:
             return Response(content="Cliente sin teléfono", status_code=400)
+
+        # Buscar datos del proyecto para imagen y nombre
+        proyecto = None
+        if codigo:
+            proyecto = await obtener_proyecto_por_codigo(codigo)
+
+        # Detectar cuántos params espera el body y si header es IMAGE
+        body_comp = next((cm for cm in components_meta if cm.get("type") == "BODY"), None)
+        header_comp = next((cm for cm in components_meta if cm.get("type") == "HEADER"), None)
+        needs_image = header_comp and header_comp.get("format") == "IMAGE"
+
+        body_param_count = 0
+        if body_comp:
+            body_param_count = len(re.findall(r'\{\{\d+\}\}', body_comp.get("text", "")))
+
+        # Pool de valores para rellenar los params en orden
+        pool = [
+            nombre,
+            (proyecto.get("nombre") or "") if proyecto else "",
+            (proyecto.get("ubicacion") or "") if proyecto else "",
+        ]
+        body_text_params = [pool[i] if i < len(pool) else "" for i in range(body_param_count)] if body_param_count else [nombre]
+        image_url = (proyecto.get("imagen_url") or None) if (needs_image and proyecto) else None
+
         wa = await send_whatsapp_template(
             to=telefono, template_name=template_name, language_code=language_code,
-            body_text_params=[nombre], image_url=None,
+            body_text_params=body_text_params, image_url=image_url,
         )
         await _supabase_request("PATCH", "/Cliente",
             params={"id": f"eq.{cliente_id}"},
