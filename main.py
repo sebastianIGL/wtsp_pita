@@ -1580,7 +1580,7 @@ async def send_whatsapp_template(
     to: str,
     template_name: str,
     language_code: str,
-    body_text_params: List[str],
+    body_text_params: List[Any],
     image_url: Optional[str] = None,
 ):
     if not TOKEN_ACCESO:
@@ -1600,7 +1600,10 @@ async def send_whatsapp_template(
     if body_text_params:
         components.append({
             "type": "body",
-            "parameters": [{"type": "text", "text": p} for p in body_text_params],
+            "parameters": [
+                {"type": "text", **p} if isinstance(p, dict) else {"type": "text", "text": p}
+                for p in body_text_params
+            ],
         })
 
     template_payload: Dict[str, Any] = {
@@ -1988,17 +1991,25 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         header_comp = next((cm for cm in components_meta if cm.get("type") == "HEADER"), None)
         needs_image = header_comp and header_comp.get("format") == "IMAGE"
 
-        body_param_count = 0
-        if body_comp:
-            body_param_count = len(re.findall(r'\{\{[^}]+\}\}', body_comp.get("text", "")))
-
         # Pool de valores para rellenar los params en orden
         pool = [
             nombre,
             (proyecto.get("nombre") or "") if proyecto else "",
             (proyecto.get("ubicacion") or "") if proyecto else "",
         ]
-        body_text_params = [pool[i] if i < len(pool) else "" for i in range(body_param_count)] if body_param_count else [nombre]
+
+        # Extraer nombres de variables del body: {{name}}, {{1}}, etc.
+        var_names = re.findall(r'\{\{([^}]+)\}\}', body_comp.get("text", "")) if body_comp else []
+        body_text_params: List[Any] = []
+        for i, var_name in enumerate(var_names):
+            value = pool[i] if i < len(pool) else ""
+            if var_name.isdigit():
+                body_text_params.append(value)  # posicional: solo texto
+            else:
+                body_text_params.append({"parameter_name": var_name, "text": value})  # con nombre
+        if not body_text_params:
+            body_text_params = [nombre]
+
         image_url = (proyecto.get("imagen_url") or None) if (needs_image and proyecto) else None
 
         wa = await send_whatsapp_template(
