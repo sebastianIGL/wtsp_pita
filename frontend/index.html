@@ -637,10 +637,10 @@ async function cargarProyectos() {
     const filtro = document.getElementById('filtro-proyecto')
     proyectos.forEach(p => {
       const opt1 = document.createElement('option')
-      opt1.value = p.codigo; opt1.textContent = p.nombre
+      opt1.value = p.id; opt1.textContent = p.nombre
       sel.appendChild(opt1)
       const opt2 = document.createElement('option')
-      opt2.value = p.codigo; opt2.textContent = p.nombre
+      opt2.value = p.id; opt2.textContent = p.nombre
       filtro.appendChild(opt2)
     })
   } catch(e) { console.error('Proyectos:', e) }
@@ -649,7 +649,9 @@ async function cargarProyectos() {
 // ─── CLIENTES ─────────────────────────────────────
 async function cargarClientes() {
   try {
-    clientes = await api('GET', '/api/clientes')
+    const empresa = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
+    const qs = empresa.id ? `?empresa_id=${empresa.id}` : ''
+    clientes = await api('GET', `/api/clientes${qs}`)
     actualizarStats()
     aplicarFiltros()
   } catch(e) {
@@ -674,7 +676,7 @@ function clientesFiltrados() {
         (c.Contacto||'').toLowerCase().includes(q) ||
         (c.Telefono||'').toLowerCase().includes(q) ||
         (c.Rut||'').toLowerCase().includes(q)
-      const matchP = !proyecto || c.Proyecto === proyecto
+      const matchP = !proyecto || c.proyecto_id === proyecto
       return matchQ && matchP
     })
     .sort((a, b) => {
@@ -700,7 +702,7 @@ function renderTabla(data) {
     tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center empty-text">No hay clientes con estos filtros.</td></tr>`
     return
   }
-  const np = (codigo) => { const p = proyectos.find(p => p.codigo === codigo); return p ? p.nombre : codigo }
+  const np = (id) => { const p = proyectos.find(p => p.id === id); return p ? p.nombre : '—' }
 
   // Paginar
   const inicio = (paginaActual - 1) * POR_PAGINA
@@ -730,7 +732,7 @@ function renderTabla(data) {
 
     return `<tr class="trow border-b transition">
       <td class="px-6 py-4 font-medium val-text">${esc(c.Contacto)}</td>
-      <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.Proyecto))}</td>
+      <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.proyecto_id))}</td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Telefono || '—')}</td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Rut || '—')}</td>
       <td class="px-6 py-4 sidebar-text text-xs">${esc(c['Tramo de renta'] || '—')}</td>
@@ -903,7 +905,7 @@ async function importarCSV(e) {
         ${(data.detalle_errores || []).length ? `
           <div class="max-h-36 overflow-y-auto space-y-1 p-3 glass rounded-xl">
             <p class="text-xs sidebar-text font-semibold mb-2">Detalle:</p>
-            ${data.detalle_errores.map(d => `<p class="text-xs err-text">• ${esc(d)}</p>`).join('')}
+            ${data.detalle_errores.map(d => `<p class="text-xs err-text">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`).join('')}
           </div>` : ''}
         <button onclick="cerrarImport()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
           Cerrar
@@ -939,7 +941,7 @@ async function crearCliente(e) {
   const pm = document.getElementById('f-primer').checked
   try {
     await api('POST', '/api/clientes', {
-      'Proyecto':           document.getElementById('f-proyecto').value,
+      'proyecto_id':        document.getElementById('f-proyecto').value,
       'Contacto':           document.getElementById('f-contacto').value.trim(),
       'Rut':                document.getElementById('f-rut').value.trim(),
       'Correo':             document.getElementById('f-correo').value.trim() || null,
@@ -1035,8 +1037,8 @@ async function abrirEvaluacion(id) {
   const iniciales = (c.Contacto || '?').split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase()
   document.getElementById('eval-avatar').textContent = iniciales
   document.getElementById('eval-nombre').textContent = c.Contacto || '—'
-  const proy = proyectos.find(p => p.codigo === c.Proyecto)
-  document.getElementById('eval-proyecto-badge').textContent = proy ? proy.nombre : (c.Proyecto || '—')
+  const proy = proyectos.find(p => p.id === c.proyecto_id)
+  document.getElementById('eval-proyecto-badge').textContent = proy ? proy.nombre : '—'
   document.getElementById('eval-telefono').textContent = c.Telefono || '—'
   document.getElementById('eval-rut').textContent      = c.Rut      || '—'
   document.getElementById('eval-renta').textContent    = c['Tramo de renta'] || 'Sin especificar'

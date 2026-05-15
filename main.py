@@ -803,7 +803,7 @@ async def upsert_prospecto(
     nombre: Optional[str] = None,
     rut: Optional[str] = None,
     rango_sueldo: Optional[str] = None,
-    codigo_proyecto: Optional[str] = None,
+    proyecto_id: Optional[str] = None,
     estado: Optional[str] = None,
     paso: Optional[str] = None,
     ultimo_texto_entrante: Optional[str] = None,
@@ -820,8 +820,8 @@ async def upsert_prospecto(
         row["rut"] = rut
     if rango_sueldo is not None:
         row["rango_sueldo"] = rango_sueldo
-    if codigo_proyecto is not None:
-        row["codigo_proyecto"] = codigo_proyecto
+    if proyecto_id is not None:
+        row["proyecto_id"] = proyecto_id
     if estado is not None:
         row["estado"] = estado
     if paso is not None:
@@ -953,15 +953,13 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-async def obtener_proyecto_por_codigo(codigo: str):
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria,inmobiliaria_id,fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
+
+
+async def obtener_proyecto_por_id(proyecto_id: str):
     rows = await _supabase_request(
-        "GET",
-        "/Proyecto",
-        params={
-            "codigo": f"eq.{codigo}",
-            "select": "codigo,nombre,ubicacion,imagen_url,inmobiliaria,inmobiliaria_id,fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias",
-            "limit": "1",
-        },
+        "GET", "/Proyecto",
+        params={"id": f"eq.{proyecto_id}", "select": _PROYECTO_SELECT, "limit": "1"},
     )
     return rows[0] if rows else None
 
@@ -1244,8 +1242,8 @@ async def _procesar_webhook(msg: Dict):
                 telefono_e164=from_number,
                 estado="RESPONDIO",
             )
-            if prospecto and prospecto.get("codigo_proyecto"):
-                proyecto = await obtener_proyecto_por_codigo(prospecto["codigo_proyecto"])
+            if prospecto and prospecto.get("proyecto_id"):
+                proyecto = await obtener_proyecto_por_id(prospecto["proyecto_id"])
 
         prospecto_id = (prospecto or {}).get("id")
         cliente_id_prospecto: Optional[int] = (prospecto or {}).get("cliente_id")
@@ -1501,23 +1499,23 @@ async def ingestar_prospecto(request: Request):
         nombre          = (body.get("nombre") or body.get("first_name") or "").strip() or None
         rut             = (body.get("rut") or "").strip() or None
         rango_sueldo    = (body.get("rango_sueldo") or "").strip() or None
-        codigo_proyecto = (body.get("codigo_proyecto") or body.get("project_code") or "").strip() or None
+        proyecto_id = (body.get("proyecto_id") or body.get("project_id") or "").strip() or None
 
         if not phone:
             return Response(content="Falta telefono_e164", status_code=400)
-        if not codigo_proyecto:
-            return Response(content="Falta codigo_proyecto", status_code=400)
+        if not proyecto_id:
+            return Response(content="Falta proyecto_id", status_code=400)
 
-        proyecto = await obtener_proyecto_por_codigo(codigo_proyecto)
+        proyecto = await obtener_proyecto_por_id(proyecto_id)
         if not proyecto:
-            return Response(content="codigo_proyecto no existe en proyectos", status_code=400)
+            return Response(content="proyecto_id no existe en proyectos", status_code=400)
 
         prospecto = await upsert_prospecto(
             telefono_e164=phone,
             nombre=nombre,
             rut=rut,
             rango_sueldo=rango_sueldo,
-            codigo_proyecto=codigo_proyecto,
+            proyecto_id=proyecto_id,
             estado="PLANTILLA_ENVIADA",
             paso="BIENVENIDA",
         )
@@ -1718,14 +1716,14 @@ def _normalizar_nombre(s: str) -> str:
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
-async def _buscar_codigo_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[str]:
+async def _buscar_id_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[Dict]:
     nombre_norm = _normalizar_nombre(nombre_csv)
     for p in proyectos_cache:
         if _normalizar_nombre(p.get("nombre", "")) == nombre_norm:
-            return p["codigo"]
+            return p
         for alias in (p.get("nombres_csv") or []):
             if _normalizar_nombre(alias) == nombre_norm:
-                return p["codigo"]
+                return p
     return None
 
 
@@ -1882,8 +1880,13 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
         reader = csv.DictReader(io.StringIO(text))
         todos_proyectos = await _supabase_request(
             "GET", "/Proyecto",
-            params={"select": "codigo,nombre,nombres_csv"},
+            params={"select": "id,nombre,nombres_csv,inmobiliaria_id"},
         ) or []
+        todos_inmobiliarias = await _supabase_request(
+            "GET", "/Inmobiliaria",
+            params={"select": "id,empresa_id"},
+        ) or []
+        inmobiliaria_map = {i["id"]: i["empresa_id"] for i in todos_inmobiliarias}
         creados, duplicados, errores = 0, [], []
         for i, row in enumerate(reader):
             fila = i + 2
@@ -1908,10 +1911,13 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 if not nombre_proyecto:
                     errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío"})
                     continue
-                codigo_proyecto = await _buscar_codigo_proyecto(nombre_proyecto, todos_proyectos)
-                if not codigo_proyecto:
+                proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
+                if not proyecto:
                     errores.append({"fila": fila, "nombre": nombre, "motivo": f"Proyecto '{nombre_proyecto}' sin mapeo"})
                     continue
+                proyecto_id     = proyecto["id"]
+                inmobiliaria_id = proyecto.get("inmobiliaria_id")
+                empresa_id      = inmobiliaria_map.get(inmobiliaria_id) if inmobiliaria_id else None
                 existente = await _supabase_request(
                     "GET", "/Cliente",
                     params={"Telefono": f"eq.{telefono}", "select": "id,usuario_id", "limit": "1"},
@@ -1928,7 +1934,8 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                     continue
                 await _supabase_request("POST", "/Cliente",
                     json={
-                        "Proyecto": nombre_proyecto, "codigo_proyecto": codigo_proyecto,
+                        "proyecto_id": proyecto_id, "inmobiliaria_id": inmobiliaria_id,
+                        "empresa_id": empresa_id,
                         "Contacto": nombre, "Rut": rut, "Correo": correo, "Telefono": telefono,
                         "estado_crm": estado_crm, "Tramo de renta": tramo_renta,
                         "tiene_subsidio": tiene_subsidio, "tipo_subsidio": tipo_subsidio,
@@ -1970,17 +1977,16 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
             params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
         if not rows:
             return Response(content="Cliente no encontrado", status_code=404)
-        c        = rows[0]
-        telefono = _normalize_phone(c.get("Telefono") or "")
-        nombre   = (c.get("Contacto") or "").strip()
-        codigo   = c.get("codigo_proyecto") or ""
+        c          = rows[0]
+        telefono   = _normalize_phone(c.get("Telefono") or "")
+        nombre     = (c.get("Contacto") or "").strip()
+        proyecto_id = c.get("proyecto_id") or ""
         if not telefono:
             return Response(content="Cliente sin teléfono", status_code=400)
 
-        # Buscar datos del proyecto para imagen y nombre
         proyecto = None
-        if codigo:
-            proyecto = await obtener_proyecto_por_codigo(codigo)
+        if proyecto_id:
+            proyecto = await obtener_proyecto_por_id(proyecto_id)
 
         # Detectar cuántos params espera el body y si header es IMAGE
         body_comp = next((cm for cm in components_meta if cm.get("type") == "BODY"), None)
@@ -2017,7 +2023,7 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
             json={"primer mensaje": False, "wtsp_habilitado": False})
         await upsert_prospecto(
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
-            rango_sueldo=c.get("Tramo de renta"), codigo_proyecto=codigo,
+            rango_sueldo=c.get("Tramo de renta"), proyecto_id=proyecto_id,
             estado="PLANTILLA_ENVIADA", paso="BIENVENIDA", cliente_id=cliente_id,
         )
         return {"ok": True, "wa": wa}
@@ -2049,7 +2055,7 @@ async def api_listar_proyectos(request: Request):
         return Response(content="Unauthorized", status_code=401)
     rows = await _supabase_request(
         "GET", "/Proyecto",
-        params={"select": "codigo,nombre,ubicacion", "order": "nombre.asc"},
+        params={"select": "id,codigo,nombre,ubicacion,inmobiliaria_id", "order": "nombre.asc"},
     )
     return rows or []
 
@@ -2059,8 +2065,11 @@ async def api_listar_clientes(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    empresa_id = request.query_params.get("empresa_id")
     params: Dict[str, str] = {"select": "*", "order": "id.desc"}
-    if perfil and perfil.get("rol") != "administrador":
+    if empresa_id:
+        params["empresa_id"] = f"eq.{empresa_id}"
+    if perfil.get("rol") != "administrador":
         params["usuario_id"] = f"eq.{perfil['id']}"
     rows = await _supabase_request("GET", "/Cliente", params=params)
     return rows or []
@@ -2074,34 +2083,45 @@ async def api_crear_cliente(request: Request):
     try:
         body = await request.json()
 
-        nombre          = (body.get("Contacto") or "").strip()
-        telefono        = _normalize_phone(body.get("Telefono") or "")
-        proyecto_codigo = (body.get("Proyecto") or "").strip()
-        rut             = (body.get("Rut") or "").strip() or None
-        correo          = (body.get("Correo") or "").strip() or None
-        rango           = (body.get("Tramo de renta") or "").strip() or None
-        primer_msg      = bool(body.get("primer mensaje", True))
+        nombre      = (body.get("Contacto") or "").strip()
+        telefono    = _normalize_phone(body.get("Telefono") or "")
+        proyecto_id = (body.get("proyecto_id") or "").strip()
+        rut         = (body.get("Rut") or "").strip() or None
+        correo      = (body.get("Correo") or "").strip() or None
+        rango       = (body.get("Tramo de renta") or "").strip() or None
+        primer_msg  = bool(body.get("primer mensaje", True))
 
         if not nombre:
             return Response(content="Falta Contacto", status_code=400)
         if not telefono:
             return Response(content="Falta Telefono", status_code=400)
-        if not proyecto_codigo:
-            return Response(content="Falta Proyecto", status_code=400)
+        if not proyecto_id:
+            return Response(content="Falta proyecto_id", status_code=400)
+
+        proyecto = await obtener_proyecto_por_id(proyecto_id)
+        if not proyecto:
+            return Response(content="Proyecto no encontrado", status_code=400)
+        inmobiliaria_id = proyecto.get("inmobiliaria_id")
+        empresa_id_row: Optional[str] = None
+        if inmobiliaria_id:
+            inm = await _supabase_request("GET", "/Inmobiliaria",
+                params={"id": f"eq.{inmobiliaria_id}", "select": "empresa_id", "limit": "1"})
+            if inm:
+                empresa_id_row = inm[0].get("empresa_id")
 
         # Evitar duplicados: mismo teléfono + mismo proyecto
         existente = await _supabase_request(
             "GET", "/Cliente",
             params={
-                "Telefono":        f"eq.{telefono}",
-                "codigo_proyecto": f"eq.{proyecto_codigo}",
-                "select":          "id",
-                "limit":           "1",
+                "Telefono":    f"eq.{telefono}",
+                "proyecto_id": f"eq.{proyecto_id}",
+                "select":      "id",
+                "limit":       "1",
             },
         )
         if existente:
             return Response(
-                content=f"Ya existe un cliente con ese teléfono en el proyecto '{proyecto_codigo}'",
+                content=f"Ya existe un cliente con ese teléfono en ese proyecto",
                 status_code=409,
                 media_type="text/plain",
             )
@@ -2112,8 +2132,9 @@ async def api_crear_cliente(request: Request):
         cliente = await _supabase_request(
             "POST", "/Cliente",
             json={
-                "Proyecto":           proyecto_codigo,
-                "codigo_proyecto":    proyecto_codigo,
+                "proyecto_id":        proyecto_id,
+                "inmobiliaria_id":    inmobiliaria_id,
+                "empresa_id":         empresa_id_row,
                 "Contacto":           nombre,
                 "Rut":                rut or "",
                 "Correo":             correo,
@@ -2126,7 +2147,6 @@ async def api_crear_cliente(request: Request):
             extra_headers={"Prefer": "return=representation"},
         )
 
-        # Extraer el id del Cliente recién creado para vincularlo al prospecto
         cliente_id_nuevo = None
         if isinstance(cliente, list) and cliente:
             cliente_id_nuevo = cliente[0].get("id")
@@ -2138,13 +2158,12 @@ async def api_crear_cliente(request: Request):
                 nombre=nombre,
                 rut=rut,
                 rango_sueldo=rango,
-                codigo_proyecto=proyecto_codigo,
+                proyecto_id=proyecto_id,
                 estado="PLANTILLA_ENVIADA",
                 paso="BIENVENIDA",
                 cliente_id=cliente_id_nuevo,
             )
-            # Auto-envío deshabilitado: nombre_plantilla eliminado (rediseño pendiente)
-            logger.warning(f"Auto-envío omitido para proyecto {proyecto_codigo} — pendiente rediseño")
+            logger.warning(f"Auto-envío omitido para proyecto {proyecto_id} — pendiente rediseño")
 
         return {"ok": True, "cliente": cliente, "wa": wa_result}
 
@@ -2165,19 +2184,19 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
         rows = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
         if not rows:
             return Response(content="Cliente no encontrado", status_code=404)
-        c = rows[0]
-        telefono        = _normalize_phone(c.get("Telefono") or "")
-        nombre          = (c.get("Contacto") or "").strip()
-        codigo_proyecto = (c.get("codigo_proyecto") or "").strip()
+        c           = rows[0]
+        telefono    = _normalize_phone(c.get("Telefono") or "")
+        nombre      = (c.get("Contacto") or "").strip()
+        proyecto_id = (c.get("proyecto_id") or "").strip()
 
         if not telefono:
             return Response(content="Cliente sin teléfono", status_code=400)
-        if not codigo_proyecto:
-            return Response(content="Cliente sin codigo_proyecto — actualiza la BD", status_code=400)
+        if not proyecto_id:
+            return Response(content="Cliente sin proyecto_id — actualiza la BD", status_code=400)
 
-        proyecto = await obtener_proyecto_por_codigo(codigo_proyecto)
+        proyecto = await obtener_proyecto_por_id(proyecto_id)
         if not proyecto or not proyecto.get("nombre_plantilla"):
-            return Response(content=f"Proyecto '{codigo_proyecto}' sin plantilla configurada", status_code=400)
+            return Response(content="Proyecto sin plantilla configurada", status_code=400)
 
         wa = await send_whatsapp_template(
             to=telefono,
@@ -2189,7 +2208,7 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
         await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json={"primer mensaje": False})
         await upsert_prospecto(
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
-            rango_sueldo=c.get("Tramo de renta"), codigo_proyecto=codigo_proyecto,
+            rango_sueldo=c.get("Tramo de renta"), proyecto_id=proyecto_id,
             estado="PLANTILLA_ENVIADA", paso="BIENVENIDA",
             cliente_id=cliente_id,
         )
@@ -2226,7 +2245,7 @@ async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
         nombre=(c.get("Contacto") or "").strip() or None,
         rut=(c.get("Rut") or "").strip() or None,
         rango_sueldo=c.get("Tramo de renta") or None,
-        codigo_proyecto=c.get("codigo_proyecto") or None,
+        proyecto_id=c.get("proyecto_id") or None,
         estado="SIN_CONTACTAR",
         cliente_id=cliente_id,
     )
@@ -2351,7 +2370,7 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
     nombre   = (c.get("Contacto") or "Sin nombre").strip()
     rut      = c.get("Rut") or "No registrado"
     telefono = c.get("Telefono") or "No registrado"
-    proyecto = c.get("codigo_proyecto") or "No registrado"
+    proyecto = c.get("proyecto_id") or "No registrado"
     renta    = c.get("Tramo de renta") or "No registrado"
 
     NOMBRES_TIPO = {
