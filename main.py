@@ -2169,9 +2169,8 @@ async def api_crear_tipologia(request: Request):
     if not proyecto:
         return Response(content="Proyecto no encontrado", status_code=404)
     payload: Dict[str, Any] = {
-        "proyecto_id":      proyecto_id,
-        "proyecto_codigo":  proyecto.get("codigo"),
-        "nombre":           nombre,
+        "proyecto_id": proyecto_id,
+        "nombre":      nombre,
     }
     for campo in ("dormitorios", "banos", "superficie_util_m2", "precio_desde_uf", "precio_hasta_uf", "estado"):
         if body.get(campo) is not None:
@@ -2237,11 +2236,7 @@ async def api_asignar_ejecutivo(request: Request):
     if not proyecto:
         return Response(content="Proyecto no encontrado", status_code=404)
     row = await _supabase_request("POST", "/ProyectoEjecutivo",
-        json={
-            "proyecto_id":     proyecto_id,
-            "proyecto_codigo": proyecto.get("codigo"),
-            "ejecutivo_id":    ejecutivo_id,
-        },
+        json={"proyecto_id": proyecto_id, "ejecutivo_id": ejecutivo_id},
         extra_headers={"Prefer": "return=representation"})
     return row[0] if isinstance(row, list) and row else row
 
