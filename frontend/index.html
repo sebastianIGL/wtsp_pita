@@ -569,16 +569,18 @@ async function initAuth() {
   const empresaRaw     = sessionStorage.getItem('crm_empresa')
   const inmRaw         = sessionStorage.getItem('crm_inmobiliaria')
   const proyectoRaw    = sessionStorage.getItem('crm_proyecto')
-  if (!empresaRaw)  { window.location.href = '/empresa-select.html'; return }
-  if (!inmRaw)      { window.location.href = '/inmobiliaria.html'; return }
-  if (!proyectoRaw) { window.location.href = '/proyecto.html'; return }
+  if (!empresaRaw) { window.location.href = '/empresas'; return }
+  if (!inmRaw)     { window.location.href = '/inmobiliaria.html'; return }
 
   const empresa      = JSON.parse(empresaRaw)
   const inmobiliaria = JSON.parse(inmRaw)
-  const proyecto     = JSON.parse(proyectoRaw)
+  const proyecto     = proyectoRaw ? JSON.parse(proyectoRaw) : null
 
-  document.getElementById('empresa-nombre-header').textContent = `${empresa.nombre} / ${inmobiliaria.nombre} / ${proyecto.nombre}`
-  document.title = `NeuroCRM — ${proyecto.nombre}`
+  const breadcrumb = proyecto
+    ? `${empresa.nombre} / ${inmobiliaria.nombre} / ${proyecto.nombre}`
+    : `${empresa.nombre} / ${inmobiliaria.nombre} / Todos los clientes`
+  document.getElementById('empresa-nombre-header').textContent = breadcrumb
+  document.title = `NeuroCRM — ${proyecto ? proyecto.nombre : 'Todos los clientes'}`
 
   _supabase.auth.onAuthStateChange((event, s) => {
     if (!s) { window.location.href = '/login.html'; return }
@@ -615,7 +617,7 @@ function cambiarEmpresa() {
   sessionStorage.removeItem('crm_empresa')
   sessionStorage.removeItem('crm_inmobiliaria')
   sessionStorage.removeItem('crm_proyecto')
-  window.location.href = '/empresa-select.html'
+  window.location.href = '/empresas'
 }
 
 // ─── INIT ─────────────────────────────────────────
@@ -659,8 +661,11 @@ async function cargarProyectos() {
 // ─── CLIENTES ─────────────────────────────────────
 async function cargarClientes() {
   try {
-    const proyecto = JSON.parse(sessionStorage.getItem('crm_proyecto') || '{}')
-    const qs = proyecto.id ? `?proyecto_id=${proyecto.id}` : ''
+    const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+    const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+    const qs = proyecto?.id
+      ? `?proyecto_id=${proyecto.id}`
+      : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
     clientes = await api('GET', `/api/clientes${qs}`)
     actualizarStats()
     aplicarFiltros()

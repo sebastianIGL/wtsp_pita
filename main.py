@@ -2143,11 +2143,14 @@ async def api_listar_clientes(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    proyecto_id = request.query_params.get("proyecto_id")
-    empresa_id  = request.query_params.get("empresa_id")
+    proyecto_id     = request.query_params.get("proyecto_id")
+    inmobiliaria_id = request.query_params.get("inmobiliaria_id")
+    empresa_id      = request.query_params.get("empresa_id")
     params: Dict[str, str] = {"select": "*", "order": "id.desc"}
     if proyecto_id:
         params["proyecto_id"] = f"eq.{proyecto_id}"
+    elif inmobiliaria_id:
+        params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
     elif empresa_id:
         params["empresa_id"] = f"eq.{empresa_id}"
     if perfil.get("rol") != "administrador":

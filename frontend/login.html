@@ -257,7 +257,7 @@
         document.getElementById('formCambio').classList.remove('hidden');
         mostrarAlerta('Debes crear una contraseña permanente para continuar.', 'info');
       } else {
-        window.location.href = '/empresa-select.html';
+        window.location.href = '/empresas';
       }
     } catch (err) {
       mostrarAlerta(err.message || 'Error al iniciar sesión');
@@ -284,7 +284,7 @@
       });
       if (!res.ok) throw new Error(await res.text());
       mostrarAlerta('✓ Contraseña actualizada. Redirigiendo…', 'ok');
-      setTimeout(() => window.location.href = '/empresa-select.html', 1500);
+      setTimeout(() => window.location.href = '/empresas', 1500);
     } catch (err) {
       mostrarAlerta(err.message || 'Error al cambiar contraseña');
       btn.disabled = false;
@@ -293,7 +293,7 @@
   });
 
   _supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = '/empresa-select.html';
+    if (session) window.location.href = '/empresas';
   });
 </script>
 </body>
