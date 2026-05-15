@@ -2139,6 +2139,127 @@ async def api_editar_proyecto(proyecto_id: str, request: Request):
     return {"ok": True}
 
 
+# ── Tipologia ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/tipologias")
+async def api_listar_tipologias(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    proyecto_id = request.query_params.get("proyecto_id")
+    params: Dict[str, str] = {
+        "select": "id,proyecto_id,nombre,dormitorios,banos,superficie_util_m2,precio_desde_uf,precio_hasta_uf,estado",
+        "order": "nombre.asc",
+    }
+    if proyecto_id:
+        params["proyecto_id"] = f"eq.{proyecto_id}"
+    rows = await _supabase_request("GET", "/Tipologia", params=params)
+    return rows or []
+
+
+@app.post("/api/tipologias")
+async def api_crear_tipologia(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    proyecto_id = body.get("proyecto_id")
+    nombre      = (body.get("nombre") or "").strip()
+    if not proyecto_id or not nombre:
+        return Response(content="Faltan campos obligatorios", status_code=400)
+    proyecto = await obtener_proyecto_por_id(proyecto_id)
+    if not proyecto:
+        return Response(content="Proyecto no encontrado", status_code=404)
+    payload: Dict[str, Any] = {
+        "proyecto_id":      proyecto_id,
+        "proyecto_codigo":  proyecto.get("codigo"),
+        "nombre":           nombre,
+    }
+    for campo in ("dormitorios", "banos", "superficie_util_m2", "precio_desde_uf", "precio_hasta_uf", "estado"):
+        if body.get(campo) is not None:
+            payload[campo] = body[campo]
+    row = await _supabase_request("POST", "/Tipologia",
+        json=payload, extra_headers={"Prefer": "return=representation"})
+    return row[0] if isinstance(row, list) and row else row
+
+
+@app.patch("/api/tipologias/{tip_id}")
+async def api_editar_tipologia(tip_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    payload: Dict[str, Any] = {}
+    for campo in ("nombre", "dormitorios", "banos", "superficie_util_m2", "precio_desde_uf", "precio_hasta_uf", "estado"):
+        if body.get(campo) is not None:
+            payload[campo] = body[campo]
+    if not payload:
+        return Response(content="Nada que actualizar", status_code=400)
+    await _supabase_request("PATCH", "/Tipologia",
+        params={"id": f"eq.{tip_id}"},
+        json=payload, extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
+
+
+@app.delete("/api/tipologias/{tip_id}")
+async def api_eliminar_tipologia(tip_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    await _supabase_request("DELETE", "/Tipologia",
+        params={"id": f"eq.{tip_id}"},
+        extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
+
+
+# ── ProyectoEjecutivo ─────────────────────────────────────────────────────────
+
+@app.get("/api/proyecto-ejecutivos")
+async def api_listar_proyecto_ejecutivos(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    proyecto_id = request.query_params.get("proyecto_id")
+    params: Dict[str, str] = {
+        "select": "proyecto_id,ejecutivo_id,Ejecutivo(id,ejecutivo,email)",
+    }
+    if proyecto_id:
+        params["proyecto_id"] = f"eq.{proyecto_id}"
+    rows = await _supabase_request("GET", "/ProyectoEjecutivo", params=params)
+    return rows or []
+
+
+@app.post("/api/proyecto-ejecutivos")
+async def api_asignar_ejecutivo(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    proyecto_id  = body.get("proyecto_id")
+    ejecutivo_id = body.get("ejecutivo_id")
+    if not proyecto_id or not ejecutivo_id:
+        return Response(content="Faltan campos obligatorios", status_code=400)
+    proyecto = await obtener_proyecto_por_id(proyecto_id)
+    if not proyecto:
+        return Response(content="Proyecto no encontrado", status_code=404)
+    row = await _supabase_request("POST", "/ProyectoEjecutivo",
+        json={
+            "proyecto_id":     proyecto_id,
+            "proyecto_codigo": proyecto.get("codigo"),
+            "ejecutivo_id":    ejecutivo_id,
+        },
+        extra_headers={"Prefer": "return=representation"})
+    return row[0] if isinstance(row, list) and row else row
+
+
+@app.delete("/api/proyecto-ejecutivos")
+async def api_quitar_ejecutivo(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    proyecto_id  = request.query_params.get("proyecto_id")
+    ejecutivo_id = request.query_params.get("ejecutivo_id")
+    if not proyecto_id or not ejecutivo_id:
+        return Response(content="Faltan parámetros", status_code=400)
+    await _supabase_request("DELETE", "/ProyectoEjecutivo",
+        params={"proyecto_id": f"eq.{proyecto_id}", "ejecutivo_id": f"eq.{ejecutivo_id}"},
+        extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
+
+
 @app.get("/api/clientes")
 async def api_listar_clientes(request: Request):
     perfil = await _get_usuario_actual(request)
