@@ -108,8 +108,8 @@
   <div class="flex items-center gap-3">
     <div class="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-white font-bold text-lg">N</div>
     <div>
-      <p class="font-semibold leading-none val-text">Neurobytes</p>
-      <p class="text-xs sub-text mt-0.5">CRM Inmobiliario</p>
+      <p class="font-semibold leading-none val-text">NeuroCRM</p>
+      <p id="empresa-nombre-header" class="text-xs sub-text mt-0.5">Cargando…</p>
     </div>
   </div>
   <div class="flex items-center gap-3">
@@ -558,6 +558,13 @@ async function initAuth() {
   if (!session) { window.location.href = '/login.html'; return }
   _token = session.access_token
 
+  // Empresa seleccionada — si no hay, volver a elegir
+  const empresaRaw = sessionStorage.getItem('crm_empresa')
+  if (!empresaRaw) { window.location.href = '/empresa-select.html'; return }
+  const empresa = JSON.parse(empresaRaw)
+  document.getElementById('empresa-nombre-header').textContent = empresa.nombre || 'Empresa'
+  document.title = `NeuroCRM — ${empresa.nombre}`
+
   _supabase.auth.onAuthStateChange((event, s) => {
     if (!s) { window.location.href = '/login.html'; return }
     _token = s.access_token
@@ -585,6 +592,7 @@ async function initAuth() {
 
 async function cerrarSesion() {
   await _supabase.auth.signOut()
+  sessionStorage.removeItem('crm_empresa')
   window.location.href = '/login.html'
 }
 

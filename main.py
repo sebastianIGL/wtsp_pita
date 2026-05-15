@@ -959,7 +959,7 @@ async def obtener_proyecto_por_codigo(codigo: str):
         "/Proyecto",
         params={
             "codigo": f"eq.{codigo}",
-            "select": "codigo,nombre,ubicacion,nombre_plantilla,idioma_plantilla,imagen_url,inmobiliaria,fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias",
+            "select": "codigo,nombre,ubicacion,imagen_url,inmobiliaria,inmobiliaria_id,fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias",
             "limit": "1",
         },
     )
@@ -1522,19 +1522,15 @@ async def ingestar_prospecto(request: Request):
             paso="BIENVENIDA",
         )
 
-        wa_resp = await send_whatsapp_template(
-            to=phone,
-            template_name=proyecto["nombre_plantilla"],
-            language_code=proyecto.get("idioma_plantilla") or "es",
-            body_text_params=[nombre or ""],
-            image_url=proyecto.get("imagen_url"),
-        )
+        # Auto-envío deshabilitado: nombre_plantilla eliminado (rediseño pendiente)
+        wa_resp = None
+        logger.warning("Auto-envío de plantilla omitido — pendiente rediseño de flujo")
 
         if prospecto and prospecto.get("id"):
             await insertar_mensaje(
                 prospecto_id=prospecto["id"],
                 direccion="saliente",
-                text=f"[PLANTILLA] {proyecto['nombre_plantilla']}",
+                text="[PLANTILLA] pendiente selección manual",
                 wa_message_id=(
                     (wa_resp or {}).get("messages", [{}])[0].get("id")
                     if isinstance(wa_resp, dict) else None
@@ -2036,6 +2032,17 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
 
 
 
+@app.get("/api/empresas")
+async def api_listar_empresas(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    rows = await _supabase_request(
+        "GET", "/Empresa",
+        params={"estado": "eq.activa", "select": "id,nombre,slug,logo_url,color_marca", "order": "nombre.asc"},
+    )
+    return rows or []
+
+
 @app.get("/api/proyectos")
 async def api_listar_proyectos(request: Request):
     if not await _get_usuario_actual(request):
@@ -2136,17 +2143,8 @@ async def api_crear_cliente(request: Request):
                 paso="BIENVENIDA",
                 cliente_id=cliente_id_nuevo,
             )
-            proyecto = await obtener_proyecto_por_codigo(proyecto_codigo)
-            if proyecto and proyecto.get("nombre_plantilla"):
-                wa_result = await send_whatsapp_template(
-                    to=telefono,
-                    template_name=proyecto["nombre_plantilla"],
-                    language_code=proyecto.get("idioma_plantilla") or "es",
-                    body_text_params=[nombre],
-                    image_url=proyecto.get("imagen_url"),
-                )
-            else:
-                logger.warning(f"Proyecto {proyecto_codigo} sin plantilla — no se envió template")
+            # Auto-envío deshabilitado: nombre_plantilla eliminado (rediseño pendiente)
+            logger.warning(f"Auto-envío omitido para proyecto {proyecto_codigo} — pendiente rediseño")
 
         return {"ok": True, "cliente": cliente, "wa": wa_result}
 
@@ -2184,7 +2182,7 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
         wa = await send_whatsapp_template(
             to=telefono,
             template_name=proyecto["nombre_plantilla"],
-            language_code=proyecto.get("idioma_plantilla") or "es_CL",
+            language_code="es_CL",
             body_text_params=[nombre],
             image_url=proyecto.get("imagen_url"),
         )

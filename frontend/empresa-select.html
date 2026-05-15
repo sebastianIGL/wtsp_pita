@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroCRM — Seleccionar empresa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg-from: #0f0a1e;
+      --bg-via: #1e1050;
+      --glass-bg: rgba(124,58,237,0.07);
+      --glass-border: rgba(167,139,250,0.15);
+      --heading: #f5f3ff;
+      --muted: #a78bfa;
+      --footer: #4c3d8a;
+      --card-hover: rgba(124,58,237,0.18);
+    }
+    [data-theme="light"] {
+      --bg-from: #f5f3ff;
+      --bg-via: #ede9fe;
+      --glass-bg: rgba(255,255,255,0.85);
+      --glass-border: rgba(124,58,237,0.25);
+      --heading: #1e1b4b;
+      --muted: #7c3aed;
+      --footer: #a78bfa;
+      --card-hover: rgba(124,58,237,0.08);
+    }
+    body {
+      background: linear-gradient(135deg, var(--bg-from) 0%, var(--bg-via) 60%, var(--bg-from) 100%);
+      min-height: 100vh;
+    }
+    .glass { background: var(--glass-bg); backdrop-filter: blur(14px); border: 1px solid var(--glass-border); }
+    .heading { color: var(--heading); }
+    .muted   { color: var(--muted); }
+
+    .empresa-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--glass-border);
+      border-radius: 1.25rem;
+      padding: 2rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      text-align: center;
+    }
+    .empresa-card:hover {
+      transform: translateY(-4px);
+      background: var(--card-hover);
+    }
+    .empresa-card:active { transform: translateY(-1px); }
+    .empresa-avatar {
+      width: 4rem; height: 4rem;
+      border-radius: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; font-weight: 800; color: white;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+    }
+    .empresa-nombre {
+      font-size: 1.1rem; font-weight: 700;
+      color: var(--heading);
+    }
+    .empresa-tag {
+      font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(124,58,237,0.15);
+      color: var(--muted);
+    }
+    .empresa-arrow {
+      color: var(--muted);
+      transition: transform 0.2s, color 0.2s;
+    }
+    .empresa-card:hover .empresa-arrow {
+      transform: translateX(4px);
+      color: var(--heading);
+    }
+
+    .theme-btn {
+      position: fixed; top: 1rem; right: 1rem;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 9999px; padding: 0.5rem; cursor: pointer;
+      backdrop-filter: blur(8px); transition: all 0.2s; color: var(--muted);
+    }
+    .theme-btn:hover { color: var(--heading); }
+
+    .logout-btn {
+      position: fixed; top: 1rem; left: 1rem;
+      background: var(--glass-bg); border: 1px solid var(--glass-border);
+      border-radius: 9999px; padding: 0.5rem 1rem; cursor: pointer;
+      backdrop-filter: blur(8px); transition: all 0.2s;
+      color: var(--muted); font-size: 0.75rem; font-weight: 500;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .logout-btn:hover { color: var(--heading); }
+
+    .skeleton {
+      background: linear-gradient(90deg, rgba(124,58,237,0.1) 25%, rgba(124,58,237,0.2) 50%, rgba(124,58,237,0.1) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 1.25rem; height: 180px;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-6">
+
+  <!-- Cerrar sesión -->
+  <button class="logout-btn" id="btnLogout">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+    </svg>
+    Salir
+  </button>
+
+  <!-- Toggle tema -->
+  <button class="theme-btn" id="themeToggle" title="Cambiar tema">
+    <svg id="iconMoon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+    </svg>
+    <svg id="iconSun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+    </svg>
+  </button>
+
+  <div class="w-full max-w-3xl">
+    <!-- Header -->
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-violet-600 mb-5 shadow-lg shadow-violet-500/30">
+        <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none">
+          <circle cx="4"    cy="6"    r="1.8" fill="currentColor"/>
+          <circle cx="4"    cy="12"   r="1.8" fill="currentColor"/>
+          <circle cx="4"    cy="18"   r="1.8" fill="currentColor"/>
+          <circle cx="12.5" cy="8.5"  r="1.8" fill="currentColor"/>
+          <circle cx="12.5" cy="15.5" r="1.8" fill="currentColor"/>
+          <circle cx="20"   cy="12"   r="1.8" fill="currentColor"/>
+          <line x1="5.8" y1="6.3"  x2="10.7" y2="8.2"  stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="5.8" y1="6.6"  x2="10.7" y2="15.0" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="5.8" y1="12"   x2="10.7" y2="8.8"  stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="5.8" y1="12"   x2="10.7" y2="15.2" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="5.8" y1="17.7" x2="10.7" y2="9.0"  stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="5.8" y1="17.8" x2="10.7" y2="15.5" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="14.3" y1="8.8"  x2="18.2" y2="11.5" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+          <line x1="14.3" y1="15.2" x2="18.2" y2="12.5" stroke="currentColor" stroke-width="0.9" opacity="0.6"/>
+        </svg>
+      </div>
+      <h1 class="text-3xl font-bold heading">NeuroCRM</h1>
+      <p class="muted text-sm mt-2">Selecciona la empresa con la que vas a trabajar hoy</p>
+    </div>
+
+    <!-- Cards -->
+    <div id="empresas-grid" class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+      <div class="skeleton"></div>
+    </div>
+
+    <p id="error-msg" class="hidden text-center text-red-400 text-sm mt-6"></p>
+  </div>
+
+  <p class="fixed bottom-4 text-xs" style="color: var(--footer)">NeuroCRM &copy; 2026 — Powered by Neurosbytes</p>
+
+<script>
+  // ── Tema ─────────────────────────────────────────────────
+  const html = document.documentElement;
+  const saved = localStorage.getItem('crm-theme');
+  const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initTheme = saved || (sysDark ? 'dark' : 'light');
+  html.setAttribute('data-theme', initTheme);
+  document.getElementById('iconMoon').classList.toggle('hidden', initTheme === 'light');
+  document.getElementById('iconSun').classList.toggle('hidden',  initTheme === 'dark');
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    html.setAttribute('data-theme', next);
+    localStorage.setItem('crm-theme', next);
+    document.getElementById('iconMoon').classList.toggle('hidden', next === 'light');
+    document.getElementById('iconSun').classList.toggle('hidden',  next === 'dark');
+  });
+
+  // ── Supabase ─────────────────────────────────────────────
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc';
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  // ── Auth guard ────────────────────────────────────────────
+  async function init() {
+    const { data: { user }, error } = await _supabase.auth.getUser();
+    if (!user || error) { window.location.href = '/login.html'; return; }
+
+    const { data: { session } } = await _supabase.auth.getSession();
+    const token = session?.access_token;
+
+    try {
+      const res = await fetch('/api/empresas', { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { await _supabase.auth.signOut(); window.location.href = '/login.html'; return; }
+      const empresas = await res.json();
+      renderEmpresas(empresas);
+    } catch (e) {
+      document.getElementById('error-msg').textContent = 'Error al cargar empresas: ' + e.message;
+      document.getElementById('error-msg').classList.remove('hidden');
+      document.getElementById('empresas-grid').innerHTML = '';
+    }
+  }
+
+  function iniciales(nombre) {
+    return nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+  }
+
+  function renderEmpresas(empresas) {
+    const grid = document.getElementById('empresas-grid');
+    if (!empresas.length) {
+      grid.innerHTML = '<p class="col-span-3 text-center muted text-sm py-10">No hay empresas activas.</p>';
+      return;
+    }
+    grid.innerHTML = empresas.map(e => {
+      const color = e.color_marca || '#7c3aed';
+      const shadow = color + '40';
+      return `
+        <button class="empresa-card" onclick="seleccionarEmpresa(${JSON.stringify(JSON.stringify(e))})"
+          style="--accent:${color}">
+          <div class="empresa-avatar" style="background:${color}; box-shadow: 0 8px 24px ${shadow}">
+            ${e.logo_url
+              ? `<img src="${e.logo_url}" class="w-full h-full object-contain rounded-xl" />`
+              : iniciales(e.nombre)
+            }
+          </div>
+          <div>
+            <p class="empresa-nombre">${e.nombre}</p>
+          </div>
+          <span class="empresa-tag">Entrar</span>
+          <svg class="empresa-arrow w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>`;
+    }).join('');
+  }
+
+  function seleccionarEmpresa(empresaJson) {
+    const empresa = JSON.parse(empresaJson);
+    sessionStorage.setItem('crm_empresa', JSON.stringify(empresa));
+    window.location.href = '/index.html';
+  }
+
+  document.getElementById('btnLogout').addEventListener('click', async () => {
+    await _supabase.auth.signOut();
+    sessionStorage.removeItem('crm_empresa');
+    window.location.href = '/login.html';
+  });
+
+  init();
+</script>
+</body>
+</html>
