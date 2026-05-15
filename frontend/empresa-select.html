@@ -247,7 +247,9 @@
     grid.querySelectorAll('.empresa-card').forEach((btn, idx) => {
       btn.addEventListener('click', () => {
         sessionStorage.setItem('crm_empresa', JSON.stringify(empresas[idx]));
-        window.location.href = '/index.html';
+        sessionStorage.removeItem('crm_inmobiliaria');
+        sessionStorage.removeItem('crm_proyecto');
+        window.location.href = '/inmobiliaria.html';
       });
     });
   }

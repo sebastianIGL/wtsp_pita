@@ -2049,15 +2049,93 @@ async def api_listar_empresas(request: Request):
     return rows or []
 
 
+@app.get("/api/inmobiliarias")
+async def api_listar_inmobiliarias(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    empresa_id = request.query_params.get("empresa_id")
+    params: Dict[str, str] = {"select": "id,nombre,empresa_id", "order": "nombre.asc"}
+    if empresa_id:
+        params["empresa_id"] = f"eq.{empresa_id}"
+    rows = await _supabase_request("GET", "/Inmobiliaria", params=params)
+    return rows or []
+
+
+@app.post("/api/inmobiliarias")
+async def api_crear_inmobiliaria(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    nombre     = (body.get("nombre") or "").strip()
+    empresa_id = body.get("empresa_id")
+    if not nombre or not empresa_id:
+        return Response(content="Faltan campos obligatorios", status_code=400)
+    row = await _supabase_request("POST", "/Inmobiliaria",
+        json={"nombre": nombre, "empresa_id": empresa_id},
+        extra_headers={"Prefer": "return=representation"})
+    return row[0] if isinstance(row, list) and row else row
+
+
+@app.patch("/api/inmobiliarias/{inm_id}")
+async def api_editar_inmobiliaria(inm_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    nombre = (body.get("nombre") or "").strip()
+    if not nombre:
+        return Response(content="Falta nombre", status_code=400)
+    await _supabase_request("PATCH", "/Inmobiliaria",
+        params={"id": f"eq.{inm_id}"},
+        json={"nombre": nombre},
+        extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
+
+
 @app.get("/api/proyectos")
 async def api_listar_proyectos(request: Request):
     if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
-    rows = await _supabase_request(
-        "GET", "/Proyecto",
-        params={"select": "id,codigo,nombre,ubicacion,inmobiliaria_id", "order": "nombre.asc"},
-    )
+    inmobiliaria_id = request.query_params.get("inmobiliaria_id")
+    params: Dict[str, str] = {"select": "id,codigo,nombre,ubicacion,inmobiliaria_id", "order": "nombre.asc"}
+    if inmobiliaria_id:
+        params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
+    rows = await _supabase_request("GET", "/Proyecto", params=params)
     return rows or []
+
+
+@app.post("/api/proyectos")
+async def api_crear_proyecto(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    nombre          = (body.get("nombre") or "").strip()
+    codigo          = (body.get("codigo") or "").strip()
+    ubicacion       = (body.get("ubicacion") or "").strip() or None
+    inmobiliaria_id = body.get("inmobiliaria_id")
+    if not nombre or not codigo or not inmobiliaria_id:
+        return Response(content="Faltan campos obligatorios", status_code=400)
+    row = await _supabase_request("POST", "/Proyecto",
+        json={"nombre": nombre, "codigo": codigo, "ubicacion": ubicacion, "inmobiliaria_id": inmobiliaria_id},
+        extra_headers={"Prefer": "return=representation"})
+    return row[0] if isinstance(row, list) and row else row
+
+
+@app.patch("/api/proyectos/{proyecto_id}")
+async def api_editar_proyecto(proyecto_id: str, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    payload: Dict[str, Any] = {}
+    if body.get("nombre"):    payload["nombre"]    = body["nombre"].strip()
+    if body.get("codigo"):    payload["codigo"]    = body["codigo"].strip()
+    if body.get("ubicacion"): payload["ubicacion"] = body["ubicacion"].strip()
+    if not payload:
+        return Response(content="Nada que actualizar", status_code=400)
+    await _supabase_request("PATCH", "/Proyecto",
+        params={"id": f"eq.{proyecto_id}"},
+        json=payload,
+        extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
 
 
 @app.get("/api/clientes")
@@ -2065,9 +2143,12 @@ async def api_listar_clientes(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    empresa_id = request.query_params.get("empresa_id")
+    proyecto_id = request.query_params.get("proyecto_id")
+    empresa_id  = request.query_params.get("empresa_id")
     params: Dict[str, str] = {"select": "*", "order": "id.desc"}
-    if empresa_id:
+    if proyecto_id:
+        params["proyecto_id"] = f"eq.{proyecto_id}"
+    elif empresa_id:
         params["empresa_id"] = f"eq.{empresa_id}"
     if perfil.get("rol") != "administrador":
         params["usuario_id"] = f"eq.{perfil['id']}"

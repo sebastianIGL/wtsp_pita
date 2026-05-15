@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NeuroCRM — Inmobiliarias</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    .dark body  { background:#0f172a; color:#e2e8f0; }
+    .dark .glass { background:rgba(255,255,255,0.04); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); }
+    .dark input  { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
+    .dark input::placeholder { color:#64748b; }
+    .dark .val-text   { color:#e2e8f0; }
+    .dark .sub-text   { color:#64748b; }
+    .dark .sidebar-text { color:#94a3b8; }
+    .dark .header-border { border-color:#1e293b; }
+    .dark .trow { border-color:rgba(51,65,85,0.5); }
+    .dark tr:hover td { background:rgba(255,255,255,0.03); }
+    .dark .thead-row th { color:#94a3b8; border-color:#1e293b; }
+    .dark .modal-bg { background:rgba(0,0,0,0.6); }
+    .dark .cancel-btn { border-color:#475569; color:#cbd5e1; }
+    .dark .cancel-btn:hover { background:#1e293b; }
+    .dark .empty-text { color:#64748b; }
+
+    html:not(.dark) body  { background:#f1f5f9; color:#1e293b; }
+    html:not(.dark) .glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); border:1px solid rgba(0,0,0,0.07); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+    html:not(.dark) input  { background:#fff; color:#1e293b; border:1px solid #cbd5e1; }
+    html:not(.dark) input::placeholder { color:#94a3b8; }
+    html:not(.dark) .val-text   { color:#1e293b; }
+    html:not(.dark) .sub-text   { color:#94a3b8; }
+    html:not(.dark) .sidebar-text { color:#64748b; }
+    html:not(.dark) .header-border { border-color:#e2e8f0; }
+    html:not(.dark) .trow { border-color:rgba(226,232,240,0.8); }
+    html:not(.dark) tr:hover td { background:rgba(0,0,0,0.02); }
+    html:not(.dark) .thead-row th { color:#64748b; border-color:#e2e8f0; }
+    html:not(.dark) .modal-bg { background:rgba(0,0,0,0.35); }
+    html:not(.dark) .cancel-btn { border-color:#cbd5e1; color:#475569; }
+    html:not(.dark) .cancel-btn:hover { background:#f1f5f9; }
+    html:not(.dark) .empty-text { color:#94a3b8; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-thumb { border-radius:3px; background:#334155; }
+    input:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
+    .toast { position:fixed; bottom:24px; right:24px; padding:12px 20px; border-radius:10px; font-size:14px; font-weight:500; z-index:9999; animation:slideIn .3s ease; }
+    @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+  </style>
+</head>
+<body class="min-h-screen font-sans">
+
+<!-- HEADER -->
+<header class="header-border border-b px-8 py-4 flex items-center justify-between">
+  <div class="flex items-center gap-2 text-sm sidebar-text">
+    <a href="/empresa-select.html" class="hover:text-violet-400 transition font-semibold val-text">NeuroCRM</a>
+    <span>/</span>
+    <span id="breadcrumb-empresa" class="val-text font-medium">—</span>
+    <span>/</span>
+    <span class="text-violet-400 font-semibold">Inmobiliarias</span>
+  </div>
+  <div class="flex items-center gap-3">
+    <button onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+      </svg>
+      Crear inmobiliaria
+    </button>
+    <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center glass hover:scale-110 transition" title="Cambiar tema">
+      <span id="theme-icon" class="text-lg">🌙</span>
+    </button>
+    <button onclick="cerrarSesion()" class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">Salir</button>
+  </div>
+</header>
+
+<!-- CONTENIDO -->
+<div class="px-8 pt-8 pb-6">
+  <h1 class="text-2xl font-bold val-text">Inmobiliarias</h1>
+  <p id="sub-empresa" class="sidebar-text text-sm mt-1">—</p>
+</div>
+
+<div class="px-8 pb-12">
+  <div class="glass rounded-2xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="thead-row border-b">
+          <th class="px-6 py-3 text-left font-medium">Nombre</th>
+          <th class="px-6 py-3 text-right font-medium">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tabla-body">
+        <tr><td colspan="2" class="px-6 py-12 text-center empty-text">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL CREAR / EDITAR -->
+<div id="modal" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl p-8 w-full max-w-md shadow-2xl">
+    <h2 id="modal-titulo" class="text-lg font-bold val-text mb-6">Nueva inmobiliaria</h2>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="f-nombre" type="text" placeholder="Ej: Inmobiliaria Central" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div class="flex gap-3 mt-6">
+      <button onclick="cerrarModal()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardar()" id="btn-guardar" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Config ────────────────────────────────────────────────
+  const CONFIG = { RAILWAY_URL: '' }
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co'
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc'
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+  let _token = null
+  let _empresa = null
+  let _editandoId = null
+
+  // ── Tema ─────────────────────────────────────────────────
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark)
+    document.getElementById('theme-icon').textContent = dark ? '🌙' : '☀️'
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }
+  function toggleTheme() { applyTheme(!document.documentElement.classList.contains('dark')) }
+  applyTheme(localStorage.getItem('theme') === 'dark')
+
+  // ── Auth ─────────────────────────────────────────────────
+  async function init() {
+    const { data: { session } } = await _supabase.auth.getSession()
+    if (!session) { window.location.href = '/login.html'; return }
+    _token = session.access_token
+
+    const empresaRaw = sessionStorage.getItem('crm_empresa')
+    if (!empresaRaw) { window.location.href = '/empresa-select.html'; return }
+    _empresa = JSON.parse(empresaRaw)
+
+    document.getElementById('breadcrumb-empresa').textContent = _empresa.nombre
+    document.getElementById('sub-empresa').textContent = `Inmobiliarias de ${_empresa.nombre}`
+
+    _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
+
+    cargarInmobiliarias()
+  }
+
+  // ── API ──────────────────────────────────────────────────
+  async function api(method, path, body) {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` }
+    const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+    if (!res.ok) { const t = await res.text(); throw new Error(t || `Error ${res.status}`) }
+    return res.json()
+  }
+
+  // ── Cargar tabla ─────────────────────────────────────────
+  async function cargarInmobiliarias() {
+    try {
+      const rows = await api('GET', `/api/inmobiliarias?empresa_id=${_empresa.id}`)
+      renderTabla(rows)
+    } catch(e) {
+      document.getElementById('tabla-body').innerHTML =
+        `<tr><td colspan="2" class="px-6 py-12 text-center text-red-400">Error al cargar: ${e.message}</td></tr>`
+    }
+  }
+
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+  function renderTabla(rows) {
+    const tbody = document.getElementById('tabla-body')
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="2" class="px-6 py-12 text-center empty-text">No hay inmobiliarias. Crea la primera.</td></tr>`
+      return
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr class="trow border-b transition">
+        <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
+        <td class="px-6 py-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            <button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+            <button onclick='ingresar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
+          </div>
+        </td>
+      </tr>`).join('')
+  }
+
+  // ── Modal ────────────────────────────────────────────────
+  function abrirModal(titulo = 'Nueva inmobiliaria') {
+    _editandoId = null
+    document.getElementById('modal-titulo').textContent = titulo
+    document.getElementById('f-nombre').value = ''
+    document.getElementById('modal').classList.remove('hidden')
+    setTimeout(() => document.getElementById('f-nombre').focus(), 50)
+  }
+
+  function editar(row) {
+    _editandoId = row.id
+    document.getElementById('modal-titulo').textContent = 'Editar inmobiliaria'
+    document.getElementById('f-nombre').value = row.nombre
+    document.getElementById('modal').classList.remove('hidden')
+    setTimeout(() => document.getElementById('f-nombre').focus(), 50)
+  }
+
+  function cerrarModal() {
+    document.getElementById('modal').classList.add('hidden')
+    _editandoId = null
+  }
+
+  async function guardar() {
+    const nombre = document.getElementById('f-nombre').value.trim()
+    if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+    const btn = document.getElementById('btn-guardar')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      if (_editandoId) {
+        await api('PATCH', `/api/inmobiliarias/${_editandoId}`, { nombre })
+        toast('Inmobiliaria actualizada')
+      } else {
+        await api('POST', '/api/inmobiliarias', { nombre, empresa_id: _empresa.id })
+        toast('Inmobiliaria creada')
+      }
+      cerrarModal()
+      cargarInmobiliarias()
+    } catch(e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  // ── Ingresar ─────────────────────────────────────────────
+  function ingresar(row) {
+    sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(row))
+    window.location.href = '/proyecto.html'
+  }
+
+  // ── Sesión ───────────────────────────────────────────────
+  async function cerrarSesion() {
+    await _supabase.auth.signOut()
+    sessionStorage.clear()
+    window.location.href = '/login.html'
+  }
+
+  // ── Toast ────────────────────────────────────────────────
+  function toast(msg, tipo = 'success') {
+    const t = document.createElement('div')
+    t.className = `toast ${tipo === 'error' ? 'bg-red-900 text-red-200' : 'bg-emerald-800 text-emerald-100'}`
+    t.textContent = msg
+    document.body.appendChild(t)
+    setTimeout(() => t.remove(), 3000)
+  }
+
+  // ── Enter key en modal ───────────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') cerrarModal()
+    if (e.key === 'Enter' && !document.getElementById('modal').classList.contains('hidden')) guardar()
+  })
+
+  document.addEventListener('DOMContentLoaded', init)
+</script>
+</body>
+</html>
