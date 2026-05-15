@@ -1881,13 +1881,8 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
         reader = csv.DictReader(io.StringIO(text))
         todos_proyectos = await _supabase_request(
             "GET", "/Proyecto",
-            params={"select": "id,nombre,nombres_csv,inmobiliaria_id"},
+            params={"select": "id,nombre,nombres_csv"},
         ) or []
-        todos_inmobiliarias = await _supabase_request(
-            "GET", "/Inmobiliaria",
-            params={"select": "id,empresa_id"},
-        ) or []
-        inmobiliaria_map = {i["id"]: i["empresa_id"] for i in todos_inmobiliarias}
         creados, duplicados, errores = 0, [], []
         for i, row in enumerate(reader):
             fila = i + 2
@@ -1916,9 +1911,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 if not proyecto:
                     errores.append({"fila": fila, "nombre": nombre, "motivo": f"Proyecto '{nombre_proyecto}' sin mapeo"})
                     continue
-                proyecto_id     = proyecto["id"]
-                inmobiliaria_id = proyecto.get("inmobiliaria_id")
-                empresa_id      = inmobiliaria_map.get(inmobiliaria_id) if inmobiliaria_id else None
+                proyecto_id = proyecto["id"]
                 existente = await _supabase_request(
                     "GET", "/Cliente",
                     params={"Telefono": f"eq.{telefono}", "select": "id,usuario_id", "limit": "1"},
@@ -1935,8 +1928,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                     continue
                 await _supabase_request("POST", "/Cliente",
                     json={
-                        "proyecto_id": proyecto_id, "inmobiliaria_id": inmobiliaria_id,
-                        "empresa_id": empresa_id,
+                        "proyecto_id": proyecto_id,
                         "Contacto": nombre, "Rut": rut, "Correo": correo, "Telefono": telefono,
                         "estado_crm": estado_crm, "Tramo de renta": tramo_renta,
                         "tiene_subsidio": tiene_subsidio, "tipo_subsidio": tipo_subsidio,
@@ -2264,12 +2256,35 @@ async def api_listar_clientes(request: Request):
     inmobiliaria_id = request.query_params.get("inmobiliaria_id")
     empresa_id      = request.query_params.get("empresa_id")
     params: Dict[str, str] = {"select": "*", "order": "id.desc"}
+
     if proyecto_id:
         params["proyecto_id"] = f"eq.{proyecto_id}"
     elif inmobiliaria_id:
-        params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
+        proyectos = await _supabase_request(
+            "GET", "/Proyecto",
+            params={"inmobiliaria_id": f"eq.{inmobiliaria_id}", "select": "id"},
+        ) or []
+        ids = ",".join(p["id"] for p in proyectos)
+        if not ids:
+            return []
+        params["proyecto_id"] = f"in.({ids})"
     elif empresa_id:
-        params["empresa_id"] = f"eq.{empresa_id}"
+        inmobiliarias = await _supabase_request(
+            "GET", "/Inmobiliaria",
+            params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+        ) or []
+        inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
+        if not inm_ids:
+            return []
+        proyectos = await _supabase_request(
+            "GET", "/Proyecto",
+            params={"inmobiliaria_id": f"in.({inm_ids})", "select": "id"},
+        ) or []
+        ids = ",".join(p["id"] for p in proyectos)
+        if not ids:
+            return []
+        params["proyecto_id"] = f"in.({ids})"
+
     if perfil.get("rol") != "administrador":
         params["usuario_id"] = f"eq.{perfil['id']}"
     rows = await _supabase_request("GET", "/Cliente", params=params)
@@ -2302,13 +2317,6 @@ async def api_crear_cliente(request: Request):
         proyecto = await obtener_proyecto_por_id(proyecto_id)
         if not proyecto:
             return Response(content="Proyecto no encontrado", status_code=400)
-        inmobiliaria_id = proyecto.get("inmobiliaria_id")
-        empresa_id_row: Optional[str] = None
-        if inmobiliaria_id:
-            inm = await _supabase_request("GET", "/Inmobiliaria",
-                params={"id": f"eq.{inmobiliaria_id}", "select": "empresa_id", "limit": "1"})
-            if inm:
-                empresa_id_row = inm[0].get("empresa_id")
 
         # Evitar duplicados: mismo teléfono + mismo proyecto
         existente = await _supabase_request(
@@ -2334,8 +2342,6 @@ async def api_crear_cliente(request: Request):
             "POST", "/Cliente",
             json={
                 "proyecto_id":        proyecto_id,
-                "inmobiliaria_id":    inmobiliaria_id,
-                "empresa_id":         empresa_id_row,
                 "Contacto":           nombre,
                 "Rut":                rut or "",
                 "Correo":             correo,
