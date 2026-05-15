@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, File, Form
+from fastapi.responses import FileResponse
 import asyncio
 import os
 import json
@@ -2552,6 +2553,24 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
     except Exception as e:
         logger.exception("Error enviando evaluación cliente %s", cliente_id)
         return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
+# ── Rutas de páginas (URLs limpias sin .html) ────────────────────────────────
+@app.get("/empresas")
+async def page_empresas():
+    return FileResponse("frontend/empresas.html")
+
+@app.get("/login")
+async def page_login():
+    return FileResponse("frontend/login.html")
+
+@app.get("/inmobiliaria")
+async def page_inmobiliaria():
+    return FileResponse("frontend/inmobiliaria.html")
+
+@app.get("/proyecto")
+async def page_proyecto():
+    return FileResponse("frontend/proyecto.html")
 
 
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
