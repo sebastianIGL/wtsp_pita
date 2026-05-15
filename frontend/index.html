@@ -117,6 +117,13 @@
     <a id="admin-link" href="/admin.html" class="hidden text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition">
       Panel Admin
     </a>
+    <!-- Cambiar empresa -->
+    <button onclick="cambiarEmpresa()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar empresa">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+      </svg>
+      Empresa
+    </button>
     <!-- User info -->
     <div class="flex items-center gap-2 text-xs sidebar-text">
       <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
@@ -594,6 +601,11 @@ async function cerrarSesion() {
   await _supabase.auth.signOut()
   sessionStorage.removeItem('crm_empresa')
   window.location.href = '/login.html'
+}
+
+function cambiarEmpresa() {
+  sessionStorage.removeItem('crm_empresa')
+  window.location.href = '/empresa-select.html'
 }
 
 // ─── INIT ─────────────────────────────────────────
