@@ -222,11 +222,11 @@
       grid.innerHTML = '<p class="col-span-3 text-center muted text-sm py-10">No hay empresas activas.</p>';
       return;
     }
-    grid.innerHTML = empresas.map(e => {
+    grid.innerHTML = empresas.map((e, idx) => {
       const color = e.color_marca || '#7c3aed';
       const shadow = color + '40';
       return `
-        <button class="empresa-card" onclick="seleccionarEmpresa(${JSON.stringify(JSON.stringify(e))})"
+        <button class="empresa-card" data-idx="${idx}"
           style="--accent:${color}">
           <div class="empresa-avatar" style="background:${color}; box-shadow: 0 8px 24px ${shadow}">
             ${e.logo_url
@@ -243,12 +243,13 @@
           </svg>
         </button>`;
     }).join('');
-  }
 
-  function seleccionarEmpresa(empresaJson) {
-    const empresa = JSON.parse(empresaJson);
-    sessionStorage.setItem('crm_empresa', JSON.stringify(empresa));
-    window.location.href = '/index.html';
+    grid.querySelectorAll('.empresa-card').forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        sessionStorage.setItem('crm_empresa', JSON.stringify(empresas[idx]));
+        window.location.href = '/index.html';
+      });
+    });
   }
 
   document.getElementById('btnLogout').addEventListener('click', async () => {
