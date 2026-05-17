@@ -140,6 +140,12 @@
     <div id="import-results" class="hidden space-y-4">
       <div id="import-stats" class="grid grid-cols-3 gap-3 text-center"></div>
       <div id="import-errores" class="hidden max-h-40 overflow-y-auto space-y-1 p-3 glass rounded-xl"></div>
+      <button id="btn-descargar-errores" class="hidden w-full py-2 rounded-lg border cancel-btn text-xs font-medium transition flex items-center justify-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Descargar filas con error (.csv)
+      </button>
       <button onclick="cerrarModalImport()" class="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Cerrar</button>
     </div>
   </div>
@@ -389,20 +395,41 @@
           <p class="text-xs sidebar-text mt-1">Errores</p>
         </div>`
       const errDiv = document.getElementById('import-errores')
-      if ((data.detalle_errores || []).length) {
+      const detalleErr = data.detalle_errores || []
+      if (detalleErr.length) {
         errDiv.innerHTML = `<p class="text-xs sidebar-text font-semibold mb-2">Detalle de errores:</p>` +
-          data.detalle_errores.map(d =>
+          detalleErr.map(d =>
             `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`
           ).join('')
         errDiv.classList.remove('hidden')
+        document.getElementById('btn-descargar-errores').classList.remove('hidden')
+        document.getElementById('btn-descargar-errores').onclick = () => descargarErroresCSV(detalleErr)
       } else {
         errDiv.classList.add('hidden')
+        document.getElementById('btn-descargar-errores').classList.add('hidden')
       }
     } catch(e) {
       btn.disabled = false
       btn.textContent = 'Importar'
       toast(e.message, 'error')
     }
+  }
+
+  function descargarErroresCSV(errores) {
+    const cols = ['Proyecto','Contacto','Rut','Teléfono','Correo','Estado','Tramo de renta','Tiene subsidio','Tipo subsidio','Tiene propiedad','_motivo_error']
+    const filas = errores.map(e => {
+      const d = e.datos || {}
+      return cols.map(c => {
+        const v = c === '_motivo_error' ? (e.motivo || '') : (d[c] ?? '')
+        return `"${String(v).replace(/"/g, '""')}"`
+      }).join(',')
+    })
+    const csv = [cols.join(','), ...filas].join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `errores_importacion_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
   }
 
   // Drag & drop

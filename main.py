@@ -954,7 +954,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria,inmobiliaria_id,fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre),fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
 
 
 async def obtener_proyecto_por_id(proyecto_id: str):
@@ -1078,7 +1078,7 @@ async def generar_respuesta_ia(
     p                  = proyecto or {}
     proyecto_nombre    = p.get("nombre") or "nuestro proyecto"
     proyecto_ubicacion = p.get("ubicacion") or ""
-    proyecto_inmobiliaria      = p.get("inmobiliaria") or ""
+    proyecto_inmobiliaria      = (p.get("Inmobiliaria") or {}).get("nombre") or ""
     proyecto_fecha_entrega     = p.get("fecha_entrega") or "por confirmar"
     proyecto_ahorro_minimo     = p.get("ahorro_minimo_uf") or 50
     proyecto_reserva_clp       = p.get("valor_reserva_clp") or ""
@@ -1910,15 +1910,23 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
                 tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
 
+                datos_raw = {"Contacto": nombre, "Rut": rut, "Correo": correo or "", "Teléfono": tel_raw,
+                            "Proyecto": nombre_proyecto, "Estado": estado_crm or "",
+                            "Tramo de renta": tramo_renta or "", "Tiene subsidio": sub_raw,
+                            "Tipo subsidio": tipo_subsidio or "", "Tiene propiedad": prop_raw}
+
                 if not nombre or not telefono:
-                    errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío"})
+                    errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío", "datos": datos_raw})
+                    continue
+                if not rut:
+                    errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
                     continue
                 if not nombre_proyecto:
-                    errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío"})
+                    errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
                     continue
                 proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
                 if not proyecto:
-                    errores.append({"fila": fila, "nombre": nombre, "motivo": f"Proyecto '{nombre_proyecto}' sin mapeo"})
+                    errores.append({"fila": fila, "nombre": nombre, "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv del proyecto", "datos": datos_raw})
                     continue
                 proyecto_id = proyecto["id"]
                 existente = await _supabase_request(
