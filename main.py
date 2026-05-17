@@ -1898,6 +1898,18 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 "GET", "/Proyecto", params=proyecto_params,
             ) or []
 
+            # Cargar todos los teléfonos existentes en memoria (1 sola query)
+            phones_existentes: set = set()
+            offset = 0
+            while True:
+                batch = await _supabase_request("GET", "/Cliente",
+                    params={"select": "Telefono", "limit": "1000", "offset": str(offset)},
+                ) or []
+                phones_existentes.update(r["Telefono"] for r in batch if r.get("Telefono"))
+                if len(batch) < 1000:
+                    break
+                offset += 1000
+
             creados, duplicados, errores = 0, [], []
             reader = csv.DictReader(io.StringIO(text))
 
@@ -1930,6 +1942,9 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                         errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
                     elif not nombre_proyecto:
                         errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
+                    elif telefono in phones_existentes:
+                        duplicados.append({"fila": fila, "nombre": nombre,
+                                           "telefono": telefono, "datos": datos_raw})
                     else:
                         proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
                         if not proyecto:
@@ -1937,37 +1952,22 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                             "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
                                             "datos": datos_raw})
                         else:
-                            proyecto_id = proyecto["id"]
-                            existente = await _supabase_request(
-                                "GET", "/Cliente",
-                                params={"Telefono": f"eq.{telefono}", "select": "id,usuario_id", "limit": "1"},
-                            )
-                            if existente:
-                                owner_id     = existente[0].get("usuario_id")
-                                owner_nombre = "otro usuario"
-                                if owner_id:
-                                    op = await _supabase_request("GET", "/Usuario",
-                                        params={"id": f"eq.{owner_id}", "select": "nombre", "limit": "1"})
-                                    if op:
-                                        owner_nombre = op[0].get("nombre", "otro usuario")
-                                duplicados.append({"fila": fila, "nombre": nombre,
-                                                   "telefono": telefono, "propietario": owner_nombre})
-                            else:
-                                await _supabase_request("POST", "/Cliente",
-                                    json={
-                                        "proyecto_id": proyecto_id,
-                                        "Contacto": nombre, "Rut": rut, "Correo": correo,
-                                        "Telefono": telefono, "estado_crm": estado_crm,
-                                        "Tramo de renta": tramo_renta,
-                                        "tiene_subsidio": tiene_subsidio,
-                                        "tipo_subsidio": tipo_subsidio,
-                                        "tiene_propiedad": tiene_propiedad,
-                                        "primer mensaje": True, "wtsp_habilitado": True,
-                                        "usuario_id": usuario_id,
-                                        "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
-                                    },
-                                    extra_headers={"Prefer": "return=minimal"})
-                                creados += 1
+                            await _supabase_request("POST", "/Cliente",
+                                json={
+                                    "proyecto_id": proyecto["id"],
+                                    "Contacto": nombre, "Rut": rut, "Correo": correo,
+                                    "Telefono": telefono, "estado_crm": estado_crm,
+                                    "Tramo de renta": tramo_renta,
+                                    "tiene_subsidio": tiene_subsidio,
+                                    "tipo_subsidio": tipo_subsidio,
+                                    "tiene_propiedad": tiene_propiedad,
+                                    "primer mensaje": True, "wtsp_habilitado": True,
+                                    "usuario_id": usuario_id,
+                                    "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                                },
+                                extra_headers={"Prefer": "return=minimal"})
+                            phones_existentes.add(telefono)  # evita duplicados dentro del mismo archivo
+                            creados += 1
                 except Exception as ex:
                     errores.append({"fila": fila, "motivo": str(ex)})
 

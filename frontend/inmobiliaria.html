@@ -170,7 +170,7 @@
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
         </svg>
-        Descargar filas con error (.csv)
+        Descargar rechazados (.csv)
       </button>
       <button onclick="cerrarModalImport()" class="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Cerrar</button>
     </div>
@@ -462,34 +462,61 @@
       </div>`
     const errDiv = document.getElementById('import-errores')
     const detalleErr = data.detalle_errores || []
-    if (detalleErr.length) {
-      errDiv.innerHTML = `<p class="text-xs sidebar-text font-semibold mb-2">Detalle de errores:</p>` +
-        detalleErr.map(d =>
-          `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`
-        ).join('')
+    const detalleDups = data.detalle_duplicados || []
+    const hayRechazados = detalleErr.length || detalleDups.length
+    if (hayRechazados) {
+      let html = ''
+      if (detalleDups.length) {
+        html += `<p class="text-xs sidebar-text font-semibold mb-1">Duplicados (${detalleDups.length}):</p>` +
+          detalleDups.slice(0, 5).map(d =>
+            `<p class="text-xs text-amber-400">• Fila ${d.fila ?? '?'} (${esc(d.nombre)}): teléfono ya existe</p>`
+          ).join('') +
+          (detalleDups.length > 5 ? `<p class="text-xs sidebar-text">… y ${detalleDups.length - 5} más</p>` : '')
+      }
+      if (detalleErr.length) {
+        html += `<p class="text-xs sidebar-text font-semibold mb-1 mt-2">Errores (${detalleErr.length}):</p>` +
+          detalleErr.slice(0, 5).map(d =>
+            `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo)}</p>`
+          ).join('') +
+          (detalleErr.length > 5 ? `<p class="text-xs sidebar-text">… y ${detalleErr.length - 5} más</p>` : '')
+      }
+      errDiv.innerHTML = html
       errDiv.classList.remove('hidden')
       document.getElementById('btn-descargar-errores').classList.remove('hidden')
-      document.getElementById('btn-descargar-errores').onclick = () => descargarErroresCSV(detalleErr)
+      document.getElementById('btn-descargar-errores').onclick = () => descargarRechazadosCSV(detalleErr, detalleDups)
     } else {
       errDiv.classList.add('hidden')
       document.getElementById('btn-descargar-errores').classList.add('hidden')
     }
   }
 
-  function descargarErroresCSV(errores) {
-    const cols = ['Proyecto','Contacto','Rut','Teléfono','Correo','Estado','Tramo de renta','Tiene subsidio','Tipo subsidio','Tiene propiedad','_motivo_error']
-    const filas = errores.map(e => {
-      const d = e.datos || {}
+  function descargarRechazadosCSV(errores, duplicados) {
+    const cols = ['_tipo','Proyecto','Contacto','Rut','Teléfono','Correo','Estado','Tramo de renta','Tiene subsidio','Tipo subsidio','Tiene propiedad','_motivo']
+    const filasDups = duplicados.map(d => {
+      const r = d.datos || {}
       return cols.map(c => {
-        const v = c === '_motivo_error' ? (e.motivo || '') : (d[c] ?? '')
+        let v = ''
+        if (c === '_tipo')   v = 'Duplicado'
+        else if (c === '_motivo') v = 'Teléfono ya existe en el sistema'
+        else v = r[c] ?? ''
         return `"${String(v).replace(/"/g, '""')}"`
       }).join(',')
     })
-    const csv = [cols.join(','), ...filas].join('\n')
+    const filasErr = errores.map(e => {
+      const r = e.datos || {}
+      return cols.map(c => {
+        let v = ''
+        if (c === '_tipo')   v = 'Error'
+        else if (c === '_motivo') v = e.motivo || ''
+        else v = r[c] ?? ''
+        return `"${String(v).replace(/"/g, '""')}"`
+      }).join(',')
+    })
+    const csv = [cols.join(','), ...filasDups, ...filasErr].join('\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `errores_importacion_${new Date().toISOString().slice(0,10)}.csv`
+    a.download = `rechazados_${new Date().toISOString().slice(0,10)}.csv`
     a.click()
   }
 
