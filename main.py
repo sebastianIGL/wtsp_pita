@@ -1898,17 +1898,21 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 "GET", "/Proyecto", params=proyecto_params,
             ) or []
 
-            # Cargar todos los teléfonos existentes en memoria (1 sola query)
+            # Extraer teléfonos del CSV (primera pasada, sin I/O)
+            phones_csv: set = set()
+            for row in csv.DictReader(io.StringIO(text)):
+                tel = _normalize_phone((row.get("Teléfono") or row.get("Telefono") or "").strip())
+                if tel:
+                    phones_csv.add(tel)
+
+            # Una sola query solo con los teléfonos que vienen en el archivo
             phones_existentes: set = set()
-            offset = 0
-            while True:
+            if phones_csv:
+                phones_in = ",".join(phones_csv)
                 batch = await _supabase_request("GET", "/Cliente",
-                    params={"select": "Telefono", "limit": "1000", "offset": str(offset)},
+                    params={"Telefono": f"in.({phones_in})", "select": "Telefono"},
                 ) or []
-                phones_existentes.update(r["Telefono"] for r in batch if r.get("Telefono"))
-                if len(batch) < 1000:
-                    break
-                offset += 1000
+                phones_existentes = {r["Telefono"] for r in batch if r.get("Telefono")}
 
             creados, duplicados, errores = 0, [], []
             reader = csv.DictReader(io.StringIO(text))
