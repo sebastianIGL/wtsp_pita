@@ -2098,9 +2098,19 @@ async def api_listar_proyectos(request: Request):
     if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
     inmobiliaria_id = request.query_params.get("inmobiliaria_id")
-    params: Dict[str, str] = {"select": "id,codigo,nombre,ubicacion,inmobiliaria_id", "order": "nombre.asc"}
+    empresa_id      = request.query_params.get("empresa_id")
+    params: Dict[str, str] = {"select": "id,codigo,nombre,ubicacion,inmobiliaria_id,Inmobiliaria(nombre)", "order": "nombre.asc"}
     if inmobiliaria_id:
         params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
+    elif empresa_id:
+        inmobiliarias = await _supabase_request(
+            "GET", "/Inmobiliaria",
+            params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+        ) or []
+        inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
+        if not inm_ids:
+            return []
+        params["inmobiliaria_id"] = f"in.({inm_ids})"
     rows = await _supabase_request("GET", "/Proyecto", params=params)
     return rows or []
 

@@ -223,11 +223,28 @@
   function renderTabla(rows) {
     document.getElementById('contador').textContent = `${rows.length} inmobiliaria${rows.length !== 1 ? 's' : ''}`
     const tbody = document.getElementById('tabla-body')
+
+    const filasTodos = `
+      <tr class="border-b" style="background:rgba(124,58,237,0.06)">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 004 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/>
+            </svg>
+            <span class="font-semibold text-violet-400">Todos los proyectos</span>
+            <span class="text-xs sidebar-text">— vista completa de ${esc(_empresa.nombre)}</span>
+          </div>
+        </td>
+        <td class="px-6 py-4 text-right">
+          <button onclick='ingresarTodos()' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
+        </td>
+      </tr>`
+
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="2" class="px-6 py-12 text-center empty-text">No hay inmobiliarias. Crea la primera.</td></tr>`
+      tbody.innerHTML = filasTodos + `<tr><td colspan="2" class="px-6 py-12 text-center empty-text">No hay inmobiliarias. Crea la primera.</td></tr>`
       return
     }
-    tbody.innerHTML = rows.map(r => `
+    tbody.innerHTML = filasTodos + rows.map(r => `
       <tr class="trow border-b transition">
         <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
         <td class="px-6 py-4 text-right">
@@ -286,6 +303,11 @@
   // ── Ingresar ─────────────────────────────────────────────
   function ingresar(row) {
     sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(row))
+    window.location.href = '/proyecto.html'
+  }
+
+  function ingresarTodos() {
+    sessionStorage.setItem('crm_inmobiliaria', JSON.stringify({ _todos: true, nombre: 'Todos los proyectos' }))
     window.location.href = '/proyecto.html'
   }
 

@@ -86,7 +86,7 @@
   <div class="glass rounded-2xl overflow-hidden">
     <div class="px-6 py-4 border-b thead-row flex items-center justify-between">
       <p id="contador" class="text-xs sidebar-text">—</p>
-      <button onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
+      <button id="btn-crear-proyecto" onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -99,6 +99,7 @@
           <th class="px-6 py-3 text-left font-medium">Nombre</th>
           <th class="px-6 py-3 text-left font-medium">Código</th>
           <th class="px-6 py-3 text-left font-medium">Ubicación</th>
+          <th id="th-inmobiliaria" class="hidden px-6 py-3 text-left font-medium">Inmobiliaria</th>
           <th class="px-6 py-3 text-right font-medium">Acciones</th>
         </tr>
       </thead>
@@ -166,9 +167,17 @@
     _empresa       = JSON.parse(empresaRaw)
     _inmobiliaria  = JSON.parse(inmRaw)
 
+    const esTodos = !!_inmobiliaria._todos
     document.getElementById('breadcrumb-empresa').textContent     = _empresa.nombre
     document.getElementById('breadcrumb-inmobiliaria').textContent = _inmobiliaria.nombre
-    document.getElementById('sub-inmobiliaria').textContent        = `Proyectos de ${_inmobiliaria.nombre}`
+    document.getElementById('sub-inmobiliaria').textContent = esTodos
+      ? `Todos los proyectos de ${_empresa.nombre}`
+      : `Proyectos de ${_inmobiliaria.nombre}`
+
+    if (esTodos) {
+      document.getElementById('btn-crear-proyecto').classList.add('hidden')
+      document.getElementById('th-inmobiliaria').classList.remove('hidden')
+    }
 
     _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
 
@@ -184,7 +193,10 @@
 
   async function cargarProyectos() {
     try {
-      const rows = await api('GET', `/api/proyectos?inmobiliaria_id=${_inmobiliaria.id}`)
+      const qs = _inmobiliaria._todos
+        ? `empresa_id=${_empresa.id}`
+        : `inmobiliaria_id=${_inmobiliaria.id}`
+      const rows = await api('GET', `/api/proyectos?${qs}`)
       renderTabla(rows)
     } catch(e) {
       document.getElementById('tabla-body').innerHTML =
@@ -197,8 +209,10 @@
   function renderTabla(rows) {
     document.getElementById('contador').textContent = `${rows.length} proyecto${rows.length !== 1 ? 's' : ''}`
     const tbody = document.getElementById('tabla-body')
+    const esTodos = !!_inmobiliaria._todos
+    const cols = esTodos ? 5 : 4
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-12 text-center empty-text">No hay proyectos. Crea el primero.</td></tr>`
+      tbody.innerHTML = `<tr><td colspan="${cols}" class="px-6 py-12 text-center empty-text">No hay proyectos.</td></tr>`
       return
     }
     tbody.innerHTML = rows.map(r => `
@@ -206,9 +220,10 @@
         <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
         <td class="px-6 py-4 font-mono text-xs sidebar-text">${esc(r.codigo)}</td>
         <td class="px-6 py-4 sidebar-text">${esc(r.ubicacion || '—')}</td>
+        ${esTodos ? `<td class="px-6 py-4 text-xs sidebar-text">${esc(r.Inmobiliaria?.nombre || '—')}</td>` : ''}
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
-            <button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+            ${!esTodos ? `<button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>` : ''}
             <button onclick='ingresar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
           </div>
         </td>
