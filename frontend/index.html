@@ -175,6 +175,13 @@
       <div class="flex items-center gap-3">
         <h2 class="font-semibold val-text">Clientes</h2>
         <span id="badge-count" class="badge-count-bg text-xs px-2 py-0.5 rounded-full">0</span>
+        <!-- Toggle visible solo para administradores -->
+        <div id="toggle-filtro-usuario" class="hidden items-center rounded-lg overflow-hidden text-xs border border-slate-600" style="font-size:0.72rem">
+          <button id="btn-mis-clientes" onclick="setFiltroUsuario(false)"
+            class="px-3 py-1.5 font-medium transition-colors">Mis clientes</button>
+          <button id="btn-todos-clientes" onclick="setFiltroUsuario(true)"
+            class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Todos</button>
+        </div>
       </div>
       <div class="flex items-center gap-3">
         <input id="search" type="text" placeholder="Buscar…" class="rounded-lg px-3 py-1.5 text-sm w-40" oninput="aplicarFiltros()" />
@@ -536,9 +543,10 @@ const CONFIG = {
   API_KEY: 'variable.test.2026.chatbot',
 }
 
-let _token  = null
-let _perfil = null
-let clientes = []
+let _token    = null
+let _perfil   = null
+let _verTodos = false
+let clientes  = []
 let proyectos = []
 let paginaActual = 1
 const POR_PAGINA = 20
@@ -591,7 +599,13 @@ async function initAuth() {
     const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
     _perfil = await res.json()
     document.getElementById('user-name').textContent = _perfil.nombre || _perfil.correo || ''
-    if (_perfil.rol === 'administrador') document.getElementById('admin-link').classList.remove('hidden')
+    if (_perfil.rol === 'administrador') {
+      document.getElementById('admin-link').classList.remove('hidden')
+      const tog = document.getElementById('toggle-filtro-usuario')
+      tog.classList.remove('hidden')
+      tog.classList.add('flex')
+      _actualizarToggle()
+    }
   } catch(e) { console.warn('Perfil:', e) }
 
   // 3-hour inactivity logout
@@ -604,6 +618,26 @@ async function initAuth() {
   resetInact()
 
   cargarProyectos()
+  cargarClientes()
+}
+
+function _actualizarToggle() {
+  const btnMis   = document.getElementById('btn-mis-clientes')
+  const btnTodos = document.getElementById('btn-todos-clientes')
+  const activo   = 'bg-brand-600 text-white'
+  const inactivo = 'text-slate-400 hover:text-slate-200'
+  if (_verTodos) {
+    btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${activo}`
+    btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${inactivo}`
+  } else {
+    btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${activo}`
+    btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${inactivo}`
+  }
+}
+
+function setFiltroUsuario(todos) {
+  _verTodos = todos
+  _actualizarToggle()
   cargarClientes()
 }
 
@@ -668,7 +702,10 @@ async function cargarClientes() {
       ? `?proyecto_id=${proyecto.id}`
       : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
       : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
-    clientes = await api('GET', `/api/clientes${qs}`)
+    const sep = qs ? '&' : '?'
+    const usuarioQs = (_perfil?.rol === 'administrador' && !_verTodos)
+      ? `${sep}usuario_id=${_perfil.id}` : ''
+    clientes = await api('GET', `/api/clientes${qs}${usuarioQs}`)
     actualizarStats()
     aplicarFiltros()
   } catch(e) {

@@ -2335,8 +2335,11 @@ async def api_listar_clientes(request: Request):
             return []
         params["proyecto_id"] = f"in.({ids})"
 
+    usuario_filtro = request.query_params.get("usuario_id")
     if perfil.get("rol") != "administrador":
         params["usuario_id"] = f"eq.{perfil['id']}"
+    elif usuario_filtro:
+        params["usuario_id"] = f"eq.{usuario_filtro}"
     rows = await _supabase_request("GET", "/Cliente", params=params)
     return rows or []
 
