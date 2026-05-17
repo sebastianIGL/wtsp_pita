@@ -47,6 +47,12 @@
     input:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
     .toast { position:fixed; bottom:24px; right:24px; padding:12px 20px; border-radius:10px; font-size:14px; font-weight:500; z-index:9999; animation:slideIn .3s ease; }
     @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    .drop-zone { border:2px dashed #334155; border-radius:12px; padding:2rem 1.5rem; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color:#7c3aed; background:rgba(124,58,237,.06); }
+    .drop-zone input[type=file] { display:none; }
+    .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+    @keyframes spin { to { transform:rotate(360deg) } }
   </style>
 </head>
 <body class="min-h-screen font-sans">
@@ -78,12 +84,20 @@
   <div class="glass rounded-2xl overflow-hidden">
     <div class="px-6 py-4 border-b thead-row flex items-center justify-between">
       <p id="contador" class="text-xs sidebar-text">—</p>
-      <button onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        Crear inmobiliaria
-      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="abrirModalImport()" class="text-xs px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5 border border-transparent hover:border-violet-500/30">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+          </svg>
+          Cargar base
+        </button>
+        <button onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+          </svg>
+          Crear inmobiliaria
+        </button>
+      </div>
     </div>
     <table class="w-full text-sm">
       <thead>
@@ -96,6 +110,38 @@
         <tr><td colspan="2" class="px-6 py-12 text-center empty-text">Cargando…</td></tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- MODAL IMPORTAR CLIENTES -->
+<div id="modal-import" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl p-8 w-full max-w-lg shadow-2xl">
+    <h2 class="text-lg font-bold val-text mb-1">Cargar base de clientes</h2>
+    <p class="text-xs sidebar-text mb-6">El CSV puede incluir clientes de múltiples proyectos de esta empresa. Cada fila se asigna automáticamente al proyecto correspondiente.</p>
+
+    <!-- Formulario -->
+    <div id="import-form">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()">
+        <input type="file" id="csv-input" accept=".csv" onchange="onFileSelected(this)" />
+        <svg class="w-8 h-8 mx-auto mb-2 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p id="drop-label" class="text-sm sidebar-text">Haz clic o arrastra un archivo <span class="font-semibold">.csv</span></p>
+        <p id="file-name" class="hidden text-sm val-text font-medium mt-1"></p>
+      </div>
+      <p class="text-xs sidebar-text mt-3">Columnas requeridas: <span class="val-text">Proyecto, Contacto, Teléfono</span> · Opcionales: Rut, Correo, Estado, Tramo de renta, Tiene subsidio, Tipo subsidio, Tiene propiedad</p>
+      <div class="flex gap-3 mt-6">
+        <button onclick="cerrarModalImport()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+        <button onclick="importar()" id="btn-import" disabled class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition">Importar</button>
+      </div>
+    </div>
+
+    <!-- Resultados -->
+    <div id="import-results" class="hidden space-y-4">
+      <div id="import-stats" class="grid grid-cols-3 gap-3 text-center"></div>
+      <div id="import-errores" class="hidden max-h-40 overflow-y-auto space-y-1 p-3 glass rounded-xl"></div>
+      <button onclick="cerrarModalImport()" class="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Cerrar</button>
+    </div>
   </div>
 </div>
 
@@ -259,9 +305,105 @@
     setTimeout(() => t.remove(), 3000)
   }
 
+  // ── Modal Importar ───────────────────────────────────────
+  let _archivoCSV = null
+
+  function abrirModalImport() {
+    _archivoCSV = null
+    document.getElementById('csv-input').value = ''
+    document.getElementById('drop-label').classList.remove('hidden')
+    document.getElementById('file-name').classList.add('hidden')
+    document.getElementById('import-form').classList.remove('hidden')
+    document.getElementById('import-results').classList.add('hidden')
+    document.getElementById('btn-import').disabled = true
+    document.getElementById('modal-import').classList.remove('hidden')
+  }
+
+  function cerrarModalImport() {
+    document.getElementById('modal-import').classList.add('hidden')
+    _archivoCSV = null
+  }
+
+  function onFileSelected(input) {
+    const file = input.files[0]
+    if (!file) return
+    _archivoCSV = file
+    document.getElementById('drop-label').classList.add('hidden')
+    const fn = document.getElementById('file-name')
+    fn.textContent = file.name
+    fn.classList.remove('hidden')
+    document.getElementById('btn-import').disabled = false
+  }
+
+  async function importar() {
+    if (!_archivoCSV) return
+    const btn = document.getElementById('btn-import')
+    btn.disabled = true
+    btn.innerHTML = '<span class="spinner"></span>Importando…'
+    const fd = new FormData()
+    fd.append('file', _archivoCSV)
+    try {
+      const res = await fetch(`/api/clientes/importar?empresa_id=${_empresa.id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${_token}` },
+        body: fd,
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const data = await res.json()
+      document.getElementById('import-form').classList.add('hidden')
+      const results = document.getElementById('import-results')
+      results.classList.remove('hidden')
+      document.getElementById('import-stats').innerHTML = `
+        <div class="glass rounded-xl p-3">
+          <p class="text-2xl font-bold text-emerald-400">${data.creados ?? 0}</p>
+          <p class="text-xs sidebar-text mt-1">Creados</p>
+        </div>
+        <div class="glass rounded-xl p-3">
+          <p class="text-2xl font-bold text-amber-400">${data.duplicados ?? 0}</p>
+          <p class="text-xs sidebar-text mt-1">Duplicados</p>
+        </div>
+        <div class="glass rounded-xl p-3">
+          <p class="text-2xl font-bold text-red-400">${data.errores ?? 0}</p>
+          <p class="text-xs sidebar-text mt-1">Errores</p>
+        </div>`
+      const errDiv = document.getElementById('import-errores')
+      if ((data.detalle_errores || []).length) {
+        errDiv.innerHTML = `<p class="text-xs sidebar-text font-semibold mb-2">Detalle de errores:</p>` +
+          data.detalle_errores.map(d =>
+            `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`
+          ).join('')
+        errDiv.classList.remove('hidden')
+      } else {
+        errDiv.classList.add('hidden')
+      }
+    } catch(e) {
+      btn.disabled = false
+      btn.textContent = 'Importar'
+      toast(e.message, 'error')
+    }
+  }
+
+  // Drag & drop
+  const dropZone = document.getElementById('drop-zone')
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over') })
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'))
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault()
+    dropZone.classList.remove('drag-over')
+    const file = e.dataTransfer.files[0]
+    if (file && file.name.endsWith('.csv')) {
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      document.getElementById('csv-input').files = dt.files
+      onFileSelected(document.getElementById('csv-input'))
+    } else {
+      toast('Solo se aceptan archivos .csv', 'error')
+    }
+  })
+
   // ── Enter key en modal ───────────────────────────────────
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') cerrarModal()
+    if (e.key === 'Escape') { cerrarModal(); cerrarModalImport() }
     if (e.key === 'Enter' && !document.getElementById('modal').classList.contains('hidden')) guardar()
   })
 

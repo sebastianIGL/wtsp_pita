@@ -1872,6 +1872,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     usuario_id = perfil["id"]
+    empresa_id = request.query_params.get("empresa_id")
     try:
         content = await file.read()
         try:
@@ -1879,9 +1880,17 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
         except UnicodeDecodeError:
             text = content.decode("latin-1")
         reader = csv.DictReader(io.StringIO(text))
+        proyecto_params: Dict[str, str] = {"select": "id,nombre,nombres_csv"}
+        if empresa_id:
+            inmobiliarias = await _supabase_request(
+                "GET", "/Inmobiliaria",
+                params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+            ) or []
+            inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
+            if inm_ids:
+                proyecto_params["inmobiliaria_id"] = f"in.({inm_ids})"
         todos_proyectos = await _supabase_request(
-            "GET", "/Proyecto",
-            params={"select": "id,nombre,nombres_csv"},
+            "GET", "/Proyecto", params=proyecto_params,
         ) or []
         creados, duplicados, errores = 0, [], []
         for i, row in enumerate(reader):
