@@ -663,8 +663,10 @@ async function cargarClientes() {
   try {
     const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
     const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+    const empresa      = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
     const qs = proyecto?.id
       ? `?proyecto_id=${proyecto.id}`
+      : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
       : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
     clientes = await api('GET', `/api/clientes${qs}`)
     actualizarStats()
