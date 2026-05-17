@@ -1868,103 +1868,122 @@ async def api_listar_templates(request: Request):
 
 @app.post("/api/clientes/importar")
 async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
+    from fastapi.responses import StreamingResponse as _SR
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     usuario_id = perfil["id"]
     empresa_id = request.query_params.get("empresa_id")
+
+    content = await file.read()
     try:
-        content = await file.read()
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    total = max(0, sum(1 for l in text.splitlines() if l.strip()) - 1)
+
+    async def _stream():
         try:
-            text = content.decode("utf-8-sig")
-        except UnicodeDecodeError:
-            text = content.decode("latin-1")
-        reader = csv.DictReader(io.StringIO(text))
-        proyecto_params: Dict[str, str] = {"select": "id,nombre,nombres_csv"}
-        if empresa_id:
-            inmobiliarias = await _supabase_request(
-                "GET", "/Inmobiliaria",
-                params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+            proyecto_params: Dict[str, str] = {"select": "id,nombre,nombres_csv"}
+            if empresa_id:
+                inmobiliarias = await _supabase_request(
+                    "GET", "/Inmobiliaria",
+                    params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+                ) or []
+                inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
+                if inm_ids:
+                    proyecto_params["inmobiliaria_id"] = f"in.({inm_ids})"
+            todos_proyectos = await _supabase_request(
+                "GET", "/Proyecto", params=proyecto_params,
             ) or []
-            inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
-            if inm_ids:
-                proyecto_params["inmobiliaria_id"] = f"in.({inm_ids})"
-        todos_proyectos = await _supabase_request(
-            "GET", "/Proyecto", params=proyecto_params,
-        ) or []
-        creados, duplicados, errores = 0, [], []
-        for i, row in enumerate(reader):
-            fila = i + 2
-            try:
-                nombre_proyecto = (row.get("Proyecto") or "").strip()
-                nombre          = (row.get("Contacto") or "").strip()
-                rut             = (row.get("Rut") or "").strip()
-                correo          = (row.get("Correo") or "").strip() or None
-                tel_raw         = (row.get("Teléfono") or row.get("Telefono") or "").strip()
-                telefono        = _normalize_phone(tel_raw)
-                estado_crm      = (row.get("Estado") or "").strip() or None
-                tramo_renta     = (row.get("Tramo de renta") or "").strip() or None
-                sub_raw         = (row.get("Tiene subsidio") or "").strip().lower()
-                tiene_subsidio  = True if sub_raw in ("si","sí","yes","1") else (False if sub_raw in ("no","0") else None)
-                tipo_subsidio   = (row.get("Tipo subsidio") or "").strip() or None
-                prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
-                tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
 
-                datos_raw = {"Contacto": nombre, "Rut": rut, "Correo": correo or "", "Teléfono": tel_raw,
-                            "Proyecto": nombre_proyecto, "Estado": estado_crm or "",
-                            "Tramo de renta": tramo_renta or "", "Tiene subsidio": sub_raw,
-                            "Tipo subsidio": tipo_subsidio or "", "Tiene propiedad": prop_raw}
+            creados, duplicados, errores = 0, [], []
+            reader = csv.DictReader(io.StringIO(text))
 
-                if not nombre or not telefono:
-                    errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío", "datos": datos_raw})
-                    continue
-                if not rut:
-                    errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
-                    continue
-                if not nombre_proyecto:
-                    errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
-                    continue
-                proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
-                if not proyecto:
-                    errores.append({"fila": fila, "nombre": nombre, "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv del proyecto", "datos": datos_raw})
-                    continue
-                proyecto_id = proyecto["id"]
-                existente = await _supabase_request(
-                    "GET", "/Cliente",
-                    params={"Telefono": f"eq.{telefono}", "select": "id,usuario_id", "limit": "1"},
-                )
-                if existente:
-                    owner_id = existente[0].get("usuario_id")
-                    owner_nombre = "otro usuario"
-                    if owner_id:
-                        op = await _supabase_request("GET", "/Usuario",
-                            params={"id": f"eq.{owner_id}", "select": "nombre", "limit": "1"})
-                        if op:
-                            owner_nombre = op[0].get("nombre", "otro usuario")
-                    duplicados.append({"fila": fila, "nombre": nombre, "telefono": telefono, "propietario": owner_nombre})
-                    continue
-                await _supabase_request("POST", "/Cliente",
-                    json={
-                        "proyecto_id": proyecto_id,
-                        "Contacto": nombre, "Rut": rut, "Correo": correo, "Telefono": telefono,
-                        "estado_crm": estado_crm, "Tramo de renta": tramo_renta,
-                        "tiene_subsidio": tiene_subsidio, "tipo_subsidio": tipo_subsidio,
-                        "tiene_propiedad": tiene_propiedad, "primer mensaje": True,
-                        "wtsp_habilitado": True, "usuario_id": usuario_id,
-                        "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
-                    },
-                    extra_headers={"Prefer": "return=minimal"})
-                creados += 1
-            except Exception as ex:
-                errores.append({"fila": fila, "motivo": str(ex)})
-        return {
-            "ok": True, "creados": creados,
-            "duplicados": len(duplicados), "errores": len(errores),
-            "detalle_duplicados": duplicados, "detalle_errores": errores,
-        }
-    except Exception as e:
-        logger.exception("Error importando clientes")
-        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+            for i, row in enumerate(reader):
+                fila = i + 2
+                try:
+                    nombre_proyecto = (row.get("Proyecto") or "").strip()
+                    nombre          = (row.get("Contacto") or "").strip()
+                    rut             = (row.get("Rut") or "").strip()
+                    correo          = (row.get("Correo") or "").strip() or None
+                    tel_raw         = (row.get("Teléfono") or row.get("Telefono") or "").strip()
+                    telefono        = _normalize_phone(tel_raw)
+                    estado_crm      = (row.get("Estado") or "").strip() or None
+                    tramo_renta     = (row.get("Tramo de renta") or "").strip() or None
+                    sub_raw         = (row.get("Tiene subsidio") or "").strip().lower()
+                    tiene_subsidio  = True if sub_raw in ("si","sí","yes","1") else (False if sub_raw in ("no","0") else None)
+                    tipo_subsidio   = (row.get("Tipo subsidio") or "").strip() or None
+                    prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
+                    tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
+
+                    datos_raw = {"Contacto": nombre, "Rut": rut, "Correo": correo or "",
+                                 "Teléfono": tel_raw, "Proyecto": nombre_proyecto,
+                                 "Estado": estado_crm or "", "Tramo de renta": tramo_renta or "",
+                                 "Tiene subsidio": sub_raw, "Tipo subsidio": tipo_subsidio or "",
+                                 "Tiene propiedad": prop_raw}
+
+                    if not nombre or not telefono:
+                        errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío", "datos": datos_raw})
+                    elif not rut:
+                        errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
+                    elif not nombre_proyecto:
+                        errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
+                    else:
+                        proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
+                        if not proyecto:
+                            errores.append({"fila": fila, "nombre": nombre,
+                                            "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
+                                            "datos": datos_raw})
+                        else:
+                            proyecto_id = proyecto["id"]
+                            existente = await _supabase_request(
+                                "GET", "/Cliente",
+                                params={"Telefono": f"eq.{telefono}", "select": "id,usuario_id", "limit": "1"},
+                            )
+                            if existente:
+                                owner_id     = existente[0].get("usuario_id")
+                                owner_nombre = "otro usuario"
+                                if owner_id:
+                                    op = await _supabase_request("GET", "/Usuario",
+                                        params={"id": f"eq.{owner_id}", "select": "nombre", "limit": "1"})
+                                    if op:
+                                        owner_nombre = op[0].get("nombre", "otro usuario")
+                                duplicados.append({"fila": fila, "nombre": nombre,
+                                                   "telefono": telefono, "propietario": owner_nombre})
+                            else:
+                                await _supabase_request("POST", "/Cliente",
+                                    json={
+                                        "proyecto_id": proyecto_id,
+                                        "Contacto": nombre, "Rut": rut, "Correo": correo,
+                                        "Telefono": telefono, "estado_crm": estado_crm,
+                                        "Tramo de renta": tramo_renta,
+                                        "tiene_subsidio": tiene_subsidio,
+                                        "tipo_subsidio": tipo_subsidio,
+                                        "tiene_propiedad": tiene_propiedad,
+                                        "primer mensaje": True, "wtsp_habilitado": True,
+                                        "usuario_id": usuario_id,
+                                        "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                                    },
+                                    extra_headers={"Prefer": "return=minimal"})
+                                creados += 1
+                except Exception as ex:
+                    errores.append({"fila": fila, "motivo": str(ex)})
+
+                yield f"data: {json.dumps({'t':'prog','n':i+1,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
+
+            yield f"data: {json.dumps({'t':'done','ok':True,'creados':creados,'duplicados':len(duplicados),'errores':len(errores),'detalle_errores':errores,'detalle_duplicados':duplicados})}\n\n"
+
+        except Exception as e:
+            logger.exception("Error importando clientes")
+            yield f"data: {json.dumps({'t':'error','msg':str(e)})}\n\n"
+
+    return _SR(
+        _stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ---------------------------------------------------------------------------

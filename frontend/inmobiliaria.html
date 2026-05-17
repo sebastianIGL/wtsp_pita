@@ -129,15 +129,41 @@
         <p id="drop-label" class="text-sm sidebar-text">Haz clic o arrastra un archivo <span class="font-semibold">.csv</span></p>
         <p id="file-name" class="hidden text-sm val-text font-medium mt-1"></p>
       </div>
-      <p class="text-xs sidebar-text mt-3">Columnas requeridas: <span class="val-text">Proyecto, Contacto, Teléfono</span> · Opcionales: Rut, Correo, Estado, Tramo de renta, Tiene subsidio, Tipo subsidio, Tiene propiedad</p>
+      <p class="text-xs sidebar-text mt-3">Columnas requeridas: <span class="val-text">Proyecto, Contacto, Rut, Teléfono</span> · Opcionales: Correo, Estado, Tramo de renta, Tiene subsidio, Tipo subsidio, Tiene propiedad</p>
       <div class="flex gap-3 mt-6">
         <button onclick="cerrarModalImport()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
         <button onclick="importar()" id="btn-import" disabled class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition">Importar</button>
       </div>
     </div>
 
-    <!-- Resultados -->
+    <!-- Progreso en tiempo real -->
+    <div id="import-progress" class="hidden space-y-4">
+      <div class="flex items-center justify-between text-xs mb-1">
+        <span id="prog-label" class="sidebar-text">Iniciando…</span>
+        <span id="prog-pct" class="val-text font-semibold">0%</span>
+      </div>
+      <div class="w-full rounded-full h-2" style="background:rgba(255,255,255,0.08)">
+        <div id="prog-bar" class="bg-violet-500 h-2 rounded-full transition-all duration-200" style="width:0%"></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center mt-2">
+        <div class="glass rounded-xl p-3">
+          <p id="prog-creados" class="text-xl font-bold text-emerald-400">0</p>
+          <p class="text-xs sidebar-text mt-1">Creados</p>
+        </div>
+        <div class="glass rounded-xl p-3">
+          <p id="prog-dups" class="text-xl font-bold text-amber-400">0</p>
+          <p class="text-xs sidebar-text mt-1">Duplicados</p>
+        </div>
+        <div class="glass rounded-xl p-3">
+          <p id="prog-errs" class="text-xl font-bold text-red-400">0</p>
+          <p class="text-xs sidebar-text mt-1">Errores</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultados finales -->
     <div id="import-results" class="hidden space-y-4">
+      <p class="text-xs val-text font-semibold text-center">Importación completada</p>
       <div id="import-stats" class="grid grid-cols-3 gap-3 text-center"></div>
       <div id="import-errores" class="hidden max-h-40 overflow-y-auto space-y-1 p-3 glass rounded-xl"></div>
       <button id="btn-descargar-errores" class="hidden w-full py-2 rounded-lg border cancel-btn text-xs font-medium transition flex items-center justify-center gap-1.5">
@@ -365,9 +391,10 @@
 
   async function importar() {
     if (!_archivoCSV) return
-    const btn = document.getElementById('btn-import')
-    btn.disabled = true
-    btn.innerHTML = '<span class="spinner"></span>Importando…'
+    document.getElementById('import-form').classList.add('hidden')
+    document.getElementById('import-progress').classList.remove('hidden')
+    document.getElementById('import-results').classList.add('hidden')
+
     const fd = new FormData()
     fd.append('file', _archivoCSV)
     try {
@@ -377,41 +404,75 @@
         body: fd,
       })
       if (!res.ok) throw new Error(await res.text())
-      const data = await res.json()
-      document.getElementById('import-form').classList.add('hidden')
-      const results = document.getElementById('import-results')
-      results.classList.remove('hidden')
-      document.getElementById('import-stats').innerHTML = `
-        <div class="glass rounded-xl p-3">
-          <p class="text-2xl font-bold text-emerald-400">${data.creados ?? 0}</p>
-          <p class="text-xs sidebar-text mt-1">Creados</p>
-        </div>
-        <div class="glass rounded-xl p-3">
-          <p class="text-2xl font-bold text-amber-400">${data.duplicados ?? 0}</p>
-          <p class="text-xs sidebar-text mt-1">Duplicados</p>
-        </div>
-        <div class="glass rounded-xl p-3">
-          <p class="text-2xl font-bold text-red-400">${data.errores ?? 0}</p>
-          <p class="text-xs sidebar-text mt-1">Errores</p>
-        </div>`
-      const errDiv = document.getElementById('import-errores')
-      const detalleErr = data.detalle_errores || []
-      if (detalleErr.length) {
-        errDiv.innerHTML = `<p class="text-xs sidebar-text font-semibold mb-2">Detalle de errores:</p>` +
-          detalleErr.map(d =>
-            `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`
-          ).join('')
-        errDiv.classList.remove('hidden')
-        document.getElementById('btn-descargar-errores').classList.remove('hidden')
-        document.getElementById('btn-descargar-errores').onclick = () => descargarErroresCSV(detalleErr)
-      } else {
-        errDiv.classList.add('hidden')
-        document.getElementById('btn-descargar-errores').classList.add('hidden')
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let evt
+          try { evt = JSON.parse(line.slice(6)) } catch { continue }
+
+          if (evt.t === 'prog') {
+            const pct = evt.total > 0 ? Math.round((evt.n / evt.total) * 100) : 0
+            document.getElementById('prog-bar').style.width = pct + '%'
+            document.getElementById('prog-pct').textContent = pct + '%'
+            document.getElementById('prog-label').textContent = `Fila ${evt.n} de ${evt.total}…`
+            document.getElementById('prog-creados').textContent = evt.creados
+            document.getElementById('prog-dups').textContent = evt.dups
+            document.getElementById('prog-errs').textContent = evt.errs
+          } else if (evt.t === 'done') {
+            document.getElementById('import-progress').classList.add('hidden')
+            mostrarResultados(evt)
+          } else if (evt.t === 'error') {
+            throw new Error(evt.msg)
+          }
+        }
       }
     } catch(e) {
-      btn.disabled = false
-      btn.textContent = 'Importar'
+      document.getElementById('import-progress').classList.add('hidden')
+      document.getElementById('import-form').classList.remove('hidden')
+      document.getElementById('btn-import').disabled = false
+      document.getElementById('btn-import').textContent = 'Importar'
       toast(e.message, 'error')
+    }
+  }
+
+  function mostrarResultados(data) {
+    document.getElementById('import-results').classList.remove('hidden')
+    document.getElementById('import-stats').innerHTML = `
+      <div class="glass rounded-xl p-3">
+        <p class="text-2xl font-bold text-emerald-400">${data.creados ?? 0}</p>
+        <p class="text-xs sidebar-text mt-1">Creados</p>
+      </div>
+      <div class="glass rounded-xl p-3">
+        <p class="text-2xl font-bold text-amber-400">${data.duplicados ?? 0}</p>
+        <p class="text-xs sidebar-text mt-1">Duplicados</p>
+      </div>
+      <div class="glass rounded-xl p-3">
+        <p class="text-2xl font-bold text-red-400">${data.errores ?? 0}</p>
+        <p class="text-xs sidebar-text mt-1">Errores</p>
+      </div>`
+    const errDiv = document.getElementById('import-errores')
+    const detalleErr = data.detalle_errores || []
+    if (detalleErr.length) {
+      errDiv.innerHTML = `<p class="text-xs sidebar-text font-semibold mb-2">Detalle de errores:</p>` +
+        detalleErr.map(d =>
+          `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`
+        ).join('')
+      errDiv.classList.remove('hidden')
+      document.getElementById('btn-descargar-errores').classList.remove('hidden')
+      document.getElementById('btn-descargar-errores').onclick = () => descargarErroresCSV(detalleErr)
+    } else {
+      errDiv.classList.add('hidden')
+      document.getElementById('btn-descargar-errores').classList.add('hidden')
     }
   }
 
