@@ -956,6 +956,59 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
 
 _PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
 
+# ---------------------------------------------------------------------------
+# Mapeo de variables por plantilla de WhatsApp
+# Cada clave es el nombre exacto de la plantilla en Meta.
+# El valor es la lista ordenada de claves del pool que corresponde a {{1}}, {{2}}, ...
+# Para agregar una nueva plantilla: solo añadir una entrada aquí, sin tocar funciones.
+# ---------------------------------------------------------------------------
+TEMPLATE_VARS_MAP: Dict[str, List[str]] = {
+    "ideal_para_mujeresfamilias": [
+        "cliente_nombre", "proyecto_nombre", "proyecto_ubicacion",
+        "subsidio_tipo", "monto_subsidio_uf",
+    ],
+    "enfoque_te_ayudamos": [
+        "cliente_nombre", "proyecto_nombre",
+        "monto_subsidio_uf", "valor_reserva_clp", "precio_desde_uf", "fecha_entrega",
+    ],
+    "cercana__consultiva": [
+        "cliente_nombre", "proyecto_nombre", "proyecto_ubicacion",
+        "subsidio_tipo", "monto_subsidio_uf",
+        "valor_reserva_clp", "precio_desde_uf", "fecha_entrega",
+    ],
+}
+
+
+def _pool_plantilla(nombre: str, proyecto: Optional[Dict]) -> Dict[str, str]:
+    """Construye el pool completo de valores disponibles para cualquier plantilla."""
+    p    = proyecto or {}
+    tips = p.get("tipologias") or []
+
+    tipos: List[str] = []
+    if p.get("acepta_ds19"):
+        tipos.append("DS19")
+    if p.get("acepta_ds1_t23"):
+        tipos.append("DS1 T23")
+    subsidio_tipo = " / ".join(tipos) if tipos else "DS19"
+
+    precios = [t.get("precio_desde_uf") for t in tips if isinstance(t, dict) and t.get("precio_desde_uf")]
+    precio_min   = min(precios) if precios else None
+    precio_desde = f"{precio_min:,.0f} UF".replace(",", ".") if precio_min else ""
+
+    reserva_clp = p.get("valor_reserva_clp")
+    reserva_fmt = f"${int(reserva_clp):,}".replace(",", ".") if reserva_clp else ""
+
+    return {
+        "cliente_nombre":     nombre,
+        "proyecto_nombre":    p.get("nombre")        or "",
+        "proyecto_ubicacion": p.get("ubicacion")     or "",
+        "subsidio_tipo":      subsidio_tipo,
+        "monto_subsidio_uf":  f"{p.get('monto_subsidio') or 700} UF",
+        "valor_reserva_clp":  reserva_fmt,
+        "precio_desde_uf":    precio_desde,
+        "fecha_entrega":      p.get("fecha_entrega") or "",
+    }
+
 
 async def obtener_proyecto_por_id(proyecto_id: str):
     rows = await _supabase_request(
@@ -2054,31 +2107,29 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         if proyecto_id:
             proyecto = await obtener_proyecto_por_id(proyecto_id)
 
-        # Detectar cuántos params espera el body y si header es IMAGE
-        body_comp = next((cm for cm in components_meta if cm.get("type") == "BODY"), None)
         header_comp = next((cm for cm in components_meta if cm.get("type") == "HEADER"), None)
         needs_image = header_comp and header_comp.get("format") == "IMAGE"
+        image_url   = (proyecto.get("imagen_url") or None) if (needs_image and proyecto) else None
 
-        # Pool de valores para rellenar los params en orden
-        pool = [
-            nombre,
-            (proyecto.get("nombre") or "") if proyecto else "",
-            (proyecto.get("ubicacion") or "") if proyecto else "",
-        ]
+        pool_vals = _pool_plantilla(nombre, proyecto)
 
-        # Extraer nombres de variables del body: {{name}}, {{1}}, etc.
-        var_names = re.findall(r'\{\{([^}]+)\}\}', body_comp.get("text", "")) if body_comp else []
-        body_text_params: List[Any] = []
-        for i, var_name in enumerate(var_names):
-            value = pool[i] if i < len(pool) else ""
-            if var_name.isdigit():
-                body_text_params.append(value)  # posicional: solo texto
-            else:
-                body_text_params.append({"parameter_name": var_name, "text": value})  # con nombre
-        if not body_text_params:
-            body_text_params = [nombre]
-
-        image_url = (proyecto.get("imagen_url") or None) if (needs_image and proyecto) else None
+        if template_name in TEMPLATE_VARS_MAP:
+            # Plantilla conocida: usar el mapeo exacto de variables
+            body_text_params: List[Any] = [
+                pool_vals.get(k, "") for k in TEMPLATE_VARS_MAP[template_name]
+            ]
+        else:
+            # Plantilla desconocida: fallback posicional con los campos más comunes
+            fallback_order = [
+                "cliente_nombre", "proyecto_nombre", "proyecto_ubicacion",
+                "subsidio_tipo", "monto_subsidio_uf", "valor_reserva_clp",
+                "precio_desde_uf", "fecha_entrega",
+            ]
+            body_comp = next((cm for cm in components_meta if cm.get("type") == "BODY"), None)
+            var_count = len(re.findall(r'\{\{[^}]+\}\}', body_comp.get("text", ""))) if body_comp else 1
+            body_text_params = [pool_vals.get(fallback_order[i], "") for i in range(min(var_count, len(fallback_order)))]
+            if not body_text_params:
+                body_text_params = [nombre]
 
         wa = await send_whatsapp_template(
             to=telefono, template_name=template_name, language_code=language_code,
