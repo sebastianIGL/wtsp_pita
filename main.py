@@ -979,7 +979,7 @@ TEMPLATE_VARS_MAP: Dict[str, List[str]] = {
 }
 
 
-def _pool_plantilla(nombre: str, proyecto: Optional[Dict]) -> Dict[str, str]:
+async def _pool_plantilla(nombre: str, proyecto: Optional[Dict]) -> Dict[str, str]:
     """Construye el pool completo de valores disponibles para cualquier plantilla."""
     p    = proyecto or {}
     tips = p.get("tipologias") or []
@@ -991,22 +991,35 @@ def _pool_plantilla(nombre: str, proyecto: Optional[Dict]) -> Dict[str, str]:
         tipos.append("DS1 T23")
     subsidio_tipo = " / ".join(tipos) if tipos else "DS19"
 
+    # Precio desde UF: intenta JSONB primero, luego tabla Tipologia
     precios = [t.get("precio_desde_uf") for t in tips if isinstance(t, dict) and t.get("precio_desde_uf")]
+    if not precios and p.get("id"):
+        tip_rows = await _supabase_request(
+            "GET", "/Tipologia",
+            params={"proyecto_id": f"eq.{p['id']}", "select": "precio_desde_uf"},
+        ) or []
+        precios = [t.get("precio_desde_uf") for t in tip_rows if t.get("precio_desde_uf")]
     precio_min   = min(precios) if precios else None
-    precio_desde = f"{precio_min:,.0f} UF".replace(",", ".") if precio_min else ""
+    precio_desde = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
 
+    # Valor reserva CLP, con fallback a UF si no hay CLP
     reserva_clp = p.get("valor_reserva_clp")
-    reserva_fmt = f"${int(reserva_clp):,}".replace(",", ".") if reserva_clp else ""
+    if reserva_clp:
+        reserva_fmt = f"${int(reserva_clp):,}".replace(",", ".")
+    elif p.get("valor_reserva_uf"):
+        reserva_fmt = f"{p['valor_reserva_uf']} UF"
+    else:
+        reserva_fmt = "a consultar"
 
     return {
-        "cliente_nombre":     nombre,
-        "proyecto_nombre":    p.get("nombre")        or "",
-        "proyecto_ubicacion": p.get("ubicacion")     or "",
+        "cliente_nombre":     nombre                      or "cliente",
+        "proyecto_nombre":    p.get("nombre")             or "nuestro proyecto",
+        "proyecto_ubicacion": p.get("ubicacion")          or "Santiago",
         "subsidio_tipo":      subsidio_tipo,
         "monto_subsidio_uf":  f"{p.get('monto_subsidio') or 700} UF",
         "valor_reserva_clp":  reserva_fmt,
         "precio_desde_uf":    precio_desde,
-        "fecha_entrega":      p.get("fecha_entrega") or "",
+        "fecha_entrega":      p.get("fecha_entrega")      or "por confirmar",
     }
 
 
@@ -2111,7 +2124,7 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         needs_image = header_comp and header_comp.get("format") == "IMAGE"
         image_url   = (proyecto.get("imagen_url") or None) if (needs_image and proyecto) else None
 
-        pool_vals = _pool_plantilla(nombre, proyecto)
+        pool_vals = await _pool_plantilla(nombre, proyecto)
 
         if template_name in TEMPLATE_VARS_MAP:
             # Plantilla conocida: usar el mapeo exacto de variables
