@@ -954,7 +954,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre),fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
 
 
 async def obtener_proyecto_por_id(proyecto_id: str):
@@ -1052,6 +1052,28 @@ async def subir_a_storage(
 
 
 # ---------------------------------------------------------------------------
+# IA — construcción de contexto adaptativo por cadena jerárquica
+# ---------------------------------------------------------------------------
+
+def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
+    """
+    Extrae la cadena contextual completa desde el proyecto hacia arriba:
+    Proyecto → Inmobiliaria → Empresa → Industria.
+    Retorna un dict con los nombres de cada nivel (vacío si no existe).
+    """
+    p    = proyecto or {}
+    inm  = p.get("Inmobiliaria") or {}
+    emp  = inm.get("Empresa") or {}
+    ind  = emp.get("Industria") or {}
+    return {
+        "industria":    ind.get("nombre") or "Inmobiliaria",
+        "empresa":      emp.get("nombre") or "",
+        "inmobiliaria": inm.get("nombre") or "",
+        "proyecto":     p.get("nombre")   or "",
+    }
+
+
+# ---------------------------------------------------------------------------
 # IA — respuesta con contexto de paso
 # ---------------------------------------------------------------------------
 
@@ -1075,10 +1097,12 @@ async def generar_respuesta_ia(
     # Construir datos de calificación desde columnas boolean dedicadas
     datos = {campo: prospecto.get(campo) for campo in _CAMPOS_CALIFICACION}
 
+    mind = _construir_mind(proyecto)
+
     p                  = proyecto or {}
     proyecto_nombre    = p.get("nombre") or "nuestro proyecto"
     proyecto_ubicacion = p.get("ubicacion") or ""
-    proyecto_inmobiliaria      = (p.get("Inmobiliaria") or {}).get("nombre") or ""
+    proyecto_inmobiliaria      = mind["inmobiliaria"]
     proyecto_fecha_entrega     = p.get("fecha_entrega") or "por confirmar"
     proyecto_ahorro_minimo     = p.get("ahorro_minimo_uf") or 50
     proyecto_reserva_clp       = p.get("valor_reserva_clp") or ""
@@ -1119,7 +1143,16 @@ async def generar_respuesta_ia(
         monto_subsidio=proyecto_monto_subsidio,
     )
 
-    system_prompt = f"""Eres un asistente de ventas inmobiliario profesional y empático de {proyecto_nombre}.
+    sistema_identidad = f"Eres un asistente de ventas de la industria {mind['industria']}"
+    if mind["empresa"]:
+        sistema_identidad += f", trabajas para la empresa {mind['empresa']}"
+    if mind["inmobiliaria"]:
+        sistema_identidad += f", representando a la inmobiliaria {mind['inmobiliaria']}"
+    if mind["proyecto"]:
+        sistema_identidad += f", y tu foco actual es el proyecto {mind['proyecto']}"
+    sistema_identidad += ". Eres profesional, empático y experto en el área."
+
+    system_prompt = f"""{sistema_identidad}
 
 ═══ DATOS DEL CLIENTE ═══
 Nombre:       {nombre}
