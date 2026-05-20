@@ -2384,7 +2384,7 @@ async def api_listar_proyectos(request: Request):
         return Response(content="Unauthorized", status_code=401)
     inmobiliaria_id = request.query_params.get("inmobiliaria_id")
     empresa_id      = request.query_params.get("empresa_id")
-    params: Dict[str, str] = {"select": "id,codigo,nombre,ubicacion,inmobiliaria_id,Inmobiliaria(nombre)", "order": "nombre.asc"}
+    params: Dict[str, str] = {"select": _PROYECTO_SELECT, "order": "nombre.asc"}
     if inmobiliaria_id:
         params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
     elif empresa_id:
