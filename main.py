@@ -2502,37 +2502,45 @@ _CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2",
 async def api_crear_tipologia(request: Request):
     if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
-    body = await request.json()
-    proyecto_id = body.get("proyecto_id")
-    nombre      = (body.get("nombre") or "").strip()
-    if not proyecto_id or not nombre:
-        return Response(content="Faltan campos obligatorios", status_code=400)
-    if not await obtener_proyecto_por_id(proyecto_id):
-        return Response(content="Proyecto no encontrado", status_code=404)
-    payload: Dict[str, Any] = {"proyecto_id": proyecto_id, "nombre": nombre}
-    for campo in _CAMPOS_TIPOLOGIA:
-        if body.get(campo) is not None:
-            payload[campo] = body[campo]
-    row = await _supabase_request("POST", "/Tipologia",
-        json=payload, extra_headers={"Prefer": "return=representation"})
-    return row[0] if isinstance(row, list) and row else row
+    try:
+        body = await request.json()
+        proyecto_id = body.get("proyecto_id")
+        nombre      = (body.get("nombre") or "").strip()
+        if not proyecto_id or not nombre:
+            return Response(content="Faltan campos obligatorios", status_code=400)
+        if not await obtener_proyecto_por_id(proyecto_id):
+            return Response(content="Proyecto no encontrado", status_code=404)
+        payload: Dict[str, Any] = {"proyecto_id": proyecto_id, "nombre": nombre}
+        for campo in _CAMPOS_TIPOLOGIA:
+            if body.get(campo) is not None:
+                payload[campo] = body[campo]
+        row = await _supabase_request("POST", "/Tipologia",
+            json=payload, extra_headers={"Prefer": "return=representation"})
+        return row[0] if isinstance(row, list) and row else row
+    except Exception as e:
+        logger.exception("Error en POST /api/tipologias")
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
 
 
 @app.patch("/api/tipologias/{tip_id}")
 async def api_editar_tipologia(tip_id: int, request: Request):
     if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
-    body = await request.json()
-    payload: Dict[str, Any] = {}
-    if body.get("nombre"): payload["nombre"] = body["nombre"].strip()
-    for campo in _CAMPOS_TIPOLOGIA:
-        if campo in body: payload[campo] = body[campo]
-    if not payload:
-        return Response(content="Nada que actualizar", status_code=400)
-    await _supabase_request("PATCH", "/Tipologia",
-        params={"id": f"eq.{tip_id}"},
-        json=payload, extra_headers={"Prefer": "return=minimal"})
-    return {"ok": True}
+    try:
+        body = await request.json()
+        payload: Dict[str, Any] = {}
+        if body.get("nombre"): payload["nombre"] = body["nombre"].strip()
+        for campo in _CAMPOS_TIPOLOGIA:
+            if campo in body: payload[campo] = body[campo]
+        if not payload:
+            return Response(content="Nada que actualizar", status_code=400)
+        await _supabase_request("PATCH", "/Tipologia",
+            params={"id": f"eq.{tip_id}"},
+            json=payload, extra_headers={"Prefer": "return=minimal"})
+        return {"ok": True}
+    except Exception as e:
+        logger.exception("Error en PATCH /api/tipologias/%s", tip_id)
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
 
 
 @app.delete("/api/tipologias/{tip_id}")
