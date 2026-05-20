@@ -48,6 +48,10 @@
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
       Log correos
     </button>
+    <button onclick="mostrarTab('plantillas')" id="tab-plantillas"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      Plantillas WA
+    </button>
   </div>
 
   <!-- TAB: USUARIOS -->
@@ -106,6 +110,23 @@
           <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- TAB: PLANTILLAS WA -->
+  <div id="panel-plantillas" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-xl font-semibold">Plantillas de WhatsApp</h2>
+        <p class="text-slate-400 text-sm mt-1">Configura qué dato de cada cliente se envía en cada variable de la plantilla.</p>
+      </div>
+      <button onclick="cargarPlantillas()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div id="lista-plantillas" class="space-y-4">
+      <p class="text-slate-500 text-sm">Cargando plantillas…</p>
     </div>
   </div>
 
@@ -288,14 +309,16 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'proyectos', 'logs'].forEach(t => {
+    ['usuarios', 'proyectos', 'logs', 'plantillas'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-blue-600', t === tab);
       btn.classList.toggle('text-white', t === tab);
       btn.classList.toggle('text-slate-400', t !== tab);
+      btn.classList.toggle('hover:text-white', t !== tab);
     });
     if (tab === 'logs') cargarLogs();
+    if (tab === 'plantillas') cargarPlantillas();
   }
 
   async function cargarLogs() {
@@ -466,6 +489,158 @@
         <td class="px-5 py-3 text-slate-400 text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
       </tr>
     `).join('');
+  }
+
+  // ── Plantillas WA ─────────────────────────────────────────────────────
+  const POOL_VARS = [
+    { key: 'cliente_nombre',     label: 'Nombre del cliente' },
+    { key: 'proyecto_nombre',    label: 'Nombre del proyecto' },
+    { key: 'proyecto_ubicacion', label: 'Ubicación del proyecto' },
+    { key: 'subsidio_tipo',      label: 'Tipo de subsidio' },
+    { key: 'monto_subsidio_uf',  label: 'Monto subsidio (UF)' },
+    { key: 'valor_reserva_clp',  label: 'Valor reserva (CLP)' },
+    { key: 'precio_desde_uf',    label: 'Precio desde (UF)' },
+    { key: 'fecha_entrega',      label: 'Fecha de entrega' },
+  ];
+
+  let _templatesMeta = [];
+  let _configsMap = {};
+
+  async function cargarPlantillas() {
+    const contenedor = document.getElementById('lista-plantillas');
+    contenedor.innerHTML = '<p class="text-slate-500 text-sm">Cargando plantillas…</p>';
+    try {
+      const [resTemplates, resConfigs] = await Promise.all([
+        fetch('/api/templates', { headers: authHeaders() }),
+        fetch('/api/plantillas-config', { headers: authHeaders() }),
+      ]);
+      if (!resTemplates.ok) throw new Error('Error cargando plantillas Meta: ' + await resTemplates.text());
+      if (!resConfigs.ok) throw new Error('Error cargando configuraciones: ' + await resConfigs.text());
+
+      const { templates } = await resTemplates.json();
+      const configs = await resConfigs.json();
+
+      _templatesMeta = templates || [];
+      _configsMap = {};
+      for (const c of configs) _configsMap[c.template_name] = c.variables || [];
+
+      renderPlantillas(_templatesMeta);
+    } catch (err) {
+      contenedor.innerHTML = `<p class="text-red-400 text-sm">${err.message}</p>`;
+    }
+  }
+
+  function _contarVariables(components) {
+    const body = (components || []).find(c => c.type === 'BODY');
+    if (!body || !body.text) return 0;
+    const matches = body.text.match(/\{\{\d+\}\}/g) || [];
+    return Math.max(0, ...matches.map(m => parseInt(m.replace(/\D/g, ''))));
+  }
+
+  function _textoBody(components) {
+    const body = (components || []).find(c => c.type === 'BODY');
+    return body ? body.text : '';
+  }
+
+  function renderPlantillas(templates) {
+    const contenedor = document.getElementById('lista-plantillas');
+    if (!templates.length) {
+      contenedor.innerHTML = '<p class="text-slate-500 text-sm">No hay plantillas aprobadas en Meta.</p>';
+      return;
+    }
+    contenedor.innerHTML = templates.map(t => {
+      const varCount = _contarVariables(t.components);
+      const textoPreview = _textoBody(t.components);
+      const varsActuales = _configsMap[t.name] || [];
+      const hasConfig = varsActuales.length > 0;
+      const sourceTag = hasConfig
+        ? '<span class="text-xs bg-emerald-900/50 text-emerald-300 px-2 py-0.5 rounded-full">Guardado en DB</span>'
+        : '<span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Sin configurar</span>';
+
+      const dropdowns = varCount > 0 ? Array.from({ length: varCount }, (_, i) => {
+        const valorActual = varsActuales[i] || '';
+        const opts = POOL_VARS.map(v =>
+          `<option value="${v.key}" ${valorActual === v.key ? 'selected' : ''}>${v.label}</option>`
+        ).join('');
+        return `
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400 font-mono w-8 shrink-0">{{${i+1}}}</span>
+            <select data-tpl="${t.name}" data-idx="${i}"
+              onchange="actualizarVarLocal(this)"
+              class="flex-1 bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-violet-500">
+              <option value="">— Seleccionar campo —</option>
+              ${opts}
+            </select>
+          </div>`;
+      }).join('') : '<p class="text-slate-500 text-xs">Esta plantilla no tiene variables en el cuerpo.</p>';
+
+      return `
+        <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5" id="card-tpl-${t.name}">
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-semibold text-white">${t.name}</span>
+                <span class="text-xs text-slate-500">${t.language}</span>
+                ${sourceTag}
+              </div>
+              ${textoPreview ? `<p class="text-xs text-slate-400 mt-1.5 line-clamp-3">${textoPreview}</p>` : ''}
+            </div>
+            <span class="text-xs text-slate-500 ml-4 shrink-0">${varCount} var${varCount !== 1 ? 's' : ''}.</span>
+          </div>
+          ${varCount > 0 ? `
+          <div class="space-y-2 mt-3 border-t border-slate-700 pt-3">
+            <p class="text-xs text-slate-400 font-medium mb-2">Mapeo de variables</p>
+            ${dropdowns}
+            <div class="flex justify-end mt-3">
+              <button onclick="guardarConfigPlantilla('${t.name}', ${varCount})"
+                class="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+                Guardar
+              </button>
+            </div>
+          </div>` : ''}
+        </div>`;
+    }).join('');
+  }
+
+  function actualizarVarLocal(select) {
+    const name = select.dataset.tpl;
+    const idx  = parseInt(select.dataset.idx);
+    if (!_configsMap[name]) _configsMap[name] = [];
+    _configsMap[name][idx] = select.value;
+  }
+
+  async function guardarConfigPlantilla(templateName, varCount) {
+    const variables = Array.from({ length: varCount }, (_, i) => {
+      const sel = document.querySelector(`select[data-tpl="${templateName}"][data-idx="${i}"]`);
+      return sel ? sel.value : '';
+    }).filter(v => v !== '');
+
+    if (variables.length !== varCount) {
+      toast('Debes asignar un campo a todas las variables.', 'error');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/plantillas-config/${encodeURIComponent(templateName)}`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ variables }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      _configsMap[templateName] = variables;
+      toast(`Configuración de "${templateName}" guardada.`);
+      // Actualizar badge
+      const card = document.getElementById(`card-tpl-${templateName}`);
+      if (card) {
+        const badge = card.querySelector('.text-xs.rounded-full');
+        if (badge) {
+          badge.className = 'text-xs bg-emerald-900/50 text-emerald-300 px-2 py-0.5 rounded-full';
+          badge.textContent = 'Guardado en DB';
+        }
+      }
+    } catch (err) {
+      toast('Error al guardar: ' + err.message, 'error');
+    }
   }
 
   // ── Cerrar modales con Escape ──────────────────────────────────────────

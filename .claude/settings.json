@@ -3,7 +3,9 @@
     "allow": [
       "mcp__claude_ai_Supabase__list_projects",
       "mcp__claude_ai_Supabase__list_tables",
-      "WebFetch(domain:neurosbytes.cl)"
+      "WebFetch(domain:neurosbytes.cl)",
+      "Bash(python -m uvicorn main:app --reload --port 8000)",
+      "Bash(python3 -m uvicorn main:app --reload --port 8000)"
     ]
   }
 }

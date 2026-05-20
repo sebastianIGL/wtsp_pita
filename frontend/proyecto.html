@@ -106,24 +106,129 @@
 
 <!-- MODAL CREAR / EDITAR -->
 <div id="modal" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
-  <div class="glass rounded-2xl p-8 w-full max-w-md shadow-2xl">
-    <h2 id="modal-titulo" class="text-lg font-bold val-text mb-6">Nuevo proyecto</h2>
-    <div class="space-y-4">
-      <div>
-        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
-        <input id="f-nombre" type="text" placeholder="Ej: Torre Central" class="w-full rounded-lg px-3 py-2 text-sm" />
-      </div>
-      <div>
-        <label class="block text-xs sidebar-text mb-1.5">Código *</label>
-        <input id="f-codigo" type="text" placeholder="Ej: torre-central" class="w-full rounded-lg px-3 py-2 text-sm font-mono" />
-        <p class="text-xs sidebar-text mt-1">Identificador único, sin espacios ni tildes</p>
-      </div>
-      <div>
-        <label class="block text-xs sidebar-text mb-1.5">Ubicación</label>
-        <input id="f-ubicacion" type="text" placeholder="Ej: Santiago, Chile" class="w-full rounded-lg px-3 py-2 text-sm" />
-      </div>
+  <div class="glass rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:92vh">
+    <div class="px-8 pt-7 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h2 id="modal-titulo" class="text-lg font-bold val-text">Nuevo proyecto</h2>
+      <button onclick="cerrarModal()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
     </div>
-    <div class="flex gap-3 mt-6">
+
+    <div class="overflow-y-auto px-8 py-6 space-y-6 flex-1">
+
+      <!-- Básico -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Básico</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+            <input id="f-nombre" type="text" placeholder="Ej: Torre Central" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Código *</label>
+            <input id="f-codigo" type="text" placeholder="torre-central" class="w-full rounded-lg px-3 py-2 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Ubicación</label>
+            <input id="f-ubicacion" type="text" placeholder="Ej: Santiago, RM" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Imagen (solo admin) -->
+      <div id="seccion-imagen" class="hidden">
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Imagen del proyecto</p>
+        <div class="flex items-start gap-4">
+          <div id="img-preview-wrap" class="hidden w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 border" style="border-color:rgba(255,255,255,0.12)">
+            <img id="img-preview" src="" class="w-full h-full object-cover" />
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs sidebar-text mb-1.5">Subir imagen (JPG, PNG, WebP · máx. 3MB)</label>
+            <input id="f-imagen" type="file" accept="image/*" onchange="previsualizarImagen(this)"
+              class="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-violet-600 file:text-white hover:file:bg-violet-500 sidebar-text" />
+            <p id="img-estado" class="text-xs sidebar-text mt-1"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Entrega y financiero -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Entrega y financiero</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
+            <input id="f-fecha-entrega" type="text" placeholder="Ej: Semestre 1 - 2026" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Ahorro mínimo (UF)</label>
+            <input id="f-ahorro-minimo" type="number" step="0.1" min="0" placeholder="50" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Valor reserva (CLP)</label>
+            <input id="f-reserva-clp" type="number" step="1000" min="0" placeholder="500000" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Valor reserva (UF)</label>
+            <input id="f-reserva-uf" type="number" step="0.1" min="0" placeholder="20" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Características -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Características</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Valor estacionamiento (UF)</label>
+            <input id="f-estac-uf" type="number" step="0.1" min="0" placeholder="Ej: 15" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div class="flex items-center gap-6 pt-5">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-tiene-piloto" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
+              <span class="text-sm val-text">Sala piloto</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-estac-obligatorio" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
+              <span class="text-sm val-text">Estac. obligatorio</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subsidios -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Subsidios</p>
+        <div class="space-y-3">
+          <div class="flex items-center gap-4 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-acepta-ds19" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" onchange="toggleSubsidio()" />
+              <span class="text-sm val-text">Acepta DS19</span>
+            </label>
+            <div id="wrap-monto-ds19" class="hidden flex items-center gap-2">
+              <label class="text-xs sidebar-text">Monto (UF)</label>
+              <input id="f-monto-ds19" type="number" step="1" min="0" placeholder="700" class="rounded-lg px-3 py-1.5 text-sm w-28" />
+            </div>
+          </div>
+          <div class="flex items-center gap-4 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-acepta-ds1t23" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" onchange="toggleSubsidio()" />
+              <span class="text-sm val-text">Acepta DS1 Tramo 2 y 3</span>
+            </label>
+            <div id="wrap-monto-ds1t23" class="hidden flex items-center gap-2">
+              <label class="text-xs sidebar-text">Monto (UF)</label>
+              <input id="f-monto-ds1t23" type="number" step="1" min="0" placeholder="200" class="rounded-lg px-3 py-1.5 text-sm w-28" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notas -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Notas internas</p>
+        <textarea id="f-notas" rows="3" placeholder="Información relevante para el equipo y el bot..." class="w-full rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+      </div>
+
+    </div><!-- /scroll -->
+
+    <div class="px-8 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
       <button onclick="cerrarModal()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button onclick="guardar()" id="btn-guardar" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
@@ -135,10 +240,13 @@
   const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co'
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc'
   const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+  const BUCKET = 'proyectos'
   let _token = null
   let _empresa = null
   let _inmobiliaria = null
+  let _perfil = null
   let _editandoId = null
+  let _imagenUrlActual = null
 
   function applyTheme(dark) {
     document.documentElement.classList.toggle('dark', dark)
@@ -174,6 +282,12 @@
     }
 
     _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
+
+    try {
+      const r = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
+      _perfil = await r.json()
+      if (_perfil.rol === 'administrador') document.getElementById('seccion-imagen').classList.remove('hidden')
+    } catch(e) { console.warn('perfil:', e) }
 
     cargarProyectos()
   }
@@ -242,22 +356,54 @@
       </tr>`).join('')
   }
 
+  function _resetModal() {
+    ['f-nombre','f-codigo','f-ubicacion','f-fecha-entrega','f-ahorro-minimo',
+     'f-reserva-clp','f-reserva-uf','f-estac-uf','f-monto-ds19','f-monto-ds1t23','f-notas'
+    ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
+    document.getElementById('f-tiene-piloto').checked       = false
+    document.getElementById('f-estac-obligatorio').checked  = false
+    document.getElementById('f-acepta-ds19').checked        = false
+    document.getElementById('f-acepta-ds1t23').checked      = false
+    document.getElementById('f-imagen').value               = ''
+    document.getElementById('img-estado').textContent       = ''
+    document.getElementById('img-preview-wrap').classList.add('hidden')
+    _imagenUrlActual = null
+    toggleSubsidio()
+  }
+
   function abrirModal() {
     _editandoId = null
+    _resetModal()
     document.getElementById('modal-titulo').textContent = 'Nuevo proyecto'
-    document.getElementById('f-nombre').value   = ''
-    document.getElementById('f-codigo').value   = ''
-    document.getElementById('f-ubicacion').value = ''
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
 
   function editar(row) {
     _editandoId = row.id
-    document.getElementById('modal-titulo').textContent  = 'Editar proyecto'
-    document.getElementById('f-nombre').value   = row.nombre   || ''
-    document.getElementById('f-codigo').value   = row.codigo   || ''
-    document.getElementById('f-ubicacion').value = row.ubicacion || ''
+    _resetModal()
+    document.getElementById('modal-titulo').textContent = 'Editar proyecto'
+    document.getElementById('f-nombre').value          = row.nombre           || ''
+    document.getElementById('f-codigo').value          = row.codigo           || ''
+    document.getElementById('f-ubicacion').value       = row.ubicacion        || ''
+    document.getElementById('f-fecha-entrega').value   = row.fecha_entrega    || ''
+    document.getElementById('f-ahorro-minimo').value   = row.ahorro_minimo_uf ?? ''
+    document.getElementById('f-reserva-clp').value     = row.valor_reserva_clp ?? ''
+    document.getElementById('f-reserva-uf').value      = row.valor_reserva_uf  ?? ''
+    document.getElementById('f-estac-uf').value        = row.valor_estacionamiento_uf ?? ''
+    document.getElementById('f-tiene-piloto').checked      = !!row.tiene_piloto
+    document.getElementById('f-estac-obligatorio').checked = !!row.estacionamiento_obligatorio
+    document.getElementById('f-acepta-ds19').checked       = !!row.acepta_ds19
+    document.getElementById('f-acepta-ds1t23').checked     = !!row.acepta_ds1_t23
+    document.getElementById('f-monto-ds19').value      = row.monto_subsidio        ?? ''
+    document.getElementById('f-monto-ds1t23').value    = row.subsidio_ds1_t23_uf   ?? ''
+    document.getElementById('f-notas').value           = row.notas             || ''
+    if (row.imagen_url) {
+      _imagenUrlActual = row.imagen_url
+      document.getElementById('img-preview').src = row.imagen_url
+      document.getElementById('img-preview-wrap').classList.remove('hidden')
+    }
+    toggleSubsidio()
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -265,6 +411,30 @@
   function cerrarModal() {
     document.getElementById('modal').classList.add('hidden')
     _editandoId = null
+  }
+
+  function toggleSubsidio() {
+    document.getElementById('wrap-monto-ds19').classList.toggle('hidden',   !document.getElementById('f-acepta-ds19').checked)
+    document.getElementById('wrap-monto-ds1t23').classList.toggle('hidden', !document.getElementById('f-acepta-ds1t23').checked)
+  }
+
+  function previsualizarImagen(input) {
+    const file = input.files[0]
+    if (!file) return
+    if (file.size > 3 * 1024 * 1024) { toast('La imagen debe ser menor a 3MB', 'error'); input.value = ''; return }
+    const url = URL.createObjectURL(file)
+    document.getElementById('img-preview').src = url
+    document.getElementById('img-preview-wrap').classList.remove('hidden')
+    document.getElementById('img-estado').textContent = `${file.name} (${(file.size/1024).toFixed(0)} KB) — se subirá al guardar`
+  }
+
+  async function _subirImagen(file, codigo) {
+    const ext  = file.name.split('.').pop()
+    const path = `${codigo}-${Date.now()}.${ext}`
+    const { error } = await _supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type })
+    if (error) throw new Error('Error subiendo imagen: ' + error.message)
+    const { data } = _supabase.storage.from(BUCKET).getPublicUrl(path)
+    return data.publicUrl
   }
 
   // Auto-generar código desde nombre
@@ -280,18 +450,44 @@
   })
 
   async function guardar() {
-    const nombre   = document.getElementById('f-nombre').value.trim()
-    const codigo   = document.getElementById('f-codigo').value.trim()
+    const nombre    = document.getElementById('f-nombre').value.trim()
+    const codigo    = document.getElementById('f-codigo').value.trim()
     const ubicacion = document.getElementById('f-ubicacion').value.trim()
     if (!nombre || !codigo) { toast('Nombre y código son obligatorios', 'error'); return }
     const btn = document.getElementById('btn-guardar')
     btn.disabled = true; btn.textContent = 'Guardando…'
     try {
+      // Subir imagen si hay archivo nuevo
+      const fileInput = document.getElementById('f-imagen')
+      let imagen_url  = _imagenUrlActual
+      if (fileInput.files[0]) {
+        document.getElementById('img-estado').textContent = 'Subiendo imagen…'
+        imagen_url = await _subirImagen(fileInput.files[0], codigo)
+        document.getElementById('img-estado').textContent = 'Imagen subida ✓'
+      }
+
+      const payload = {
+        nombre, codigo, ubicacion,
+        imagen_url,
+        fecha_entrega:               document.getElementById('f-fecha-entrega').value.trim() || null,
+        ahorro_minimo_uf:            numOrNull('f-ahorro-minimo'),
+        valor_reserva_clp:           numOrNull('f-reserva-clp'),
+        valor_reserva_uf:            numOrNull('f-reserva-uf'),
+        valor_estacionamiento_uf:    numOrNull('f-estac-uf'),
+        tiene_piloto:                document.getElementById('f-tiene-piloto').checked,
+        estacionamiento_obligatorio: document.getElementById('f-estac-obligatorio').checked,
+        acepta_ds19:                 document.getElementById('f-acepta-ds19').checked,
+        monto_subsidio:              numOrNull('f-monto-ds19'),
+        acepta_ds1_t23:              document.getElementById('f-acepta-ds1t23').checked,
+        subsidio_ds1_t23_uf:         numOrNull('f-monto-ds1t23'),
+        notas:                       document.getElementById('f-notas').value.trim() || null,
+      }
+
       if (_editandoId) {
-        await api('PATCH', `/api/proyectos/${_editandoId}`, { nombre, codigo, ubicacion })
+        await api('PATCH', `/api/proyectos/${_editandoId}`, payload)
         toast('Proyecto actualizado')
       } else {
-        await api('POST', '/api/proyectos', { nombre, codigo, ubicacion, inmobiliaria_id: _inmobiliaria.id })
+        await api('POST', '/api/proyectos', { ...payload, inmobiliaria_id: _inmobiliaria.id })
         toast('Proyecto creado')
       }
       cerrarModal()
@@ -301,6 +497,11 @@
     } finally {
       btn.disabled = false; btn.textContent = 'Guardar'
     }
+  }
+
+  function numOrNull(id) {
+    const v = document.getElementById(id).value
+    return v !== '' ? parseFloat(v) : null
   }
 
   function ingresar(row) {

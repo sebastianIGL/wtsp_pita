@@ -979,7 +979,7 @@ TEMPLATE_VARS_MAP: Dict[str, List[str]] = {
 }
 
 
-async def _pool_plantilla(nombre: str, proyecto: Optional[Dict]) -> Dict[str, str]:
+async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: Optional[int] = None) -> Dict[str, str]:
     """Construye el pool completo de valores disponibles para cualquier plantilla."""
     p    = proyecto or {}
     tips = p.get("tipologias") or []
@@ -991,14 +991,21 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict]) -> Dict[str, st
         tipos.append("DS1 T23")
     subsidio_tipo = " / ".join(tipos) if tipos else "DS19"
 
-    # Precio desde UF: intenta JSONB primero, luego tabla Tipologia
-    precios = [t.get("precio_desde_uf") for t in tips if isinstance(t, dict) and t.get("precio_desde_uf")]
-    if not precios and p.get("id"):
+    # Precio desde UF: usa tipología específica si se indicó, si no busca el mínimo del proyecto
+    if tipologia_id:
         tip_rows = await _supabase_request(
             "GET", "/Tipologia",
-            params={"proyecto_id": f"eq.{p['id']}", "select": "precio_desde_uf"},
+            params={"id": f"eq.{tipologia_id}", "select": "precio_desde_uf"},
         ) or []
         precios = [t.get("precio_desde_uf") for t in tip_rows if t.get("precio_desde_uf")]
+    else:
+        precios = [t.get("precio_desde_uf") for t in tips if isinstance(t, dict) and t.get("precio_desde_uf")]
+        if not precios and p.get("id"):
+            tip_rows = await _supabase_request(
+                "GET", "/Tipologia",
+                params={"proyecto_id": f"eq.{p['id']}", "select": "precio_desde_uf"},
+            ) or []
+            precios = [t.get("precio_desde_uf") for t in tip_rows if t.get("precio_desde_uf")]
     precio_min   = min(precios) if precios else None
     precio_desde = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
 
@@ -1139,6 +1146,57 @@ def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
     }
 
 
+_PROYECTO_SELECT_LIGHT = (
+    "id,nombre,ubicacion,acepta_ds19,monto_subsidio,"
+    "acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,"
+    "fecha_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
+    "tiene_piloto,valor_estacionamiento_uf,notas"
+)
+
+async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional[str]) -> List[Dict]:
+    """Devuelve todos los proyectos de la empresa excepto el actual."""
+    inms = await _supabase_request("GET", "/Inmobiliaria",
+        params={"empresa_id": f"eq.{empresa_id}", "select": "id"}) or []
+    if not inms:
+        return []
+    inm_ids = ",".join(str(i["id"]) for i in inms)
+    rows = await _supabase_request("GET", "/Proyecto",
+        params={"inmobiliaria_id": f"in.({inm_ids})", "select": _PROYECTO_SELECT_LIGHT}) or []
+    return [p for p in rows if str(p.get("id")) != str(proyecto_id_actual)]
+
+
+def _resumir_proyecto(p: Dict) -> str:
+    """Genera una línea de resumen de un proyecto para el contexto del bot."""
+    tips  = p.get("tipologias") or []
+    t_str = ", ".join(
+        f"{t.get('nombre','?')} desde {t.get('precio_desde_uf','?')}UF"
+        for t in tips[:3] if isinstance(t, dict)
+    ) or "tipologías por consultar"
+    subsidios = []
+    if p.get("acepta_ds19"):
+        subsidios.append(f"DS19 {p.get('monto_subsidio','')}UF")
+    if p.get("acepta_ds1_t23"):
+        subsidios.append(f"DS1T23 {p.get('subsidio_ds1_t23_uf','')}UF")
+    sub_str = " | ".join(subsidios) or "sin subsidio"
+    return (
+        f"• [{p['id']}] {p.get('nombre','?')} — {p.get('ubicacion','?')} "
+        f"| {sub_str} | {t_str}"
+    )
+
+
+async def _cambiar_proyecto_prospecto(
+    prospecto_id: str, nuevo_proyecto_id: str, cliente_id: Optional[int]
+) -> None:
+    """Actualiza proyecto_id en Prospecto y en Cliente cuando el cliente confirma cambio."""
+    await _supabase_request("PATCH", "/Prospecto",
+        params={"id": f"eq.{prospecto_id}"},
+        json={"proyecto_id": nuevo_proyecto_id})
+    if cliente_id:
+        await _supabase_request("PATCH", "/Cliente",
+            params={"id": f"eq.{cliente_id}"},
+            json={"proyecto_id": nuevo_proyecto_id})
+
+
 # ---------------------------------------------------------------------------
 # IA — respuesta con contexto de paso
 # ---------------------------------------------------------------------------
@@ -1150,6 +1208,7 @@ async def generar_respuesta_ia(
     historial: List[Dict],
     mensaje_actual: str,
     docs_recibidos: Optional[List[Dict]] = None,
+    otros_proyectos: Optional[List[Dict]] = None,
 ) -> Dict[str, Any]:
     if not ANTHROPIC_API_KEY or anthropic is None:
         logger.warning("ANTHROPIC_API_KEY no configurada — usando eco")
@@ -1218,6 +1277,11 @@ async def generar_respuesta_ia(
         sistema_identidad += f", y tu foco actual es el proyecto {mind['proyecto']}"
     sistema_identidad += ". Eres profesional, empático y experto en el área."
 
+    if otros_proyectos:
+        _bloque_otros_proyectos = "\n".join(_resumir_proyecto(p) for p in otros_proyectos)
+    else:
+        _bloque_otros_proyectos = "No hay otros proyectos disponibles en este momento."
+
     system_prompt = f"""{sistema_identidad}
 
 ═══ DATOS DEL CLIENTE ═══
@@ -1243,6 +1307,9 @@ Notas del proyecto:  {proyecto_notas}
 ═══ INSTRUCCIONES DE ESTE PASO ═══
 {instrucciones}
 
+═══ OTROS PROYECTOS DISPONIBLES ═══
+{_bloque_otros_proyectos}
+
 ═══ REGLAS GENERALES ═══
 - Responde en español, de forma cálida y profesional.
 - Mensajes cortos (máximo 3-4 párrafos). NUNCA más de 1 pregunta a la vez.
@@ -1251,6 +1318,13 @@ Notas del proyecto:  {proyecto_notas}
   (precio, fecha, estacionamiento, etc.) sin inventar información.
 - Si el cliente pregunta algo fuera del tema del proyecto o subsidio,
   redirígelo amablemente sin ser brusco, recordándole en qué punto del proceso está.
+- Si el cliente pide ver otros proyectos o mostrar alternativas, preséntale
+  los proyectos de la sección "OTROS PROYECTOS DISPONIBLES" de forma breve.
+- Cuando el cliente confirme explícitamente su interés en un proyecto distinto
+  al actual, incluye "nuevo_proyecto_id" en datos_extraidos con el id exacto
+  del proyecto confirmado. La calificación y documentos ya recopilados se
+  conservan; NO reinicies el flujo salvo que el nuevo proyecto exija subsidio
+  distinto y el cliente no haya calificado aún.
 
 RESPONDE ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
 {{
@@ -1259,6 +1333,7 @@ RESPONDE ÚNICAMENTE con JSON válido (sin markdown, sin texto extra):
   "datos_extraidos": {{}}
 }}
 Valores válidos de siguiente_paso: null | "BIENVENIDA" | "INICIO" | "DOCUMENTACION" | "ESPERA_DOCS" | "DOCS_RECIBIDOS" | "NO_INTERESADO" | "NO_CALIFICA"
+En datos_extraidos puedes incluir además: "nuevo_proyecto_id": "<uuid>" cuando el cliente confirme cambio de proyecto.
 """
 
     messages: List[Dict[str, str]] = []
@@ -1381,12 +1456,23 @@ async def _procesar_webhook(msg: Dict):
                 ultimo_texto_entrante=text,
             )
 
+        # Cargar otros proyectos de la misma empresa para contexto del bot
+        otros_proyectos: List[Dict] = []
+        if proyecto:
+            empresa_id_ctx = ((proyecto.get("Inmobiliaria") or {}).get("empresa_id"))
+            if empresa_id_ctx:
+                try:
+                    otros_proyectos = await _obtener_otros_proyectos(empresa_id_ctx, proyecto.get("id"))
+                except Exception:
+                    pass
+
         resultado = await generar_respuesta_ia(
             prospecto=prospecto or {},
             proyecto=proyecto,
             historial=historial,
             mensaje_actual=text,
             docs_recibidos=docs_recibidos,
+            otros_proyectos=otros_proyectos,
         )
 
         reply_text      = (resultado["respuesta"] or "").strip()
@@ -1398,6 +1484,15 @@ async def _procesar_webhook(msg: Dict):
             return
 
         await send_whatsapp_message(to=from_number, text=reply_text)
+
+        # Cambio de proyecto confirmado por el cliente
+        nuevo_proyecto_id = datos_extraidos.pop("nuevo_proyecto_id", None)
+        if nuevo_proyecto_id and prospecto_id:
+            try:
+                await _cambiar_proyecto_prospecto(prospecto_id, nuevo_proyecto_id, cliente_id_prospecto)
+                logger.info("Proyecto actualizado → %s para prospecto %s", nuevo_proyecto_id, prospecto_id)
+            except Exception:
+                logger.exception("Error al cambiar proyecto del prospecto %s", prospecto_id)
 
         if prospecto_id:
             await insertar_mensaje(
@@ -1962,6 +2057,58 @@ async def api_listar_templates(request: Request):
 
 
 # ---------------------------------------------------------------------------
+# API — Configuración de plantillas WhatsApp
+# ---------------------------------------------------------------------------
+
+@app.get("/api/plantillas-config")
+async def api_listar_plantillas_config(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if perfil.get("rol") != "administrador":
+        return Response(content="Forbidden", status_code=403)
+    rows = await _supabase_request("GET", "/PlantillaConfig", params={"select": "*"}) or []
+    # Combinar hardcoded (fallback) con lo que hay en DB; DB tiene prioridad
+    merged: Dict[str, Dict] = {
+        name: {"template_name": name, "variables": vars_list, "source": "default"}
+        for name, vars_list in TEMPLATE_VARS_MAP.items()
+    }
+    for row in rows:
+        merged[row["template_name"]] = {**row, "source": "db"}
+    return list(merged.values())
+
+
+@app.put("/api/plantillas-config/{template_name}")
+async def api_upsert_plantilla_config(template_name: str, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if perfil.get("rol") != "administrador":
+        return Response(content="Forbidden", status_code=403)
+    body = await request.json()
+    variables = body.get("variables", [])
+    if not isinstance(variables, list):
+        return Response(content="variables debe ser una lista", status_code=400)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    existing = await _supabase_request(
+        "GET", "/PlantillaConfig",
+        params={"template_name": f"eq.{template_name}", "select": "id", "limit": "1"},
+    ) or []
+    if existing:
+        await _supabase_request(
+            "PATCH", "/PlantillaConfig",
+            params={"template_name": f"eq.{template_name}"},
+            json={"variables": variables, "updated_at": now_iso},
+        )
+    else:
+        await _supabase_request(
+            "POST", "/PlantillaConfig",
+            json={"template_name": template_name, "variables": variables},
+        )
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # API — Importar clientes desde CSV
 # ---------------------------------------------------------------------------
 
@@ -2124,15 +2271,25 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         needs_image = header_comp and header_comp.get("format") == "IMAGE"
         image_url   = (proyecto.get("imagen_url") or None) if (needs_image and proyecto) else None
 
-        pool_vals = await _pool_plantilla(nombre, proyecto)
+        tipologia_id = body.get("tipologia_id") or None
+        if tipologia_id:
+            try:
+                tipologia_id = int(tipologia_id)
+            except (ValueError, TypeError):
+                tipologia_id = None
 
-        if template_name in TEMPLATE_VARS_MAP:
-            # Plantilla conocida: usar el mapeo exacto de variables
-            body_text_params: List[Any] = [
-                pool_vals.get(k, "") for k in TEMPLATE_VARS_MAP[template_name]
-            ]
+        pool_vals = await _pool_plantilla(nombre, proyecto, tipologia_id=tipologia_id)
+
+        # Prioridad: 1) config en DB  2) mapa hardcoded  3) fallback posicional
+        db_cfg = await _supabase_request(
+            "GET", "/PlantillaConfig",
+            params={"template_name": f"eq.{template_name}", "select": "variables", "limit": "1"},
+        ) or []
+        if db_cfg and db_cfg[0].get("variables"):
+            body_text_params: List[Any] = [pool_vals.get(k, "") for k in db_cfg[0]["variables"]]
+        elif template_name in TEMPLATE_VARS_MAP:
+            body_text_params = [pool_vals.get(k, "") for k in TEMPLATE_VARS_MAP[template_name]]
         else:
-            # Plantilla desconocida: fallback posicional con los campos más comunes
             fallback_order = [
                 "cliente_nombre", "proyecto_nombre", "proyecto_ubicacion",
                 "subsidio_tipo", "monto_subsidio_uf", "valor_reserva_clp",
@@ -2245,7 +2402,8 @@ async def api_listar_proyectos(request: Request):
 
 @app.post("/api/proyectos")
 async def api_crear_proyecto(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     body = await request.json()
     nombre          = (body.get("nombre") or "").strip()
@@ -2254,46 +2412,91 @@ async def api_crear_proyecto(request: Request):
     inmobiliaria_id = body.get("inmobiliaria_id")
     if not nombre or not codigo or not inmobiliaria_id:
         return Response(content="Faltan campos obligatorios", status_code=400)
-    row = await _supabase_request("POST", "/Proyecto",
-        json={"nombre": nombre, "codigo": codigo, "ubicacion": ubicacion, "inmobiliaria_id": inmobiliaria_id},
+
+    payload: Dict[str, Any] = {
+        "nombre": nombre, "codigo": codigo,
+        "ubicacion": ubicacion, "inmobiliaria_id": inmobiliaria_id,
+    }
+    _aplicar_campos_proyecto(body, payload, es_admin=_solo_admin(perfil))
+    row = await _supabase_request("POST", "/Proyecto", json=payload,
         extra_headers={"Prefer": "return=representation"})
     return row[0] if isinstance(row, list) and row else row
 
 
 @app.patch("/api/proyectos/{proyecto_id}")
 async def api_editar_proyecto(proyecto_id: str, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     body = await request.json()
     payload: Dict[str, Any] = {}
-    if body.get("nombre"):    payload["nombre"]    = body["nombre"].strip()
-    if body.get("codigo"):    payload["codigo"]    = body["codigo"].strip()
-    if body.get("ubicacion"): payload["ubicacion"] = body["ubicacion"].strip()
+    for f in ("nombre", "codigo", "ubicacion"):
+        if body.get(f): payload[f] = body[f].strip()
+    _aplicar_campos_proyecto(body, payload, es_admin=_solo_admin(perfil))
     if not payload:
         return Response(content="Nada que actualizar", status_code=400)
     await _supabase_request("PATCH", "/Proyecto",
         params={"id": f"eq.{proyecto_id}"},
-        json=payload,
-        extra_headers={"Prefer": "return=minimal"})
+        json=payload, extra_headers={"Prefer": "return=minimal"})
     return {"ok": True}
 
 
+def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> None:
+    """Copia los campos opcionales del proyecto desde body → payload."""
+    if es_admin and body.get("imagen_url") is not None:
+        payload["imagen_url"] = body["imagen_url"] or None
+    for campo in ("fecha_entrega", "notas"):
+        if campo in body:
+            payload[campo] = (body[campo] or "").strip() or None
+    for campo in ("ahorro_minimo_uf", "valor_reserva_clp", "valor_reserva_uf",
+                  "valor_estacionamiento_uf", "monto_subsidio", "subsidio_ds1_t23_uf"):
+        if campo in body:
+            try:    payload[campo] = float(body[campo]) if body[campo] not in (None, "") else None
+            except: pass
+    for campo in ("tiene_piloto", "estacionamiento_obligatorio", "acepta_ds19", "acepta_ds1_t23"):
+        if campo in body:
+            payload[campo] = bool(body[campo])
+
+
 # ── Tipologia ─────────────────────────────────────────────────────────────────
+
+_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,precio_desde_uf,precio_hasta_uf,tipo_subsidio,stock_disponible,estado"
 
 @app.get("/api/tipologias")
 async def api_listar_tipologias(request: Request):
     if not await _get_usuario_actual(request):
         return Response(content="Unauthorized", status_code=401)
-    proyecto_id = request.query_params.get("proyecto_id")
-    params: Dict[str, str] = {
-        "select": "id,proyecto_id,nombre,dormitorios,banos,superficie_util_m2,precio_desde_uf,precio_hasta_uf,estado",
-        "order": "nombre.asc",
-    }
+    proyecto_id     = request.query_params.get("proyecto_id")
+    inmobiliaria_id = request.query_params.get("inmobiliaria_id")
+    empresa_id      = request.query_params.get("empresa_id")
+    params: Dict[str, str] = {"select": _TIPOLOGIA_SELECT, "order": "nombre.asc"}
+
     if proyecto_id:
         params["proyecto_id"] = f"eq.{proyecto_id}"
+    elif inmobiliaria_id:
+        prows = await _supabase_request("GET", "/Proyecto",
+            params={"inmobiliaria_id": f"eq.{inmobiliaria_id}", "select": "id"}) or []
+        ids = ",".join(p["id"] for p in prows)
+        if not ids: return []
+        params["proyecto_id"] = f"in.({ids})"
+    elif empresa_id:
+        inms = await _supabase_request("GET", "/Inmobiliaria",
+            params={"empresa_id": f"eq.{empresa_id}", "select": "id"}) or []
+        inm_ids = ",".join(str(i["id"]) for i in inms)
+        if not inm_ids: return []
+        prows = await _supabase_request("GET", "/Proyecto",
+            params={"inmobiliaria_id": f"in.({inm_ids})", "select": "id"}) or []
+        ids = ",".join(p["id"] for p in prows)
+        if not ids: return []
+        params["proyecto_id"] = f"in.({ids})"
+
     rows = await _supabase_request("GET", "/Tipologia", params=params)
     return rows or []
 
+
+_CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2",
+                     "precio_desde_uf", "precio_hasta_uf",
+                     "tipo_subsidio", "stock_disponible", "estado")
 
 @app.post("/api/tipologias")
 async def api_crear_tipologia(request: Request):
@@ -2304,14 +2507,10 @@ async def api_crear_tipologia(request: Request):
     nombre      = (body.get("nombre") or "").strip()
     if not proyecto_id or not nombre:
         return Response(content="Faltan campos obligatorios", status_code=400)
-    proyecto = await obtener_proyecto_por_id(proyecto_id)
-    if not proyecto:
+    if not await obtener_proyecto_por_id(proyecto_id):
         return Response(content="Proyecto no encontrado", status_code=404)
-    payload: Dict[str, Any] = {
-        "proyecto_id": proyecto_id,
-        "nombre":      nombre,
-    }
-    for campo in ("dormitorios", "banos", "superficie_util_m2", "precio_desde_uf", "precio_hasta_uf", "estado"):
+    payload: Dict[str, Any] = {"proyecto_id": proyecto_id, "nombre": nombre}
+    for campo in _CAMPOS_TIPOLOGIA:
         if body.get(campo) is not None:
             payload[campo] = body[campo]
     row = await _supabase_request("POST", "/Tipologia",
@@ -2325,9 +2524,9 @@ async def api_editar_tipologia(tip_id: int, request: Request):
         return Response(content="Unauthorized", status_code=401)
     body = await request.json()
     payload: Dict[str, Any] = {}
-    for campo in ("nombre", "dormitorios", "banos", "superficie_util_m2", "precio_desde_uf", "precio_hasta_uf", "estado"):
-        if body.get(campo) is not None:
-            payload[campo] = body[campo]
+    if body.get("nombre"): payload["nombre"] = body["nombre"].strip()
+    for campo in _CAMPOS_TIPOLOGIA:
+        if campo in body: payload[campo] = body[campo]
     if not payload:
         return Response(content="Nada que actualizar", status_code=400)
     await _supabase_request("PATCH", "/Tipologia",
@@ -2533,6 +2732,26 @@ async def api_crear_cliente(request: Request):
         )
 
 
+@app.patch("/api/clientes/{cliente_id}")
+async def api_actualizar_cliente(cliente_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "Tramo de renta", "Rut"}
+    try:
+        body = await request.json()
+        payload = {k: v for k, v in body.items() if k in _CAMPOS_PERMITIDOS}
+        if not payload:
+            return Response(content="Sin campos válidos", status_code=400)
+        await _supabase_request("PATCH", "/Cliente",
+            params={"id": f"eq.{cliente_id}"},
+            json=payload,
+        )
+        return {"ok": True}
+    except Exception as e:
+        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+
+
 @app.post("/api/clientes/{cliente_id}/enviar-plantilla")
 async def api_enviar_plantilla(cliente_id: int, request: Request):
     if not await _get_usuario_actual(request):
@@ -2607,6 +2826,49 @@ async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
         cliente_id=cliente_id,
     )
     return prospecto
+
+
+@app.get("/api/clientes/{cliente_id}/conversacion")
+async def api_conversacion_cliente(cliente_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    prospectos = await _supabase_request(
+        "GET", "/Prospecto",
+        params={"cliente_id": f"eq.{cliente_id}", "select": "id,paso,estado", "limit": "1"},
+    )
+    if not prospectos:
+        return {"mensajes": [], "paso": None, "estado": None}
+    p = prospectos[0]
+    mensajes = await _supabase_request(
+        "GET", "/Mensaje",
+        params={
+            "prospecto_id": f"eq.{p['id']}",
+            "select":       "id,direccion,texto,creado_en",
+            "order":        "creado_en.asc",
+            "limit":        "200",
+        },
+    ) or []
+    return {"mensajes": mensajes, "paso": p.get("paso"), "estado": p.get("estado")}
+
+
+@app.get("/api/clientes/{cliente_id}/contexto")
+async def api_contexto_cliente(cliente_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    select_fields = ",".join([
+        "paso", "estado", "datos",
+        *_CAMPOS_CALIFICACION,
+        "motivo_no_interesado", "motivo_no_califica",
+        "quiere_contacto_ejecutivo", "intencion_regularizar",
+        "fecha_tentativa_recontacto",
+    ])
+    prospectos = await _supabase_request(
+        "GET", "/Prospecto",
+        params={"cliente_id": f"eq.{cliente_id}", "select": select_fields, "limit": "1"},
+    ) or []
+    if not prospectos:
+        return {"tiene_prospecto": False}
+    return {"tiene_prospecto": True, **prospectos[0]}
 
 
 @app.get("/api/clientes/{cliente_id}/documentos")

@@ -160,9 +160,15 @@
     <p class="text-xs sidebar-text uppercase tracking-wider">Sin contactar</p>
     <p id="stat-pending" class="text-3xl font-bold text-indigo-500 mt-1">—</p>
   </div>
-  <div class="glass rounded-2xl p-5">
-    <p class="text-xs sidebar-text uppercase tracking-wider">Proyectos</p>
-    <p id="stat-projects" class="text-3xl font-bold text-sky-500 mt-1">—</p>
+  <div class="glass rounded-2xl p-5 cursor-pointer transition hover:ring-1 ring-violet-500 group" onclick="abrirTipologias()">
+    <div class="flex items-center justify-between">
+      <p class="text-xs sidebar-text uppercase tracking-wider">Tipologías</p>
+      <svg class="w-4 h-4 sidebar-text group-hover:text-violet-400 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+      </svg>
+    </div>
+    <p id="stat-tipologias" class="text-3xl font-bold text-violet-400 mt-1">—</p>
+    <p class="text-xs sidebar-text mt-1 group-hover:text-violet-400 transition">Ver y gestionar →</p>
   </div>
 </div>
 
@@ -241,8 +247,14 @@
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2">
           <label class="block text-xs sidebar-text mb-1.5">Proyecto *</label>
-          <select id="f-proyecto" required class="w-full rounded-lg px-3 py-2 text-sm">
+          <select id="f-proyecto" required onchange="onProyectoChange(this.value)" class="w-full rounded-lg px-3 py-2 text-sm">
             <option value="">Seleccionar proyecto…</option>
+          </select>
+        </div>
+        <div id="wrap-f-tipologia" class="col-span-2 hidden">
+          <label class="block text-xs sidebar-text mb-1.5">Tipología</label>
+          <select id="f-tipologia" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Cargando…</option>
           </select>
         </div>
         <div class="col-span-2">
@@ -280,9 +292,16 @@
           <p class="text-xs sidebar-text mt-0.5">Dispara la plantilla de WhatsApp al guardar</p>
         </div>
         <label class="relative inline-flex items-center cursor-pointer">
-          <input type="checkbox" id="f-primer" class="sr-only peer" checked />
+          <input type="checkbox" id="f-primer" class="sr-only peer" checked onchange="toggleTemplateSelector(this.checked)" />
           <div class="w-11 h-6 bg-slate-400 rounded-full peer peer-checked:bg-brand-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5"></div>
         </label>
+      </div>
+
+      <div id="wrap-f-template">
+        <label class="block text-xs sidebar-text mb-1.5">Plantilla de WhatsApp *</label>
+        <select id="f-template" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="">Cargando plantillas…</option>
+        </select>
       </div>
 
       <div class="flex gap-3 pt-2">
@@ -457,15 +476,22 @@
       </div>
 
       <!-- Acciones -->
-      <div class="flex gap-3 pt-2">
-        <button onclick="cerrarEvaluacion()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">
-          Cerrar
+      <div class="flex flex-col gap-2 pt-2">
+        <button id="btn-remarketing-docs" onclick="enviarRecordatorioDocs()"
+          class="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-medium text-sm transition flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          Recordatorio de documentos
         </button>
-        <button id="btn-eval-enviar" onclick="enviarEvaluacion()"
-          class="flex-1 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-          disabled>
-          Guardar
-        </button>
+        <div class="flex gap-3">
+          <button onclick="cerrarEvaluacion()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">
+            Cerrar
+          </button>
+          <button id="btn-eval-enviar" onclick="enviarEvaluacion()"
+            class="flex-1 py-2.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled>
+            Guardar
+          </button>
+        </div>
       </div>
 
     </div>
@@ -619,6 +645,7 @@ async function initAuth() {
 
   cargarProyectos()
   cargarClientes()
+  cargarTipologias()
 }
 
 function _actualizarToggle() {
@@ -677,17 +704,14 @@ async function cargarProyectos() {
   try {
     proyectos = await api('GET', '/api/proyectos')
     document.getElementById('stat-projects').textContent = proyectos.length
-    // Dropdown formulario
-    const sel = document.getElementById('f-proyecto')
-    // Dropdown filtro tabla
+    const sel    = document.getElementById('f-proyecto')
     const filtro = document.getElementById('filtro-proyecto')
+    // Limpiar antes de poblar para evitar duplicados en recargas
+    sel.innerHTML    = '<option value="">Seleccionar proyecto…</option>'
+    filtro.innerHTML = '<option value="">Todos los proyectos</option>'
     proyectos.forEach(p => {
-      const opt1 = document.createElement('option')
-      opt1.value = p.id; opt1.textContent = p.nombre
-      sel.appendChild(opt1)
-      const opt2 = document.createElement('option')
-      opt2.value = p.id; opt2.textContent = p.nombre
-      filtro.appendChild(opt2)
+      const o1 = new Option(p.nombre, p.id); sel.appendChild(o1)
+      const o2 = new Option(p.nombre, p.id); filtro.appendChild(o2)
     })
   } catch(e) { console.error('Proyectos:', e) }
 }
@@ -782,10 +806,38 @@ function renderTabla(data) {
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Evaluación
       </button>
+      <button onclick="abrirConversacion(${c.id}, '${esc(c.Contacto)}')" title="Ver conversación"
+        class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+      </button>
+      <button onclick="abrirContexto(${c.id}, '${esc(c.Contacto)}')" title="Contexto del bot"
+        class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+      </button>
+      <button onclick="abrirRecordatorio(${c.id}, '${esc(c.Contacto)}', '${esc(c.recordatorio_at || '')}')" title="Recordatorio de contacto"
+        class="text-xs p-1.5 rounded-lg glass transition ${c.recordatorio_at ? (_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400 hover:text-red-300' : 'text-amber-400 hover:text-amber-300') : 'sidebar-text hover:text-amber-400'}">
+        <svg class="w-4 h-4" fill="${c.recordatorio_at ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+      </button>
     </div>`
 
-    return `<tr class="trow border-b transition">
-      <td class="px-6 py-4 font-medium val-text">${esc(c.Contacto)}</td>
+    const recordatorioClass = c.recordatorio_at
+      ? (_esRecordatorioVencido(c.recordatorio_at) ? 'border-l-2 border-red-500' : 'border-l-2 border-amber-400')
+      : ''
+
+    return `<tr class="trow border-b transition ${recordatorioClass}">
+      <td class="px-6 py-4 font-medium val-text">
+        ${esc(c.Contacto)}
+        ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
+      </td>
       <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.proyecto_id))}</td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Telefono || '—')}</td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Rut || '—')}</td>
@@ -973,15 +1025,79 @@ async function importarCSV(e) {
 }
 
 // ─── MODAL ────────────────────────────────────────
-function abrirModal() {
+let _cachedTemplatesList = null
+
+async function abrirModal() {
   document.getElementById('modal').classList.remove('hidden')
   document.getElementById('f-contacto').focus()
+  // Pre-seleccionar el proyecto activo si hay uno en sesión
+  const proyAct = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+  if (proyAct?.id) {
+    const sel = document.getElementById('f-proyecto')
+    sel.value = proyAct.id
+    await onProyectoChange(proyAct.id)
+  }
+  // Cargar plantillas (con caché)
+  await cargarTemplatesModal()
 }
+
 function cerrarModal() {
   document.getElementById('modal').classList.add('hidden')
   document.getElementById('form-cliente').reset()
   document.getElementById('f-primer').checked = true
+  document.getElementById('wrap-f-tipologia').classList.add('hidden')
+  document.getElementById('wrap-f-template').classList.remove('hidden')
   resetBtn()
+}
+
+function toggleTemplateSelector(checked) {
+  document.getElementById('wrap-f-template').classList.toggle('hidden', !checked)
+}
+
+async function onProyectoChange(proyectoId) {
+  const wrap = document.getElementById('wrap-f-tipologia')
+  const sel  = document.getElementById('f-tipologia')
+  if (!proyectoId) { wrap.classList.add('hidden'); return }
+  wrap.classList.remove('hidden')
+  sel.innerHTML = '<option value="">Cargando tipologías…</option>'
+  try {
+    const tips = await api('GET', `/api/tipologias?proyecto_id=${proyectoId}`)
+    if (!tips.length) {
+      sel.innerHTML = '<option value="">Sin tipologías registradas</option>'
+      return
+    }
+    sel.innerHTML = tips.map((t, i) =>
+      `<option value="${t.id}" ${i===0?'selected':''}>${t.nombre || t.tipo || 'Tipología ' + (i+1)}${t.precio_desde_uf ? ' — ' + t.precio_desde_uf + ' UF' : ''}</option>`
+    ).join('')
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error al cargar</option>'
+  }
+}
+
+async function cargarTemplatesModal() {
+  const sel = document.getElementById('f-template')
+  if (_cachedTemplatesList) {
+    _poblarSelectTemplates(sel, _cachedTemplatesList)
+    return
+  }
+  sel.innerHTML = '<option value="">Cargando plantillas…</option>'
+  try {
+    const data = await api('GET', '/api/templates')
+    _cachedTemplatesList = data.templates || []
+    _poblarSelectTemplates(sel, _cachedTemplatesList)
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error al cargar plantillas</option>'
+  }
+}
+
+function _poblarSelectTemplates(sel, templates) {
+  if (!templates.length) {
+    sel.innerHTML = '<option value="">Sin plantillas aprobadas</option>'
+    return
+  }
+  sel.innerHTML = templates.map((t, i) =>
+    `<option value="${t.name}" data-language="${t.language || 'es_CL'}" data-components="${encodeURIComponent(JSON.stringify(t.components || []))}" ${i===0?'selected':''}>${t.name} (${t.language || 'es_CL'})</option>`
+  ).join('')
 }
 
 // ─── CREAR CLIENTE ────────────────────────────────
@@ -993,8 +1109,24 @@ async function crearCliente(e) {
   btn.innerHTML = '<span class="spinner"></span> Guardando…'
   btn.disabled = true
   const pm = document.getElementById('f-primer').checked
+
+  // Plantilla seleccionada
+  const tplSel   = document.getElementById('f-template')
+  const tplOpt   = tplSel.options[tplSel.selectedIndex]
+  const tplName  = tplSel.value
+  const tplLang  = tplOpt?.dataset?.language || 'es_CL'
+  const tplComps = tplOpt?.dataset?.components ? JSON.parse(decodeURIComponent(tplOpt.dataset.components)) : []
+  const tipoId   = document.getElementById('f-tipologia').value || null
+
+  if (pm && !tplName) {
+    toast('❌ Selecciona una plantilla para enviar el mensaje', 'error')
+    resetBtn()
+    _guardando = false
+    return
+  }
+
   try {
-    await api('POST', '/api/clientes', {
+    const resp = await api('POST', '/api/clientes', {
       'proyecto_id':        document.getElementById('f-proyecto').value,
       'Contacto':           document.getElementById('f-contacto').value.trim(),
       'Rut':                document.getElementById('f-rut').value.trim(),
@@ -1004,7 +1136,23 @@ async function crearCliente(e) {
       'primer mensaje':     pm,
       'Fecha Ult. Gestión': new Date().toISOString(),
     })
-    const msg = pm ? '✅ Cliente creado y WhatsApp enviado' : '✅ Cliente creado correctamente'
+
+    let msg = '✅ Cliente creado correctamente'
+
+    if (pm && tplName) {
+      const clienteIdNuevo = resp?.cliente?.[0]?.id
+      if (clienteIdNuevo) {
+        btn.innerHTML = '<span class="spinner"></span> Enviando WhatsApp…'
+        await api('POST', `/api/clientes/${clienteIdNuevo}/enviar-wtsp`, {
+          template_name: tplName,
+          language_code: tplLang,
+          components:    tplComps,
+          tipologia_id:  tipoId ? parseInt(tipoId) : null,
+        })
+        msg = '✅ Cliente creado y WhatsApp enviado'
+      }
+    }
+
     btn.innerHTML = msg
     btn.classList.remove('bg-brand-600','hover:bg-brand-700')
     btn.classList.add('bg-emerald-700')
@@ -1040,7 +1188,7 @@ function esc(str) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
-  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarImport()
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarImport(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio()
 })
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
@@ -1238,6 +1386,541 @@ async function enviarEvaluacion() {
   actualizarBtnEval()
   await abrirEvaluacion(_evalClienteId)
 }
+
+// ─── CONVERSACIÓN ─────────────────────────────────────
+async function abrirConversacion(clienteId, nombre) {
+  document.getElementById('conv-titulo').textContent = `Conversación — ${nombre}`
+  document.getElementById('conv-body').innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`
+  document.getElementById('conv-paso').textContent = ''
+  document.getElementById('modal-conversacion').classList.remove('hidden')
+  try {
+    const data = await api('GET', `/api/clientes/${clienteId}/conversacion`)
+    renderConversacion(data)
+  } catch(e) {
+    document.getElementById('conv-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${e.message}</p>`
+  }
+}
+
+function cerrarConversacion() {
+  document.getElementById('modal-conversacion').classList.add('hidden')
+}
+
+// ─── CONTEXTO BOT ───────────────────────────────────────
+async function abrirContexto(clienteId, nombre) {
+  document.getElementById('ctx-titulo').textContent = `Contexto del bot — ${nombre}`
+  document.getElementById('ctx-body').innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`
+  document.getElementById('modal-contexto').classList.remove('hidden')
+  try {
+    const data = await api('GET', `/api/clientes/${clienteId}/contexto`)
+    renderContexto(data)
+  } catch(e) {
+    document.getElementById('ctx-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${e.message}</p>`
+  }
+}
+
+function cerrarContexto() {
+  document.getElementById('modal-contexto').classList.add('hidden')
+}
+
+// ─── HELPERS RECORDATORIO ─────────────────────────────
+function _esRecordatorioVencido(fecha) {
+  if (!fecha) return false
+  return fecha <= new Date().toISOString().slice(0, 10)
+}
+function _formatFechaRecordatorio(fecha) {
+  if (!fecha) return ''
+  const hoy = new Date().toISOString().slice(0, 10)
+  if (fecha === hoy) return 'Hoy'
+  if (fecha < hoy)   return `Vencido (${fecha})`
+  return fecha
+}
+
+// ─── RECORDATORIO DE CONTACTO ─────────────────────────
+let _recId = null
+function abrirRecordatorio(clienteId, nombre, fechaActual) {
+  _recId = clienteId
+  document.getElementById('rec-titulo').textContent = nombre
+  document.getElementById('rec-fecha').value = fechaActual || ''
+  document.getElementById('rec-error').classList.add('hidden')
+  document.getElementById('modal-recordatorio').classList.remove('hidden')
+}
+function cerrarRecordatorio() {
+  document.getElementById('modal-recordatorio').classList.add('hidden')
+  _recId = null
+}
+async function guardarRecordatorio() {
+  const fecha = document.getElementById('rec-fecha').value
+  const btn   = document.getElementById('btn-rec-guardar')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null })
+    const c = clientes.find(x => x.id === _recId)
+    if (c) c.recordatorio_at = fecha || null
+    aplicarFiltros()
+    cerrarRecordatorio()
+    toast(fecha ? `✅ Recordatorio guardado: ${_formatFechaRecordatorio(fecha)}` : '✅ Recordatorio eliminado', 'success')
+  } catch(e) {
+    const errEl = document.getElementById('rec-error')
+    errEl.textContent = e.message; errEl.classList.remove('hidden')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar'
+  }
+}
+
+// ─── REMARKETING DOCUMENTOS ───────────────────────────
+function enviarRecordatorioDocs() {
+  cerrarEvaluacion()
+  const c = clientes.find(x => x.id === _evalClienteId)
+  if (c) abrirSelectorTemplate(_evalClienteId, c.Contacto || 'Cliente')
+}
+
+function renderContexto(data) {
+  const body = document.getElementById('ctx-body')
+  if (!data.tiene_prospecto) {
+    body.innerHTML = `<div class="text-center py-10">
+      <div class="text-4xl mb-3">🧠</div>
+      <p class="sidebar-text text-sm">El bot aún no ha conversado con este cliente.</p>
+    </div>`
+    return
+  }
+
+  const pasoEstado = [
+    data.paso   ? `<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-300">${data.paso}</span>` : '',
+    data.estado ? `<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-900/60 text-blue-300">${data.estado}</span>` : '',
+    data.fecha_tentativa_recontacto ? `<span class="px-2.5 py-1 rounded-full text-xs bg-amber-900/50 text-amber-300">Recontacto: ${data.fecha_tentativa_recontacto}</span>` : '',
+  ].filter(Boolean).join(' ')
+
+  const BOOL_LABELS = {
+    tiene_rsh:          'Tiene RSH',
+    tiene_propiedad:    'Tiene propiedad',
+    subsidio_previo:    'Subsidio previo',
+    ahorro_ok:          'Ahorro suficiente',
+    trabajo_indefinido: 'Contrato indefinido',
+    complemento_renta:  'Complemento de renta',
+  }
+
+  function boolChip(val, label) {
+    if (val === true)  return `<div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-emerald-900/60 text-emerald-400 flex items-center justify-center text-xs font-bold">✓</span><span class="text-sm val-text">${label}</span></div>`
+    if (val === false) return `<div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-red-900/60 text-red-400 flex items-center justify-center text-xs font-bold">✗</span><span class="text-sm sidebar-text">${label}</span></div>`
+    return `<div class="flex items-center gap-2"><span class="w-5 h-5 rounded-full bg-slate-700 text-slate-500 flex items-center justify-center text-xs">?</span><span class="text-sm text-slate-500">${label}</span></div>`
+  }
+
+  const calificacion = Object.entries(BOOL_LABELS)
+    .map(([k, label]) => boolChip(data[k], label)).join('')
+
+  const EXTRA_LABELS = {
+    motivo_no_interesado:      'Motivo no interesado',
+    motivo_no_califica:        'Motivo no califica',
+    quiere_contacto_ejecutivo: 'Quiere contacto ejecutivo',
+    intencion_regularizar:     'Intención de regularizar',
+  }
+  const extras = Object.entries(EXTRA_LABELS)
+    .filter(([k]) => data[k] !== null && data[k] !== undefined && data[k] !== '')
+    .map(([k, label]) => {
+      const v = data[k]
+      const chip = v === true ? '<span class="text-emerald-400 text-xs">Sí</span>'
+                 : v === false ? '<span class="text-red-400 text-xs">No</span>'
+                 : `<span class="text-slate-300 text-xs">${v}</span>`
+      return `<div class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-700/50">
+        <span class="text-xs sidebar-text">${label}</span>${chip}</div>`
+    }).join('')
+
+  // Datos adicionales del blob (campos no estructurados)
+  const blob = data.datos || {}
+  const SKIP_BLOB = new Set(['paso','estado','tiene_prospecto',...Object.keys(BOOL_LABELS),...Object.keys(EXTRA_LABELS)])
+  const blobEntries = Object.entries(blob).filter(([k,v]) => !SKIP_BLOB.has(k) && v !== null && v !== '')
+  const blobHtml = blobEntries.length ? blobEntries.map(([k,v]) =>
+    `<div class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-700/50">
+      <span class="text-xs sidebar-text capitalize">${k.replace(/_/g,' ')}</span>
+      <span class="text-xs text-slate-300 text-right max-w-[60%]">${v === true ? 'Sí' : v === false ? 'No' : v}</span>
+    </div>`
+  ).join('') : ''
+
+  body.innerHTML = `
+    ${pasoEstado ? `<div class="flex flex-wrap gap-1.5 mb-4">${pasoEstado}</div>` : ''}
+
+    <div class="mb-4">
+      <p class="text-xs uppercase tracking-wider sidebar-text font-semibold mb-2">Calificación</p>
+      <div class="grid grid-cols-2 gap-2">${calificacion}</div>
+    </div>
+
+    ${extras ? `<div class="mb-4">
+      <p class="text-xs uppercase tracking-wider sidebar-text font-semibold mb-2">Situación declarada</p>
+      ${extras}
+    </div>` : ''}
+
+    ${blobHtml ? `<div>
+      <p class="text-xs uppercase tracking-wider sidebar-text font-semibold mb-2">Datos adicionales</p>
+      ${blobHtml}
+    </div>` : ''}
+  `
+}
+
+function renderConversacion({ mensajes, paso, estado }) {
+  const pasoEl = document.getElementById('conv-paso')
+  if (paso) pasoEl.textContent = `Paso: ${paso}`
+
+  const body = document.getElementById('conv-body')
+  if (!mensajes?.length) {
+    body.innerHTML = `<p class="text-center empty-text py-8 text-sm">Sin conversación registrada aún.</p>`
+    return
+  }
+
+  body.innerHTML = mensajes.map(m => {
+    const esBot    = m.direccion === 'saliente'
+    const hora     = m.creado_en ? new Date(m.creado_en).toLocaleString('es-CL', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : ''
+    const texto    = (m.texto || '').replace(/\n/g, '<br>')
+    const alineado = esBot ? 'items-end' : 'items-start'
+    const burbuja  = esBot
+      ? 'bg-emerald-800 text-emerald-50 rounded-2xl rounded-br-sm'
+      : 'glass text-slate-200 rounded-2xl rounded-bl-sm'
+    const autor    = esBot ? 'Bot' : 'Cliente'
+
+    return `<div class="flex flex-col ${alineado} gap-0.5">
+      <span class="text-xs sidebar-text px-1">${autor} · ${hora}</span>
+      <div class="max-w-xs px-4 py-2.5 text-sm ${burbuja}">${texto}</div>
+    </div>`
+  }).join('')
+
+  // Scroll al final
+  setTimeout(() => { body.scrollTop = body.scrollHeight }, 50)
+}
+
+// ─── TIPOLOGÍAS ───────────────────────────────────────
+let _tipologias = []
+let _editandoTipId = null
+
+async function cargarTipologias() {
+  try {
+    const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+    const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+    const empresa      = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
+    const qs = proyecto?.id
+      ? `?proyecto_id=${proyecto.id}`
+      : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
+      : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
+    _tipologias = await api('GET', `/api/tipologias${qs}`)
+    document.getElementById('stat-tipologias').textContent = _tipologias.length
+  } catch(e) { console.warn('tipologias:', e) }
+}
+
+function abrirTipologias() {
+  renderTablaTipologias()
+  document.getElementById('modal-tipologias').classList.remove('hidden')
+}
+function cerrarTipologias() {
+  document.getElementById('modal-tipologias').classList.add('hidden')
+}
+
+function _badgeTipoSubsidio(tipo) {
+  const map = { ds19:'DS19', ds1_t23:'DS1 T23', ambos:'DS19 + DS1 T23', ninguno:'—' }
+  const col  = { ds19:'bg-violet-900 text-violet-300', ds1_t23:'bg-blue-900 text-blue-300', ambos:'bg-emerald-900 text-emerald-300', ninguno:'badge-count-bg' }
+  const t = tipo || 'ninguno'
+  return `<span class="text-xs px-2 py-0.5 rounded-full ${col[t]||col.ninguno}">${map[t]||t}</span>`
+}
+function _badgeEstado(estado) {
+  const map = { activo:'Activo', agotado:'Agotado', inactivo:'Inactivo' }
+  const col  = { activo:'bg-emerald-900 text-emerald-300', agotado:'bg-amber-900 text-amber-300', inactivo:'badge-count-bg' }
+  const e = estado || 'activo'
+  return `<span class="text-xs px-2 py-0.5 rounded-full ${col[e]||col.inactivo}">${map[e]||e}</span>`
+}
+
+function renderTablaTipologias() {
+  const proyecto = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+  const esTodos  = !proyecto?.id
+  const tbody = document.getElementById('tipologias-tbody')
+  if (!_tipologias.length) {
+    tbody.innerHTML = `<tr><td colspan="10" class="px-6 py-10 text-center empty-text text-sm">No hay tipologías registradas.</td></tr>`
+    return
+  }
+  tbody.innerHTML = _tipologias.map(t => `
+    <tr class="trow border-b text-sm">
+      ${esTodos ? `<td class="px-4 py-3 sidebar-text text-xs">${(t.Proyecto?.nombre||'—')}</td>` : ''}
+      <td class="px-4 py-3 val-text font-medium">${t.nombre||'—'}</td>
+      <td class="px-4 py-3 sidebar-text text-center">${t.dormitorios??'—'}</td>
+      <td class="px-4 py-3 sidebar-text text-center">${t.banos??'—'}</td>
+      <td class="px-4 py-3 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
+      <td class="px-4 py-3 sidebar-text text-right">${t.precio_desde_uf ? t.precio_desde_uf+' UF' : '—'}</td>
+      <td class="px-4 py-3 sidebar-text text-right">${t.precio_hasta_uf  ? t.precio_hasta_uf +' UF' : '—'}</td>
+      <td class="px-4 py-3">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
+      <td class="px-4 py-3 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
+      <td class="px-4 py-3">${_badgeEstado(t.estado)}</td>
+      <td class="px-4 py-3 flex gap-2">
+        <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+        <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+      </td>
+    </tr>`).join('')
+
+  // mostrar/ocultar col proyecto
+  document.querySelectorAll('.col-proyecto-tip').forEach(th => th.classList.toggle('hidden', !esTodos))
+}
+
+function abrirFormTipologia(tip = null) {
+  _editandoTipId = tip?.id ?? null
+  const proyecto = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+
+  document.getElementById('tip-form-titulo').textContent = tip ? 'Editar tipología' : 'Nueva tipología'
+  document.getElementById('tf-nombre').value         = tip?.nombre              || ''
+  document.getElementById('tf-dormitorios').value    = tip?.dormitorios         ?? ''
+  document.getElementById('tf-banos').value          = tip?.banos               ?? ''
+  document.getElementById('tf-superficie').value     = tip?.superficie_util_m2  ?? ''
+  document.getElementById('tf-precio-desde').value   = tip?.precio_desde_uf     ?? ''
+  document.getElementById('tf-precio-hasta').value   = tip?.precio_hasta_uf     ?? ''
+  document.getElementById('tf-tipo-subsidio').value  = tip?.tipo_subsidio       || 'ninguno'
+  document.getElementById('tf-stock').value          = tip?.stock_disponible    ?? 0
+  document.getElementById('tf-estado').value         = tip?.estado              || 'activo'
+
+  // proyecto selector: mostrar solo si no hay proyecto fijo
+  const wrapProyecto = document.getElementById('wrap-tf-proyecto')
+  if (proyecto?.id) {
+    wrapProyecto.classList.add('hidden')
+    document.getElementById('tf-proyecto-id').value = proyecto.id
+  } else {
+    wrapProyecto.classList.remove('hidden')
+    const sel = document.getElementById('tf-proyecto-id')
+    sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>'
+      + proyectos.map(p => `<option value="${p.id}" ${tip?.proyecto_id===p.id?'selected':''}>${p.nombre}</option>`).join('')
+  }
+
+  document.getElementById('modal-tip-form').classList.remove('hidden')
+}
+function cerrarFormTipologia() {
+  document.getElementById('modal-tip-form').classList.add('hidden')
+}
+
+async function guardarTipologia() {
+  const nombre      = document.getElementById('tf-nombre').value.trim()
+  const proyecto_id = document.getElementById('tf-proyecto-id').value
+  if (!nombre)      { toast('El nombre es obligatorio', 'error'); return }
+  if (!proyecto_id) { toast('Selecciona un proyecto', 'error'); return }
+
+  const numF = id => { const v=document.getElementById(id).value; return v!==''?parseFloat(v):null }
+  const intF = id => { const v=document.getElementById(id).value; return v!==''?parseInt(v):null  }
+
+  const payload = {
+    proyecto_id,
+    nombre,
+    dormitorios:         intF('tf-dormitorios'),
+    banos:               intF('tf-banos'),
+    superficie_util_m2:  numF('tf-superficie'),
+    precio_desde_uf:     numF('tf-precio-desde'),
+    precio_hasta_uf:     numF('tf-precio-hasta'),
+    tipo_subsidio:       document.getElementById('tf-tipo-subsidio').value,
+    stock_disponible:    intF('tf-stock') ?? 0,
+    estado:              document.getElementById('tf-estado').value,
+  }
+
+  const btn = document.getElementById('btn-guardar-tip')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    if (_editandoTipId) {
+      await api('PATCH', `/api/tipologias/${_editandoTipId}`, payload)
+      toast('Tipología actualizada')
+    } else {
+      await api('POST', '/api/tipologias', payload)
+      toast('Tipología creada')
+    }
+    cerrarFormTipologia()
+    await cargarTipologias()
+    renderTablaTipologias()
+  } catch(e) {
+    toast(e.message, 'error')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar'
+  }
+}
+
+function editarTipologia(t) {
+  abrirFormTipologia(t)
+}
+
+async function eliminarTipologia(id) {
+  if (!confirm('¿Eliminar esta tipología?')) return
+  try {
+    await api('DELETE', `/api/tipologias/${id}`)
+    toast('Tipología eliminada')
+    await cargarTipologias()
+    renderTablaTipologias()
+  } catch(e) { toast(e.message, 'error') }
+}
 </script>
+
+<!-- ═══ MODAL CONVERSACIÓN ═══ -->
+<div id="modal-conversacion" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="px-6 pt-5 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <div>
+        <h2 id="conv-titulo" class="font-bold val-text"></h2>
+        <span id="conv-paso" class="text-xs sidebar-text"></span>
+      </div>
+      <button onclick="cerrarConversacion()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div id="conv-body" class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style="min-height:200px"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL RECORDATORIO ═══ -->
+<div id="modal-recordatorio" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-xs shadow-2xl p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        <div>
+          <p class="text-xs sidebar-text font-medium">Recordatorio de contacto</p>
+          <p id="rec-titulo" class="text-sm font-semibold val-text"></p>
+        </div>
+      </div>
+      <button onclick="cerrarRecordatorio()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Fecha de recordatorio</label>
+        <input id="rec-fecha" type="date"
+          class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100
+                 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+        <p class="text-xs sidebar-text mt-1">Deja vacío para eliminar el recordatorio.</p>
+      </div>
+      <div id="rec-error" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-2 pt-1">
+        <button onclick="cerrarRecordatorio()"
+          class="flex-1 py-2 rounded-lg text-sm sidebar-text hover:val-text border border-slate-600 transition">
+          Cancelar
+        </button>
+        <button id="btn-rec-guardar" onclick="guardarRecordatorio()"
+          class="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium transition">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL CONTEXTO BOT ═══ -->
+<div id="modal-contexto" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="px-6 pt-5 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        <h2 id="ctx-titulo" class="font-bold val-text text-sm"></h2>
+      </div>
+      <button onclick="cerrarContexto()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div id="ctx-body" class="flex-1 overflow-y-auto px-5 py-4" style="min-height:180px"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL TIPOLOGÍAS (lista) ═══ -->
+<div id="modal-tipologias" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full shadow-2xl flex flex-col" style="max-width:960px;max-height:90vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h2 class="font-bold val-text text-lg">Tipologías</h2>
+      <div class="flex items-center gap-3">
+        <button onclick="abrirFormTipologia()" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nueva tipología
+        </button>
+        <button onclick="cerrarTipologias()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+      </div>
+    </div>
+    <div class="overflow-auto flex-1">
+      <table class="w-full text-sm min-w-max">
+        <thead>
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
+            <th class="col-proyecto-tip hidden px-4 py-3 text-left">Proyecto</th>
+            <th class="px-4 py-3 text-left">Tipología</th>
+            <th class="px-4 py-3 text-center">Dorms</th>
+            <th class="px-4 py-3 text-center">Baños</th>
+            <th class="px-4 py-3 text-center">Sup. m²</th>
+            <th class="px-4 py-3 text-right">Desde</th>
+            <th class="px-4 py-3 text-right">Hasta</th>
+            <th class="px-4 py-3">Subsidio</th>
+            <th class="px-4 py-3 text-center">Stock</th>
+            <th class="px-4 py-3">Estado</th>
+            <th class="px-4 py-3"></th>
+          </tr>
+        </thead>
+        <tbody id="tipologias-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL TIPOLOGÍA FORM ═══ -->
+<div id="modal-tip-form" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-7 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h3 id="tip-form-titulo" class="font-bold val-text">Nueva tipología</h3>
+      <button onclick="cerrarFormTipologia()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="overflow-y-auto px-7 py-5 space-y-4 flex-1">
+      <!-- Proyecto (solo cuando no hay proyecto fijo) -->
+      <div id="wrap-tf-proyecto">
+        <label class="block text-xs sidebar-text mb-1.5">Proyecto *</label>
+        <select id="tf-proyecto-id" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="tf-nombre" type="text" placeholder="Ej: 2D+2B, Studio, 3D+2B" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Dormitorios</label>
+          <input id="tf-dormitorios" type="number" min="0" step="1" placeholder="2" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Baños</label>
+          <input id="tf-banos" type="number" min="0" step="1" placeholder="1" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Superficie (m²)</label>
+          <input id="tf-superficie" type="number" min="0" step="0.1" placeholder="42.5" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Precio desde (UF)</label>
+          <input id="tf-precio-desde" type="number" min="0" step="0.1" placeholder="2800" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Precio hasta (UF)</label>
+          <input id="tf-precio-hasta" type="number" min="0" step="0.1" placeholder="3200" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Tipo subsidio</label>
+          <select id="tf-tipo-subsidio" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="ninguno">Ninguno</option>
+            <option value="ds19">DS19</option>
+            <option value="ds1_t23">DS1 Tramo 2 y 3</option>
+            <option value="ambos">Ambos</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Stock disponible</label>
+          <input id="tf-stock" type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Estado</label>
+        <select id="tf-estado" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="activo">Activo</option>
+          <option value="agotado">Agotado</option>
+          <option value="inactivo">Inactivo</option>
+        </select>
+      </div>
+    </div>
+    <div class="px-7 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarFormTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarTipologia()" id="btn-guardar-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
