@@ -245,7 +245,7 @@
 
     <form id="form-cliente" onsubmit="crearCliente(event)" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
-        <div class="col-span-2">
+        <div id="wrap-f-proyecto" class="col-span-2">
           <label class="block text-xs sidebar-text mb-1.5">Proyecto *</label>
           <select id="f-proyecto" required onchange="onProyectoChange(this.value)" class="w-full rounded-lg px-3 py-2 text-sm">
             <option value="">Seleccionar proyecto…</option>
@@ -577,6 +577,7 @@ let proyectos = []
 let paginaActual = 1
 const POR_PAGINA = 20
 let _guardando = false
+let _proyectosPromise = null
 
 // ─── TEMA ─────────────────────────────────────────
 function applyTheme(dark) {
@@ -643,7 +644,7 @@ async function initAuth() {
   ;['click','keydown','mousemove','touchstart'].forEach(ev => document.addEventListener(ev, resetInact))
   resetInact()
 
-  cargarProyectos()
+  _proyectosPromise = cargarProyectos()
   cargarClientes()
   cargarTipologias()
 }
@@ -1030,14 +1031,18 @@ let _cachedTemplatesList = null
 async function abrirModal() {
   document.getElementById('modal').classList.remove('hidden')
   document.getElementById('f-contacto').focus()
-  // Pre-seleccionar el proyecto activo si hay uno en sesión
   const proyAct = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+  const wrapProy = document.getElementById('wrap-f-proyecto')
   if (proyAct?.id) {
+    // Esperar que los proyectos estén cargados en el select antes de asignar
+    await _proyectosPromise
     const sel = document.getElementById('f-proyecto')
     sel.value = proyAct.id
+    wrapProy.classList.add('hidden')
     await onProyectoChange(proyAct.id)
+  } else {
+    wrapProy.classList.remove('hidden')
   }
-  // Cargar plantillas (con caché)
   await cargarTemplatesModal()
 }
 
@@ -1047,6 +1052,7 @@ function cerrarModal() {
   document.getElementById('f-primer').checked = true
   document.getElementById('wrap-f-tipologia').classList.add('hidden')
   document.getElementById('wrap-f-template').classList.remove('hidden')
+  document.getElementById('wrap-f-proyecto').classList.remove('hidden')
   resetBtn()
 }
 
