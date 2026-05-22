@@ -704,7 +704,7 @@ async function api(method, path, body) {
 async function cargarProyectos() {
   try {
     proyectos = await api('GET', '/api/proyectos')
-    document.getElementById('stat-projects').textContent = proyectos.length
+    const statProj = document.getElementById('stat-projects'); if (statProj) statProj.textContent = proyectos.length
     const sel    = document.getElementById('f-proyecto')
     const filtro = document.getElementById('filtro-proyecto')
     // Limpiar antes de poblar para evitar duplicados en recargas
@@ -1038,10 +1038,12 @@ async function abrirModal() {
     await _proyectosPromise
     const sel = document.getElementById('f-proyecto')
     sel.value = proyAct.id
+    sel.required = false
     wrapProy.classList.add('hidden')
     await onProyectoChange(proyAct.id)
   } else {
     wrapProy.classList.remove('hidden')
+    document.getElementById('f-proyecto').required = true
   }
   await cargarTemplatesModal()
 }
@@ -1053,6 +1055,7 @@ function cerrarModal() {
   document.getElementById('wrap-f-tipologia').classList.add('hidden')
   document.getElementById('wrap-f-template').classList.remove('hidden')
   document.getElementById('wrap-f-proyecto').classList.remove('hidden')
+  document.getElementById('f-proyecto').required = true
   resetBtn()
 }
 
