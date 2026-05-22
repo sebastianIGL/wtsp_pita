@@ -2746,6 +2746,8 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "Tramo de renta", "Rut"}
+    if _solo_admin(perfil):
+        _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
     try:
         body = await request.json()
         payload = {k: v for k, v in body.items() if k in _CAMPOS_PERMITIDOS}
@@ -3095,6 +3097,194 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
     except Exception as e:
         logger.exception("Error enviando evaluación cliente %s", cliente_id)
         return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
+# ── Movendo / Zonapropia Integration ─────────────────────────────────────────
+
+def _movendo_webhook_key() -> Optional[str]:
+    return _get_env("MOVENDO_WEBHOOK_KEY")
+
+def _verificar_movendo_auth(request: Request) -> bool:
+    key = _movendo_webhook_key()
+    if not key:
+        return True  # Sin clave configurada → aceptar (desarrollo)
+    auth = request.headers.get("Authorization", "")
+    return auth.lower().startswith("bearer ") and auth[7:].strip() == key
+
+def _normalizar_telefono_cl(phone_raw: str) -> Optional[str]:
+    """Normaliza a formato E.164 chileno: 56XXXXXXXXX."""
+    digits = _normalize_phone(phone_raw)
+    if not digits:
+        return None
+    if digits.startswith("56") and len(digits) == 11:
+        return digits
+    if digits.startswith("9") and len(digits) == 9:
+        return f"56{digits}"
+    if digits.startswith("09") and len(digits) == 10:
+        return f"56{digits[1:]}"
+    return digits if len(digits) >= 10 else None
+
+
+@app.post("/api/movendo/nuevo-cliente")
+async def api_movendo_nuevo_cliente(request: Request):
+    """Recibe un nuevo lead de Movendo y lo registra como Cliente."""
+    if not _verificar_movendo_auth(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+
+        first     = (body.get("firstName") or "").strip()
+        last      = (body.get("lastName") or "").strip()
+        nombre    = f"{first} {last}".strip() or (body.get("phone") or "Sin nombre")
+        phone_raw = (body.get("phone") or "").strip()
+        crm_id    = str(body.get("crmId") or "").strip() or None
+        proj_name = (body.get("projectName") or "").strip()
+        email     = (body.get("email") or "").strip() or None
+        rut       = (body.get("rut") or "").strip() or None
+        salary    = str(body.get("salary") or "").strip() or None
+        source    = (body.get("source") or "").strip() or None
+
+        if not phone_raw:
+            return Response(content="phone es requerido", status_code=400)
+        telefono = _normalizar_telefono_cl(phone_raw)
+        if not telefono:
+            return Response(content=f"Teléfono inválido: {phone_raw}", status_code=400)
+        if not proj_name:
+            return Response(content="projectName es requerido", status_code=400)
+
+        # Buscar proyecto por nombre o código
+        proyectos = await _supabase_request("GET", "/Proyecto",
+            params={"nombre": f"ilike.%{proj_name}%", "select": "id,nombre", "limit": "1"}) or []
+        if not proyectos:
+            proyectos = await _supabase_request("GET", "/Proyecto",
+                params={"codigo": f"ilike.%{proj_name}%", "select": "id,nombre", "limit": "1"}) or []
+        if not proyectos:
+            return Response(content=f"Proyecto no encontrado: {proj_name}", status_code=422,
+                            media_type="text/plain")
+
+        proyecto_id = proyectos[0]["id"]
+
+        # Evitar duplicados (mismo teléfono + mismo proyecto)
+        dup = await _supabase_request("GET", "/Cliente",
+            params={"Telefono": f"eq.{telefono}", "proyecto_id": f"eq.{proyecto_id}",
+                    "select": "id", "limit": "1"}) or []
+        if dup:
+            return {"ok": True, "duplicado": True, "cliente_id": dup[0]["id"],
+                    "mensaje": "Cliente ya existe en este proyecto"}
+
+        default_uid = await _get_default_user_id()
+        payload: Dict[str, Any] = {
+            "proyecto_id":        proyecto_id,
+            "Contacto":           nombre,
+            "Telefono":           telefono,
+            "Fecha Ult. Gestión": _utc_now_iso(),
+            "primer mensaje":     False,
+        }
+        if default_uid: payload["usuario_id"]      = default_uid
+        if email:       payload["Correo"]           = email
+        if rut:         payload["Rut"]              = rut
+        if salary:      payload["Tramo de renta"]   = salary
+        if crm_id:      payload["movendo_id"]       = crm_id
+        if source:      payload["movendo_source"]   = source
+
+        cliente = await _supabase_request("POST", "/Cliente", json=payload,
+            extra_headers={"Prefer": "return=representation"})
+        cliente_id = cliente[0]["id"] if isinstance(cliente, list) and cliente else None
+
+        logger.info(f"Movendo nuevo cliente: {nombre} ({telefono}) → {proyectos[0]['nombre']}")
+        return {"ok": True, "cliente_id": cliente_id}
+
+    except Exception as e:
+        logger.exception("Error en /api/movendo/nuevo-cliente")
+        return Response(content=_safe_httpx_error(e) or "Internal Server Error", status_code=500,
+                        media_type="text/plain")
+
+
+@app.post("/api/aplicaciones/actualizar-contactos-neurobytes")
+async def api_movendo_actualizar_contacto(request: Request):
+    """Recibe el resumen de conversación de Movendo y actualiza el Cliente."""
+    if not _verificar_movendo_auth(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        lead_id = body.get("leadId")
+        if not lead_id:
+            return Response(content="leadId es requerido", status_code=400)
+        lead_id_str = str(lead_id)
+
+        # Buscar por movendo_id
+        rows = await _supabase_request("GET", "/Cliente",
+            params={"movendo_id": f"eq.{lead_id_str}", "select": "id", "limit": "1"}) or []
+
+        # Si no encontró, intentar por teléfono
+        if not rows and body.get("phone"):
+            tel = _normalizar_telefono_cl(str(body["phone"]))
+            if tel:
+                rows = await _supabase_request("GET", "/Cliente",
+                    params={"Telefono": f"eq.{tel}", "select": "id", "limit": "1"}) or []
+
+        if not rows:
+            return Response(content=f"Cliente no encontrado para leadId={lead_id}", status_code=404,
+                            media_type="text/plain")
+
+        cliente_id = rows[0]["id"]
+        patch: Dict[str, Any] = {"movendo_id": lead_id_str}
+
+        nombre_parts = [body.get("name") or "", body.get("lastName") or "", body.get("motherLastName") or ""]
+        nombre = " ".join(p for p in nombre_parts if p).strip()
+        if nombre:             patch["Contacto"]        = nombre
+        if body.get("email"):  patch["Correo"]          = body["email"]
+        if body.get("rut"):    patch["Rut"]             = body["rut"]
+        if body.get("salary"): patch["Tramo de renta"]  = str(body["salary"])
+
+        movendo_data: Dict[str, Any] = {}
+        for key in ("summary", "chatLink", "score", "userNotes", "source",
+                    "alertType", "alertMessage", "complementSalary", "projectId"):
+            if body.get(key) is not None:
+                movendo_data[key] = body[key]
+        if movendo_data:
+            patch["movendo_data"] = movendo_data
+
+        await _supabase_request("PATCH", "/Cliente",
+            params={"id": f"eq.{cliente_id}"},
+            json=patch, extra_headers={"Prefer": "return=minimal"})
+
+        logger.info(f"Movendo actualizó cliente_id={cliente_id} leadId={lead_id}")
+        return {"ok": True, "cliente_id": cliente_id}
+
+    except Exception as e:
+        logger.exception("Error en /api/aplicaciones/actualizar-contactos-neurobytes")
+        return Response(content=_safe_httpx_error(e) or "Internal Server Error", status_code=500,
+                        media_type="text/plain")
+
+
+async def _get_default_user_id() -> Optional[str]:
+    """Devuelve el ID del usuario administrador configurado o el primer admin de la DB."""
+    env_id = _get_env("MOVENDO_DEFAULT_USER_ID")
+    if env_id:
+        return env_id
+    rows = await _supabase_request("GET", "/Usuario",
+        params={"rol": "eq.administrador", "estado": "eq.1", "select": "id", "limit": "1"}) or []
+    return rows[0]["id"] if rows else None
+
+
+async def _movendo_get_token() -> str:
+    """Obtiene un Bearer token de Movendo via OAuth2 Password Grant.
+    Usar cuando necesitemos llamar a la API de Movendo (enviar datos hacia ellos).
+    """
+    async with httpx.AsyncClient(timeout=15) as client:
+        r = await client.post(
+            "https://autentica-api.movendo.cl/oauth/token",
+            json={
+                "grant_type":    "password",
+                "client_id":     _get_env("MOVENDO_CLIENT_ID")     or "7",
+                "client_secret": _get_env("MOVENDO_CLIENT_SECRET") or "",
+                "username":      _get_env("MOVENDO_USERNAME")       or "",
+                "password":      _get_env("MOVENDO_PASSWORD")       or "",
+            },
+        )
+        r.raise_for_status()
+        return r.json()["access_token"]
 
 
 # ── Rutas de páginas (URLs limpias sin .html) ────────────────────────────────

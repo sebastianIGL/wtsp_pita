@@ -579,6 +579,7 @@ let paginaActual = 1
 const POR_PAGINA = 20
 let _guardando = false
 let _proyectosPromise = null
+let _usuarios = []
 
 // ─── TEMA ─────────────────────────────────────────
 function applyTheme(dark) {
@@ -647,6 +648,7 @@ async function initAuth() {
 
   _proyectosPromise = cargarProyectos()
   cargarClientes()
+  cargarUsuarios()
   cargarTipologias()
 }
 
@@ -716,6 +718,18 @@ async function cargarProyectos() {
       const o2 = new Option(p.nombre, p.id); filtro.appendChild(o2)
     })
   } catch(e) { console.error('Proyectos:', e) }
+}
+
+async function cargarUsuarios() {
+  try {
+    _usuarios = await api('GET', '/api/usuarios')
+  } catch(e) { console.warn('Usuarios:', e) }
+}
+
+function _nombreUsuario(id) {
+  if (!id) return '—'
+  const u = _usuarios.find(u => u.id === id)
+  return u ? u.nombre : '—'
 }
 
 // ─── CLIENTES ─────────────────────────────────────
@@ -829,6 +843,14 @@ function renderTabla(data) {
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
         </svg>
       </button>
+      ${_perfil?.rol === 'administrador' ? `
+      <button onclick="abrirAsignar(${c.id}, '${esc(c.Contacto)}', '${esc(c.usuario_id || '')}')" title="Asignar ejecutivo"
+        class="text-xs p-1.5 rounded-lg glass transition ${c.usuario_id ? 'text-blue-400 hover:text-blue-300' : 'sidebar-text hover:text-blue-400'}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+      </button>` : ''}
     </div>`
 
     const recordatorioClass = c.recordatorio_at
@@ -839,6 +861,7 @@ function renderTabla(data) {
       <td class="px-6 py-4 font-medium val-text">
         ${esc(c.Contacto)}
         ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
+        ${_perfil?.rol === 'administrador' && c.usuario_id ? `<div class="text-xs mt-0.5 text-blue-400">👤 ${_nombreUsuario(c.usuario_id)}</div>` : ''}
       </td>
       <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.proyecto_id))}</td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Telefono || '—')}</td>
@@ -1477,6 +1500,47 @@ async function guardarRecordatorio() {
   }
 }
 
+// ─── ASIGNAR EJECUTIVO ────────────────────────────────
+let _asignarClienteId = null
+
+function abrirAsignar(clienteId, nombre, usuarioActualId) {
+  _asignarClienteId = clienteId
+  document.getElementById('asignar-titulo').textContent = nombre
+  document.getElementById('asignar-error').classList.add('hidden')
+  const sel = document.getElementById('asignar-usuario')
+  sel.innerHTML = '<option value="">— Sin asignar —</option>'
+  _usuarios.forEach(u => {
+    const opt = new Option(`${u.nombre} (${u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'})`, u.id)
+    if (u.id === usuarioActualId) opt.selected = true
+    sel.appendChild(opt)
+  })
+  document.getElementById('modal-asignar').classList.remove('hidden')
+}
+
+function cerrarAsignar() {
+  document.getElementById('modal-asignar').classList.add('hidden')
+  _asignarClienteId = null
+}
+
+async function guardarAsignar() {
+  const usuarioId = document.getElementById('asignar-usuario').value
+  const btn = document.getElementById('btn-asignar-guardar')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    await api('PATCH', `/api/clientes/${_asignarClienteId}`, { usuario_id: usuarioId || null })
+    const c = clientes.find(x => x.id === _asignarClienteId)
+    if (c) c.usuario_id = usuarioId || null
+    aplicarFiltros()
+    cerrarAsignar()
+    toast(`✅ Cliente asignado a ${_nombreUsuario(usuarioId)}`, 'success')
+  } catch(e) {
+    const errEl = document.getElementById('asignar-error')
+    errEl.textContent = e.message; errEl.classList.remove('hidden')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar'
+  }
+}
+
 // ─── REMARKETING DOCUMENTOS ───────────────────────────
 function enviarRecordatorioDocs() {
   cerrarEvaluacion()
@@ -1799,6 +1863,44 @@ async function eliminarTipologia(id) {
         </button>
         <button id="btn-rec-guardar" onclick="guardarRecordatorio()"
           class="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium transition">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ASIGNAR EJECUTIVO ═══ -->
+<div id="modal-asignar" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-xs shadow-2xl p-5">
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        <div>
+          <p class="text-xs sidebar-text font-medium">Asignar ejecutivo</p>
+          <p id="asignar-titulo" class="text-sm font-semibold val-text"></p>
+        </div>
+      </div>
+      <button onclick="cerrarAsignar()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Ejecutivo responsable</label>
+        <select id="asignar-usuario" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="">— Sin asignar —</option>
+        </select>
+      </div>
+      <div id="asignar-error" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-2 pt-1">
+        <button onclick="cerrarAsignar()"
+          class="flex-1 py-2 rounded-lg text-sm sidebar-text hover:val-text border border-slate-600 transition">
+          Cancelar
+        </button>
+        <button id="btn-asignar-guardar" onclick="guardarAsignar()"
+          class="flex-1 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition">
           Guardar
         </button>
       </div>
