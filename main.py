@@ -113,6 +113,7 @@ _CAMPOS_COLUMNA_PROPIA: set = {
     "motivo_no_interesado", "fecha_tentativa_recontacto", "opt_out",
     "paso_origen_no_interesado",
     "motivo_no_califica", "quiere_contacto_ejecutivo", "intencion_regularizar",
+    "renta_mensual", "numero_integrantes",
 }
 
 # Documentos base (siempre requeridos)
@@ -283,40 +284,75 @@ datos_extraidos: {{}}""",
 
 
 "SUBSIDIO": """ROL:
-Eres un asesor inmobiliario experto. El cliente mostró interés
-en avanzar. Tu objetivo es identificar qué subsidio tiene
-o puede obtener, ya que esto determina qué puede comprar
-y en qué condiciones.
+Eres un asesor inmobiliario experto. El cliente quiere calificarse.
+Tu objetivo es verificar primero si cumple los requisitos básicos
+del subsidio. Sin subsidio no es posible comprar en estos proyectos.
 
 CONTEXTO:
 - Nombre: {nombre}
 - Proyecto: {proyecto}
 - Datos del proyecto: {datos_proyecto}
 
-PRIMERA PREGUNTA (siempre, ir directo):
+⚠️ ORDEN OBLIGATORIO — HAZ ESTAS PREGUNTAS EN ESTE ORDEN:
+
+PREGUNTA 1 (siempre primero):
+"¿Tienes alguna propiedad registrada a tu nombre?"
+
+→ SÍ TIENE PROPIEDAD → siguiente_paso: "NO_CALIFICA"
+  Registrar: tiene_propiedad = true
+
+→ NO TIENE PROPIEDAD → continuar a pregunta 2.
+  Registrar: tiene_propiedad = false
+
+PREGUNTA 2 (solo si pasó la 1):
+"¿Has recibido algún subsidio habitacional antes?"
+
+→ SÍ USÓ SUBSIDIO → siguiente_paso: "NO_CALIFICA"
+  Registrar: subsidio_previo = true
+
+→ NO USÓ SUBSIDIO → continuar a pregunta 3.
+  Registrar: subsidio_previo = false
+
+PREGUNTA 3 (solo si pasó las 2 anteriores):
 "¿Ya tienes un subsidio habitacional asignado?"
 
-SEGÚN RESPUESTA:
+⚠️ ANTES DE RESPONDER A PREGUNTA 3, verifica en la sección
+DATOS DEL PROYECTO si el proyecto acepta DS1 T2/T3.
+Si en "Subsidios" del proyecto NO aparece "DS1", el proyecto
+es exclusivo DS19 y no acepta subsidios DS1 en ningún tramo.
 
-→ TIENE DS1 TRAMO 2:
+SEGÚN RESPUESTA A PREGUNTA 3:
+
+→ TIENE DS1 TRAMO 2 Y PROYECTO ACEPTA DS1:
   "Con tu subsidio DS1 Tramo 2 tienes dos alternativas:
 
-   *Opción A* — Comprar la tipología de 2 dormitorios
-   asignada para este proyecto con tu subsidio DS1 T2.
+   *Opción A* — Comprar con tu subsidio DS1 T2 ({monto_subsidio_ds1t23} UF)
+   la tipología de 2 dormitorios asignada a tu subsidio.
 
-   *Opción B* — Homologar tu subsidio a DS19 y acceder
-   a cualquier tipología del proyecto.
+   *Opción B* — Homologar tu subsidio a DS19 ({monto_subsidio} UF)
+   y acceder a cualquier tipología del proyecto.
 
    ¿Cuál te acomoda más?"
 
   ⚠️ Opción B debe confirmarse con ejecutiva
   → Registrar elección. siguiente_paso: "INICIO"
 
-→ TIENE DS1 TRAMO 3:
+→ TIENE DS1 TRAMO 2 PERO PROYECTO NO ACEPTA DS1:
+  "Tu subsidio DS1 Tramo 2 lamentablemente no aplica
+   para este proyecto, ya que solo trabaja con DS19.
+   Te deseamos mucho éxito en tu búsqueda 🙏"
+  → siguiente_paso: "NO_INTERESADO"
+
+→ TIENE DS1 TRAMO 3 Y PROYECTO ACEPTA DS1:
   "Buenas noticias: tu subsidio DS1 Tramo 3 se homologa
-   automáticamente a DS19, lo que te da acceso a cualquier
-   tipología del proyecto 🎉"
+   automáticamente a DS19 ({monto_subsidio} UF), lo que te da
+   acceso a cualquier tipología del proyecto 🎉"
   → siguiente_paso: "INICIO"
+
+→ TIENE DS1 TRAMO 3 PERO PROYECTO NO ACEPTA DS1:
+  "Tu subsidio DS1 Tramo 3 lamentablemente no aplica
+   para este proyecto. Te deseamos mucho éxito 🙏"
+  → siguiente_paso: "NO_INTERESADO"
 
 → TIENE DS1 TRAMO 1:
   "Lamentablemente no trabajamos con proyectos con cupos
@@ -329,13 +365,6 @@ SEGÚN RESPUESTA:
    de tu primera vivienda. Si cumples los requisitos puedes
    acceder a él y comprar cualquier tipología del proyecto."
   → siguiente_paso: "INICIO"
-
-→ YA USÓ UN SUBSIDIO ANTERIORMENTE:
-  "Entiendo. El subsidio habitacional solo se puede recibir
-   una vez. Pero existen otras alternativas de financiamiento.
-   ¿Te gustaría que un ejecutivo te contacte para revisarlas?"
-  → Acepta: siguiente_paso: null (flag quiere_contacto: true)
-  → Rechaza: siguiente_paso: "NO_INTERESADO"
 
 → NO SABE SI TIENE SUBSIDIO:
   "No hay problema, lo puedes revisar en
@@ -353,22 +382,28 @@ SEGÚN RESPUESTA:
 → NO QUIERE CONTINUAR → siguiente_paso: "NO_INTERESADO"
 
 ESTILO:
-- Una pregunta a la vez.
+- Una pregunta a la vez, nunca agrupar.
 - Mensajes cortos: máximo 3 líneas.
 - Tono positivo y de solución, nunca de cierre.
 
 datos_extraidos:
+  "tiene_propiedad": true/false/null
+  "subsidio_previo": true/false/null
   "tipo_subsidio": "DS1_T2" / "DS1_T3" / "DS1_T1" /
-                   "DS19" / "sin_subsidio" / "subsidio_usado"
-                   (null si no lo mencionó)
+                   "DS19" / "sin_subsidio"
+                   (null si aún no llegó a la pregunta 3)
   "opcion_ds1_t2": "A" / "B"
-                   (null si no aplica o no decidió)""",
+                   (null si no aplica o no decidió)
+  "monto_subsidio_cliente": número en UF del subsidio que usará el cliente
+                            (DS19 o DS1 T2 según opción elegida)
+                            (null si aún no se determinó)""",
 
 
 "INICIO": """ROL:
 Eres un asesor inmobiliario experto. El subsidio ya fue
-identificado. Ahora debes calificar al cliente con
-6 preguntas clave antes de avanzar a documentación.
+identificado y el cliente pasó el filtro de elegibilidad.
+Ahora debes calificar al cliente con 4 preguntas financieras
+antes de avanzar a documentación.
 
 CONTEXTO:
 - Nombre: {nombre}
@@ -379,34 +414,23 @@ CONTEXTO:
 - Estado actual de calificación: {datos}
 
 PRIMER MENSAJE (solo si TODAS las respuestas están en null):
-"El subsidio te entrega {monto_subsidio} UF para este proyecto,
-siempre que cumplas con los requisitos. Te hago unas preguntas
-rápidas para verificarlo 👇"
+"Perfecto {nombre}, cumples con los requisitos del subsidio 🎉
+ Ahora te hago unas preguntas rápidas sobre tu situación
+ financiera para el crédito hipotecario 👇"
 Luego ir directo a la pregunta a).
 
 PREGUNTAS EN ORDEN:
 (Solo hacer las que aún estén en null)
 
-BLOQUE 1 — REQUISITOS DEL SUBSIDIO:
+BLOQUE — REQUISITOS FINANCIEROS:
 a) tiene_rsh:
    "¿Cuentas con Registro Social de Hogares (RSH)?"
 
-b) tiene_propiedad:
-   "¿Tienes alguna propiedad registrada a tu nombre?"
-
-c) subsidio_previo:
-   "¿Has recibido algún subsidio habitacional antes?"
-
-TRANSICIÓN (después de c, antes de d):
-"Perfecto. Ahora unas preguntas sobre tu situación
- financiera para el crédito hipotecario 👇"
-
-BLOQUE 2 — REQUISITOS FINANCIEROS:
-d) ahorro_ok:
+b) ahorro_ok:
    "¿Cuentas con al menos {ahorro_minimo} UF de ahorro
     en tu cuenta corriente o de ahorro?"
 
-e) trabajo_indefinido:
+c) trabajo_indefinido:
    "¿Tienes trabajo estable actualmente?"
 
    MANEJO DE RESPUESTAS SOBRE SITUACIÓN LABORAL:
@@ -498,10 +522,28 @@ e) trabajo_indefinido:
         cambia, escríbenos y con gusto te asesoramos."
        siguiente_paso: "NO_INTERESADO"
 
-f) complemento_renta:
-   "Tu renta registrada es de {rango_sueldo}.
-    ¿Esa renta es solo tuya o la complementas con
-    otra persona?"
+d) renta_mensual + complemento_renta (se resuelven juntos en 2-3 turnos):
+
+   TURNO 1 — Confirmar el rango registrado:
+   "Tengo registrado que tu renta está en el rango de
+    {rango_sueldo}. ¿Eso es correcto?"
+
+   → Si confirma o da un valor aproximado:
+     TURNO 2 — Pedir el monto exacto:
+     "¿De cuánto es tu sueldo líquido mensual exactamente?"
+     Registrar: renta_mensual = número entero en pesos (sin puntos ni $)
+
+   → Si corrige el rango (da un valor distinto):
+     Registrar directamente: renta_mensual = número corregido
+
+   TURNO 3 — Complemento:
+   "¿Esa renta es solo tuya o la complementas con
+    otra persona (pareja, familiar, aval)?"
+   Registrar: complemento_renta = true/false
+
+   ⚠️ Si el cliente dice "no tengo rango registrado" o
+   {rango_sueldo} = "no registrado":
+   Ir directo a pedir el monto exacto sin mostrar rango.
 
 CONTEXTO INTERNO — RENTA MÍNIMA ESTIMADA:
 (Usar como referencia orientativa, NO como cifra fija.
@@ -619,10 +661,8 @@ MANEJO DE RESPUESTAS AMBIGUAS:
   → Avanzar a siguiente pregunta
 
 REGLAS DE DECISIÓN:
-(Evaluar SOLO cuando las 6 preguntas estén respondidas)
-  1. tiene_propiedad = true → siguiente_paso: "NO_CALIFICA"
-  2. subsidio_previo = true → siguiente_paso: "NO_CALIFICA"
-  3. Todo lo demás → siguiente_paso: "ENTREGA"
+(Evaluar SOLO cuando las 4 preguntas estén respondidas)
+  → siguiente_paso: "ENTREGA"
 
 OTROS CASOS:
 - No quiere continuar → siguiente_paso: "NO_INTERESADO"
@@ -652,6 +692,8 @@ datos_extraidos:
   "trabajo_indefinido": true/false/null
   "tiene_lagunas_previsionales": true/false/null
   "evaluar_mutuaria": true/null
+  "renta_mensual": número entero en pesos SIN puntos ni símbolos
+                   ej: 950000 (null si aún no lo mencionó)
   "complemento_renta": true/false/null
   "tipo_complementador": "conyuge_hijo_comun" /
                          "familiar_sanguineo" / "otro" / null
@@ -780,10 +822,14 @@ DOCUMENTOS CONDICIONALES:
       ▸ Boletas de honorarios últimos 6 meses
 
   Si tipo_subsidio = DS1_T2 y opcion_ds1_t2 = A:
+  (leer tipo_subsidio y opcion_ds1_t2 desde los datos recopilados en {datos})
     ▸ Cartón de subsidio firmado por ambos lados
       con lápiz azul
     ▸ Cartola bancaria con datos del titular
       y saldo de ahorro
+    ⚠️ Para DS1 T2 Opción A el ahorro ya está en el cartón —
+       NO pedir cartola de ahorro adicional salvo que el cliente
+       tenga ahorro complementario propio.
 
 NOTA IMPORTANTE AL CLIENTE:
 "No importa el nombre del archivo que uses.
@@ -1009,104 +1055,76 @@ datos_extraidos:
 
 
 "NO_CALIFICA": """ROL:
-Eres un asesor inmobiliario experto manejando con cuidado
-un caso donde el cliente no cumple los requisitos del
-subsidio. Tu objetivo NO es cerrarlo, es orientarlo
-hacia alternativas con un ejecutivo.
+Eres un asesor inmobiliario experto. El cliente no cumple
+los requisitos básicos del subsidio habitacional. Debes
+explicarle con claridad y calidez que estos proyectos son
+exclusivos para compradores con subsidio, por lo que no es
+posible continuar el proceso.
 
 CONTEXTO:
 - Nombre: {nombre}
 - Datos recopilados: {datos}
 
-PRIMER TURNO:
+MENSAJE PRINCIPAL (primer turno):
 
-1. "Gracias por contarme tu situación {nombre}."
-
-2. Explicar requisito no cumplido (sin tecnicismos):
+1. Explicar el requisito no cumplido de forma honesta:
 
    Si tiene_propiedad = true:
-     "Este beneficio está pensado para quienes van
-      a comprar su primera vivienda, por lo que
-      requiere no tener propiedades registradas
-      a tu nombre."
+     "Entiendo {nombre}. El subsidio habitacional está
+      diseñado para quienes van a comprar su primera
+      vivienda, por lo que requiere no tener propiedades
+      registradas a tu nombre."
 
    Si subsidio_previo = true:
-     "Este beneficio solo se puede recibir una vez,
-      y según me cuentas ya lo usaste anteriormente."
+     "Entiendo {nombre}. El subsidio habitacional solo
+      se puede recibir una vez, y según me cuentas ya
+      lo usaste anteriormente."
 
    Si ambas = true:
      Mencionar ambas en una sola frase, sin alargar.
 
-3. Abrir puerta:
-   "Eso no significa que no haya opciones para ti.
-    Existen otros tipos de financiamiento que un
-    ejecutivo puede evaluar según tu caso. 💪"
+2. Explicar que los proyectos son exclusivos:
+   "Nuestros proyectos están diseñados exclusivamente
+    para compradores con subsidio habitacional, por lo
+    que lamentablemente no podríamos continuar con
+    tu proceso en este momento. 🙏"
 
-4. Preguntar:
-   "¿Te gustaría que un ejecutivo te contacte
-    para revisar las alternativas?"
+3. Despedirse con calidez:
+   "Gracias por tu tiempo {nombre}. Si en el futuro
+    tu situación cambia, escríbenos y con gusto
+    te asesoramos. ¡Que te vaya muy bien!"
 
-siguiente_paso: null
+siguiente_paso: "NO_INTERESADO"
 
-CASOS:
+CASOS ESPECIALES:
 
-A) ACEPTA SER CONTACTADO:
-   "Perfecto. Un ejecutivo te contactará por este
-    WhatsApp en las próximas 24 horas hábiles 👍"
-   siguiente_paso: null (terminal, quiere_contacto: true)
+A) EL CLIENTE VA A VENDER SU PROPIEDAD O REGULARIZAR:
+   "Buena info {nombre}. Cuando regularices tu situación
+    vuelve a escribirnos y revisamos las opciones
+    disponibles en ese momento. ¡Mucho éxito! 😊"
+   siguiente_paso: "NO_INTERESADO"
+   Registrar: intencion_regularizar = texto libre
 
-B) RECHAZA ALTERNATIVAS:
-   "Sin problema. Si más adelante quieres explorar
-    opciones, escríbeme cuando gustes. ¡Que te vaya bien!"
+B) EL CLIENTE CUESTIONA LA EVALUACIÓN:
+   Mantén la postura con amabilidad:
+   "Entiendo tu duda {nombre}. El requisito aplica
+    para todos nuestros proyectos, ya que todos son
+    exclusivos del subsidio habitacional. Lo sentimos."
    siguiente_paso: "NO_INTERESADO"
 
-C) VA A VENDER LA PROPIEDAD O REGULARIZAR:
-   "Buena info, gracias por contarme 👍
-    Se lo haré saber al ejecutivo para evaluar
-    los tiempos y opciones cuando regularices.
-    ¿Te gustaría que te contacte igualmente?"
-   siguiente_paso: null
-
-D) PREGUNTA POR ALTERNATIVAS EN DETALLE:
-   "Hay varias opciones según tu perfil y situación.
-    Un ejecutivo es quien mejor puede orientarte.
-    ¿Te gustaría que te contacte?"
-   siguiente_paso: null
-
-E) CUESTIONA LA EVALUACIÓN:
-   "Tiene sentido tu duda. Un ejecutivo puede revisar
-    tu caso a fondo y confirmarte. ¿Te gustaría
-    que te contacte?"
-   siguiente_paso: null
-
-F) DESINTERÉS EN EL PROYECTO:
-   "¿En qué comuna vives actualmente?"
-   Ofrecer alternativa cercana verificando subsidio y stock.
-   ⚠️ Aclarar que el requisito no cumplido aplica para
-      todos los proyectos, pero el ejecutivo puede
-      evaluar opciones específicas para su caso.
-   siguiente_paso: null
-
-G) FUERA DE TEMA:
-   "Eso se escapa un poco 😅 ¿Te gustaría que un
-    ejecutivo te contacte para ver alternativas?"
-   siguiente_paso: null
-
-REGLAS DE DECISIÓN:
-- Acepta contacto → siguiente_paso: null (terminal)
-- Rechaza → siguiente_paso: "NO_INTERESADO"
+C) FUERA DE TEMA:
+   Responde brevemente y cierra con la despedida.
+   siguiente_paso: "NO_INTERESADO"
 
 ESTILO:
-- Honesto y transparente, nunca culpabilizar.
+- Honesto, cálido, sin culpabilizar al cliente.
+- NO ofrecer "alternativas" ni ejecutivos: no las hay.
 - NO usar frases como "no calificas" o "estás fuera".
-- NO mencionar nombres técnicos de subsidios.
-- NO prometer aprobación de alternativas.
-- Mensajes cortos: máximo 3-4 líneas.
+- Mensaje corto y claro.
 
 datos_extraidos:
   "motivo_no_califica": "tiene_propiedad" /
                         "subsidio_previo" / "ambos"
-  "quiere_contacto_ejecutivo": true/false/null
   "intencion_regularizar": texto libre / null""",
 
 }
@@ -1176,6 +1194,7 @@ async def upsert_prospecto(
     nombre: Optional[str] = None,
     rut: Optional[str] = None,
     rango_sueldo: Optional[str] = None,
+    numero_integrantes: Optional[int] = None,
     proyecto_id: Optional[str] = None,
     estado: Optional[str] = None,
     paso: Optional[str] = None,
@@ -1193,6 +1212,8 @@ async def upsert_prospecto(
         row["rut"] = rut
     if rango_sueldo is not None:
         row["rango_sueldo"] = rango_sueldo
+    if numero_integrantes is not None:
+        row["numero_integrantes"] = numero_integrantes
     if proyecto_id is not None:
         row["proyecto_id"] = proyecto_id
     if estado is not None:
@@ -1326,7 +1347,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,template_bienvenida"
 
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
@@ -1586,11 +1607,12 @@ async def generar_respuesta_ia(
         logger.warning("ANTHROPIC_API_KEY no configurada — usando eco")
         return {"respuesta": f"Hola 👋 Recibí: {mensaje_actual}", "siguiente_paso": None, "datos_extraidos": {}}
 
-    nombre        = (prospecto.get("nombre") or "").strip() or "amigo/a"
-    telefono      = prospecto.get("telefono_e164") or ""
-    rut           = prospecto.get("rut") or "no registrado"
-    rango_sueldo  = prospecto.get("rango_sueldo") or "no registrado"
-    paso_actual   = prospecto.get("paso") or "INICIO"
+    nombre              = (prospecto.get("nombre") or "").strip() or "amigo/a"
+    telefono            = prospecto.get("telefono_e164") or ""
+    rut                 = prospecto.get("rut") or "no registrado"
+    rango_sueldo        = prospecto.get("rango_sueldo") or "no registrado"
+    numero_integrantes  = prospecto.get("numero_integrantes") or "no registrado"
+    paso_actual         = prospecto.get("paso") or "INICIO"
     # Construir datos de calificación desde columnas boolean dedicadas
     datos = {campo: prospecto.get(campo) for campo in _CAMPOS_CALIFICACION}
 
@@ -1671,6 +1693,7 @@ async def generar_respuesta_ia(
         estado_documentos=estado_documentos,
         ahorro_minimo=proyecto_ahorro_minimo,
         monto_subsidio=proyecto_monto_subsidio,
+        monto_subsidio_ds1t23=proyecto_subsidio_ds1t23 or "consultar",
         proyecto=proyecto_nombre,
         datos_proyecto=datos_proyecto_texto,
         tipo_subsidio=tipo_subsidio_datos,
@@ -1699,11 +1722,12 @@ async def generar_respuesta_ia(
     system_prompt = f"""{sistema_identidad}
 
 ═══ DATOS DEL CLIENTE ═══
-Nombre:       {nombre}
-Teléfono:     {telefono}
-RUT:          {rut}
-Rango sueldo: {rango_sueldo}
-Paso actual:  {paso_actual}
+Nombre:              {nombre}
+Teléfono:            {telefono}
+RUT:                 {rut}
+Rango sueldo:        {rango_sueldo}
+Integrantes hogar:   {numero_integrantes}
+Paso actual:         {paso_actual}
 
 ═══ DATOS DEL PROYECTO ═══
 Nombre:              {proyecto_nombre}
@@ -2874,7 +2898,7 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
 
 # ── Tipologia ─────────────────────────────────────────────────────────────────
 
-_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,precio_desde_uf,precio_hasta_uf,tipo_subsidio,stock_disponible,estado"
+_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,precio_desde_uf,precio_hasta_uf,tipo_subsidio,stock_disponible,estado"
 
 @app.get("/api/tipologias")
 async def api_listar_tipologias(request: Request):
@@ -2908,7 +2932,7 @@ async def api_listar_tipologias(request: Request):
     return rows or []
 
 
-_CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2",
+_CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2", "terreno_m2",
                      "precio_desde_uf", "precio_hasta_uf",
                      "tipo_subsidio", "stock_disponible", "estado")
 
@@ -3075,8 +3099,10 @@ async def api_crear_cliente(request: Request):
         proyecto_id = (body.get("proyecto_id") or "").strip()
         rut         = (body.get("Rut") or "").strip() or None
         correo      = (body.get("Correo") or "").strip() or None
-        rango       = (body.get("Tramo de renta") or "").strip() or None
-        primer_msg  = bool(body.get("primer mensaje", True))
+        rango             = (body.get("Tramo de renta") or "").strip() or None
+        num_integrantes   = body.get("numero_integrantes")
+        num_integrantes   = int(num_integrantes) if num_integrantes else None
+        primer_msg        = bool(body.get("primer mensaje", True))
 
         if not nombre:
             return Response(content="Falta Contacto", status_code=400)
@@ -3118,6 +3144,7 @@ async def api_crear_cliente(request: Request):
                 "Correo":             correo,
                 "Telefono":           telefono,
                 "Tramo de renta":     rango,
+                "numero_integrantes": num_integrantes,
                 "primer mensaje":     primer_msg,
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
                 "usuario_id":         perfil["id"],
@@ -3566,17 +3593,21 @@ async def api_movendo_nuevo_cliente(request: Request):
         if not proj_name:
             return Response(content="projectName es requerido", status_code=400)
 
-        # Buscar proyecto por nombre o código
+        # Buscar proyecto por nombre o código (incluye template_bienvenida)
+        _sel_proy = "id,nombre,imagen_url,template_bienvenida"
         proyectos = await _supabase_request("GET", "/Proyecto",
-            params={"nombre": f"ilike.%{proj_name}%", "select": "id,nombre", "limit": "1"}) or []
+            params={"nombre": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
         if not proyectos:
             proyectos = await _supabase_request("GET", "/Proyecto",
-                params={"codigo": f"ilike.%{proj_name}%", "select": "id,nombre", "limit": "1"}) or []
+                params={"codigo": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
         if not proyectos:
             return Response(content=f"Proyecto no encontrado: {proj_name}", status_code=422,
                             media_type="text/plain")
 
-        proyecto_id = proyectos[0]["id"]
+        proyecto_row      = proyectos[0]
+        proyecto_id       = proyecto_row["id"]
+        proyecto_nombre   = proyecto_row["nombre"]
+        template_auto     = proyecto_row.get("template_bienvenida") or None
 
         # Evitar duplicados (mismo teléfono + mismo proyecto)
         dup = await _supabase_request("GET", "/Cliente",
@@ -3605,8 +3636,33 @@ async def api_movendo_nuevo_cliente(request: Request):
             extra_headers={"Prefer": "return=representation"})
         cliente_id = cliente[0]["id"] if isinstance(cliente, list) and cliente else None
 
-        logger.info(f"Movendo nuevo cliente: {nombre} ({telefono}) → {proyectos[0]['nombre']}")
-        return {"ok": True, "cliente_id": cliente_id}
+        # Auto-enviar plantilla de bienvenida si el proyecto la tiene configurada
+        wa_result = None
+        if template_auto and cliente_id:
+            try:
+                wa_result = await send_whatsapp_template(
+                    to=telefono,
+                    template_name=template_auto,
+                    language_code="es",
+                    body_text_params=[nombre, proyecto_nombre],
+                    image_url=proyecto_row.get("imagen_url") or None,
+                )
+                await upsert_prospecto(
+                    telefono_e164=telefono,
+                    nombre=nombre,
+                    rut=rut,
+                    rango_sueldo=salary,
+                    proyecto_id=proyecto_id,
+                    estado="PLANTILLA_ENVIADA",
+                    paso="BIENVENIDA",
+                    cliente_id=cliente_id,
+                )
+                logger.info(f"Movendo auto-template '{template_auto}' enviado a {telefono}")
+            except Exception as wa_err:
+                logger.warning(f"Movendo: cliente creado pero fallo envío template: {wa_err}")
+
+        logger.info(f"Movendo nuevo cliente: {nombre} ({telefono}) → {proyecto_nombre}")
+        return {"ok": True, "cliente_id": cliente_id, "template_enviado": bool(wa_result)}
 
     except Exception as e:
         logger.exception("Error en /api/movendo/nuevo-cliente")

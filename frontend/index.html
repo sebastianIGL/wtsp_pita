@@ -274,7 +274,7 @@
           <label class="block text-xs sidebar-text mb-1.5">Correo electrónico</label>
           <input id="f-correo" type="email" placeholder="cliente@correo.cl" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
-        <div class="col-span-2">
+        <div>
           <label class="block text-xs sidebar-text mb-1.5">Tramo de renta</label>
           <select id="f-renta" class="w-full rounded-lg px-3 py-2 text-sm">
             <option value="">Sin especificar</option>
@@ -283,6 +283,16 @@
             <option>$700.001 - $900.000</option>
             <option>$900.001 - $1.200.000</option>
             <option>Más de $1.200.000</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Integrantes del hogar</label>
+          <select id="f-integrantes" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Sin especificar</option>
+            <option value="1">1 persona</option>
+            <option value="2">2 personas</option>
+            <option value="3">3 personas</option>
+            <option value="4">4 o más personas</option>
           </select>
         </div>
       </div>
@@ -1166,6 +1176,7 @@ async function crearCliente(e) {
       'Correo':             document.getElementById('f-correo').value.trim() || null,
       'Telefono':           document.getElementById('f-telefono').value.trim(),
       'Tramo de renta':     document.getElementById('f-renta').value || null,
+      'numero_integrantes': parseInt(document.getElementById('f-integrantes').value) || null,
       'primer mensaje':     pm,
       'Fecha Ult. Gestión': new Date().toISOString(),
     })

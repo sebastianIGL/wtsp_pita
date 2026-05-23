@@ -228,6 +228,28 @@
         </div>
       </div>
 
+      <!-- WhatsApp -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">WhatsApp</p>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Plantilla de bienvenida</label>
+          <input id="f-template-bienvenida" type="text" placeholder="Ej: bienvenida_proyecto_ds19"
+            class="w-full rounded-lg px-3 py-2 text-sm font-mono" />
+          <p class="text-xs sidebar-text mt-1.5">Nombre exacto de la plantilla en Meta. Se usa al recibir leads automáticos.</p>
+        </div>
+      </div>
+
+      <!-- Tipologías (solo al editar) -->
+      <div id="seccion-tipologias" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías</p>
+          <button onclick="abrirModalTipologia()" class="text-xs px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Agregar</button>
+        </div>
+        <div id="lista-tipologias" class="space-y-2">
+          <p class="text-xs sidebar-text italic">Cargando…</p>
+        </div>
+      </div>
+
       <!-- Notas -->
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Notas internas</p>
@@ -239,6 +261,73 @@
     <div class="px-8 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
       <button onclick="cerrarModal()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button onclick="guardar()" id="btn-guardar" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TIPOLOGÍA -->
+<div id="modal-tipologia" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h3 id="modal-tip-titulo" class="text-base font-bold val-text">Nueva tipología</h3>
+      <button onclick="cerrarModalTipologia()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="overflow-y-auto px-6 py-5 space-y-4 flex-1">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+          <input id="tip-nombre" type="text" placeholder="Ej: 2D/1B" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Dormitorios</label>
+          <input id="tip-dormitorios" type="number" min="0" placeholder="2" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Baños</label>
+          <input id="tip-banos" type="number" min="0" placeholder="1" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Superficie útil (m²)</label>
+          <input id="tip-superficie" type="number" step="0.01" min="0" placeholder="42.5" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Terreno (m²)</label>
+          <input id="tip-terreno" type="number" step="0.01" min="0" placeholder="Ej: 60" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Precio desde (UF)</label>
+          <input id="tip-precio-desde" type="number" step="0.1" min="0" placeholder="1200" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Precio hasta (UF)</label>
+          <input id="tip-precio-hasta" type="number" step="0.1" min="0" placeholder="1400" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Tipo subsidio</label>
+          <select id="tip-tipo-subsidio" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Sin especificar</option>
+            <option value="DS19">DS19</option>
+            <option value="DS1 T2">DS1 Tramo 2</option>
+            <option value="DS1 T3">DS1 Tramo 3</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Stock disponible</label>
+          <input id="tip-stock" type="number" min="0" placeholder="10" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Estado</label>
+          <select id="tip-estado" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="disponible">Disponible</option>
+            <option value="agotado">Agotado</option>
+            <option value="próximamente">Próximamente</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarTipologia()" id="btn-guardar-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
   </div>
 </div>
@@ -366,7 +455,8 @@
 
   function _resetModal() {
     ['f-nombre','f-codigo','f-ubicacion','f-fecha-entrega','f-ahorro-minimo',
-     'f-reserva-clp','f-reserva-uf','f-estac-uf','f-monto-ds19','f-monto-ds1t23','f-notas'
+     'f-reserva-clp','f-reserva-uf','f-estac-uf','f-monto-ds19','f-monto-ds1t23',
+     'f-template-bienvenida','f-notas'
     ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
     document.getElementById('f-tiene-piloto').checked       = false
     document.getElementById('f-estac-obligatorio').checked  = false
@@ -383,6 +473,7 @@
     _editandoId = null
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Nuevo proyecto'
+    document.getElementById('seccion-tipologias').classList.add('hidden')
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -406,13 +497,16 @@
     document.getElementById('f-acepta-ds1t23').checked     = !!row.acepta_ds1_t23
     document.getElementById('f-monto-ds19').value      = row.monto_subsidio        ?? ''
     document.getElementById('f-monto-ds1t23').value    = row.subsidio_ds1_t23_uf   ?? ''
-    document.getElementById('f-notas').value           = row.notas             || ''
+    document.getElementById('f-template-bienvenida').value = row.template_bienvenida || ''
+    document.getElementById('f-notas').value                = row.notas             || ''
     if (row.imagen_url) {
       _imagenUrlActual = row.imagen_url
       document.getElementById('img-preview').src = row.imagen_url
       document.getElementById('img-preview-wrap').classList.remove('hidden')
     }
     toggleSubsidio()
+    document.getElementById('seccion-tipologias').classList.remove('hidden')
+    cargarTipologias()
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -490,6 +584,7 @@
         monto_subsidio:              numOrNull('f-monto-ds19'),
         acepta_ds1_t23:              document.getElementById('f-acepta-ds1t23').checked,
         subsidio_ds1_t23_uf:         numOrNull('f-monto-ds1t23'),
+        template_bienvenida:         document.getElementById('f-template-bienvenida').value.trim() || null,
         notas:                       document.getElementById('f-notas').value.trim() || null,
       }
 
@@ -539,8 +634,141 @@
   }
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') cerrarModal()
+    if (e.key === 'Escape') {
+      if (!document.getElementById('modal-tipologia').classList.contains('hidden')) {
+        cerrarModalTipologia()
+      } else {
+        cerrarModal()
+      }
+    }
   })
+
+  // ── Tipologías ────────────────────────────────────────────────────────────────
+  let _editandoTipId = null
+
+  async function cargarTipologias() {
+    const contenedor = document.getElementById('lista-tipologias')
+    if (!_editandoId) return
+    contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+    try {
+      const rows = await api('GET', `/api/tipologias?proyecto_id=${_editandoId}`)
+      if (!rows.length) {
+        contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Sin tipologías registradas.</p>'
+        return
+      }
+      contenedor.innerHTML = rows.map(t => {
+        const info = [
+          t.dormitorios != null ? `${t.dormitorios}D` : null,
+          t.banos != null ? `${t.banos}B` : null,
+          t.superficie_util_m2 != null ? `${t.superficie_util_m2}m²` : null,
+          t.terreno_m2 != null ? `terreno ${t.terreno_m2}m²` : null,
+          t.precio_desde_uf != null ? `desde ${t.precio_desde_uf} UF` : null,
+          t.tipo_subsidio ? esc(t.tipo_subsidio) : null,
+          t.stock_disponible != null ? `stock: ${t.stock_disponible}` : null,
+          t.estado ? esc(t.estado) : null,
+        ].filter(Boolean).join(' · ')
+        return `
+          <div class="glass rounded-xl px-4 py-3 flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium val-text">${esc(t.nombre)}</p>
+              ${info ? `<p class="text-xs sidebar-text mt-0.5">${info}</p>` : ''}
+            </div>
+            <div class="flex gap-2 flex-shrink-0">
+              <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+              <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+            </div>
+          </div>`
+      }).join('')
+    } catch(e) {
+      contenedor.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>`
+    }
+  }
+
+  function _resetModalTipologia() {
+    ['tip-nombre','tip-dormitorios','tip-banos','tip-superficie','tip-terreno',
+     'tip-precio-desde','tip-precio-hasta','tip-stock'
+    ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
+    document.getElementById('tip-tipo-subsidio').value = ''
+    document.getElementById('tip-estado').value = 'disponible'
+  }
+
+  function abrirModalTipologia() {
+    _editandoTipId = null
+    _resetModalTipologia()
+    document.getElementById('modal-tip-titulo').textContent = 'Nueva tipología'
+    document.getElementById('modal-tipologia').classList.remove('hidden')
+    setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
+  }
+
+  function editarTipologia(t) {
+    _editandoTipId = t.id
+    _resetModalTipologia()
+    document.getElementById('modal-tip-titulo').textContent = 'Editar tipología'
+    document.getElementById('tip-nombre').value        = t.nombre             || ''
+    document.getElementById('tip-dormitorios').value   = t.dormitorios        ?? ''
+    document.getElementById('tip-banos').value         = t.banos              ?? ''
+    document.getElementById('tip-superficie').value    = t.superficie_util_m2 ?? ''
+    document.getElementById('tip-terreno').value       = t.terreno_m2         ?? ''
+    document.getElementById('tip-precio-desde').value  = t.precio_desde_uf    ?? ''
+    document.getElementById('tip-precio-hasta').value  = t.precio_hasta_uf    ?? ''
+    document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio       || ''
+    document.getElementById('tip-stock').value         = t.stock_disponible    ?? ''
+    document.getElementById('tip-estado').value        = t.estado              || 'disponible'
+    document.getElementById('modal-tipologia').classList.remove('hidden')
+    setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
+  }
+
+  function cerrarModalTipologia() {
+    document.getElementById('modal-tipologia').classList.add('hidden')
+    _editandoTipId = null
+  }
+
+  async function guardarTipologia() {
+    const nombre = document.getElementById('tip-nombre').value.trim()
+    if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+    const btn = document.getElementById('btn-guardar-tip')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    const intOrNull  = id => { const v = document.getElementById(id).value; return v !== '' ? parseInt(v) : null }
+    const floatOrNull = id => { const v = document.getElementById(id).value; return v !== '' ? parseFloat(v) : null }
+    const payload = {
+      nombre,
+      dormitorios:        intOrNull('tip-dormitorios'),
+      banos:              intOrNull('tip-banos'),
+      superficie_util_m2: floatOrNull('tip-superficie'),
+      terreno_m2:         floatOrNull('tip-terreno'),
+      precio_desde_uf:    floatOrNull('tip-precio-desde'),
+      precio_hasta_uf:    floatOrNull('tip-precio-hasta'),
+      tipo_subsidio:      document.getElementById('tip-tipo-subsidio').value || null,
+      stock_disponible:   intOrNull('tip-stock'),
+      estado:             document.getElementById('tip-estado').value || null,
+    }
+    try {
+      if (_editandoTipId) {
+        await api('PATCH', `/api/tipologias/${_editandoTipId}`, payload)
+        toast('Tipología actualizada')
+      } else {
+        await api('POST', '/api/tipologias', { ...payload, proyecto_id: _editandoId })
+        toast('Tipología creada')
+      }
+      cerrarModalTipologia()
+      cargarTipologias()
+    } catch(e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  async function eliminarTipologia(id) {
+    if (!confirm('¿Eliminar esta tipología?')) return
+    try {
+      await api('DELETE', `/api/tipologias/${id}`)
+      toast('Tipología eliminada')
+      cargarTipologias()
+    } catch(e) {
+      toast(e.message, 'error')
+    }
+  }
 </script>
 </body>
 </html>
