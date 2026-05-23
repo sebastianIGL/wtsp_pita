@@ -13,8 +13,9 @@
   <style>
     .dark body  { background:#0f172a; color:#e2e8f0; }
     .dark .glass { background:rgba(255,255,255,0.04); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); }
-    .dark input, .dark textarea { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
+    .dark input, .dark textarea, .dark select { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
     .dark input::placeholder, .dark textarea::placeholder { color:#64748b; }
+    .dark select option { background:#1e293b; color:#e2e8f0; }
     .dark .val-text   { color:#e2e8f0; }
     .dark .sub-text   { color:#64748b; }
     .dark .sidebar-text { color:#94a3b8; }
@@ -29,8 +30,9 @@
 
     html:not(.dark) body  { background:#f1f5f9; color:#1e293b; }
     html:not(.dark) .glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); border:1px solid rgba(0,0,0,0.07); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
-    html:not(.dark) input, html:not(.dark) textarea { background:#fff; color:#1e293b; border:1px solid #cbd5e1; }
+    html:not(.dark) input, html:not(.dark) textarea, html:not(.dark) select { background:#fff; color:#1e293b; border:1px solid #cbd5e1; }
     html:not(.dark) input::placeholder, html:not(.dark) textarea::placeholder { color:#94a3b8; }
+    html:not(.dark) select option { background:#fff; color:#1e293b; }
     html:not(.dark) .val-text   { color:#1e293b; }
     html:not(.dark) .sub-text   { color:#94a3b8; }
     html:not(.dark) .sidebar-text { color:#64748b; }
