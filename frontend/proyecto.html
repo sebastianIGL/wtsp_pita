@@ -205,6 +205,14 @@
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Subsidios</p>
         <div class="space-y-3">
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Grupo DS19 (tope de renta)</label>
+            <select id="f-grupo-ds19" class="w-full rounded-lg px-3 py-2 text-sm">
+              <option value="A">Grupo A — Regiones principales (RM, Bio Bio, etc.)</option>
+              <option value="B">Grupo B — Regiones extremas (Antofagasta, Aysén, etc.)</option>
+            </select>
+            <p class="text-xs sidebar-text mt-1.5">Define el tope máximo de renta para calificar al DS19.</p>
+          </div>
           <div class="flex items-center gap-4 flex-wrap">
             <label class="flex items-center gap-2 cursor-pointer select-none">
               <input id="f-acepta-ds19" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" onchange="toggleSubsidio()" />
@@ -233,9 +241,10 @@
         <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">WhatsApp</p>
         <div>
           <label class="block text-xs sidebar-text mb-1.5">Plantilla de bienvenida</label>
-          <input id="f-template-bienvenida" type="text" placeholder="Ej: bienvenida_proyecto_ds19"
-            class="w-full rounded-lg px-3 py-2 text-sm font-mono" />
-          <p class="text-xs sidebar-text mt-1.5">Nombre exacto de la plantilla en Meta. Se usa al recibir leads automáticos.</p>
+          <select id="f-template-bienvenida" class="w-full rounded-lg px-3 py-2 text-sm font-mono">
+            <option value="">Sin plantilla automática</option>
+          </select>
+          <p id="f-template-estado" class="text-xs sidebar-text mt-1.5">Cargando plantillas…</p>
         </div>
       </div>
 
@@ -458,6 +467,7 @@
      'f-reserva-clp','f-reserva-uf','f-estac-uf','f-monto-ds19','f-monto-ds1t23',
      'f-template-bienvenida','f-notas'
     ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
+    document.getElementById('f-grupo-ds19').value = 'A'
     document.getElementById('f-tiene-piloto').checked       = false
     document.getElementById('f-estac-obligatorio').checked  = false
     document.getElementById('f-acepta-ds19').checked        = false
@@ -469,12 +479,41 @@
     toggleSubsidio()
   }
 
+  let _templatesCache = null
+
+  async function cargarTemplates(valorActual = '') {
+    const select = document.getElementById('f-template-bienvenida')
+    const estado = document.getElementById('f-template-estado')
+    estado.textContent = 'Cargando plantillas…'
+    try {
+      if (!_templatesCache) {
+        const data = await api('GET', '/api/templates')
+        _templatesCache = data.templates || []
+      }
+      const templates = _templatesCache
+      select.innerHTML = '<option value="">Sin plantilla automática</option>'
+      templates.forEach(t => {
+        const opt = document.createElement('option')
+        opt.value = t.name
+        opt.textContent = `${t.name}  [${t.category}]`
+        select.appendChild(opt)
+      })
+      if (valorActual) select.value = valorActual
+      estado.textContent = templates.length
+        ? `${templates.length} plantilla${templates.length !== 1 ? 's' : ''} aprobada${templates.length !== 1 ? 's' : ''} en Meta`
+        : 'No hay plantillas aprobadas en Meta.'
+    } catch(e) {
+      estado.textContent = `Error cargando plantillas: ${e.message}`
+    }
+  }
+
   function abrirModal() {
     _editandoId = null
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Nuevo proyecto'
     document.getElementById('seccion-tipologias').classList.add('hidden')
     document.getElementById('modal').classList.remove('hidden')
+    cargarTemplates('')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
 
@@ -495,10 +534,10 @@
     document.getElementById('f-estac-obligatorio').checked = !!row.estacionamiento_obligatorio
     document.getElementById('f-acepta-ds19').checked       = !!row.acepta_ds19
     document.getElementById('f-acepta-ds1t23').checked     = !!row.acepta_ds1_t23
+    document.getElementById('f-grupo-ds19').value       = row.grupo_ds19            || 'A'
     document.getElementById('f-monto-ds19').value      = row.monto_subsidio        ?? ''
     document.getElementById('f-monto-ds1t23').value    = row.subsidio_ds1_t23_uf   ?? ''
-    document.getElementById('f-template-bienvenida').value = row.template_bienvenida || ''
-    document.getElementById('f-notas').value                = row.notas             || ''
+    document.getElementById('f-notas').value = row.notas || ''
     if (row.imagen_url) {
       _imagenUrlActual = row.imagen_url
       document.getElementById('img-preview').src = row.imagen_url
@@ -507,6 +546,7 @@
     toggleSubsidio()
     document.getElementById('seccion-tipologias').classList.remove('hidden')
     cargarTipologias()
+    cargarTemplates(row.template_bienvenida || '')
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -581,6 +621,7 @@
         tiene_piloto:                document.getElementById('f-tiene-piloto').checked,
         estacionamiento_obligatorio: document.getElementById('f-estac-obligatorio').checked,
         acepta_ds19:                 document.getElementById('f-acepta-ds19').checked,
+        grupo_ds19:                  document.getElementById('f-grupo-ds19').value,
         monto_subsidio:              numOrNull('f-monto-ds19'),
         acepta_ds1_t23:              document.getElementById('f-acepta-ds1t23').checked,
         subsidio_ds1_t23_uf:         numOrNull('f-monto-ds1t23'),

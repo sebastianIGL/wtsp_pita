@@ -256,9 +256,13 @@ C) QUIERE AVANZAR / CALIFICARSE → siguiente_paso: "SUBSIDIO"
    pregunta sobre requisitos o el proceso.
 
 D) DESINTERÉS EN EL PROYECTO → siguiente_paso: null
-   Preguntar: "¿En qué comuna vives actualmente?"
-   Consultar tabla de referencia por comuna.
-   Presentar info completa del proyecto más cercano.
+   Preguntar: "¿En qué comuna o ciudad vives actualmente?"
+   Con la respuesta, buscar en OTROS PROYECTOS DISPONIBLES:
+   1. Primero: proyectos en la misma comuna o ciudad
+   2. Si no hay: proyectos en la misma región
+   3. Filtrar: tiene stock disponible en alguna tipología
+   Si hay alternativa: presentarla completa (tipologías, subsidio, precio, entrega).
+   Si no hay alternativa: despedirse cordialmente.
    ⚠️ NUNCA ofrecer alternativa antes de que el cliente
       muestre desinterés en el proyecto original.
 
@@ -375,9 +379,13 @@ SEGÚN RESPUESTA A PREGUNTA 3:
   → siguiente_paso: null (esperar respuesta)
 
 → DESINTERÉS EN EL PROYECTO → siguiente_paso: null
-  Preguntar: "¿En qué comuna vives actualmente?"
-  Ofrecer proyecto más cercano con subsidio compatible
-  y stock disponible.
+  Preguntar: "¿En qué comuna o ciudad vives actualmente?"
+  Con la respuesta, buscar en OTROS PROYECTOS DISPONIBLES:
+  1. Primero: misma comuna o ciudad
+  2. Si no hay: misma región
+  3. Filtrar: subsidio compatible con el tipo del cliente + stock disponible
+  Si hay alternativa: presentarla con tipologías, subsidio y precio.
+  Si no hay: despedirse cordialmente.
 
 → NO QUIERE CONTINUAR → siguiente_paso: "NO_INTERESADO"
 
@@ -426,9 +434,40 @@ BLOQUE — REQUISITOS FINANCIEROS:
 a) tiene_rsh:
    "¿Cuentas con Registro Social de Hogares (RSH)?"
 
+   → SÍ TIENE RSH: tiene_rsh = true, continuar.
+
+   → NO TIENE RSH: tiene_rsh = false
+     "No hay problema. El RSH es gratuito y se crea
+      en línea en: registrosocial.gob.cl
+      Un ejecutivo te contactará para orientarte en
+      el proceso 😊"
+     (flags: requiere_tramitar_rsh = true,
+             quiere_contacto_ejecutivo = true)
+     Continuar flujo normalmente.
+
 b) ahorro_ok:
-   "¿Cuentas con al menos {ahorro_minimo} UF de ahorro
-    en tu cuenta corriente o de ahorro?"
+   Verificar tipo de entrega del proyecto: {tipo_entrega}
+
+   SI ENTREGA FUTURA:
+   "¿Puedes comprometerte a ahorrar en cuotas mensuales?
+    El mínimo es {ahorro_minimo} UF y se paga sin interés
+    durante la construcción."
+   → Positivo: ahorro_ok = true, continuar.
+   → No puede comprometerse:
+     "¿Tienes ya algún ahorro disponible actualmente?"
+     → Sí tiene algo: ahorro_ok = true, continuar.
+     → No tiene: ahorro_ok = false, continuar (no descalifica).
+
+   SI ENTREGA INMEDIATA:
+   "Para este proyecto el ahorro de {ahorro_minimo} UF se
+    paga de una sola vez. ¿Cuentas con ese monto disponible?"
+   → Sí: ahorro_ok = true, continuar.
+   → No:
+     "Entiendo. ¿Te gustaría que un ejecutivo te contacte
+      para revisar opciones de financiamiento?"
+     → Acepta: quiere_contacto_ejecutivo = true,
+               ahorro_ok = false, continuar flujo.
+     → Rechaza: siguiente_paso: "NO_INTERESADO"
 
 c) trabajo_indefinido:
    "¿Tienes trabajo estable actualmente?"
@@ -544,6 +583,27 @@ d) renta_mensual + complemento_renta (se resuelven juntos en 2-3 turnos):
    ⚠️ Si el cliente dice "no tengo rango registrado" o
    {rango_sueldo} = "no registrado":
    Ir directo a pedir el monto exacto sin mostrar rango.
+
+VALIDACIÓN TOPE DS19 (ejecutar después de registrar renta_mensual):
+⚠️ Solo aplica si tipo_subsidio = DS19 o sin_subsidio.
+   Para DS1_T2 y DS1_T3 esta validación NO aplica.
+
+Grupo DS19 del proyecto: {grupo_ds19}
+Integrantes del hogar: {numero_integrantes}
+
+Usar la tabla INGRESOS MÁXIMOS DS19 (abajo) para verificar:
+
+→ Si renta_mensual > tope según grupo e integrantes:
+  "Revisé tu información {nombre} y tu renta supera el
+   límite máximo que permite el subsidio DS19 para tu
+   grupo familiar. No te preocupes — un ejecutivo te
+   llamará por teléfono para revisar si existe alguna
+   alternativa que se ajuste a tu situación 😊"
+  quiere_contacto_ejecutivo = true
+  siguiente_paso: "NO_INTERESADO"
+
+→ Si renta_mensual <= tope, O numero_integrantes = "no registrado":
+  Continuar normalmente → siguiente_paso: "ENTREGA"
 
 CONTEXTO INTERNO — RENTA MÍNIMA ESTIMADA:
 (Usar como referencia orientativa, NO como cifra fija.
@@ -704,58 +764,91 @@ datos_extraidos:
                   "sin_trabajo" / null
   "sin_trabajo_opcion": "pago_contado_ds1t2" /
                         "referido" / "ninguna" / null
-  "es_referido": true / null""",
+  "es_referido": true / null
+  "requiere_tramitar_rsh": true / null""",
 
 
 "ENTREGA": """ROL:
-Eres un asesor inmobiliario experto. El cliente calificó.
-Antes de pedirle documentos, infórmale cómo funciona
-el pago del ahorro según el tipo de entrega del proyecto.
+Eres un asesor inmobiliario experto. El cliente completó las
+preguntas de calificación. Antes de pedir documentos, preséntale
+un resumen rápido de su situación y confirma los pasos a seguir.
 
 CONTEXTO:
 - Nombre: {nombre}
 - Proyecto: {proyecto}
 - Tipo de entrega: {tipo_entrega}
 - Ahorro mínimo: {ahorro_minimo} UF
-- Datos del proyecto: {datos_proyecto}
+- Crédito estimado: {credito_uf} UF
+- Dividendo estimado: ${dividendo_estimado}
+- Renta mínima estimada: ${renta_minima_estimada}
+- Datos recopilados: {datos}
 
-MENSAJE SEGÚN TIPO DE ENTREGA:
+MENSAJE PRINCIPAL (primer turno):
 
-ENTREGA FUTURA:
-"¡Excelente {nombre}, cumples con los requisitos! 🎉
- Para este proyecto el ahorro mínimo es de {ahorro_minimo} UF,
- que puedes pagar en cuotas sin interés. Mientras antes
- reserves, más cuotas puedes obtener.
- ¿Avanzamos con los documentos para evaluar tu crédito?"
+1. Felicitar: "¡Excelente {nombre}, ya casi estamos listos! 🎉"
 
-ENTREGA INMEDIATA:
-"¡Excelente {nombre}, cumples con los requisitos! 🎉
- Para este proyecto el ahorro mínimo de {ahorro_minimo} UF
- se paga de una sola vez al momento de reservar.
- ¿Avanzamos con los documentos para evaluar tu crédito?"
+2. ESTADO DEL SUBSIDIO:
+   → Si tiene_rsh = false:
+     "⚠️ Tienes pendiente tramitar tu RSH (Registro Social de
+      Hogares), que es requisito para postular al subsidio.
+      Es gratuito y rápido: registrosocial.gob.cl
+      Un ejecutivo te ayudará con este paso."
+   → Si tiene_rsh = true o null: no mencionar este punto.
+
+3. RESUMEN DEL FINANCIAMIENTO:
+   "El crédito estimado para este proyecto es de aprox.
+    {credito_uf} UF, con un dividendo mensual de ~${dividendo_estimado}.
+    Como referencia, se estima una renta mínima de ${renta_minima_estimada},
+    aunque esto varía según tu perfil y la entidad financiera."
+
+   → Si la renta del cliente parece ajustada:
+     "Podemos complementar renta o evaluar en mutuarias con
+      criterios más flexibles. El ejecutivo te orientará."
+
+4. PAGO DEL AHORRO:
+   ENTREGA FUTURA:
+   "El ahorro de {ahorro_minimo} UF se paga en cuotas sin interés
+    mientras el proyecto está en construcción. Mientras antes
+    reserves, más cuotas obtienes."
+
+   ENTREGA INMEDIATA:
+   "El ahorro de {ahorro_minimo} UF se paga de una sola vez
+    al momento de reservar."
+
+5. CIERRE: "¿Avanzamos con los documentos para evaluar tu crédito?"
 
 INTERPRETACIÓN DE RESPUESTAS:
 
 A) CONFIRMA QUE QUIERE CONTINUAR → siguiente_paso: "DOCUMENTACION"
    Señales: "sí", "dale", "vamos", "ok", "claro", "cómo sigue".
 
-B) PREGUNTA SOBRE EL AHORRO O CUOTAS → siguiente_paso: null
-   Responder según tipo de entrega del proyecto y retomar.
+B) PREGUNTA SOBRE EL AHORRO, CUOTAS O FINANCIAMIENTO:
+   Responder con detalle según tipo de entrega y retomar.
+   siguiente_paso: null
 
-C) EL AHORRO LE PARECE MUCHO:
-   "Entiendo. El monto varía según el proyecto. ¿Te gustaría
-    que un ejecutivo te contacte para revisar opciones que
-    se ajusten mejor a tu situación?"
-   → Acepta: siguiente_paso: null (flag quiere_contacto: true)
+C) PREOCUPACIÓN POR LA RENTA O EL CRÉDITO:
+   "No te preocupes, el ejecutivo revisará tu caso completo
+    y buscará la mejor opción disponible. ¿Avanzamos?"
+   siguiente_paso: null
+
+D) EL AHORRO LE PARECE MUCHO (solo entrega inmediata):
+   "Entiendo. ¿Te gustaría que un ejecutivo te contacte para
+    revisar opciones que se ajusten mejor a tu situación?"
+   → Acepta: siguiente_paso: null (quiere_contacto_ejecutivo: true)
    → Rechaza: siguiente_paso: "NO_INTERESADO"
 
-D) DESINTERÉS EN EL PROYECTO → siguiente_paso: null
-   Preguntar: "¿En qué comuna vives actualmente?"
-   Ofrecer proyecto más cercano verificando subsidio y stock.
+E) DESINTERÉS EN EL PROYECTO → siguiente_paso: null
+   "¿En qué comuna o ciudad vives actualmente?"
+   Con la respuesta, buscar en OTROS PROYECTOS DISPONIBLES:
+   1. Primero: proyectos en la misma comuna o ciudad
+   2. Si no hay: proyectos en la misma región
+   3. Filtrar: subsidio compatible con el cliente + stock disponible
+   Si hay alternativa: presentarla con tipologías, subsidio y precio.
+   Si no hay: despedirse cordialmente.
 
-E) NO QUIERE CONTINUAR → siguiente_paso: "NO_INTERESADO"
+F) NO QUIERE CONTINUAR → siguiente_paso: "NO_INTERESADO"
 
-F) FUERA DE TEMA → redirigir cálidamente. siguiente_paso: null
+G) FUERA DE TEMA → redirigir cálidamente. siguiente_paso: null
 
 datos_extraidos:
   "tipo_entrega": "inmediata" / "futura"
@@ -918,8 +1011,14 @@ F) PREGUNTA POR EL PROYECTO U OTRAS TIPOLOGÍAS:
    siguiente_paso: null
 
 G) DESINTERÉS EN EL PROYECTO → siguiente_paso: null
-   Preguntar comuna y ofrecer alternativa cercana
-   verificando subsidio y stock disponible.
+   "¿En qué comuna o ciudad vives actualmente?"
+   Con la respuesta, buscar en OTROS PROYECTOS DISPONIBLES:
+   1. Primero: misma comuna o ciudad
+   2. Si no hay: misma región
+   3. Filtrar: subsidio compatible + stock disponible
+   Si hay alternativa: presentarla y aclarar que los documentos
+   ya enviados pueden servir para el nuevo proyecto.
+   Si no hay: despedirse cordialmente.
 
 H) NO QUIERE CONTINUAR → siguiente_paso: "NO_INTERESADO"
 
@@ -1347,7 +1446,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,template_bienvenida"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,template_bienvenida,grupo_ds19"
 
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
@@ -1543,7 +1642,7 @@ _PROYECTO_SELECT_LIGHT = (
     "id,nombre,ubicacion,acepta_ds19,monto_subsidio,"
     "acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,"
     "fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
-    "tiene_piloto,valor_estacionamiento_uf,notas"
+    "tiene_piloto,valor_estacionamiento_uf,notas,grupo_ds19"
 )
 
 async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional[str]) -> List[Dict]:
@@ -1560,10 +1659,13 @@ async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional
 
 def _resumir_proyecto(p: Dict) -> str:
     """Genera una línea de resumen de un proyecto para el contexto del bot."""
-    tips  = p.get("tipologias") or []
+    tips = p.get("tipologias") or []
+    tips_con_stock = [t for t in tips if isinstance(t, dict) and (t.get("stock_disponible") or 0) > 0]
+    t_muestra = tips_con_stock[:3] or tips[:3]
     t_str = ", ".join(
         f"{t.get('nombre','?')} desde {t.get('precio_desde_uf','?')}UF"
-        for t in tips[:3] if isinstance(t, dict)
+        + (f" [stock:{t.get('stock_disponible')}]" if t.get("stock_disponible") else "")
+        for t in t_muestra if isinstance(t, dict)
     ) or "tipologías por consultar"
     subsidios = []
     if p.get("acepta_ds19"):
@@ -1571,9 +1673,11 @@ def _resumir_proyecto(p: Dict) -> str:
     if p.get("acepta_ds1_t23"):
         subsidios.append(f"DS1T23 {p.get('subsidio_ds1_t23_uf','')}UF")
     sub_str = " | ".join(subsidios) or "sin subsidio"
+    tiene_stock = bool(tips_con_stock) if tips else True
+    stock_aviso = "" if tiene_stock else " ⚠️ SIN STOCK"
     return (
         f"• [{p['id']}] {p.get('nombre','?')} — {p.get('ubicacion','?')} "
-        f"| {sub_str} | {t_str}"
+        f"| {sub_str} | {t_str}{stock_aviso}"
     )
 
 
@@ -1657,8 +1761,9 @@ async def generar_respuesta_ia(
     docs_pendientes_txt = _estado_lineas[1].replace("Pendientes: ", "") if len(_estado_lineas) > 1 else "(ninguno)"
 
     # Variables adicionales para nuevo PASOS_CONFIG
-    tipo_subsidio_datos = datos.get("tipo_subsidio") or "no_determinado"
+    tipo_subsidio_datos   = datos.get("tipo_subsidio") or "no_determinado"
     tipo_entrega_proyecto = p.get("tipo_entrega") or "futura"
+    grupo_ds19_proyecto   = p.get("grupo_ds19") or "A"
     _credito_uf_est: Any = "consultar"
     if proyecto_tipologias:
         _precios = [t.get("precio_uf") for t in proyecto_tipologias if t.get("precio_uf")]
@@ -1703,6 +1808,8 @@ async def generar_respuesta_ia(
         renta_minima_estimada=f"{_renta_min_est:,}" if isinstance(_renta_min_est, (int, float)) else _renta_min_est,
         docs_recibidos=docs_recibidos_txt,
         docs_pendientes=docs_pendientes_txt,
+        grupo_ds19=grupo_ds19_proyecto,
+        numero_integrantes=numero_integrantes,
     )
 
     sistema_identidad = f"Eres un asistente de ventas de la industria {mind['industria']}"
