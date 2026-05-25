@@ -3769,7 +3769,7 @@ async def api_movendo_nuevo_cliente(request: Request):
                 logger.warning(f"Movendo: cliente creado pero fallo envío template: {wa_err}")
 
         logger.info(f"Movendo nuevo cliente: {nombre} ({telefono}) → {proyecto_nombre}")
-        return {"ok": True, "cliente_id": cliente_id, "template_enviado": bool(wa_result)}
+        return {"ok": True, "cliente_id": cliente_id}
 
     except Exception as e:
         logger.exception("Error en /api/movendo/nuevo-cliente")
