@@ -2664,13 +2664,25 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     usuario_id = perfil["id"]
-    empresa_id = request.query_params.get("empresa_id")
+    empresa_id  = request.query_params.get("empresa_id")
+    proyecto_id = request.query_params.get("proyecto_id")
 
     content = await file.read()
     try:
         text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = content.decode("latin-1")
+
+    # Detectar formato: SERVIU tiene columna "Dv" o "Primer Apellido"
+    _peek = csv.DictReader(io.StringIO(text))
+    _headers = _peek.fieldnames or []
+    is_serviu = "Dv" in _headers or "Primer Apellido" in _headers
+
+    if is_serviu and not proyecto_id:
+        return Response(
+            content="No hay un proyecto para asignar. Sube este archivo desde dentro de un proyecto.",
+            status_code=400, media_type="text/plain"
+        )
 
     total = max(0, sum(1 for l in text.splitlines() if l.strip()) - 1)
 
@@ -2692,7 +2704,12 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
             # Extraer teléfonos del CSV (primera pasada, sin I/O)
             phones_csv: set = set()
             for row in csv.DictReader(io.StringIO(text)):
-                tel = _normalize_phone((row.get("Teléfono") or row.get("Telefono") or "").strip())
+                if is_serviu:
+                    tel_raw = (row.get("Móvil") or row.get("Movil") or
+                               row.get("Fono Domicilio") or row.get("Fono Trabajo") or "").strip()
+                else:
+                    tel_raw = (row.get("Teléfono") or row.get("Telefono") or "").strip()
+                tel = _normalize_phone(tel_raw)
                 if tel:
                     phones_csv.add(tel)
 
@@ -2705,64 +2722,116 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 ) or []
                 phones_existentes = {r["Telefono"] for r in batch if r.get("Telefono")}
 
+            # Resolver proyecto fijo para SERVIU
+            proyecto_serviu = None
+            if is_serviu:
+                _proy_rows = await _supabase_request("GET", "/Proyecto",
+                    params={"id": f"eq.{proyecto_id}", "select": "id,nombre", "limit": "1"}) or []
+                proyecto_serviu = _proy_rows[0] if _proy_rows else None
+
             creados, duplicados, errores = 0, [], []
             reader = csv.DictReader(io.StringIO(text))
 
             for i, row in enumerate(reader):
                 fila = i + 2
                 try:
-                    nombre_proyecto = (row.get("Proyecto") or "").strip()
-                    nombre          = (row.get("Contacto") or "").strip()
-                    rut             = (row.get("Rut") or "").strip()
-                    correo          = (row.get("Correo") or "").strip() or None
-                    tel_raw         = (row.get("Teléfono") or row.get("Telefono") or "").strip()
-                    telefono        = _normalize_phone(tel_raw)
-                    estado_crm      = (row.get("Estado") or "").strip() or None
-                    tramo_renta     = (row.get("Tramo de renta") or "").strip() or None
-                    sub_raw         = (row.get("Tiene subsidio") or "").strip().lower()
-                    tiene_subsidio  = True if sub_raw in ("si","sí","yes","1") else (False if sub_raw in ("no","0") else None)
-                    tipo_subsidio   = (row.get("Tipo subsidio") or "").strip() or None
-                    prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
-                    tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
+                    if is_serviu:
+                        rut_num = (row.get("rut") or "").strip()
+                        dv      = (row.get("Dv") or "").strip()
+                        rut     = f"{rut_num}-{dv}" if rut_num and dv else None
+                        nombre  = " ".join(filter(None, [
+                            (row.get("Nombre") or "").strip(),
+                            (row.get("Primer Apellido") or "").strip(),
+                            (row.get("Segundo Apellido") or "").strip(),
+                        ]))
+                        tel_raw  = (row.get("Móvil") or row.get("Movil") or
+                                    row.get("Fono Domicilio") or row.get("Fono Trabajo") or "").strip()
+                        correo   = (row.get("E-mail") or "").strip() or None
+                        telefono = _normalize_phone(tel_raw)
 
-                    datos_raw = {"Contacto": nombre, "Rut": rut, "Correo": correo or "",
-                                 "Teléfono": tel_raw, "Proyecto": nombre_proyecto,
-                                 "Estado": estado_crm or "", "Tramo de renta": tramo_renta or "",
-                                 "Tiene subsidio": sub_raw, "Tipo subsidio": tipo_subsidio or "",
-                                 "Tiene propiedad": prop_raw}
+                        datos_raw = {"Nombre": nombre, "Rut": f"{rut_num}-{dv}",
+                                     "Teléfono": tel_raw, "E-mail": correo or ""}
 
-                    if not nombre or not telefono:
-                        errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío", "datos": datos_raw})
-                    elif not rut:
-                        errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
-                    elif not nombre_proyecto:
-                        errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
-                    elif telefono in phones_existentes:
-                        duplicados.append({"fila": fila, "nombre": nombre,
-                                           "telefono": telefono, "datos": datos_raw})
-                    else:
-                        proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
-                        if not proyecto:
+                        if not nombre or not telefono:
+                            errores.append({"fila": fila, "motivo": "Nombre o Teléfono vacío", "datos": datos_raw})
+                        elif not rut:
+                            errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
+                        elif not proyecto_serviu:
                             errores.append({"fila": fila, "nombre": nombre,
-                                            "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
-                                            "datos": datos_raw})
+                                            "motivo": "Proyecto no encontrado", "datos": datos_raw})
+                        elif telefono in phones_existentes:
+                            duplicados.append({"fila": fila, "nombre": nombre,
+                                               "telefono": telefono, "datos": datos_raw})
                         else:
                             await _supabase_request("POST", "/Cliente",
                                 json={
-                                    "proyecto_id": proyecto["id"],
+                                    "proyecto_id": proyecto_serviu["id"],
                                     "Contacto": nombre, "Rut": rut, "Correo": correo,
-                                    "Telefono": telefono, "estado_crm": estado_crm,
-                                    "Tramo de renta": tramo_renta,
-                                    "tiene_subsidio": tiene_subsidio,
-                                    "tipo_subsidio": tipo_subsidio,
-                                    "tiene_propiedad": tiene_propiedad,
+                                    "Telefono": telefono, "estado_crm": None,
+                                    "Tramo de renta": None,
+                                    "tiene_subsidio": None,
+                                    "tipo_subsidio": None,
+                                    "tiene_propiedad": None,
                                     "primer mensaje": True, "wtsp_habilitado": True,
                                     "usuario_id": usuario_id,
                                     "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                 },
                                 extra_headers={"Prefer": "return=minimal"})
-                            phones_existentes.add(telefono)  # evita duplicados dentro del mismo archivo
+                            phones_existentes.add(telefono)
                             creados += 1
+                    else:
+                        nombre_proyecto = (row.get("Proyecto") or "").strip()
+                        nombre          = (row.get("Contacto") or "").strip()
+                        rut             = (row.get("Rut") or "").strip()
+                        correo          = (row.get("Correo") or "").strip() or None
+                        tel_raw         = (row.get("Teléfono") or row.get("Telefono") or "").strip()
+                        telefono        = _normalize_phone(tel_raw)
+                        estado_crm      = (row.get("Estado") or "").strip() or None
+                        tramo_renta     = (row.get("Tramo de renta") or "").strip() or None
+                        sub_raw         = (row.get("Tiene subsidio") or "").strip().lower()
+                        tiene_subsidio  = True if sub_raw in ("si","sí","yes","1") else (False if sub_raw in ("no","0") else None)
+                        tipo_subsidio   = (row.get("Tipo subsidio") or "").strip() or None
+                        prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
+                        tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
+
+                        datos_raw = {"Contacto": nombre, "Rut": rut, "Correo": correo or "",
+                                     "Teléfono": tel_raw, "Proyecto": nombre_proyecto,
+                                     "Estado": estado_crm or "", "Tramo de renta": tramo_renta or "",
+                                     "Tiene subsidio": sub_raw, "Tipo subsidio": tipo_subsidio or "",
+                                     "Tiene propiedad": prop_raw}
+
+                        if not nombre or not telefono:
+                            errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío", "datos": datos_raw})
+                        elif not rut:
+                            errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
+                        elif not nombre_proyecto:
+                            errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
+                        elif telefono in phones_existentes:
+                            duplicados.append({"fila": fila, "nombre": nombre,
+                                               "telefono": telefono, "datos": datos_raw})
+                        else:
+                            proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
+                            if not proyecto:
+                                errores.append({"fila": fila, "nombre": nombre,
+                                                "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
+                                                "datos": datos_raw})
+                            else:
+                                await _supabase_request("POST", "/Cliente",
+                                    json={
+                                        "proyecto_id": proyecto["id"],
+                                        "Contacto": nombre, "Rut": rut, "Correo": correo,
+                                        "Telefono": telefono, "estado_crm": estado_crm,
+                                        "Tramo de renta": tramo_renta,
+                                        "tiene_subsidio": tiene_subsidio,
+                                        "tipo_subsidio": tipo_subsidio,
+                                        "tiene_propiedad": tiene_propiedad,
+                                        "primer mensaje": True, "wtsp_habilitado": True,
+                                        "usuario_id": usuario_id,
+                                        "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                                    },
+                                    extra_headers={"Prefer": "return=minimal"})
+                                phones_existentes.add(telefono)
+                                creados += 1
                 except Exception as ex:
                     errores.append({"fila": fila, "motivo": str(ex)})
 

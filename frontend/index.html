@@ -1016,14 +1016,48 @@ async function importarCSV(e) {
   btn.innerHTML = '<span class="spinner"></span> Importando…'
   const fd = new FormData()
   fd.append('file', file)
+  const _proy    = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+  const _inm     = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+  const _emp     = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
+  const importQs = _proy?.id
+    ? `?proyecto_id=${_proy.id}`
+    : _inm?._todos && _emp?.id ? `?empresa_id=${_emp.id}`
+    : _inm?.id ? `?inmobiliaria_id=${_inm.id}` : ''
   try {
-    const res = await fetch('/api/clientes/importar', {
+    const res = await fetch(`/api/clientes/importar${importQs}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${_token}` },
       body: fd,
     })
     if (!res.ok) throw new Error(await res.text())
-    const data = await res.json()
+
+    // Leer stream SSE
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let done_data = null
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split('\n\n')
+      buffer = parts.pop()
+      for (const part of parts) {
+        const line = part.trim()
+        if (!line.startsWith('data:')) continue
+        const evt = JSON.parse(line.slice(5).trim())
+        if (evt.t === 'prog') {
+          btn.innerHTML = `<span class="spinner"></span> ${evt.creados} creados, ${evt.n}/${evt.total}…`
+        } else if (evt.t === 'done') {
+          done_data = evt
+        } else if (evt.t === 'error') {
+          throw new Error(evt.msg)
+        }
+      }
+    }
+
+    const data = done_data || {}
     document.getElementById('import-form').classList.add('hidden')
     const results = document.getElementById('import-results')
     results.classList.remove('hidden')
@@ -1031,7 +1065,7 @@ async function importarCSV(e) {
       <div class="space-y-4">
         <div class="grid grid-cols-3 gap-3 text-center">
           <div class="glass rounded-xl p-3">
-            <p class="text-2xl font-bold text-emerald-400">${data.importados || 0}</p>
+            <p class="text-2xl font-bold text-emerald-400">${data.creados || 0}</p>
             <p class="text-xs sidebar-text mt-1">Importados</p>
           </div>
           <div class="glass rounded-xl p-3">
