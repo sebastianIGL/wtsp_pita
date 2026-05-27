@@ -3362,7 +3362,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "Tramo de renta", "Rut"}
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "Tramo de renta", "Rut", "es_nuevo"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
     try:
@@ -3793,15 +3793,16 @@ async def api_movendo_nuevo_cliente(request: Request):
             return {"ok": True, "duplicado": True, "cliente_id": dup[0]["id"],
                     "mensaje": "Cliente ya existe en este proyecto"}
 
-        default_uid = await _get_default_user_id()
+        default_user = await _get_default_user()
         payload: Dict[str, Any] = {
             "proyecto_id":        proyecto_id,
             "Contacto":           nombre,
             "Telefono":           telefono,
             "Fecha Ult. Gestión": _utc_now_iso(),
             "primer mensaje":     False,
+            "es_nuevo":           True,
         }
-        if default_uid: payload["usuario_id"]      = default_uid
+        if default_user: payload["usuario_id"]      = default_user["id"]
         if email:       payload["Correo"]           = email
         if rut:         payload["Rut"]              = rut
         if salary:      payload["Tramo de renta"]   = salary
@@ -3838,6 +3839,10 @@ async def api_movendo_nuevo_cliente(request: Request):
                 logger.warning(f"Movendo: cliente creado pero fallo envío template: {wa_err}")
 
         logger.info(f"Movendo nuevo cliente: {nombre} ({telefono}) → {proyecto_nombre}")
+        asyncio.create_task(_notificar_nuevo_lead(
+            nombre=nombre, telefono=telefono, proyecto_nombre=proyecto_nombre,
+            correo_admin=default_user.get("correo") if default_user else None,
+        ))
         return {"ok": True, "cliente_id": cliente_id}
 
     except Exception as e:
@@ -3904,14 +3909,67 @@ async def api_movendo_actualizar_contacto(request: Request):
                         media_type="text/plain")
 
 
-async def _get_default_user_id() -> Optional[str]:
-    """Devuelve el ID del usuario administrador configurado o el primer admin de la DB."""
+async def _get_default_user() -> Optional[Dict]:
+    """Devuelve el usuario admin por defecto {id, correo, nombre}."""
     env_id = _get_env("MOVENDO_DEFAULT_USER_ID")
+    params = {"select": "id,correo,nombre", "limit": "1"}
     if env_id:
-        return env_id
-    rows = await _supabase_request("GET", "/Usuario",
-        params={"rol": "eq.administrador", "estado": "eq.1", "select": "id", "limit": "1"}) or []
-    return rows[0]["id"] if rows else None
+        params["id"] = f"eq.{env_id}"
+    else:
+        params["rol"]    = "eq.administrador"
+        params["estado"] = "eq.1"
+    rows = await _supabase_request("GET", "/Usuario", params=params) or []
+    return rows[0] if rows else None
+
+
+
+async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str, correo_admin: Optional[str]) -> None:
+    """Envía aviso por WhatsApp y correo al admin cuando llega un nuevo lead de Movendo."""
+    texto = (
+        f"🆕 *Nuevo lead recibido*\n"
+        f"👤 {nombre}\n"
+        f"📱 {telefono}\n"
+        f"🏗️ Proyecto: {proyecto_nombre}"
+    )
+    notify_phone = _get_env("ADMIN_NOTIFY_PHONE")
+    if notify_phone:
+        try:
+            await send_whatsapp_message(to=notify_phone, text=texto)
+        except Exception as e:
+            logger.warning("Notificación WA fallida: %s", e)
+
+    email_remitente = os.getenv("EMAIL_REMITENTE")
+    email_password  = os.getenv("EMAIL_PASSWORD")
+    if correo_admin and email_remitente and email_password:
+        try:
+            body_html = f"""
+            <div style="font-family:Arial,sans-serif;max-width:500px;">
+              <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">🆕 Nuevo lead recibido</h2>
+              <table style="font-size:14px;width:100%;border-collapse:collapse;">
+                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;width:120px;">Nombre</td>
+                    <td style="padding:8px 12px;">{nombre}</td></tr>
+                <tr style="background:#f5f7fa;">
+                    <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
+                    <td style="padding:8px 12px;">{telefono}</td></tr>
+                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
+                    <td style="padding:8px 12px;">{proyecto_nombre}</td></tr>
+              </table>
+              <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por NeuroCRM.</p>
+            </div>"""
+            msg = MIMEMultipart()
+            msg["From"]    = email_remitente
+            msg["To"]      = correo_admin
+            msg["Subject"] = f"🆕 Nuevo lead — {nombre}"
+            msg.attach(MIMEText(body_html, "html"))
+
+            def _send():
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                    server.login(email_remitente, email_password)
+                    server.sendmail(email_remitente, [correo_admin], msg.as_string())
+
+            await asyncio.get_event_loop().run_in_executor(None, _send)
+        except Exception as e:
+            logger.warning("Notificación email fallida: %s", e)
 
 
 async def _movendo_get_token() -> str:

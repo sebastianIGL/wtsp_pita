@@ -79,9 +79,11 @@
     .badge-sent  { background:#064e3b; color:#6ee7b7; }
     .badge-follow { background:#1e1b4b; color:#a5b4fc; }
     .badge-pend  { background:#292524; color:#a8a29e; }
+    .badge-nuevo { background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
     html:not(.dark) .badge-sent   { background:#d1fae5; color:#065f46; }
     html:not(.dark) .badge-follow { background:#ede9fe; color:#5b21b6; }
     html:not(.dark) .badge-pend   { background:#f1f5f9; color:#64748b; }
+    html:not(.dark) .badge-nuevo  { background:#dcfce7; color:#15803d; border-color:#86efac; }
     .theme-btn { transition: all .2s; }
 
     /* ── Modal Evaluación ── */
@@ -867,9 +869,14 @@ function renderTabla(data) {
       ? (_esRecordatorioVencido(c.recordatorio_at) ? 'border-l-2 border-red-500' : 'border-l-2 border-amber-400')
       : ''
 
+    const badgeNuevo = c.es_nuevo
+      ? `<span onclick="marcarVisto(${c.id}, this)" title="Marcar como visto"
+            class="cursor-pointer badge-nuevo text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5">NUEVO</span>`
+      : ''
+
     return `<tr class="trow border-b transition ${recordatorioClass}">
       <td class="px-6 py-4 font-medium val-text">
-        ${esc(c.Contacto)}
+        <span class="inline-flex items-center gap-1 flex-wrap">${esc(c.Contacto)}${badgeNuevo}</span>
         ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
         ${_perfil?.rol === 'administrador' && c.usuario_id ? `<div class="text-xs mt-0.5 text-blue-400">👤 ${_nombreUsuario(c.usuario_id)}</div>` : ''}
       </td>
@@ -1466,6 +1473,17 @@ async function enviarEvaluacion() {
 }
 
 // ─── CONVERSACIÓN ─────────────────────────────────────
+async function marcarVisto(id, el) {
+  try {
+    await api('PATCH', `/api/clientes/${id}`, { es_nuevo: false })
+    el.remove()
+    const c = clientes.find(c => c.id === id)
+    if (c) c.es_nuevo = false
+  } catch(e) {
+    toast('Error al marcar como visto', 'error')
+  }
+}
+
 async function abrirConversacion(clienteId, nombre) {
   document.getElementById('conv-titulo').textContent = `Conversación — ${nombre}`
   document.getElementById('conv-body').innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`
