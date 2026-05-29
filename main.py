@@ -3769,13 +3769,29 @@ async def api_movendo_nuevo_cliente(request: Request):
         if not proj_name:
             return Response(content="projectName es requerido", status_code=400)
 
-        # Buscar proyecto por nombre o código (incluye template_bienvenida)
-        _sel_proy = "id,nombre,imagen_url,template_bienvenida"
+        # Buscar proyecto por nombre, código o alias (nombres_csv)
+        _sel_proy = "id,nombre,imagen_url,template_bienvenida,nombres_csv"
         proyectos = await _supabase_request("GET", "/Proyecto",
             params={"nombre": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
         if not proyectos:
             proyectos = await _supabase_request("GET", "/Proyecto",
                 params={"codigo": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
+        if not proyectos:
+            # Buscar por prefijo o alias: carga todos y filtra en Python
+            todos = await _supabase_request("GET", "/Proyecto",
+                params={"select": _sel_proy}) or []
+            proj_name_lower = proj_name.lower().strip()
+            # Ordenar por nombre más largo primero para preferir el match más específico
+            todos_sorted = sorted(todos, key=lambda p: len(p.get("nombre") or ""), reverse=True)
+            for p in todos_sorted:
+                db_nombre = (p.get("nombre") or "").lower().strip()
+                aliases = [a.strip().lower() for a in (p.get("nombres_csv") or "").split(",") if a.strip()]
+                # Coincidencia exacta de alias
+                if proj_name_lower in aliases:
+                    proyectos = [p]; break
+                # El nombre entrante comienza con el nombre del proyecto (ej: "Viñedos de Rengo II" → "Viñedos de Rengo")
+                if db_nombre and proj_name_lower.startswith(db_nombre):
+                    proyectos = [p]; break
         if not proyectos:
             return Response(content=f"Proyecto no encontrado: {proj_name}", status_code=422,
                             media_type="text/plain")
