@@ -3754,46 +3754,62 @@ async def api_movendo_nuevo_cliente(request: Request):
         last      = (body.get("lastName") or "").strip()
         nombre    = f"{first} {last}".strip() or (body.get("phone") or "Sin nombre")
         phone_raw = (body.get("phone") or "").strip()
-        crm_id    = str(body.get("crmId") or "").strip() or None
-        proj_name = (body.get("projectName") or "").strip()
-        email     = (body.get("email") or "").strip() or None
-        rut       = (body.get("rut") or "").strip() or None
-        salary    = str(body.get("salary") or "").strip() or None
-        source    = (body.get("source") or "").strip() or None
+        crm_id      = str(body.get("crmId") or "").strip() or None
+        proj_name   = (body.get("projectName") or "").strip()
+        movendo_pid = body.get("projectId")  # ID numérico del proyecto en Movendo
+        email       = (body.get("email") or "").strip() or None
+        rut         = (body.get("rut") or "").strip() or None
+        salary      = str(body.get("salary") or "").strip() or None
+        source      = (body.get("source") or "").strip() or None
 
         if not phone_raw:
             return Response(content="phone es requerido", status_code=400)
         telefono = _normalizar_telefono_cl(phone_raw)
         if not telefono:
             return Response(content=f"Teléfono inválido: {phone_raw}", status_code=400)
-        if not proj_name:
-            return Response(content="projectName es requerido", status_code=400)
+        if not proj_name and movendo_pid is None:
+            return Response(content="projectName o projectId es requerido", status_code=400)
 
-        # Buscar proyecto por nombre, código o alias (nombres_csv)
+        # Buscar proyecto — orden de prioridad:
+        # 1) ID numérico de Movendo (movendo_proyecto_id)
+        # 2) nombre ilike
+        # 3) codigo ilike
+        # 4) prefijo o alias en nombres_csv (maneja "Viñedos de Rengo II" → "Viñedos de Rengo")
         _sel_proy = "id,nombre,imagen_url,template_bienvenida,nombres_csv"
-        proyectos = await _supabase_request("GET", "/Proyecto",
-            params={"nombre": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
-        if not proyectos:
+        proyectos = []
+
+        if movendo_pid is not None:
+            proyectos = await _supabase_request("GET", "/Proyecto",
+                params={"movendo_proyecto_id": f"eq.{movendo_pid}", "select": _sel_proy, "limit": "1"}) or []
+
+        if not proyectos and proj_name:
+            proyectos = await _supabase_request("GET", "/Proyecto",
+                params={"nombre": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
+
+        if not proyectos and proj_name:
             proyectos = await _supabase_request("GET", "/Proyecto",
                 params={"codigo": f"ilike.%{proj_name}%", "select": _sel_proy, "limit": "1"}) or []
-        if not proyectos:
-            # Buscar por prefijo o alias: carga todos y filtra en Python
-            todos = await _supabase_request("GET", "/Proyecto",
-                params={"select": _sel_proy}) or []
-            proj_name_lower = proj_name.lower().strip()
-            # Ordenar por nombre más largo primero para preferir el match más específico
+
+        if not proyectos and proj_name:
+            todos = await _supabase_request("GET", "/Proyecto", params={"select": _sel_proy}) or []
+            proj_lower = proj_name.lower().strip()
             todos_sorted = sorted(todos, key=lambda p: len(p.get("nombre") or ""), reverse=True)
             for p in todos_sorted:
                 db_nombre = (p.get("nombre") or "").lower().strip()
-                aliases = [a.strip().lower() for a in (p.get("nombres_csv") or "").split(",") if a.strip()]
-                # Coincidencia exacta de alias
-                if proj_name_lower in aliases:
+                # nombres_csv puede ser lista (array PG) o string separado por comas
+                raw_csv = p.get("nombres_csv") or []
+                if isinstance(raw_csv, list):
+                    aliases = [a.strip().lower() for a in raw_csv if a.strip()]
+                else:
+                    aliases = [a.strip().lower() for a in str(raw_csv).split(",") if a.strip()]
+                if proj_lower in aliases:
                     proyectos = [p]; break
-                # El nombre entrante comienza con el nombre del proyecto (ej: "Viñedos de Rengo II" → "Viñedos de Rengo")
-                if db_nombre and proj_name_lower.startswith(db_nombre):
+                if db_nombre and proj_lower.startswith(db_nombre):
                     proyectos = [p]; break
+
         if not proyectos:
-            return Response(content=f"Proyecto no encontrado: {proj_name}", status_code=422,
+            ref = f"projectId={movendo_pid}" if movendo_pid is not None else f"projectName={proj_name}"
+            return Response(content=f"Proyecto no encontrado: {ref}", status_code=422,
                             media_type="text/plain")
 
         proyecto_row      = proyectos[0]
