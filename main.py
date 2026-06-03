@@ -2309,6 +2309,19 @@ async def send_whatsapp_message(to: str, text: str):
         return r.json()
 
 
+def _build_body_params(pool_vals: Dict[str, str], variables: List[str], param_names: Optional[List[str]] = None) -> List[Any]:
+    """Construye body_text_params para send_whatsapp_template.
+    Con param_names (plantilla de parámetros nombrados): retorna dicts con parameter_name.
+    Sin param_names (posicional {{1}}): retorna lista de strings.
+    """
+    if param_names:
+        return [
+            {"parameter_name": param_names[i], "text": pool_vals.get(variables[i], "") if i < len(variables) else ""}
+            for i in range(len(param_names))
+        ]
+    return [pool_vals.get(k, "") for k in variables]
+
+
 async def send_whatsapp_template(
     *,
     to: str,
@@ -2631,25 +2644,24 @@ async def api_upsert_plantilla_config(template_name: str, request: Request):
     if perfil.get("rol") != "administrador":
         return Response(content="Forbidden", status_code=403)
     body = await request.json()
-    variables = body.get("variables", [])
+    variables   = body.get("variables", [])
+    param_names = body.get("param_names") or None  # nombres de parámetros nombrados (ej: ["nombre_cliente"])
     if not isinstance(variables, list):
         return Response(content="variables debe ser una lista", status_code=400)
     now_iso = datetime.now(timezone.utc).isoformat()
+    patch_data: Dict[str, Any] = {"variables": variables, "updated_at": now_iso}
+    if param_names is not None:
+        patch_data["param_names"] = param_names
     existing = await _supabase_request(
         "GET", "/PlantillaConfig",
         params={"template_name": f"eq.{template_name}", "select": "id", "limit": "1"},
     ) or []
     if existing:
-        await _supabase_request(
-            "PATCH", "/PlantillaConfig",
-            params={"template_name": f"eq.{template_name}"},
-            json={"variables": variables, "updated_at": now_iso},
-        )
+        await _supabase_request("PATCH", "/PlantillaConfig",
+            params={"template_name": f"eq.{template_name}"}, json=patch_data)
     else:
-        await _supabase_request(
-            "POST", "/PlantillaConfig",
-            json={"template_name": template_name, "variables": variables},
-        )
+        await _supabase_request("POST", "/PlantillaConfig",
+            json={"template_name": template_name, **patch_data})
     return {"ok": True}
 
 
@@ -2729,7 +2741,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                     params={"id": f"eq.{proyecto_id}", "select": "id,nombre", "limit": "1"}) or []
                 proyecto_serviu = _proy_rows[0] if _proy_rows else None
 
-            creados, duplicados, errores = 0, [], []
+            creados, duplicados, errores, ids_creados = 0, [], [], []
             reader = csv.DictReader(io.StringIO(text))
 
             for i, row in enumerate(reader):
@@ -2763,7 +2775,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                             duplicados.append({"fila": fila, "nombre": nombre,
                                                "telefono": telefono, "datos": datos_raw})
                         else:
-                            await _supabase_request("POST", "/Cliente",
+                            _r = await _supabase_request("POST", "/Cliente",
                                 json={
                                     "proyecto_id": proyecto_serviu["id"],
                                     "Contacto": nombre, "Rut": rut, "Correo": correo,
@@ -2776,8 +2788,10 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                     "usuario_id": usuario_id,
                                     "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                 },
-                                extra_headers={"Prefer": "return=minimal"})
+                                extra_headers={"Prefer": "return=representation"})
                             phones_existentes.add(telefono)
+                            if isinstance(_r, list) and _r:
+                                ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
                             creados += 1
                     else:
                         nombre_proyecto = (row.get("Proyecto") or "").strip()
@@ -2816,7 +2830,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                                 "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
                                                 "datos": datos_raw})
                             else:
-                                await _supabase_request("POST", "/Cliente",
+                                _r = await _supabase_request("POST", "/Cliente",
                                     json={
                                         "proyecto_id": proyecto["id"],
                                         "Contacto": nombre, "Rut": rut, "Correo": correo,
@@ -2829,15 +2843,17 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                         "usuario_id": usuario_id,
                                         "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                     },
-                                    extra_headers={"Prefer": "return=minimal"})
+                                    extra_headers={"Prefer": "return=representation"})
                                 phones_existentes.add(telefono)
+                                if isinstance(_r, list) and _r:
+                                    ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
                                 creados += 1
                 except Exception as ex:
                     errores.append({"fila": fila, "motivo": str(ex)})
 
                 yield f"data: {json.dumps({'t':'prog','n':i+1,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
 
-            yield f"data: {json.dumps({'t':'done','ok':True,'creados':creados,'duplicados':len(duplicados),'errores':len(errores),'detalle_errores':errores,'detalle_duplicados':duplicados})}\n\n"
+            yield f"data: {json.dumps({'t':'done','ok':True,'creados':creados,'duplicados':len(duplicados),'errores':len(errores),'detalle_errores':errores,'detalle_duplicados':duplicados,'ids_creados':ids_creados})}\n\n"
 
         except Exception as e:
             logger.exception("Error importando clientes")
@@ -2897,10 +2913,12 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         # Prioridad: 1) config en DB  2) mapa hardcoded  3) fallback posicional
         db_cfg = await _supabase_request(
             "GET", "/PlantillaConfig",
-            params={"template_name": f"eq.{template_name}", "select": "variables", "limit": "1"},
+            params={"template_name": f"eq.{template_name}", "select": "variables,param_names", "limit": "1"},
         ) or []
         if db_cfg and db_cfg[0].get("variables"):
-            body_text_params: List[Any] = [pool_vals.get(k, "") for k in db_cfg[0]["variables"]]
+            cfg_vars   = db_cfg[0]["variables"]
+            cfg_params = db_cfg[0].get("param_names") or None
+            body_text_params: List[Any] = _build_body_params(pool_vals, cfg_vars, cfg_params)
         elif template_name in TEMPLATE_VARS_MAP:
             body_text_params = [pool_vals.get(k, "") for k in TEMPLATE_VARS_MAP[template_name]]
         else:
@@ -3849,11 +3867,20 @@ async def api_movendo_nuevo_cliente(request: Request):
         wa_result = None
         if template_auto and cliente_id:
             try:
+                # Construir parámetros usando PlantillaConfig (soporta named params)
+                _wa_cfg = await _supabase_request("GET", "/PlantillaConfig",
+                    params={"template_name": f"eq.{template_auto}",
+                            "select": "variables,param_names", "limit": "1"}) or []
+                _pool = await _pool_plantilla(nombre, proyecto_row)
+                if _wa_cfg and _wa_cfg[0].get("variables"):
+                    _btp = _build_body_params(_pool, _wa_cfg[0]["variables"], _wa_cfg[0].get("param_names"))
+                else:
+                    _btp = [nombre, proyecto_nombre]  # fallback básico
                 wa_result = await send_whatsapp_template(
                     to=telefono,
                     template_name=template_auto,
                     language_code="es",
-                    body_text_params=[nombre, proyecto_nombre],
+                    body_text_params=_btp,
                     image_url=proyecto_row.get("imagen_url") or None,
                 )
                 await upsert_prospecto(

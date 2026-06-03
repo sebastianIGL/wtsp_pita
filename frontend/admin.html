@@ -535,8 +535,20 @@
   function _contarVariables(components) {
     const body = (components || []).find(c => c.type === 'BODY');
     if (!body || !body.text) return 0;
-    const matches = body.text.match(/\{\{\d+\}\}/g) || [];
-    return Math.max(0, ...matches.map(m => parseInt(m.replace(/\D/g, ''))));
+    // Parámetros posicionales {{1}}, {{2}}
+    const positional = body.text.match(/\{\{\d+\}\}/g) || [];
+    if (positional.length > 0) return Math.max(...positional.map(m => parseInt(m.replace(/\D/g, ''))));
+    // Parámetros nombrados {{nombre_cliente}}
+    const named = body.text.match(/\{\{[a-zA-Z_]+\}\}/g) || [];
+    return named.length;
+  }
+
+  function _extractParamNames(components) {
+    const body = (components || []).find(c => c.type === 'BODY');
+    if (!body || !body.text) return [];
+    const named = body.text.match(/\{\{[a-zA-Z_]+\}\}/g) || [];
+    if (named.length === 0) return [];  // posicional, no necesita nombres
+    return named.map(m => m.replace(/[{}]/g, ''));
   }
 
   function _textoBody(components) {
@@ -559,14 +571,16 @@
         ? '<span class="text-xs bg-emerald-900/50 text-emerald-300 px-2 py-0.5 rounded-full">Guardado en DB</span>'
         : '<span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Sin configurar</span>';
 
+      const paramNames = _extractParamNames(t.components);
       const dropdowns = varCount > 0 ? Array.from({ length: varCount }, (_, i) => {
         const valorActual = varsActuales[i] || '';
+        const label = paramNames[i] ? `{{${paramNames[i]}}}` : `{{${i+1}}}`;
         const opts = POOL_VARS.map(v =>
           `<option value="${v.key}" ${valorActual === v.key ? 'selected' : ''}>${v.label}</option>`
         ).join('');
         return `
           <div class="flex items-center gap-3">
-            <span class="text-xs text-slate-400 font-mono w-8 shrink-0">{{${i+1}}}</span>
+            <span class="text-xs text-slate-400 font-mono shrink-0 min-w-[6rem]">${label}</span>
             <select data-tpl="${t.name}" data-idx="${i}"
               onchange="actualizarVarLocal(this)"
               class="flex-1 bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2 text-sm
@@ -623,10 +637,14 @@
       return;
     }
 
+    // Detectar si la plantilla usa parámetros nombrados y enviarlos
+    const tplMeta = _templatesMeta.find(t => t.name === templateName);
+    const param_names = tplMeta ? _extractParamNames(tplMeta.components) : [];
+
     try {
       const res = await fetch(`/api/plantillas-config/${encodeURIComponent(templateName)}`, {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ variables }),
+        body: JSON.stringify({ variables, ...(param_names.length ? { param_names } : {}) }),
       });
       if (!res.ok) throw new Error(await res.text());
       _configsMap[templateName] = variables;

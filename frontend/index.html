@@ -190,7 +190,7 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <input id="search" type="text" placeholder="Buscar…" class="rounded-lg px-3 py-1.5 text-sm w-40" oninput="aplicarFiltros()" />
+        <input id="search" type="text" placeholder="Nombre, RUT o teléfono…" class="rounded-lg px-3 py-1.5 text-sm w-52" oninput="aplicarFiltros()" />
         <select id="filtro-proyecto" class="rounded-lg px-3 py-1.5 text-sm" onchange="aplicarFiltros()">
           <option value="">Todos los proyectos</option>
         </select>
@@ -1086,8 +1086,22 @@ async function importarCSV(e) {
         </div>
         ${(data.detalle_errores || []).length ? `
           <div class="max-h-36 overflow-y-auto space-y-1 p-3 glass rounded-xl">
-            <p class="text-xs sidebar-text font-semibold mb-2">Detalle:</p>
+            <p class="text-xs sidebar-text font-semibold mb-2">Detalle errores:</p>
             ${data.detalle_errores.map(d => `<p class="text-xs err-text">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`).join('')}
+          </div>` : ''}
+        ${(data.ids_creados || []).length ? `
+          <div class="glass rounded-xl p-3">
+            <p class="text-xs sidebar-text font-semibold mb-2">Enviar WhatsApp a importados:</p>
+            <div class="space-y-1 max-h-48 overflow-y-auto">
+              ${data.ids_creados.map(c => `
+                <div class="flex items-center justify-between py-1">
+                  <span class="text-xs sidebar-text truncate max-w-[60%]">${esc(c.nombre)}</span>
+                  <button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.nombre).replace(/'/g,"\\'")}') "
+                    class="text-xs bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded-lg transition shrink-0">
+                    Enviar WA
+                  </button>
+                </div>`).join('')}
+            </div>
           </div>` : ''}
         <button onclick="cerrarImport()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
           Cerrar
