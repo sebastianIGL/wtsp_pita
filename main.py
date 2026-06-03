@@ -2928,10 +2928,21 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
                 "precio_desde_uf", "fecha_entrega",
             ]
             body_comp = next((cm for cm in components_meta if cm.get("type") == "BODY"), None)
-            var_count = len(re.findall(r'\{\{[^}]+\}\}', body_comp.get("text", ""))) if body_comp else 1
-            body_text_params = [pool_vals.get(fallback_order[i], "") for i in range(min(var_count, len(fallback_order)))]
-            if not body_text_params:
-                body_text_params = [nombre]
+            body_text_params = []
+            if body_comp:
+                # Named params: Meta incluye example.body_text_named_params con los nombres reales
+                named_meta = (body_comp.get("example") or {}).get("body_text_named_params") or []
+                if named_meta:
+                    for i, p in enumerate(named_meta):
+                        pname    = p.get("parameter_name", "")
+                        pool_key = fallback_order[i] if i < len(fallback_order) else "cliente_nombre"
+                        body_text_params.append({"parameter_name": pname, "text": pool_vals.get(pool_key, "")})
+                else:
+                    # Posicionales {{1}}, {{2}} — solo dígitos
+                    positional = re.findall(r'\{\{\d+\}\}', body_comp.get("text", ""))
+                    var_count  = max((int(m.strip("{}")) for m in positional), default=0)
+                    body_text_params = [pool_vals.get(fallback_order[i], "") for i in range(min(var_count, len(fallback_order)))]
+            # Si la plantilla no tiene variables → no enviar parámetros (evita el error 400)
 
         wa = await send_whatsapp_template(
             to=telefono, template_name=template_name, language_code=language_code,
