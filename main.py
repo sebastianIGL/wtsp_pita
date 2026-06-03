@@ -2951,11 +2951,30 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         await _supabase_request("PATCH", "/Cliente",
             params={"id": f"eq.{cliente_id}"},
             json={"primer mensaje": False, "wtsp_habilitado": False})
-        await upsert_prospecto(
+        prospecto = await upsert_prospecto(
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
             rango_sueldo=c.get("Tramo de renta"), proyecto_id=proyecto_id,
             estado="PLANTILLA_ENVIADA", paso="BIENVENIDA", cliente_id=cliente_id,
         )
+        # Registrar plantilla enviada como mensaje saliente en la conversación
+        if prospecto and prospecto.get("id"):
+            body_comp = next((cm for cm in components_meta if cm.get("type") == "BODY"), None)
+            texto_plantilla = f"[Plantilla: {template_name}]"
+            if body_comp and body_comp.get("text"):
+                # Rellenar variables con los valores reales para mostrar en conversación
+                raw = body_comp["text"]
+                if isinstance(body_text_params, list):
+                    for i, p in enumerate(body_text_params):
+                        val = p.get("text", "") if isinstance(p, dict) else str(p)
+                        raw = re.sub(r'\{\{[^}]+\}\}', val, raw, count=1)
+                texto_plantilla = raw
+            await insertar_mensaje(
+                prospecto_id=prospecto["id"],
+                direccion="saliente",
+                text=texto_plantilla,
+                wa_message_id=(wa.get("messages", [{}])[0].get("id") if isinstance(wa, dict) else None),
+                cliente_id=cliente_id,
+            )
         return {"ok": True, "wa": wa}
     except Exception as e:
         logger.exception("Error en enviar-wtsp cliente %s", cliente_id)
