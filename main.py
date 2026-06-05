@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, File, Form
+from contextlib import asynccontextmanager
 from fastapi.responses import FileResponse
 import asyncio
 import os
@@ -14,7 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from typing import Any, Dict, List, Optional, Union
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 
 try:
@@ -33,7 +34,12 @@ except Exception:
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-app = FastAPI()
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    asyncio.create_task(_recovery_loop())
+    yield
+
+app = FastAPI(lifespan=_lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,6 +51,42 @@ app.add_middleware(
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+
+# Debounce: una tarea pendiente por número — la nueva cancela la anterior
+_pending_tasks: Dict[str, asyncio.Task] = {}
+
+
+async def _recovery_loop():
+    """Cada 3 min reintenta conversaciones donde el cliente escribió y el bot no respondió."""
+    await asyncio.sleep(60)  # 1 min de gracia al arrancar
+    while True:
+        try:
+            hace_3_min = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+            pendientes = await _supabase_request("GET", "/Prospecto",
+                params={
+                    "pendiente_respuesta": "eq.true",
+                    "ultimo_entrante_en":  f"lt.{hace_3_min}",
+                    "select": "id,telefono_e164,ultimo_texto_entrante",
+                    "limit": "10",
+                }) or []
+            for p in pendientes:
+                telefono   = p.get("telefono_e164") or ""
+                ultimo_txt = p.get("ultimo_texto_entrante") or ""
+                if not telefono or not ultimo_txt:
+                    continue
+                logger.info("Recovery: reprocesando mensaje pendiente de %s", telefono)
+                asyncio.create_task(_procesar_webhook({
+                    "from": telefono,
+                    "type": "text",
+                    "text": {"body": ultimo_txt},
+                    "id":   f"recovery_{p['id']}",
+                }))
+        except Exception:
+            logger.exception("Error en _recovery_loop")
+        await asyncio.sleep(180)  # revisar cada 3 minutos
+
+
+
 
 # Cache en memoria para deduplicar webhooks duplicados de Meta (últimos 500 wamids)
 _wamids_procesados: set = set()
@@ -1321,7 +1363,8 @@ async def upsert_prospecto(
         row["paso"] = paso
     if ultimo_texto_entrante is not None:
         row["ultimo_texto_entrante"] = ultimo_texto_entrante
-        row["ultimo_entrante_en"] = _utc_now_iso()
+        row["ultimo_entrante_en"]    = _utc_now_iso()
+        row["pendiente_respuesta"]   = True   # el bot aún no ha respondido
     if datos is not None:
         row["datos"] = datos
     if cliente_id is not None:
@@ -1941,7 +1984,7 @@ async def verify_webhook(request: Request):
 
 
 # Segundos de espera antes de que el bot responda (para sensación más humana)
-DELAY_RESPUESTA_SEGUNDOS = int(os.getenv("BOT_REPLY_DELAY", "3"))
+DELAY_RESPUESTA_SEGUNDOS = int(os.getenv("BOT_REPLY_DELAY", "30"))
 
 
 async def _procesar_webhook(msg: Dict):
@@ -1950,10 +1993,7 @@ async def _procesar_webhook(msg: Dict):
         from_number = _normalize_phone(msg["from"])
         msg_type    = msg.get("type", "text")
 
-        # Delay antes de responder — sensación humana y evita race conditions
-        await asyncio.sleep(DELAY_RESPUESTA_SEGUNDOS)
-
-        # ── Obtener o crear prospecto ──────────────────────────────────────
+        # ── Obtener o crear prospecto de inmediato ─────────────────────────
         prospecto = None
         proyecto  = None
 
@@ -1978,9 +2018,7 @@ async def _procesar_webhook(msg: Dict):
         if not text:
             return
 
-        historial = []
-        docs_recibidos = []
-
+        # Guardar mensaje entrante ANTES del debounce (queda en historial aunque llegue otro)
         if prospecto_id:
             await insertar_mensaje(
                 prospecto_id=prospecto_id,
@@ -1989,17 +2027,23 @@ async def _procesar_webhook(msg: Dict):
                 wa_message_id=msg.get("id"),
                 cliente_id=cliente_id_prospecto,
             )
+            await upsert_prospecto(
+                telefono_e164=from_number,
+                ultimo_texto_entrante=text,
+            )
+
+        # Debounce: esperar a que el cliente termine de escribir
+        await asyncio.sleep(DELAY_RESPUESTA_SEGUNDOS)
+
+        historial = []
+        docs_recibidos = []
+
+        if prospecto_id:
             try:
                 historial = await obtener_historial_mensajes(prospecto_id)
                 docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
             except Exception:
                 pass
-
-        if prospecto_id:
-            await upsert_prospecto(
-                telefono_e164=from_number,
-                ultimo_texto_entrante=text,
-            )
 
         # Cargar otros proyectos de la misma empresa para contexto del bot
         otros_proyectos: List[Dict] = []
@@ -2046,6 +2090,10 @@ async def _procesar_webhook(msg: Dict):
                 text=reply_text,
                 cliente_id=cliente_id_prospecto,
             )
+            # Bot respondió exitosamente → limpiar flag
+            await _supabase_request("PATCH", "/Prospecto",
+                params={"id": f"eq.{prospecto_id}"},
+                json={"pendiente_respuesta": False})
             if datos_extraidos or siguiente_paso:
                 paso_actual_prospecto = (prospecto or {}).get("paso") or "BIENVENIDA"
 
@@ -2100,8 +2148,12 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
                 old = _wamids_orden.pop(0)
                 _wamids_procesados.discard(old)
 
-        # Devuelve 200 a Meta de inmediato y procesa en background
-        background_tasks.add_task(_procesar_webhook, msg)
+        # Devuelve 200 a Meta de inmediato — debounce: cancela tarea anterior del mismo número
+        from_number = _normalize_phone(msg.get("from", ""))
+        existing = _pending_tasks.get(from_number)
+        if existing and not existing.done():
+            existing.cancel()
+        _pending_tasks[from_number] = asyncio.create_task(_procesar_webhook(msg))
 
     except Exception:
         logger.exception("Error en /webhook")
