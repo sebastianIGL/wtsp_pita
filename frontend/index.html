@@ -189,6 +189,8 @@
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Todos</button>
           <button id="btn-timidos" onclick="setTab('timidos')"
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Tímidos</button>
+          <button id="btn-sin-enviar" onclick="setTab('sin_enviar')"
+            class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Sin enviar</button>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -586,11 +588,12 @@ const CONFIG = {
 
 let _token    = null
 let _perfil   = null
-let _filtroTab = 'mis'  // 'mis' | 'todos' | 'timidos'
+let _filtroTab = 'mis'  // 'mis' | 'todos' | 'timidos' | 'sin_enviar'
+let _preservarPagina = false
 let clientes  = []
 let proyectos = []
 let paginaActual = 1
-const POR_PAGINA = 20
+const POR_PAGINA = 30
 let _guardando = false
 let _proyectosPromise = null
 let _usuarios = []
@@ -675,6 +678,7 @@ function _actualizarToggle() {
   const btnMis    = document.getElementById('btn-mis-clientes')
   const btnTodos  = document.getElementById('btn-todos-clientes')
   const btnTim    = document.getElementById('btn-timidos')
+  const btnSin    = document.getElementById('btn-sin-enviar')
   const activo    = 'bg-brand-600 text-white'
   const inactivo  = 'text-slate-400 hover:text-slate-200'
   const isAdmin   = _perfil?.rol === 'administrador'
@@ -683,20 +687,27 @@ function _actualizarToggle() {
     btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
     btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'todos' ? activo : inactivo}`
     btnTim.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'timidos' ? activo : inactivo}`
+    btnSin.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
   } else {
-    // No-admin: primer botón visible es Todos (sin border-l), luego Tímidos
-    btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab !== 'timidos' ? activo : inactivo}`
+    // No-admin: primer botón visible es Todos (sin border-l)
+    btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'todos' ? activo : inactivo}`
     btnTim.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'timidos' ? activo : inactivo}`
+    btnSin.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
   }
 }
 
 function setTab(tab) {
+  const tabAnterior = _filtroTab
   _filtroTab = tab
   _actualizarToggle()
-  if (_perfil?.rol === 'administrador') {
-    cargarClientes()  // admin: 'mis' vs 'todos' cambia el query
+  const isAdmin = _perfil?.rol === 'administrador'
+  // Admin: recargar del server solo si cambia entre 'mis' y otros (diferente query)
+  // No-admin: siempre filtrar client-side (server ya filtra por su usuario)
+  const necesitaRecargar = isAdmin && (tab === 'mis' || tabAnterior === 'mis')
+  if (necesitaRecargar) {
+    cargarClientes()
   } else {
-    aplicarFiltros()  // no-admin: el server ya filtra por su usuario, solo re-filtrar
+    aplicarFiltros()
   }
 }
 
@@ -761,7 +772,8 @@ function _nombreUsuario(id) {
 }
 
 // ─── CLIENTES ─────────────────────────────────────
-async function cargarClientes() {
+async function cargarClientes(preservar = false) {
+  if (preservar) _preservarPagina = true
   try {
     const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
     const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
@@ -792,10 +804,22 @@ function actualizarStats() {
 function _esTimido(c) {
   if (!c.primer_wtsp_en) return false
   const wtspMs = new Date(c.primer_wtsp_en).getTime()
-  if (Date.now() - wtspMs < 24 * 60 * 60 * 1000) return false  // < 24h, aún en espera
+  if (Date.now() - wtspMs < 24 * 60 * 60 * 1000) return false
   const ultiMs = c.ultimo_entrante_en ? new Date(c.ultimo_entrante_en).getTime() : null
-  if (ultiMs && ultiMs > wtspMs) return false  // respondió después del template
+  if (ultiMs && ultiMs > wtspMs) return false
   return true
+}
+
+function _sinEnviar(c) {
+  // Sin plantilla enviada: primer_wtsp_en no existe Y primer mensaje es null/undefined
+  if (c.primer_wtsp_en) return false
+  return c['primer mensaje'] == null
+}
+
+function _msDate(val) {
+  if (!val) return 0
+  const t = new Date(val).getTime()
+  return isNaN(t) ? 0 : t
 }
 
 function clientesFiltrados() {
@@ -808,23 +832,24 @@ function clientesFiltrados() {
         (c.Telefono||'').toLowerCase().includes(q) ||
         (c.Rut||'').toLowerCase().includes(q)
       const matchP = !proyecto || c.proyecto_id === proyecto
-      const matchTab = _filtroTab === 'timidos' ? _esTimido(c) : true
+      const matchTab = _filtroTab === 'timidos'   ? _esTimido(c)
+                     : _filtroTab === 'sin_enviar' ? _sinEnviar(c)
+                     : true
       return matchQ && matchP && matchTab
     })
     .sort((a, b) => {
-      // Primero los que han enviado WA más recientemente
-      const fa = a.ultimo_entrante_en || ''
-      const fb = b.ultimo_entrante_en || ''
-      if (fa && fb) return fb.localeCompare(fa)
-      if (fa) return -1
-      if (fb) return 1
-      // Sin WA: ordenar por última gestión
-      return (b['Fecha Ult. Gestión'] || '').localeCompare(a['Fecha Ult. Gestión'] || '')
+      // Clientes con conversación reciente primero
+      const fa = _msDate(a.ultimo_entrante_en)
+      const fb = _msDate(b.ultimo_entrante_en)
+      if (fa || fb) return fb - fa
+      // Sin conversación: más reciente gestión primero
+      return _msDate(b['Fecha Ult. Gestión']) - _msDate(a['Fecha Ult. Gestión'])
     })
 }
 
 function aplicarFiltros() {
-  paginaActual = 1
+  if (!_preservarPagina) paginaActual = 1
+  _preservarPagina = false
   const filtrados = clientesFiltrados()
   renderTabla(filtrados)
   renderPaginacion(filtrados.length)
@@ -902,9 +927,18 @@ function renderTabla(data) {
             class="cursor-pointer badge-nuevo text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5">NUEVO</span>`
       : ''
 
+    const _pe = c.prospecto_estado
+    const badgeContacto = (_pe === 'DOCS_RECIBIDOS')
+      ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5"
+              style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4)">📞 Llamar</span>`
+      : (_pe === 'DOCUMENTACION' || _pe === 'ESPERA_DOCS')
+      ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5"
+              style="background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)">📋 Docs</span>`
+      : ''
+
     return `<tr class="trow border-b transition ${recordatorioClass}">
       <td class="px-6 py-4 font-medium val-text">
-        <span class="inline-flex items-center gap-1 flex-wrap">${esc(c.Contacto)}${badgeNuevo}</span>
+        <span class="inline-flex items-center gap-1 flex-wrap">${esc(c.Contacto)}${badgeNuevo}${badgeContacto}</span>
         ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
         ${_perfil?.rol === 'administrador' && c.usuario_id ? `<div class="text-xs mt-0.5 text-blue-400">👤 ${_nombreUsuario(c.usuario_id)}</div>` : ''}
       </td>
@@ -1010,7 +1044,7 @@ async function enviarConTemplate() {
     await api('POST', `/api/clientes/${_tmplClienteId}/enviar-wtsp`, { template_name: sel.value, language_code: sel.dataset.language || 'es_CL', components })
     toast(`✅ WhatsApp enviado a ${_tmplClienteNombre}`, 'success')
     cerrarSelectorTemplate()
-    await cargarClientes()
+    await cargarClientes(true)  // preservar página actual
   } catch(e) {
     toast('❌ ' + e.message, 'error')
     btn.disabled = false
@@ -1599,6 +1633,7 @@ async function guardarRecordatorio() {
     await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null })
     const c = clientes.find(x => x.id === _recId)
     if (c) c.recordatorio_at = fecha || null
+    _preservarPagina = true
     aplicarFiltros()
     cerrarRecordatorio()
     toast(fecha ? `✅ Recordatorio guardado: ${_formatFechaRecordatorio(fecha)}` : '✅ Recordatorio eliminado', 'success')
@@ -1640,6 +1675,7 @@ async function guardarAsignar() {
     await api('PATCH', `/api/clientes/${_asignarClienteId}`, { usuario_id: usuarioId || null })
     const c = clientes.find(x => x.id === _asignarClienteId)
     if (c) c.usuario_id = usuarioId || null
+    _preservarPagina = true
     aplicarFiltros()
     cerrarAsignar()
     toast(`✅ Cliente asignado a ${_nombreUsuario(usuarioId)}`, 'success')

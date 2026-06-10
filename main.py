@@ -155,7 +155,7 @@ _CAMPOS_COLUMNA_PROPIA: set = {
     "motivo_no_interesado", "fecha_tentativa_recontacto", "opt_out",
     "paso_origen_no_interesado",
     "motivo_no_califica", "quiere_contacto_ejecutivo", "intencion_regularizar",
-    "renta_mensual", "numero_integrantes",
+    "renta_mensual", "numero_integrantes", "integrantes_rsh",
 }
 
 # Documentos base (siempre requeridos)
@@ -473,10 +473,15 @@ PREGUNTAS EN ORDEN:
 (Solo hacer las que aún estén en null)
 
 BLOQUE — REQUISITOS FINANCIEROS:
-a) tiene_rsh:
-   "¿Cuentas con Registro Social de Hogares (RSH)?"
+a) tiene_rsh + integrantes_rsh:
+   TURNO 1: "¿Cuentas con Registro Social de Hogares (RSH)?"
 
-   → SÍ TIENE RSH: tiene_rsh = true, continuar.
+   → SÍ TIENE RSH: tiene_rsh = true
+     TURNO 2: "¿Cuántas personas figuran en tu RSH
+               (contándote a ti)?"
+     Registrar: integrantes_rsh = número entero
+     ⚠️ Solo registra el NÚMERO. NO preguntes quiénes
+        son esas personas ni su relación contigo.
 
    → NO TIENE RSH: tiene_rsh = false
      "No hay problema. El RSH es gratuito y se crea
@@ -619,8 +624,11 @@ d) renta_mensual + complemento_renta (se resuelven juntos en 2-3 turnos):
 
    TURNO 3 — Complemento:
    "¿Esa renta es solo tuya o la complementas con
-    otra persona (pareja, familiar, aval)?"
+    alguna otra persona?"
    Registrar: complemento_renta = true/false
+   ⚠️ NO preguntes quiénes son esas personas ni
+      qué relación tienen contigo. Solo si hay
+      complemento o no.
 
    ⚠️ Si el cliente dice "no tengo rango registrado" o
    {rango_sueldo} = "no registrado":
@@ -678,8 +686,9 @@ SI EL CLIENTE PREGUNTA SI CALIFICA CON SU RENTA:
 SI LA RENTA ES INSUFICIENTE O EL CLIENTE DUDA:
   "No te preocupes, puedes complementar renta con
    otra persona para sumar ingresos.
-   ¿Tienes pareja, familiar u otra persona que
-   pudiera sumarse como codeudor?"
+   ¿Tienes a alguien que pudiera sumarse?"
+  ⚠️ NO preguntes quién es ni qué relación tiene.
+     Solo si puede complementar o no.
 
 CONTEXTO INTERNO — COMPLEMENTO DE RENTA:
 (No mostrar al cliente a menos que pregunte)
@@ -788,6 +797,7 @@ ESTILO:
 
 datos_extraidos:
   "tiene_rsh": true/false/null
+  "integrantes_rsh": número entero (null si no lo mencionó)
   "tiene_propiedad": true/false/null
   "subsidio_previo": true/false/null
   "ahorro_ok": true/false/null
@@ -797,8 +807,6 @@ datos_extraidos:
   "renta_mensual": número entero en pesos SIN puntos ni símbolos
                    ej: 950000 (null si aún no lo mencionó)
   "complemento_renta": true/false/null
-  "tipo_complementador": "conyuge_hijo_comun" /
-                         "familiar_sanguineo" / "otro" / null
   "tipo_trabajo": "dependiente_indefinido" /
                   "dependiente_plazo_fijo" /
                   "independiente" /
@@ -1429,6 +1437,9 @@ async def actualizar_datos_prospecto(
         params={"id": f"eq.{prospecto_id}"},
         json=update,
     )
+
+    if siguiente_paso == "DOCUMENTACION":
+        asyncio.create_task(_notificar_interesado(prospecto_id))
 
 
 async def insertar_mensaje(
@@ -3368,19 +3379,20 @@ async def api_listar_clientes(request: Request):
     elif usuario_filtro:
         params["usuario_id"] = f"eq.{usuario_filtro}"
     rows = await _supabase_request("GET", "/Cliente", params=params) or []
-    # Merge ultimo_entrante_en desde Prospecto para ordenar por actividad WA
+    # Merge datos de Prospecto para ordenar por actividad WA y mostrar estado
     if rows:
         telefonos = [r["Telefono"] for r in rows if r.get("Telefono")]
         if telefonos:
             tel_list = ",".join(telefonos)
             prospectos = await _supabase_request("GET", "/Prospecto",
                 params={"telefono_e164": f"in.({tel_list})",
-                        "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta"}) or []
+                        "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado"}) or []
             prosp_map = {p["telefono_e164"]: p for p in prospectos}
             for r in rows:
                 p = prosp_map.get(r.get("Telefono"), {})
-                r["ultimo_entrante_en"] = p.get("ultimo_entrante_en")
+                r["ultimo_entrante_en"]  = p.get("ultimo_entrante_en")
                 r["pendiente_respuesta"] = p.get("pendiente_respuesta")
+                r["prospecto_estado"]    = p.get("estado")
     return rows
 
 
@@ -4092,6 +4104,42 @@ async def _get_default_user() -> Optional[Dict]:
     rows = await _supabase_request("GET", "/Usuario", params=params) or []
     return rows[0] if rows else None
 
+
+
+async def _notificar_interesado(prospecto_id: str) -> None:
+    """Avisa al admin/ejecutivo asignado cuando un prospecto confirma interés (llega a DOCUMENTACION)."""
+    try:
+        rows = await _supabase_request("GET", "/Prospecto",
+            params={"id": f"eq.{prospecto_id}", "select": "nombre,telefono_e164,cliente_id", "limit": "1"}) or []
+        if not rows:
+            return
+        p = rows[0]
+        nombre   = p.get("nombre") or "Cliente"
+        telefono = p.get("telefono_e164") or ""
+        # Buscar proyecto desde el cliente si existe
+        proyecto_nombre = ""
+        if p.get("cliente_id"):
+            cli = await _supabase_request("GET", "/Cliente",
+                params={"id": f"eq.{p['cliente_id']}", "select": "proyecto_id", "limit": "1"}) or []
+            if cli and cli[0].get("proyecto_id"):
+                proy = await obtener_proyecto_por_id(cli[0]["proyecto_id"])
+                proyecto_nombre = (proy or {}).get("nombre", "")
+
+        texto = (
+            f"🔥 *Cliente listo para contactar*\n"
+            f"👤 {nombre}\n"
+            f"📱 {telefono}\n"
+            f"🏗️ {proyecto_nombre or 'Sin proyecto'}\n"
+            f"✅ Confirmó interés y está reuniendo documentos."
+        )
+        notify_phone = _get_env("ADMIN_NOTIFY_PHONE")
+        if notify_phone:
+            try:
+                await send_whatsapp_message(to=notify_phone, text=texto)
+            except Exception as e:
+                logger.warning("Notificación interesado WA fallida: %s", e)
+    except Exception:
+        logger.exception("Error en _notificar_interesado")
 
 
 async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str, correo_admin: Optional[str]) -> None:
