@@ -3000,9 +3000,18 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
             to=telefono, template_name=template_name, language_code=language_code,
             body_text_params=body_text_params, image_url=image_url,
         )
+        ahora_wtsp = datetime.now(timezone.utc)
+        patch_cliente: Dict[str, Any] = {
+            "primer mensaje": False,
+            "wtsp_habilitado": False,
+            "primer_wtsp_en": ahora_wtsp.isoformat(),
+            "Fecha Ult. Gestión": ahora_wtsp.isoformat(),
+        }
+        # Auto-agendar recordatorio 24h después si no hay uno ya programado
+        if not c.get("recordatorio_at"):
+            patch_cliente["recordatorio_at"] = (ahora_wtsp + timedelta(hours=24)).isoformat()
         await _supabase_request("PATCH", "/Cliente",
-            params={"id": f"eq.{cliente_id}"},
-            json={"primer mensaje": False, "wtsp_habilitado": False})
+            params={"id": f"eq.{cliente_id}"}, json=patch_cliente)
         prospecto = await upsert_prospecto(
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
             rango_sueldo=c.get("Tramo de renta"), proyecto_id=proyecto_id,
@@ -3358,8 +3367,21 @@ async def api_listar_clientes(request: Request):
         params["usuario_id"] = f"eq.{perfil['id']}"
     elif usuario_filtro:
         params["usuario_id"] = f"eq.{usuario_filtro}"
-    rows = await _supabase_request("GET", "/Cliente", params=params)
-    return rows or []
+    rows = await _supabase_request("GET", "/Cliente", params=params) or []
+    # Merge ultimo_entrante_en desde Prospecto para ordenar por actividad WA
+    if rows:
+        telefonos = [r["Telefono"] for r in rows if r.get("Telefono")]
+        if telefonos:
+            tel_list = ",".join(telefonos)
+            prospectos = await _supabase_request("GET", "/Prospecto",
+                params={"telefono_e164": f"in.({tel_list})",
+                        "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta"}) or []
+            prosp_map = {p["telefono_e164"]: p for p in prospectos}
+            for r in rows:
+                p = prosp_map.get(r.get("Telefono"), {})
+                r["ultimo_entrante_en"] = p.get("ultimo_entrante_en")
+                r["pendiente_respuesta"] = p.get("pendiente_respuesta")
+    return rows
 
 
 @app.post("/api/clientes")
@@ -3508,7 +3530,15 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
             body_text_params=[nombre],
             image_url=proyecto.get("imagen_url"),
         )
-        await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json={"primer mensaje": False})
+        ahora_plt = datetime.now(timezone.utc)
+        patch_plt: Dict[str, Any] = {
+            "primer mensaje": False,
+            "primer_wtsp_en": ahora_plt.isoformat(),
+            "Fecha Ult. Gestión": ahora_plt.isoformat(),
+        }
+        if not c.get("recordatorio_at"):
+            patch_plt["recordatorio_at"] = (ahora_plt + timedelta(hours=24)).isoformat()
+        await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json=patch_plt)
         await upsert_prospecto(
             telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
             rango_sueldo=c.get("Tramo de renta"), proyecto_id=proyecto_id,

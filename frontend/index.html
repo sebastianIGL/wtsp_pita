@@ -181,12 +181,14 @@
       <div class="flex items-center gap-3">
         <h2 class="font-semibold val-text">Clientes</h2>
         <span id="badge-count" class="badge-count-bg text-xs px-2 py-0.5 rounded-full">0</span>
-        <!-- Toggle visible solo para administradores -->
+        <!-- Toggle de pestañas (siempre visible, contenido ajustado por rol) -->
         <div id="toggle-filtro-usuario" class="hidden items-center rounded-lg overflow-hidden text-xs border border-slate-600" style="font-size:0.72rem">
-          <button id="btn-mis-clientes" onclick="setFiltroUsuario(false)"
+          <button id="btn-mis-clientes" onclick="setTab('mis')"
             class="px-3 py-1.5 font-medium transition-colors">Mis clientes</button>
-          <button id="btn-todos-clientes" onclick="setFiltroUsuario(true)"
+          <button id="btn-todos-clientes" onclick="setTab('todos')"
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Todos</button>
+          <button id="btn-timidos" onclick="setTab('timidos')"
+            class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Tímidos</button>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -584,7 +586,7 @@ const CONFIG = {
 
 let _token    = null
 let _perfil   = null
-let _verTodos = false
+let _filtroTab = 'mis'  // 'mis' | 'todos' | 'timidos'
 let clientes  = []
 let proyectos = []
 let paginaActual = 1
@@ -640,13 +642,18 @@ async function initAuth() {
     const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
     _perfil = await res.json()
     document.getElementById('user-name').textContent = _perfil.nombre || _perfil.correo || ''
+    const tog = document.getElementById('toggle-filtro-usuario')
+    tog.classList.remove('hidden')
+    tog.classList.add('flex')
     if (_perfil.rol === 'administrador') {
       document.getElementById('admin-link').classList.remove('hidden')
-      const tog = document.getElementById('toggle-filtro-usuario')
-      tog.classList.remove('hidden')
-      tog.classList.add('flex')
-      _actualizarToggle()
+      _filtroTab = 'mis'
+    } else {
+      // No-admin: ocultar "Mis clientes", mostrar Todos | Tímidos
+      document.getElementById('btn-mis-clientes').classList.add('hidden')
+      _filtroTab = 'todos'
     }
+    _actualizarToggle()
   } catch(e) { console.warn('Perfil:', e) }
 
   // 3-hour inactivity logout
@@ -665,23 +672,32 @@ async function initAuth() {
 }
 
 function _actualizarToggle() {
-  const btnMis   = document.getElementById('btn-mis-clientes')
-  const btnTodos = document.getElementById('btn-todos-clientes')
-  const activo   = 'bg-brand-600 text-white'
-  const inactivo = 'text-slate-400 hover:text-slate-200'
-  if (_verTodos) {
-    btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${activo}`
-    btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${inactivo}`
+  const btnMis    = document.getElementById('btn-mis-clientes')
+  const btnTodos  = document.getElementById('btn-todos-clientes')
+  const btnTim    = document.getElementById('btn-timidos')
+  const activo    = 'bg-brand-600 text-white'
+  const inactivo  = 'text-slate-400 hover:text-slate-200'
+  const isAdmin   = _perfil?.rol === 'administrador'
+
+  if (isAdmin) {
+    btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
+    btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'todos' ? activo : inactivo}`
+    btnTim.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'timidos' ? activo : inactivo}`
   } else {
-    btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${activo}`
-    btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${inactivo}`
+    // No-admin: primer botón visible es Todos (sin border-l), luego Tímidos
+    btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab !== 'timidos' ? activo : inactivo}`
+    btnTim.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'timidos' ? activo : inactivo}`
   }
 }
 
-function setFiltroUsuario(todos) {
-  _verTodos = todos
+function setTab(tab) {
+  _filtroTab = tab
   _actualizarToggle()
-  cargarClientes()
+  if (_perfil?.rol === 'administrador') {
+    cargarClientes()  // admin: 'mis' vs 'todos' cambia el query
+  } else {
+    aplicarFiltros()  // no-admin: el server ya filtra por su usuario, solo re-filtrar
+  }
 }
 
 async function cerrarSesion() {
@@ -755,7 +771,7 @@ async function cargarClientes() {
       : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
       : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
     const sep = qs ? '&' : '?'
-    const usuarioQs = (_perfil?.rol === 'administrador' && !_verTodos)
+    const usuarioQs = (_perfil?.rol === 'administrador' && _filtroTab === 'mis')
       ? `${sep}usuario_id=${_perfil.id}` : ''
     clientes = await api('GET', `/api/clientes${qs}${usuarioQs}`)
     actualizarStats()
@@ -773,6 +789,15 @@ function actualizarStats() {
   document.getElementById('badge-count').textContent  = clientes.length
 }
 
+function _esTimido(c) {
+  if (!c.primer_wtsp_en) return false
+  const wtspMs = new Date(c.primer_wtsp_en).getTime()
+  if (Date.now() - wtspMs < 24 * 60 * 60 * 1000) return false  // < 24h, aún en espera
+  const ultiMs = c.ultimo_entrante_en ? new Date(c.ultimo_entrante_en).getTime() : null
+  if (ultiMs && ultiMs > wtspMs) return false  // respondió después del template
+  return true
+}
+
 function clientesFiltrados() {
   const q        = document.getElementById('search').value.toLowerCase()
   const proyecto = document.getElementById('filtro-proyecto').value
@@ -783,15 +808,18 @@ function clientesFiltrados() {
         (c.Telefono||'').toLowerCase().includes(q) ||
         (c.Rut||'').toLowerCase().includes(q)
       const matchP = !proyecto || c.proyecto_id === proyecto
-      return matchQ && matchP
+      const matchTab = _filtroTab === 'timidos' ? _esTimido(c) : true
+      return matchQ && matchP && matchTab
     })
     .sort((a, b) => {
-      const fa = a['Fecha Ult. Gestión'] || ''
-      const fb = b['Fecha Ult. Gestión'] || ''
-      if (!fa && !fb) return 0
-      if (!fa) return 1
-      if (!fb) return -1
-      return fb.localeCompare(fa)
+      // Primero los que han enviado WA más recientemente
+      const fa = a.ultimo_entrante_en || ''
+      const fb = b.ultimo_entrante_en || ''
+      if (fa && fb) return fb.localeCompare(fa)
+      if (fa) return -1
+      if (fb) return 1
+      // Sin WA: ordenar por última gestión
+      return (b['Fecha Ult. Gestión'] || '').localeCompare(a['Fecha Ult. Gestión'] || '')
     })
 }
 
@@ -881,7 +909,12 @@ function renderTabla(data) {
         ${_perfil?.rol === 'administrador' && c.usuario_id ? `<div class="text-xs mt-0.5 text-blue-400">👤 ${_nombreUsuario(c.usuario_id)}</div>` : ''}
       </td>
       <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.proyecto_id))}</td>
-      <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Telefono || '—')}</td>
+      <td class="px-6 py-4 font-mono text-xs">
+        ${c.Telefono
+          ? `<a href="https://api.whatsapp.com/send?phone=${esc(c.Telefono)}" target="_blank" rel="noopener"
+               class="text-emerald-400 hover:text-emerald-300 transition">${esc(c.Telefono)}</a>`
+          : `<span class="sidebar-text">—</span>`}
+      </td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Rut || '—')}</td>
       <td class="px-6 py-4 sidebar-text text-xs">${esc(c['Tramo de renta'] || '—')}</td>
       <td class="px-6 py-4">${badge}</td>
