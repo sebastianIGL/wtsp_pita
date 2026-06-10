@@ -4007,6 +4007,14 @@ async def api_movendo_nuevo_cliente(request: Request):
                     body_text_params=_btp,
                     image_url=proyecto_row.get("imagen_url") or None,
                 )
+                ahora_movendo = datetime.now(timezone.utc)
+                patch_mov: Dict[str, Any] = {
+                    "primer_wtsp_en": ahora_movendo.isoformat(),
+                    "Fecha Ult. Gestión": ahora_movendo.isoformat(),
+                }
+                patch_mov["recordatorio_at"] = (ahora_movendo + timedelta(hours=24)).isoformat()
+                await _supabase_request("PATCH", "/Cliente",
+                    params={"id": f"eq.{cliente_id}"}, json=patch_mov)
                 await upsert_prospecto(
                     telefono_e164=telefono,
                     nombre=nombre,

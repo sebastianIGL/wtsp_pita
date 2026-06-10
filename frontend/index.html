@@ -80,10 +80,16 @@
     .badge-follow { background:#1e1b4b; color:#a5b4fc; }
     .badge-pend  { background:#292524; color:#a8a29e; }
     .badge-nuevo { background:rgba(34,197,94,0.15); color:#22c55e; border:1px solid rgba(34,197,94,0.3); }
+    .badge-activo    { background:rgba(16,185,129,.15); color:#34d399; border:1px solid rgba(16,185,129,.3); }
+    .badge-timido    { background:rgba(245,158,11,.15); color:#fbbf24; border:1px solid rgba(245,158,11,.3); }
+    .badge-sin-enviar{ background:rgba(100,116,139,.15);color:#94a3b8; border:1px solid rgba(100,116,139,.3); }
     html:not(.dark) .badge-sent   { background:#d1fae5; color:#065f46; }
     html:not(.dark) .badge-follow { background:#ede9fe; color:#5b21b6; }
     html:not(.dark) .badge-pend   { background:#f1f5f9; color:#64748b; }
     html:not(.dark) .badge-nuevo  { background:#dcfce7; color:#15803d; border-color:#86efac; }
+    html:not(.dark) .badge-activo    { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+    html:not(.dark) .badge-timido    { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+    html:not(.dark) .badge-sin-enviar{ background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
     .theme-btn { transition: all .2s; }
 
     /* ── Modal Evaluación ── */
@@ -219,7 +225,7 @@
             <th class="px-6 py-3 text-left">Teléfono</th>
             <th class="px-6 py-3 text-left">RUT</th>
             <th class="px-6 py-3 text-left">Tramo renta</th>
-            <th class="px-6 py-3 text-left">1er Mensaje</th>
+            <th class="px-6 py-3 text-left">Estado</th>
             <th class="px-6 py-3 text-left">Acción</th>
           </tr>
         </thead>
@@ -796,24 +802,35 @@ async function cargarClientes(preservar = false) {
 
 function actualizarStats() {
   document.getElementById('stat-total').textContent   = clientes.length
-  document.getElementById('stat-sent').textContent    = clientes.filter(c => c['primer mensaje'] === true).length
-  document.getElementById('stat-pending').textContent = clientes.filter(c => !c['primer mensaje']).length
+  document.getElementById('stat-sent').textContent    = clientes.filter(c => computeEstado(c) === 'activo').length
+  document.getElementById('stat-pending').textContent = clientes.filter(c => computeEstado(c) === 'sin_enviar').length
   document.getElementById('badge-count').textContent  = clientes.length
 }
 
-function _esTimido(c) {
-  if (!c.primer_wtsp_en) return false
-  const wtspMs = new Date(c.primer_wtsp_en).getTime()
-  if (Date.now() - wtspMs < 24 * 60 * 60 * 1000) return false
-  const ultiMs = c.ultimo_entrante_en ? new Date(c.ultimo_entrante_en).getTime() : null
-  if (ultiMs && ultiMs > wtspMs) return false
-  return true
-}
+// ── Estado de contacto calculado ───────────────────
+// 'sin_enviar' → nunca se envió plantilla
+// 'activo'     → plantilla enviada hace < 24h, O cliente respondió, O sin info de timing
+// 'timido'     → plantilla enviada > 24h y sin respuesta posterior
+function computeEstado(c) {
+  const pm     = c['primer mensaje']
+  const wtspMs = _msDate(c.primer_wtsp_en)
+  const ultiMs = _msDate(c.ultimo_entrante_en)
+  const ahora  = Date.now()
 
-function _sinEnviar(c) {
-  // Sin plantilla enviada: primer_wtsp_en no existe Y primer mensaje es null/undefined
-  if (c.primer_wtsp_en) return false
-  return c['primer mensaje'] == null
+  // Nunca fue contactado
+  if (!wtspMs && pm == null) return 'sin_enviar'
+
+  // Tiene conversación posterior al envío de plantilla
+  if (ultiMs && (!wtspMs || ultiMs > wtspMs)) return 'activo'
+
+  // Plantilla enviada: verificar tiempo transcurrido
+  if (wtspMs) {
+    return (ahora - wtspMs > 24 * 60 * 60 * 1000) ? 'timido' : 'activo'
+  }
+
+  // Enviado vía flujo antiguo (primer mensaje = true/false, sin primer_wtsp_en):
+  // no podemos saber si es tímido → activo por defecto
+  return 'activo'
 }
 
 function _msDate(val) {
@@ -832,10 +849,11 @@ function clientesFiltrados() {
         (c.Telefono||'').toLowerCase().includes(q) ||
         (c.Rut||'').toLowerCase().includes(q)
       const matchP = !proyecto || c.proyecto_id === proyecto
-      const matchTab = _filtroTab === 'timidos'   ? _esTimido(c)
-                     : _filtroTab === 'sin_enviar' ? _sinEnviar(c)
-                     : true
-      return matchQ && matchP && matchTab
+      const estado = computeEstado(c)
+      const matchEstado = _filtroTab === 'timidos'    ? estado === 'timido'
+                        : _filtroTab === 'sin_enviar' ? estado === 'sin_enviar'
+                        : true
+      return matchQ && matchP && matchEstado
     })
     .sort((a, b) => {
       // Clientes con conversación reciente primero
@@ -868,16 +886,16 @@ function renderTabla(data) {
   const pagina = data.slice(inicio, inicio + POR_PAGINA)
 
   tbody.innerHTML = pagina.map(c => {
-    const pm = c['primer mensaje']
-    const badge = pm === true
-      ? `<span class="badge-sent text-xs px-2.5 py-1 rounded-full font-medium">✅ Enviado</span>`
-      : pm === false
-      ? `<span class="badge-follow text-xs px-2.5 py-1 rounded-full font-medium">🔄 Seguimiento</span>`
-      : `<span class="badge-pend text-xs px-2.5 py-1 rounded-full font-medium">⏳ Pendiente</span>`
+    const estado = computeEstado(c)
+    const badge = estado === 'activo'
+      ? `<span class="badge-activo text-xs px-2.5 py-1 rounded-full font-medium">🟢 Activo</span>`
+      : estado === 'timido'
+      ? `<span class="badge-timido text-xs px-2.5 py-1 rounded-full font-medium">🟡 Tímido</span>`
+      : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">📭 Sin enviar</span>`
 
     const btnWA = `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
-        class="text-xs px-3 py-1.5 rounded-lg ${pm === true ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
-        ${pm === true ? 'Reenviar WA' : 'Enviar WA'}
+        class="text-xs px-3 py-1.5 rounded-lg ${estado === 'activo' || estado === 'timido' ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
+        ${estado === 'sin_enviar' ? 'Enviar WA' : 'Reenviar WA'}
       </button>`
 
     const accion = `<div class="flex items-center gap-2">
