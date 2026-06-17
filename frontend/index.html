@@ -909,10 +909,10 @@ function renderTabla(data) {
   tbody.innerHTML = pagina.map(c => {
     const estado = computeEstado(c)
     const badge = estado === 'activo'
-      ? `<span class="badge-activo text-xs px-2.5 py-1 rounded-full font-medium">🟢 Activo</span>`
+      ? `<span class="badge-activo text-xs px-2.5 py-1 rounded-full font-medium">Activo</span>`
       : estado === 'timido'
-      ? `<span class="badge-timido text-xs px-2.5 py-1 rounded-full font-medium">🟡 Tímido</span>`
-      : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">📭 Sin enviar</span>`
+      ? `<span class="badge-timido text-xs px-2.5 py-1 rounded-full font-medium">Tímido</span>`
+      : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">Sin enviar</span>`
 
     const btnWA = `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
         class="text-xs px-3 py-1.5 rounded-lg ${estado === 'activo' || estado === 'timido' ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
@@ -1515,7 +1515,7 @@ async function abrirEvaluacion(id) {
       }
       docs.forEach(doc => {
         const tipoLabel = NOMBRE_TIPO[doc.tipo] || doc.tipo
-        const fechaStr  = doc.creado_en ? new Date(doc.creado_en).toLocaleDateString('es-CL') : ''
+        const fechaStr  = doc.creado_en ? doc.creado_en.slice(0, 10) : ''
         const row = document.createElement('div')
         row.className = 'flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition'
         row.innerHTML = `
@@ -1545,7 +1545,7 @@ function cerrarEvaluacion() {
 async function descargarDocEval(docId, nombre) {
   try {
     const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/${docId}/descargar`, {
-      headers: { 'X-API-Key': CONFIG.API_KEY }
+      headers: { 'Authorization': `Bearer ${_token}` }
     })
     if (!res.ok) throw new Error(await res.text())
     const blob = await res.blob()
@@ -1563,7 +1563,7 @@ async function descargarDocEval(docId, nombre) {
 async function descargarExtrasZip() {
   try {
     const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/extras/zip`, {
-      headers: { 'X-API-Key': CONFIG.API_KEY }
+      headers: { 'Authorization': `Bearer ${_token}` }
     })
     if (!res.ok) throw new Error(await res.text())
     const blob = await res.blob()
@@ -1733,14 +1733,15 @@ function cerrarContexto() {
 // ─── HELPERS RECORDATORIO ─────────────────────────────
 function _esRecordatorioVencido(fecha) {
   if (!fecha) return false
-  return fecha <= new Date().toISOString().slice(0, 10)
+  return fecha.slice(0, 10) <= new Date().toISOString().slice(0, 10)
 }
 function _formatFechaRecordatorio(fecha) {
   if (!fecha) return ''
+  const d   = fecha.slice(0, 10)
   const hoy = new Date().toISOString().slice(0, 10)
-  if (fecha === hoy) return 'Hoy'
-  if (fecha < hoy)   return `Vencido (${fecha})`
-  return fecha
+  if (d === hoy) return 'Hoy'
+  if (d < hoy)   return `Vencido (${d})`
+  return d
 }
 
 // ─── RECORDATORIO DE CONTACTO ─────────────────────────
@@ -1748,7 +1749,7 @@ let _recId = null
 function abrirRecordatorio(clienteId, nombre, fechaActual) {
   _recId = clienteId
   document.getElementById('rec-titulo').textContent = nombre
-  document.getElementById('rec-fecha').value = fechaActual || ''
+  document.getElementById('rec-fecha').value = fechaActual ? fechaActual.slice(0, 10) : ''
   document.getElementById('rec-error').classList.add('hidden')
   document.getElementById('modal-recordatorio').classList.remove('hidden')
 }
