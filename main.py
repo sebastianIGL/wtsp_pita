@@ -167,13 +167,13 @@ _DOCS_BASE: Dict[str, Dict] = {
 # Documentos condicionales: (tipo, config, función_condición)
 _DOCS_CONDICIONALES: List[tuple] = [
     ("certificado_rsh",              {"label": "Certificado RSH",                  "cantidad": 1}, lambda d: d.get("tiene_rsh") is True),
-    ("liquidacion_sueldo",           {"label": "Liquidaciones de sueldo",          "cantidad": 3}, lambda d: d.get("trabajo_indefinido") is True),
+    ("liquidacion_sueldo",           {"label": "Liquidaciones de sueldo",          "cantidad": 6}, lambda d: d.get("trabajo_indefinido") is True),
     ("antiguedad_laboral",           {"label": "Certificado de antigüedad",        "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is True),
     ("carpeta_tributaria_sii",       {"label": "Carpeta tributaria SII",           "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is False),
     ("declaracion_anual_impuestos",  {"label": "Declaración anual de impuestos",   "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is False),
     ("cartola_ahorro",               {"label": "Cartola de ahorro",                "cantidad": 1}, lambda d: d.get("ahorro_ok") is True),
     ("cedula_complementador",        {"label": "Cédula del complementador",        "cantidad": 2}, lambda d: d.get("complemento_renta") is True),
-    ("liquidaciones_complementador", {"label": "Liquidaciones del complementador", "cantidad": 3}, lambda d: d.get("complemento_renta") is True),
+    ("liquidaciones_complementador", {"label": "Liquidaciones del complementador", "cantidad": 6}, lambda d: d.get("complemento_renta") is True),
 ]
 
 
@@ -3386,13 +3386,14 @@ async def api_listar_clientes(request: Request):
             tel_list = ",".join(telefonos)
             prospectos = await _supabase_request("GET", "/Prospecto",
                 params={"telefono_e164": f"in.({tel_list})",
-                        "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado"}) or []
+                        "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado,paso"}) or []
             prosp_map = {p["telefono_e164"]: p for p in prospectos}
             for r in rows:
                 p = prosp_map.get(r.get("Telefono"), {})
                 r["ultimo_entrante_en"]  = p.get("ultimo_entrante_en")
                 r["pendiente_respuesta"] = p.get("pendiente_respuesta")
                 r["prospecto_estado"]    = p.get("estado")
+                r["prospecto_paso"]      = p.get("paso")
     return rows
 
 
@@ -3717,6 +3718,75 @@ async def api_upload_documento(
     except Exception as e:
         logger.exception("Error en upload documento cliente %s", cliente_id)
         return Response(content=_safe_httpx_error(e) or "Error al subir documento", status_code=500, media_type="text/plain")
+
+
+@app.get("/api/clientes/{cliente_id}/documentos/extras/zip")
+async def api_descargar_extras_zip(cliente_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        prospectos = await _supabase_request("GET", "/Prospecto",
+            params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"})
+        if not prospectos:
+            return Response(content="Sin prospecto", status_code=404)
+        prospecto_id = prospectos[0]["id"]
+        docs = await _supabase_request("GET", "/Documento",
+            params={"prospecto_id": f"eq.{prospecto_id}", "tipo": "eq.otro",
+                    "select": "id,nombre_archivo,url_storage,mime_type"}) or []
+        if not docs:
+            return Response(content="No hay documentos extra", status_code=404)
+
+        zip_buffer = io.BytesIO()
+        import zipfile
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            for doc in docs:
+                try:
+                    file_bytes = await _descargar_documento_storage(doc["url_storage"])
+                    arcname = re.sub(r'[^\w\-_\. ]', '_', doc.get("nombre_archivo") or f"extra_{doc['id']}")
+                    zf.writestr(arcname, file_bytes)
+                except Exception:
+                    logger.warning("No se pudo descargar extra %s", doc.get("id"))
+        zip_buffer.seek(0)
+        return Response(
+            content=zip_buffer.read(),
+            media_type="application/zip",
+            headers={"Content-Disposition": "attachment; filename=\"extras.zip\""},
+        )
+    except Exception as e:
+        logger.exception("Error descargando extras zip cliente %s", cliente_id)
+        return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
+@app.get("/api/clientes/{cliente_id}/documentos/{doc_id}/descargar")
+async def api_descargar_documento(cliente_id: int, doc_id: str, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        # Verificar que el doc pertenece al cliente correcto
+        prospectos = await _supabase_request("GET", "/Prospecto",
+            params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"})
+        prospecto_id = prospectos[0]["id"] if prospectos else None
+        docs = await _supabase_request("GET", "/Documento",
+            params={
+                "id": f"eq.{doc_id}",
+                **({"prospecto_id": f"eq.{prospecto_id}"} if prospecto_id else {}),
+                "select": "id,nombre_archivo,url_storage,mime_type",
+                "limit": "1",
+            })
+        if not docs:
+            return Response(content="Documento no encontrado", status_code=404)
+        doc = docs[0]
+        file_bytes = await _descargar_documento_storage(doc["url_storage"])
+        mime = doc.get("mime_type") or "application/octet-stream"
+        nombre = re.sub(r'[^\w\-_\. ]', '_', doc.get("nombre_archivo") or "documento")
+        return Response(
+            content=file_bytes,
+            media_type=mime,
+            headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+        )
+    except Exception as e:
+        logger.exception("Error descargando documento %s", doc_id)
+        return Response(content=str(e), status_code=500, media_type="text/plain")
 
 
 async def _descargar_documento_storage(url_storage: str) -> bytes:

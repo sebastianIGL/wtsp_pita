@@ -197,6 +197,8 @@
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Tímidos</button>
           <button id="btn-sin-enviar" onclick="setTab('sin_enviar')"
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Sin enviar</button>
+          <button id="btn-docs" onclick="setTab('docs')"
+            class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">📋 Docs</button>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -397,7 +399,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <p class="text-xs font-medium val-text">Liquidaciones de sueldo</p>
-              <p class="text-xs sidebar-text mt-0.5" id="doc-label-1">Últimos 3 meses · PDF o imagen</p>
+              <p class="text-xs sidebar-text mt-0.5" id="doc-label-1">Últimas 6 liquidaciones · PDF o imagen</p>
             </div>
             <div id="doc-check-1" class="hidden">
               <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -498,6 +500,19 @@
 
       </div>
 
+      <!-- Documentos recibidos por WhatsApp -->
+      <div id="eval-docs-recibidos" class="hidden">
+        <hr class="eval-divider border-t mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-sm font-semibold val-text">Documentos enviados por el cliente</p>
+          <button id="btn-descargar-extras" onclick="descargarExtrasZip()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Descargar extras (ZIP)
+          </button>
+        </div>
+        <div id="eval-docs-lista" class="space-y-1.5"></div>
+      </div>
+
       <!-- Acciones -->
       <div class="flex flex-col gap-2 pt-2">
         <button id="btn-remarketing-docs" onclick="enviarRecordatorioDocs()"
@@ -594,7 +609,7 @@ const CONFIG = {
 
 let _token    = null
 let _perfil   = null
-let _filtroTab = 'mis'  // 'mis' | 'todos' | 'timidos' | 'sin_enviar'
+let _filtroTab = 'mis'  // 'mis' | 'todos' | 'timidos' | 'sin_enviar' | 'docs'
 let _preservarPagina = false
 let clientes  = []
 let proyectos = []
@@ -685,20 +700,24 @@ function _actualizarToggle() {
   const btnTodos  = document.getElementById('btn-todos-clientes')
   const btnTim    = document.getElementById('btn-timidos')
   const btnSin    = document.getElementById('btn-sin-enviar')
+  const btnDocs   = document.getElementById('btn-docs')
   const activo    = 'bg-brand-600 text-white'
   const inactivo  = 'text-slate-400 hover:text-slate-200'
   const isAdmin   = _perfil?.rol === 'administrador'
+  const sep       = 'border-l border-slate-600'
 
   if (isAdmin) {
     btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
-    btnTodos.className = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'todos' ? activo : inactivo}`
-    btnTim.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'timidos' ? activo : inactivo}`
-    btnSin.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
+    btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'todos' ? activo : inactivo}`
+    btnTim.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'timidos' ? activo : inactivo}`
+    btnSin.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
+    btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
   } else {
     // No-admin: primer botón visible es Todos (sin border-l)
     btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'todos' ? activo : inactivo}`
-    btnTim.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'timidos' ? activo : inactivo}`
-    btnSin.className   = `px-3 py-1.5 font-medium transition-colors border-l border-slate-600 ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
+    btnTim.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'timidos' ? activo : inactivo}`
+    btnSin.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
+    btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
   }
 }
 
@@ -850,8 +869,10 @@ function clientesFiltrados() {
         (c.Rut||'').toLowerCase().includes(q)
       const matchP = !proyecto || c.proyecto_id === proyecto
       const estado = computeEstado(c)
+      const paso   = c.prospecto_paso || ''
       const matchEstado = _filtroTab === 'timidos'    ? estado === 'timido'
                         : _filtroTab === 'sin_enviar' ? estado === 'sin_enviar'
+                        : _filtroTab === 'docs'       ? (paso === 'ESPERA_DOCS' || paso === 'DOCS_RECIBIDOS')
                         : true
       return matchQ && matchP && matchEstado
     })
@@ -945,11 +966,11 @@ function renderTabla(data) {
             class="cursor-pointer badge-nuevo text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5">NUEVO</span>`
       : ''
 
-    const _pe = c.prospecto_estado
-    const badgeContacto = (_pe === 'DOCS_RECIBIDOS')
+    const _pp = c.prospecto_paso
+    const badgeContacto = (_pp === 'DOCS_RECIBIDOS')
       ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5"
               style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4)">📞 Llamar</span>`
-      : (_pe === 'DOCUMENTACION' || _pe === 'ESPERA_DOCS')
+      : (_pp === 'DOCUMENTACION' || _pp === 'ESPERA_DOCS')
       ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5"
               style="background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)">📋 Docs</span>`
       : ''
@@ -1407,9 +1428,11 @@ async function abrirEvaluacion(id) {
     check.classList.add('hidden')
     input.value = ''
     input.disabled = false
+    const dlBtn = drop.querySelector('.doc-dl-btn')
+    if (dlBtn) dlBtn.remove()
     // restaurar texto placeholder original
     const placeholders = {
-      1:'Últimos 3 meses · PDF o imagen', 2:'Últimas 12 cotizaciones · PDF',
+      1:'Últimas 6 liquidaciones · PDF o imagen', 2:'Últimas 12 cotizaciones · PDF',
       3:'Ambos lados · PDF o imagen',     4:'Saldo actual · PDF o imagen',
       5:'DICOM o similar · PDF',          6:'Contrato o certificado · PDF o imagen',
       7:'Cualquier documento adicional · PDF o imagen'
@@ -1432,9 +1455,17 @@ async function abrirEvaluacion(id) {
   document.getElementById('modal-eval').classList.remove('hidden')
 
   // Cargar documentos existentes desde Supabase
+  const seccionRecibidos = document.getElementById('eval-docs-recibidos')
+  const listaRecibidos   = document.getElementById('eval-docs-lista')
+  const btnExtrasZip     = document.getElementById('btn-descargar-extras')
+  seccionRecibidos.classList.add('hidden')
+  listaRecibidos.innerHTML = ''
+  btnExtrasZip.classList.add('hidden')
+
   try {
     const docs = await api('GET', `/api/clientes/${id}/documentos`)
-    // Para cada tipo, mostrar el más reciente si existe
+
+    // Slots: mostrar el más reciente por tipo + botón de descarga
     const porTipo = {}
     docs.forEach(d => { if (!porTipo[d.tipo]) porTipo[d.tipo] = d })
 
@@ -1452,9 +1483,55 @@ async function abrirEvaluacion(id) {
         : (doc.nombre_archivo || 'Archivo subido')
       lbl.textContent = `📎 ${nombre}`
       lbl.classList.add('text-emerald-400')
-      // Marcar como "ya tiene doc" en nuestro registro local
       _evalDocsSeleccionados[slot] = doc
+
+      // Agregar botón de descarga al slot
+      let dlBtn = drop.querySelector('.doc-dl-btn')
+      if (!dlBtn) {
+        dlBtn = document.createElement('button')
+        dlBtn.type = 'button'
+        dlBtn.className = 'doc-dl-btn ml-1 p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0'
+        dlBtn.title = 'Descargar'
+        dlBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`
+        drop.appendChild(dlBtn)
+      }
+      dlBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); descargarDocEval(doc.id, doc.nombre_archivo) }
     })
+
+    // Sección "enviados por WhatsApp": todos los docs con descarga individual
+    if (docs.length > 0) {
+      seccionRecibidos.classList.remove('hidden')
+      const extras = docs.filter(d => d.tipo === 'otro')
+      if (extras.length > 1) btnExtrasZip.classList.remove('hidden')
+
+      const NOMBRE_TIPO = {
+        liquidacion_sueldo: 'Liquidación de sueldo', certificado_afp: 'AFP',
+        carnet_identidad: 'Cédula', libreta_ahorro: 'Libreta ahorro',
+        informe_deudas: 'Informe deudas', antiguedad_laboral: 'Antigüedad laboral',
+        certificado_rsh: 'Certificado RSH', carpeta_tributaria_sii: 'Carpeta SII',
+        declaracion_anual_impuestos: 'Declaración impuestos',
+        cartola_ahorro: 'Cartola ahorro', cedula_complementador: 'Cédula complementador',
+        liquidaciones_complementador: 'Liquidación complementador', otro: 'Extra',
+      }
+      docs.forEach(doc => {
+        const tipoLabel = NOMBRE_TIPO[doc.tipo] || doc.tipo
+        const fechaStr  = doc.creado_en ? new Date(doc.creado_en).toLocaleDateString('es-CL') : ''
+        const row = document.createElement('div')
+        row.className = 'flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition'
+        row.innerHTML = `
+          <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <div class="flex-1 min-w-0">
+            <p class="text-xs font-medium val-text truncate">${esc(doc.nombre_archivo || 'Sin nombre')}</p>
+            <p class="text-xs sidebar-text">${tipoLabel}${fechaStr ? ` · ${fechaStr}` : ''}</p>
+          </div>
+          <button type="button" onclick="descargarDocEval('${doc.id}','${esc(doc.nombre_archivo||'documento')}')"
+            class="text-xs px-2.5 py-1 rounded bg-slate-700 hover:bg-sky-700 text-slate-300 hover:text-white transition flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Descargar
+          </button>`
+        listaRecibidos.appendChild(row)
+      })
+    }
     actualizarBtnEval()
   } catch(e) {
     console.warn('No se pudieron cargar documentos:', e)
@@ -1463,6 +1540,42 @@ async function abrirEvaluacion(id) {
 
 function cerrarEvaluacion() {
   document.getElementById('modal-eval').classList.add('hidden')
+}
+
+async function descargarDocEval(docId, nombre) {
+  try {
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/${docId}/descargar`, {
+      headers: { 'X-API-Key': CONFIG.API_KEY }
+    })
+    if (!res.ok) throw new Error(await res.text())
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = nombre || 'documento'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch(e) {
+    toast('❌ Error al descargar: ' + e.message, 'error')
+  }
+}
+
+async function descargarExtrasZip() {
+  try {
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/extras/zip`, {
+      headers: { 'X-API-Key': CONFIG.API_KEY }
+    })
+    if (!res.ok) throw new Error(await res.text())
+    const blob = await res.blob()
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = 'extras.zip'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch(e) {
+    toast('❌ Error al descargar ZIP: ' + e.message, 'error')
+  }
 }
 
 function onDocSelect(input, n) {
