@@ -1641,7 +1641,7 @@ async function enviarEvaluacion() {
     try {
       const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/upload`, {
         method: 'POST',
-        headers: { 'X-API-Key': CONFIG.API_KEY },
+        headers: { 'Authorization': `Bearer ${_token}` },
         body: fd,
       })
       if (!res.ok) { const t = await res.text(); throw new Error(t) }
@@ -1664,7 +1664,7 @@ async function enviarEvaluacion() {
     try {
       const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/enviar-evaluacion`, {
         method: 'POST',
-        headers: { 'X-API-Key': CONFIG.API_KEY },
+        headers: { 'Authorization': `Bearer ${_token}` },
       })
       if (!res.ok) { const t = await res.text(); throw new Error(t) }
       const data = await res.json()
