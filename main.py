@@ -3850,7 +3850,7 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
     body_html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;">
       <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">
-        📋 Solicitud de Evaluación de Crédito
+        Solicitud de Evaluacion de Credito
       </h2>
       <table style="border-collapse:collapse;font-size:14px;width:100%;">
         <tr style="background:#f5f7fa;">
@@ -3862,7 +3862,7 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
           <td style="padding:8px 12px;">{rut}</td>
         </tr>
         <tr style="background:#f5f7fa;">
-          <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Telefono</td>
           <td style="padding:8px 12px;">{telefono}</td>
         </tr>
         <tr>
@@ -3879,7 +3879,7 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
         {filas_docs}
       </table>
       <p style="font-size:12px;color:#aaa;margin-top:24px;">
-        Generado automáticamente por el CRM WhatsApp.
+        Generado automaticamente por NeuroCRM.
       </p>
     </div>
     """
@@ -3887,11 +3887,11 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
     msg = MIMEMultipart()
     msg["From"]    = email_remitente
     msg["To"]      = ", ".join(destinatarios)
-    msg["Subject"] = f"📋 Evaluación de crédito — {nombre}"
+    msg["Subject"] = f"Evaluacion de credito - {nombre}"
     msg.attach(MIMEText(body_html, "html"))
 
     for doc in docs:
-        url = doc.get("url_storage")
+        url            = doc.get("url_storage")
         nombre_archivo = doc.get("nombre_archivo") or doc.get("tipo") or "documento"
         if not url:
             continue
@@ -3908,21 +3908,19 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
     def _smtp_send():
-        logger.info("SMTP: conectando a smtp.gmail.com:587 desde %s", email_remitente)
-        try:
-            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
-                server.ehlo()
-                server.starttls()
-                server.ehlo()
-                server.login(email_remitente, email_password)
-                logger.info("SMTP: login OK, enviando a %s", destinatarios)
-                server.sendmail(email_remitente, destinatarios, msg.as_string())
-                logger.info("SMTP: correo enviado exitosamente")
-        except Exception as exc:
-            logger.exception("SMTP: error al enviar correo — %s", exc)
-            raise
+        logger.info("SMTP: conectando a smtp.gmail.com:465 desde %s hacia %s", email_remitente, destinatarios)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(email_remitente, email_password)
+            logger.info("SMTP: login OK, enviando correo...")
+            server.sendmail(email_remitente, destinatarios, msg.as_string())
+            logger.info("SMTP: correo enviado exitosamente")
 
-    await asyncio.get_event_loop().run_in_executor(None, _smtp_send)
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, _smtp_send)
+    except Exception as exc:
+        logger.exception("SMTP: error — %s", exc)
+        raise
+
     return {"enviado_a": destinatarios, "documentos_adjuntos": len(docs)}
 
 
