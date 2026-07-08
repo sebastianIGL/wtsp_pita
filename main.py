@@ -3908,9 +3908,16 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
     def _smtp_send():
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(email_remitente, email_password)
-            server.sendmail(email_remitente, destinatarios, msg.as_string())
+        logger.info("SMTP: conectando a smtp.gmail.com:465 desde %s", email_remitente)
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+                server.login(email_remitente, email_password)
+                logger.info("SMTP: login OK, enviando a %s", destinatarios)
+                server.sendmail(email_remitente, destinatarios, msg.as_string())
+                logger.info("SMTP: correo enviado exitosamente")
+        except Exception as exc:
+            logger.exception("SMTP: error al enviar correo — %s", exc)
+            raise
 
     await asyncio.get_event_loop().run_in_executor(None, _smtp_send)
     return {"enviado_a": destinatarios, "documentos_adjuntos": len(docs)}
