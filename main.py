@@ -3908,9 +3908,12 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
     def _smtp_send():
-        logger.info("SMTP: conectando a smtp.gmail.com:465 desde %s", email_remitente)
+        logger.info("SMTP: conectando a smtp.gmail.com:587 desde %s", email_remitente)
         try:
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
                 server.login(email_remitente, email_password)
                 logger.info("SMTP: login OK, enviando a %s", destinatarios)
                 server.sendmail(email_remitente, destinatarios, msg.as_string())
