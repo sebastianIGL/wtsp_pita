@@ -1992,6 +1992,7 @@ function renderTablaTipologias() {
       <td class="px-4 py-3 sidebar-text text-center">${t.dormitorios??'—'}</td>
       <td class="px-4 py-3 sidebar-text text-center">${t.banos??'—'}</td>
       <td class="px-4 py-3 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
+      <td class="px-4 py-3 sidebar-text text-right">${t.valor_uf ? t.valor_uf+' UF' : '—'}</td>
       <td class="px-4 py-3 sidebar-text text-right">${t.precio_desde_uf ? t.precio_desde_uf+' UF' : '—'}</td>
       <td class="px-4 py-3">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
       <td class="px-4 py-3 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
@@ -2015,7 +2016,10 @@ function abrirFormTipologia(tip = null) {
   document.getElementById('tf-dormitorios').value    = tip?.dormitorios         ?? ''
   document.getElementById('tf-banos').value          = tip?.banos               ?? ''
   document.getElementById('tf-superficie').value     = tip?.superficie_util_m2  ?? ''
+  document.getElementById('tf-valor-uf').value       = tip?.valor_uf            ?? ''
   document.getElementById('tf-precio-desde').value   = tip?.precio_desde_uf     ?? ''
+  document.getElementById('tf-precio-hasta').value   = tip?.precio_hasta_uf     ?? ''
+  document.getElementById('tf-monto-subsidio').value = tip?.monto_subsidio      ?? ''
   document.getElementById('tf-tipo-subsidio').value  = tip?.tipo_subsidio       || 'ninguno'
   document.getElementById('tf-stock').value          = tip?.stock_disponible    ?? 0
   document.getElementById('tf-estado').value         = tip?.estado              || 'activo'
@@ -2054,7 +2058,10 @@ async function guardarTipologia() {
     dormitorios:         intF('tf-dormitorios'),
     banos:               intF('tf-banos'),
     superficie_util_m2:  numF('tf-superficie'),
+    valor_uf:            numF('tf-valor-uf'),
     precio_desde_uf:     numF('tf-precio-desde'),
+    precio_hasta_uf:     numF('tf-precio-hasta'),
+    monto_subsidio:      numF('tf-monto-subsidio'),
     tipo_subsidio:       document.getElementById('tf-tipo-subsidio').value,
     stock_disponible:    intF('tf-stock') ?? 0,
     estado:              document.getElementById('tf-estado').value,
@@ -2225,6 +2232,7 @@ async function eliminarTipologia(id) {
             <th class="px-4 py-3 text-center">Dorms</th>
             <th class="px-4 py-3 text-center">Baños</th>
             <th class="px-4 py-3 text-center">Sup. m²</th>
+            <th class="px-4 py-3 text-right">Valor (UF)</th>
             <th class="px-4 py-3 text-right">Precio (UF)</th>
             <th class="px-4 py-3">Subsidio</th>
             <th class="px-4 py-3 text-center">Stock</th>
@@ -2269,12 +2277,23 @@ async function eliminarTipologia(id) {
           <input id="tf-superficie" type="number" min="0" step="0.1" placeholder="42.5" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Valor propiedad (UF)</label>
+        <input id="tf-valor-uf" type="number" min="0" step="0.1" placeholder="2800" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs sidebar-text mb-1.5">Precio (UF)</label>
+          <label class="block text-xs sidebar-text mb-1.5">Precio desde (UF)</label>
           <input id="tf-precio-desde" type="number" min="0" step="0.1" placeholder="2800" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
-        <div></div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Precio hasta (UF)</label>
+          <input id="tf-precio-hasta" type="number" min="0" step="0.1" placeholder="3200" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Monto subsidio (UF)</label>
+        <input id="tf-monto-subsidio" type="number" min="0" step="0.1" placeholder="0" class="w-full rounded-lg px-3 py-2 text-sm" />
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
