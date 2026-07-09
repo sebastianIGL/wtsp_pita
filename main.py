@@ -5,7 +5,6 @@ import asyncio
 import os
 import json
 import re
-import base64
 import httpx
 import smtplib
 import csv
@@ -13,6 +12,8 @@ import io
 import unicodedata
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timezone, timedelta
 import logging
@@ -3797,10 +3798,10 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
 
 
 async def _enviar_email_evaluacion(cliente_id: int) -> dict:
-    resend_api_key  = os.getenv("RESEND_API_KEY")
-    email_remitente = os.getenv("EMAIL_REMITENTE", "onboarding@resend.dev")
-    if not resend_api_key:
-        raise RuntimeError("RESEND_API_KEY no configurado")
+    email_remitente = os.getenv("EMAIL_REMITENTE")
+    email_password  = os.getenv("EMAIL_PASSWORD")
+    if not email_remitente or not email_password:
+        raise RuntimeError("EMAIL_REMITENTE o EMAIL_PASSWORD no configurados")
 
     clientes = await _supabase_request("GET", "/Cliente",
         params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
@@ -3883,7 +3884,12 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
     </div>
     """
 
-    adjuntos = []
+    msg = MIMEMultipart()
+    msg["From"]    = email_remitente
+    msg["To"]      = ", ".join(destinatarios)
+    msg["Subject"] = f"Evaluacion de credito - {nombre}"
+    msg.attach(MIMEText(body_html, "html"))
+
     for doc in docs:
         url            = doc.get("url_storage")
         nombre_archivo = doc.get("nombre_archivo") or doc.get("tipo") or "documento"
@@ -3891,34 +3897,31 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
             continue
         try:
             file_bytes = await _descargar_documento_storage(url)
-            adjuntos.append({
-                "filename": nombre_archivo,
-                "content":  base64.b64encode(file_bytes).decode(),
-            })
+            mime_type  = doc.get("mime_type") or "application/octet-stream"
+            main_type, sub_type = (mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream"))
+            part = MIMEBase(main_type, sub_type)
+            part.set_payload(file_bytes)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=nombre_archivo)
+            msg.attach(part)
         except Exception as e:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
-    payload = {
-        "from":        email_remitente,
-        "to":          destinatarios,
-        "subject":     f"Evaluacion de credito - {nombre}",
-        "html":        body_html,
-        "attachments": adjuntos,
-    }
+    def _smtp_send():
+        logger.info("SMTP: conectando a smtp.gmail.com:465 desde %s hacia %s", email_remitente, destinatarios)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(email_remitente, email_password)
+            logger.info("SMTP: login OK, enviando correo...")
+            server.sendmail(email_remitente, destinatarios, msg.as_string())
+            logger.info("SMTP: correo enviado exitosamente")
 
-    logger.info("Resend: enviando correo desde %s hacia %s (%d adjuntos)", email_remitente, destinatarios, len(adjuntos))
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json"},
-            json=payload,
-        )
-        if resp.status_code >= 400:
-            logger.error("Resend error %s: %s", resp.status_code, resp.text)
-            raise RuntimeError(f"Resend respondio {resp.status_code}: {resp.text}")
-        logger.info("Resend: correo enviado OK — %s", resp.json())
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, _smtp_send)
+    except Exception as exc:
+        logger.exception("SMTP: error — %s", exc)
+        raise
 
-    return {"enviado_a": destinatarios, "documentos_adjuntos": len(adjuntos)}
+    return {"enviado_a": destinatarios, "documentos_adjuntos": len(docs)}
 
 
 @app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
