@@ -1,3 +1,4 @@
+from __future__ import annotations
 from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, File, Form
 from contextlib import asynccontextmanager
 from fastapi.responses import FileResponse
