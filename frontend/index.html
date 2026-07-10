@@ -1994,9 +1994,9 @@ function renderTablaTipologias() {
       <td class="px-3 py-2 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
       <td class="px-3 py-2 sidebar-text text-right">${t.valor_uf ? t.valor_uf+' UF' : '—'}</td>
       <td class="px-3 py-2 sidebar-text text-right">${t.monto_subsidio ? t.monto_subsidio+' UF' : '—'}</td>
-      <td class="px-3 py-2">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
+      <td class="px-3 py-2 text-center">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
       <td class="px-3 py-2 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
-      <td class="px-3 py-2">${_badgeEstado(t.estado)}</td>
+      <td class="px-3 py-2 text-center">${_badgeEstado(t.estado)}</td>
       <td class="px-3 py-2 text-center">
         <div class="flex gap-1.5 justify-center">
           <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
