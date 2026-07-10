@@ -3325,6 +3325,101 @@ async def api_eliminar_tipologia(tip_id: int, request: Request):
     return {"ok": True}
 
 
+# ── Etapa ─────────────────────────────────────────────────────────────────────
+
+_ETAPA_SELECT = "id,proyecto_id,Proyecto(nombre),fecha_entrega,estado"
+_CAMPOS_ETAPA = ("fecha_entrega", "estado")
+
+
+@app.get("/api/etapas")
+async def api_listar_etapas(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    proyecto_id     = request.query_params.get("proyecto_id")
+    inmobiliaria_id = request.query_params.get("inmobiliaria_id")
+    empresa_id      = request.query_params.get("empresa_id")
+    params: Dict[str, str] = {"select": _ETAPA_SELECT, "order": "fecha_entrega.asc"}
+
+    if proyecto_id:
+        params["proyecto_id"] = f"eq.{proyecto_id}"
+    elif inmobiliaria_id:
+        prows = await _supabase_request("GET", "/Proyecto",
+            params={"inmobiliaria_id": f"eq.{inmobiliaria_id}", "select": "id"}) or []
+        ids = ",".join(str(p["id"]) for p in prows)
+        if not ids:
+            return []
+        params["proyecto_id"] = f"in.({ids})"
+    elif empresa_id:
+        inms = await _supabase_request("GET", "/Inmobiliaria",
+            params={"empresa_id": f"eq.{empresa_id}", "select": "id"}) or []
+        inm_ids = ",".join(str(i["id"]) for i in inms)
+        if not inm_ids:
+            return []
+        prows = await _supabase_request("GET", "/Proyecto",
+            params={"inmobiliaria_id": f"in.({inm_ids})", "select": "id"}) or []
+        ids = ",".join(str(p["id"]) for p in prows)
+        if not ids:
+            return []
+        params["proyecto_id"] = f"in.({ids})"
+
+    rows = await _supabase_request("GET", "/Etapa", params=params)
+    return rows or []
+
+
+@app.post("/api/etapas")
+async def api_crear_etapa(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        proyecto_id = body.get("proyecto_id")
+        if not proyecto_id:
+            return Response(content="Falta proyecto_id", status_code=400)
+        if not await obtener_proyecto_por_id(proyecto_id):
+            return Response(content="Proyecto no encontrado", status_code=404)
+        payload: Dict[str, Any] = {"proyecto_id": proyecto_id}
+        for campo in _CAMPOS_ETAPA:
+            if campo in body:
+                payload[campo] = body[campo] or None
+        row = await _supabase_request("POST", "/Etapa",
+            json=payload, extra_headers={"Prefer": "return=representation"})
+        return row[0] if isinstance(row, list) and row else row
+    except Exception as e:
+        logger.exception("Error en POST /api/etapas")
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
+@app.patch("/api/etapas/{etapa_id}")
+async def api_editar_etapa(etapa_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        payload: Dict[str, Any] = {}
+        for campo in _CAMPOS_ETAPA:
+            if campo in body:
+                payload[campo] = body[campo] or None
+        if not payload:
+            return Response(content="Nada que actualizar", status_code=400)
+        await _supabase_request("PATCH", "/Etapa",
+            params={"id": f"eq.{etapa_id}"},
+            json=payload, extra_headers={"Prefer": "return=minimal"})
+        return {"ok": True}
+    except Exception as e:
+        logger.exception("Error en PATCH /api/etapas/%s", etapa_id)
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
+@app.delete("/api/etapas/{etapa_id}")
+async def api_eliminar_etapa(etapa_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    await _supabase_request("DELETE", "/Etapa",
+        params={"id": f"eq.{etapa_id}"},
+        extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
+
+
 # ── ProyectoEjecutivo ─────────────────────────────────────────────────────────
 
 @app.get("/api/proyecto-ejecutivos")

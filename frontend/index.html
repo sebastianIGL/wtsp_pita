@@ -693,6 +693,7 @@ async function initAuth() {
   cargarClientes()
   cargarUsuarios()
   cargarTipologias()
+  cargarEtapas()
 }
 
 function _actualizarToggle() {
@@ -2011,6 +2012,7 @@ async function cargarTipologias() {
 
 function abrirTipologias() {
   renderTablaTipologias()
+  renderTablaEtapas()
   document.getElementById('modal-tipologias').classList.remove('hidden')
 }
 function cerrarTipologias() {
@@ -2162,6 +2164,129 @@ async function eliminarTipologia(id) {
     renderTablaTipologias()
   } catch(e) { toast(e.message, 'error') }
 }
+
+// ─── Etapas ───────────────────────────────────────────────────────────────────
+
+let _etapas = []
+let _editandoEtapaId = null
+
+async function cargarEtapas() {
+  try {
+    const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+    const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+    const empresa      = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
+    const qs = proyecto?.id
+      ? `?proyecto_id=${proyecto.id}`
+      : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
+      : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
+    _etapas = await api('GET', `/api/etapas${qs}`)
+  } catch(e) { console.warn('etapas:', e) }
+}
+
+function _badgeEstadoEntrega(estado) {
+  const map = { entrega_inmediata: 'Entrega inmediata', entrega_futura: 'Entrega futura' }
+  const col = { entrega_inmediata: 'bg-emerald-900 text-emerald-300', entrega_futura: 'bg-blue-900 text-blue-300' }
+  const e = estado || 'entrega_futura'
+  return `<span class="text-xs px-2 py-0.5 rounded-full ${col[e] || 'badge-count-bg'}">${map[e] || e}</span>`
+}
+
+function _formatFecha(f) {
+  if (!f) return '—'
+  const [y, m, d] = f.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function renderTablaEtapas() {
+  const proyecto = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+  const esTodos  = !proyecto?.id
+  const tbody = document.getElementById('etapas-tbody')
+  if (!_etapas.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center empty-text text-sm">No hay etapas registradas.</td></tr>`
+    return
+  }
+  tbody.innerHTML = _etapas.map(e => `
+    <tr class="trow border-b text-sm">
+      ${esTodos ? `<td class="col-proyecto-etapa px-3 py-2 sidebar-text text-xs">${e.Proyecto?.nombre || '—'}</td>` : ''}
+      <td class="px-3 py-2 val-text">${_formatFecha(e.fecha_entrega)}</td>
+      <td class="px-3 py-2">${_badgeEstadoEntrega(e.estado)}</td>
+      <td class="px-3 py-2 text-center">
+        <div class="flex gap-1.5 justify-center">
+          <button onclick='editarEtapa(${JSON.stringify(e).replace(/'/g, "&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Editar</button>
+          <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+        </div>
+      </td>
+    </tr>`).join('')
+
+  document.querySelectorAll('.col-proyecto-etapa').forEach(th => th.classList.toggle('hidden', !esTodos))
+}
+
+function abrirFormEtapa(etapa = null) {
+  _editandoEtapaId = etapa?.id ?? null
+  const proyecto = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+
+  document.getElementById('etapa-form-titulo').textContent = etapa ? 'Editar etapa' : 'Nueva etapa'
+  document.getElementById('ef-fecha').value  = etapa?.fecha_entrega || ''
+  document.getElementById('ef-estado').value = etapa?.estado || 'entrega_futura'
+
+  const wrapProyecto = document.getElementById('wrap-etapa-proyecto')
+  const sel = document.getElementById('ef-proyecto-id')
+  if (proyecto?.id) {
+    wrapProyecto.classList.add('hidden')
+    sel.innerHTML = `<option value="${proyecto.id}" selected>${proyecto.nombre || proyecto.id}</option>`
+  } else {
+    wrapProyecto.classList.remove('hidden')
+    sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>'
+      + proyectos.map(p => `<option value="${p.id}" ${etapa?.proyecto_id === p.id ? 'selected' : ''}>${p.nombre}</option>`).join('')
+  }
+
+  document.getElementById('modal-etapa-form').classList.remove('hidden')
+}
+
+function cerrarFormEtapa() {
+  document.getElementById('modal-etapa-form').classList.add('hidden')
+}
+
+async function guardarEtapa() {
+  const proyecto_id = document.getElementById('ef-proyecto-id').value
+  const fecha       = document.getElementById('ef-fecha').value
+  const estado      = document.getElementById('ef-estado').value
+  if (!proyecto_id) { toast('Selecciona un proyecto', 'error'); return }
+
+  const payload = { proyecto_id, fecha_entrega: fecha || null, estado }
+
+  const btn = document.getElementById('btn-guardar-etapa')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    if (_editandoEtapaId) {
+      await api('PATCH', `/api/etapas/${_editandoEtapaId}`, payload)
+      toast('Etapa actualizada')
+    } else {
+      await api('POST', '/api/etapas', payload)
+      toast('Etapa creada')
+    }
+    cerrarFormEtapa()
+    await cargarEtapas()
+    renderTablaEtapas()
+  } catch(e) {
+    toast(e.message, 'error')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar'
+  }
+}
+
+function editarEtapa(e) {
+  abrirFormEtapa(e)
+}
+
+async function eliminarEtapa(id) {
+  if (!id) return
+  try {
+    await api('DELETE', `/api/etapas/${id}`)
+    toast('Etapa eliminada')
+    await cargarEtapas()
+    renderTablaEtapas()
+  } catch(e) { toast(e.message, 'error') }
+}
 </script>
 
 <!-- ═══ MODAL CONVERSACIÓN ═══ -->
@@ -2304,6 +2429,26 @@ async function eliminarTipologia(id) {
         </thead>
         <tbody id="tipologias-tbody"></tbody>
       </table>
+
+      <!-- ─── Etapas de entrega ─── -->
+      <div class="flex items-center justify-between px-6 py-3 border-t" style="border-color:rgba(255,255,255,0.12)">
+        <h3 class="font-semibold val-text">Etapas de entrega</h3>
+        <button onclick="abrirFormEtapa()" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Nueva etapa
+        </button>
+      </div>
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
+            <th class="col-proyecto-etapa hidden px-3 py-2.5 text-left">Proyecto</th>
+            <th class="px-3 py-2.5 text-left">Fecha entrega</th>
+            <th class="px-3 py-2.5">Estado</th>
+            <th class="px-3 py-2.5 text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="etapas-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -2442,6 +2587,37 @@ async function eliminarTipologia(id) {
     <div class="px-7 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
       <button onclick="cerrarFormTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button onclick="guardarTipologia()" id="btn-guardar-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ETAPA FORM ═══ -->
+<div id="modal-etapa-form" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h3 id="etapa-form-titulo" class="font-bold val-text">Nueva etapa</h3>
+      <button onclick="cerrarFormEtapa()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="space-y-4">
+      <div id="wrap-etapa-proyecto">
+        <label class="block text-xs sidebar-text mb-1.5">Proyecto *</label>
+        <select id="ef-proyecto-id" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
+        <input id="ef-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Estado</label>
+        <select id="ef-estado" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="entrega_futura">Entrega futura</option>
+          <option value="entrega_inmediata">Entrega inmediata</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex gap-3 mt-6">
+      <button onclick="cerrarFormEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button id="btn-guardar-etapa" onclick="guardarEtapa()" class="flex-1 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
   </div>
 </div>
