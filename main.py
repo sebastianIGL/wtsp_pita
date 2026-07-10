@@ -1501,7 +1501,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23,tipologias,template_bienvenida,grupo_ds19"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23,tipologias"
 
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
@@ -1718,7 +1718,7 @@ _PROYECTO_SELECT_LIGHT = (
     "id,nombre,ubicacion,acepta_ds19,"
     "acepta_ds1_t23,tipologias,"
     "ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
-    "tiene_piloto,valor_estacionamiento_uf,notas,grupo_ds19"
+    "tiene_piloto,valor_estacionamiento_uf,notas"
 )
 
 async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional[str]) -> List[Dict]:
@@ -4033,7 +4033,7 @@ async def api_movendo_nuevo_cliente(request: Request):
         # 2) nombre ilike
         # 3) codigo ilike
         # 4) prefijo o alias en nombres_csv (maneja "Viñedos de Rengo II" → "Viñedos de Rengo")
-        _sel_proy = "id,nombre,imagen_url,template_bienvenida,nombres_csv"
+        _sel_proy = "id,nombre,imagen_url,nombres_csv"
         proyectos = []
 
         if movendo_pid is not None:
