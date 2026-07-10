@@ -1542,17 +1542,17 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
     if tipologia_id:
         tip_rows = await _supabase_request(
             "GET", "/Tipologia",
-            params={"id": f"eq.{tipologia_id}", "select": "precio_desde_uf"},
+            params={"id": f"eq.{tipologia_id}", "select": "valor_uf"},
         ) or []
-        precios = [t.get("precio_desde_uf") for t in tip_rows if t.get("precio_desde_uf")]
+        precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
     else:
         precios = [t.get("precio_desde_uf") for t in tips if isinstance(t, dict) and t.get("precio_desde_uf")]
         if not precios and p.get("id"):
             tip_rows = await _supabase_request(
                 "GET", "/Tipologia",
-                params={"proyecto_id": f"eq.{p['id']}", "select": "precio_desde_uf"},
+                params={"proyecto_id": f"eq.{p['id']}", "select": "valor_uf"},
             ) or []
-            precios = [t.get("precio_desde_uf") for t in tip_rows if t.get("precio_desde_uf")]
+            precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
     precio_min   = min(precios) if precios else None
     precio_desde = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
 
@@ -3195,7 +3195,7 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
 
 # ── Tipologia ─────────────────────────────────────────────────────────────────
 
-_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,precio_desde_uf,precio_hasta_uf,tipo_subsidio,stock_disponible,estado"
+_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,valor_uf,monto_subsidio,tipo_subsidio,stock_disponible,estado"
 
 @app.get("/api/tipologias")
 async def api_listar_tipologias(request: Request):
@@ -3230,7 +3230,7 @@ async def api_listar_tipologias(request: Request):
 
 
 _CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2", "terreno_m2",
-                     "precio_desde_uf", "precio_hasta_uf",
+                     "valor_uf", "monto_subsidio",
                      "tipo_subsidio", "stock_disponible", "estado")
 
 @app.post("/api/tipologias")
