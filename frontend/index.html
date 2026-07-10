@@ -1987,19 +1987,21 @@ function renderTablaTipologias() {
   }
   tbody.innerHTML = _tipologias.map(t => `
     <tr class="trow border-b text-sm">
-      ${esTodos ? `<td class="px-4 py-3 sidebar-text text-xs">${(t.Proyecto?.nombre||'—')}</td>` : ''}
-      <td class="px-4 py-3 val-text font-medium">${t.nombre||'—'}</td>
-      <td class="px-4 py-3 sidebar-text text-center">${t.dormitorios??'—'}</td>
-      <td class="px-4 py-3 sidebar-text text-center">${t.banos??'—'}</td>
-      <td class="px-4 py-3 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
-      <td class="px-4 py-3 sidebar-text text-right">${t.valor_uf ? t.valor_uf+' UF' : '—'}</td>
-      <td class="px-4 py-3 sidebar-text text-right">${t.monto_subsidio ? t.monto_subsidio+' UF' : '—'}</td>
-      <td class="px-4 py-3">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
-      <td class="px-4 py-3 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
-      <td class="px-4 py-3">${_badgeEstado(t.estado)}</td>
-      <td class="px-4 py-3 flex gap-2">
-        <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
-        <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+      ${esTodos ? `<td class="px-3 py-2 sidebar-text text-xs">${(t.Proyecto?.nombre||'—')}</td>` : ''}
+      <td class="px-3 py-2 val-text font-medium">${t.nombre||'—'}</td>
+      <td class="px-3 py-2 sidebar-text text-center">${t.dormitorios??'—'}</td>
+      <td class="px-3 py-2 sidebar-text text-center">${t.banos??'—'}</td>
+      <td class="px-3 py-2 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
+      <td class="px-3 py-2 sidebar-text text-right">${t.valor_uf ? t.valor_uf+' UF' : '—'}</td>
+      <td class="px-3 py-2 sidebar-text text-right">${t.monto_subsidio ? t.monto_subsidio+' UF' : '—'}</td>
+      <td class="px-3 py-2">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
+      <td class="px-3 py-2 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
+      <td class="px-3 py-2">${_badgeEstado(t.estado)}</td>
+      <td class="px-3 py-2 text-center">
+        <div class="flex gap-1.5 justify-center">
+          <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+          <button onclick="confirmarEliminarTipologia(${t.id},'${(t.nombre||'').replace(/'/g,"\\'")}')' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+        </div>
       </td>
     </tr>`).join('')
 
@@ -2087,8 +2089,19 @@ function editarTipologia(t) {
   abrirFormTipologia(t)
 }
 
+let _deletingTipId = null
+function confirmarEliminarTipologia(id, nombre) {
+  _deletingTipId = id
+  document.getElementById('confirm-tip-nombre').textContent = nombre || 'esta tipología'
+  document.getElementById('modal-confirm-tip').classList.remove('hidden')
+}
+function cerrarConfirmTip() {
+  _deletingTipId = null
+  document.getElementById('modal-confirm-tip').classList.add('hidden')
+}
 async function eliminarTipologia(id) {
-  if (!confirm('¿Eliminar esta tipología?')) return
+  cerrarConfirmTip()
+  if (!id) return
   try {
     await api('DELETE', `/api/tipologias/${id}`)
     toast('Tipología eliminada')
@@ -2208,7 +2221,7 @@ async function eliminarTipologia(id) {
 
 <!-- ═══ MODAL TIPOLOGÍAS (lista) ═══ -->
 <div id="modal-tipologias" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
-  <div class="glass rounded-2xl w-full shadow-2xl flex flex-col" style="max-width:960px;max-height:90vh">
+  <div class="glass rounded-2xl w-full shadow-2xl flex flex-col" style="max-width:1200px;max-height:90vh">
     <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
       <h2 class="font-bold val-text text-lg">Tipologías</h2>
       <div class="flex items-center gap-3">
@@ -2220,24 +2233,36 @@ async function eliminarTipologia(id) {
       </div>
     </div>
     <div class="overflow-auto flex-1">
-      <table class="w-full text-sm min-w-max">
+      <table class="w-full text-sm">
         <thead>
           <tr class="thead-row text-xs uppercase tracking-wider border-b">
-            <th class="col-proyecto-tip hidden px-4 py-3 text-left">Proyecto</th>
-            <th class="px-4 py-3 text-left">Tipología</th>
-            <th class="px-4 py-3 text-center">Dorms</th>
-            <th class="px-4 py-3 text-center">Baños</th>
-            <th class="px-4 py-3 text-center">Sup. m²</th>
-            <th class="px-4 py-3 text-right">Valor (UF)</th>
-            <th class="px-4 py-3 text-right">Subsidio (UF)</th>
-            <th class="px-4 py-3">Tipo subsidio</th>
-            <th class="px-4 py-3 text-center">Stock</th>
-            <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3"></th>
+            <th class="col-proyecto-tip hidden px-3 py-2.5 text-left">Proyecto</th>
+            <th class="px-3 py-2.5 text-left">Tipología</th>
+            <th class="px-3 py-2.5 text-center">Dorms</th>
+            <th class="px-3 py-2.5 text-center">Baños</th>
+            <th class="px-3 py-2.5 text-center">Sup. m²</th>
+            <th class="px-3 py-2.5 text-right">Valor (UF)</th>
+            <th class="px-3 py-2.5 text-right">Subsidio (UF)</th>
+            <th class="px-3 py-2.5">Tipo subsidio</th>
+            <th class="px-3 py-2.5 text-center">Stock</th>
+            <th class="px-3 py-2.5">Estado</th>
+            <th class="px-3 py-2.5 text-center">Acciones</th>
           </tr>
         </thead>
         <tbody id="tipologias-tbody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL CONFIRMAR ELIMINAR TIPOLOGÍA ═══ -->
+<div id="modal-confirm-tip" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
+  <div class="glass rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col gap-4">
+    <h3 class="font-bold val-text text-base">¿Eliminar tipología?</h3>
+    <p class="text-sm sidebar-text">Estás a punto de eliminar <span id="confirm-tip-nombre" class="val-text font-medium"></span>. Esta acción no se puede deshacer.</p>
+    <div class="flex gap-3 pt-1">
+      <button onclick="cerrarConfirmTip()" class="flex-1 py-2 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="eliminarTipologia(_deletingTipId)" class="flex-1 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white text-sm font-semibold transition">Eliminar</button>
     </div>
   </div>
 </div>
