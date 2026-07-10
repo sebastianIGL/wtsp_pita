@@ -955,6 +955,13 @@ function renderTabla(data) {
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
         </svg>
       </button>` : ''}
+      <button onclick='abrirEditarCliente(${JSON.stringify(c).replace(/'/g,"&#39;")})' title="Editar cliente"
+        class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-orange-400 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+        </svg>
+      </button>
     </div>`
 
     const recordatorioClass = c.recordatorio_at
@@ -1780,6 +1787,52 @@ async function guardarRecordatorio() {
 // ─── ASIGNAR EJECUTIVO ────────────────────────────────
 let _asignarClienteId = null
 
+// ── Editar cliente ──────────────────────────────────────────────
+let _editClienteId = null
+function abrirEditarCliente(c) {
+  _editClienteId = c.id
+  document.getElementById('ec-titulo').textContent   = c.Contacto || 'Cliente'
+  document.getElementById('ec-telefono').textContent = c.Telefono  || '—'
+  document.getElementById('ec-nombre').value         = c.Contacto          || ''
+  document.getElementById('ec-rut').value            = c.Rut               || ''
+  document.getElementById('ec-correo').value         = c.Correo            || ''
+  document.getElementById('ec-renta').value          = c['Tramo de renta'] || ''
+  document.getElementById('ec-integrantes').value    = c.numero_integrantes ?? ''
+  const sel = document.getElementById('ec-proyecto')
+  sel.innerHTML = proyectos.map(p =>
+    `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${p.nombre}</option>`
+  ).join('')
+  document.getElementById('modal-editar-cliente').classList.remove('hidden')
+}
+function cerrarEditarCliente() {
+  document.getElementById('modal-editar-cliente').classList.add('hidden')
+}
+async function guardarEditarCliente() {
+  const nombre = document.getElementById('ec-nombre').value.trim()
+  if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+  const intVal = document.getElementById('ec-integrantes').value
+  const payload = {
+    Contacto:           nombre,
+    Rut:                document.getElementById('ec-rut').value.trim()    || null,
+    Correo:             document.getElementById('ec-correo').value.trim() || null,
+    'Tramo de renta':   document.getElementById('ec-renta').value         || null,
+    numero_integrantes: intVal !== '' ? parseInt(intVal) : null,
+    proyecto_id:        document.getElementById('ec-proyecto').value      || null,
+  }
+  const btn = document.getElementById('ec-btn-guardar')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    await api('PATCH', `/api/clientes/${_editClienteId}`, payload)
+    toast('Cliente actualizado')
+    cerrarEditarCliente()
+    await cargarClientes()
+  } catch(e) {
+    toast(e.message, 'error')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar cambios'
+  }
+}
+
 function abrirAsignar(clienteId, nombre, usuarioActualId) {
   _asignarClienteId = clienteId
   document.getElementById('asignar-titulo').textContent = nombre
@@ -2251,6 +2304,60 @@ async function eliminarTipologia(id) {
         </thead>
         <tbody id="tipologias-tbody"></tbody>
       </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL EDITAR CLIENTE ═══ -->
+<div id="modal-editar-cliente" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-7 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <div>
+        <h3 id="ec-titulo" class="font-bold val-text">Editar cliente</h3>
+        <p class="text-xs sidebar-text mt-0.5">Tel: <span id="ec-telefono" class="font-mono"></span></p>
+      </div>
+      <button onclick="cerrarEditarCliente()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="overflow-y-auto px-7 py-5 space-y-4 flex-1">
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="ec-nombre" type="text" placeholder="Nombre completo" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">RUT</label>
+          <input id="ec-rut" type="text" placeholder="12.345.678-9" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Correo</label>
+          <input id="ec-correo" type="email" placeholder="correo@ejemplo.com" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Tramo de renta</label>
+          <select id="ec-renta" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">— Sin definir —</option>
+            <option value="menos de 400">Menos de $400k</option>
+            <option value="entre 400 y 600">$400k – $600k</option>
+            <option value="entre 600 y 900">$600k – $900k</option>
+            <option value="entre 900 y 1.100">$900k – $1.100k</option>
+            <option value="más de 1.100">Más de $1.100k</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">N° integrantes grupo familiar</label>
+          <input id="ec-integrantes" type="number" min="1" step="1" placeholder="4" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Proyecto</label>
+        <select id="ec-proyecto" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+      </div>
+    </div>
+    <div class="px-7 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarEditarCliente()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button id="ec-btn-guardar" onclick="guardarEditarCliente()" class="flex-1 py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white text-sm font-semibold transition">Guardar cambios</button>
     </div>
   </div>
 </div>
