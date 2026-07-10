@@ -1993,6 +1993,7 @@ function renderTablaTipologias() {
       <td class="px-4 py-3 sidebar-text text-center">${t.banos??'—'}</td>
       <td class="px-4 py-3 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
       <td class="px-4 py-3 sidebar-text text-right">${t.valor_uf ? t.valor_uf+' UF' : '—'}</td>
+      <td class="px-4 py-3 sidebar-text text-right">${t.monto_subsidio ? t.monto_subsidio+' UF' : '—'}</td>
       <td class="px-4 py-3">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
       <td class="px-4 py-3 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
       <td class="px-4 py-3">${_badgeEstado(t.estado)}</td>
@@ -2228,7 +2229,8 @@ async function eliminarTipologia(id) {
             <th class="px-4 py-3 text-center">Baños</th>
             <th class="px-4 py-3 text-center">Sup. m²</th>
             <th class="px-4 py-3 text-right">Valor (UF)</th>
-            <th class="px-4 py-3">Subsidio</th>
+            <th class="px-4 py-3 text-right">Subsidio (UF)</th>
+            <th class="px-4 py-3">Tipo subsidio</th>
             <th class="px-4 py-3 text-center">Stock</th>
             <th class="px-4 py-3">Estado</th>
             <th class="px-4 py-3"></th>
