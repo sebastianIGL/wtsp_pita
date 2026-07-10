@@ -3195,7 +3195,7 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
 
 # ── Tipologia ─────────────────────────────────────────────────────────────────
 
-_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,valor_uf,precio_desde_uf,precio_hasta_uf,monto_subsidio,tipo_subsidio,stock_disponible,estado"
+_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,precio_desde_uf,precio_hasta_uf,tipo_subsidio,stock_disponible,estado"
 
 @app.get("/api/tipologias")
 async def api_listar_tipologias(request: Request):
