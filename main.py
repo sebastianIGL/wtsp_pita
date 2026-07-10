@@ -1501,7 +1501,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,monto_subsidio,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,template_bienvenida,grupo_ds19"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,template_bienvenida,grupo_ds19"
 
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
@@ -1542,7 +1542,7 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
     if tipologia_id:
         tip_rows = await _supabase_request(
             "GET", "/Tipologia",
-            params={"id": f"eq.{tipologia_id}", "select": "valor_uf"},
+            params={"id": f"eq.{tipologia_id}", "select": "valor_uf,monto_subsidio"},
         ) or []
         precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
     else:
@@ -1550,11 +1550,32 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
         if not precios and p.get("id"):
             tip_rows = await _supabase_request(
                 "GET", "/Tipologia",
-                params={"proyecto_id": f"eq.{p['id']}", "select": "valor_uf"},
+                params={"proyecto_id": f"eq.{p['id']}", "select": "valor_uf,monto_subsidio", "order": "id.asc"},
             ) or []
             precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
     precio_min   = min(precios) if precios else None
     precio_desde = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
+
+    # Monto subsidio desde tipología
+    tip_monto = None
+    if tip_rows:
+        tip_monto = tip_rows[0].get("monto_subsidio")
+    elif p.get("id"):
+        _m_rows = await _supabase_request("GET", "/Tipologia",
+            params={"proyecto_id": f"eq.{p['id']}", "select": "monto_subsidio", "limit": "1", "order": "id.asc"}) or []
+        tip_monto = _m_rows[0].get("monto_subsidio") if _m_rows else None
+    try:
+        tip_monto = float(tip_monto) if tip_monto is not None else None
+    except (TypeError, ValueError):
+        tip_monto = None
+
+    # Fecha entrega desde Etapa
+    fecha_entrega_pool = "por confirmar"
+    if p.get("id"):
+        _e_rows = await _supabase_request("GET", "/Etapa",
+            params={"proyecto_id": f"eq.{p['id']}", "select": "fecha_entrega", "limit": "1", "order": "id.asc"}) or []
+        if _e_rows and _e_rows[0].get("fecha_entrega"):
+            fecha_entrega_pool = _e_rows[0]["fecha_entrega"]
 
     # Valor reserva CLP, con fallback a UF si no hay CLP
     reserva_clp = p.get("valor_reserva_clp")
@@ -1570,10 +1591,10 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
         "proyecto_nombre":    p.get("nombre")             or "nuestro proyecto",
         "proyecto_ubicacion": p.get("ubicacion")          or "Santiago",
         "subsidio_tipo":      subsidio_tipo,
-        "monto_subsidio_uf":  f"{p.get('monto_subsidio') or 700} UF",
+        "monto_subsidio_uf":  f"{tip_monto or 700} UF",
         "valor_reserva_clp":  reserva_fmt,
         "precio_desde_uf":    precio_desde,
-        "fecha_entrega":      p.get("fecha_entrega")      or "por confirmar",
+        "fecha_entrega":      fecha_entrega_pool,
     }
 
 
@@ -1694,9 +1715,9 @@ def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
 
 
 _PROYECTO_SELECT_LIGHT = (
-    "id,nombre,ubicacion,acepta_ds19,monto_subsidio,"
+    "id,nombre,ubicacion,acepta_ds19,"
     "acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,"
-    "fecha_entrega,tipo_entrega,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
+    "ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
     "tiene_piloto,valor_estacionamiento_uf,notas,grupo_ds19"
 )
 
@@ -1724,7 +1745,7 @@ def _resumir_proyecto(p: Dict) -> str:
     ) or "tipologías por consultar"
     subsidios = []
     if p.get("acepta_ds19"):
-        subsidios.append(f"DS19 {p.get('monto_subsidio','')}UF")
+        subsidios.append("DS19")
     if p.get("acepta_ds1_t23"):
         subsidios.append(f"DS1T23 {p.get('subsidio_ds1_t23_uf','')}UF")
     sub_str = " | ".join(subsidios) or "sin subsidio"
@@ -1781,7 +1802,23 @@ async def generar_respuesta_ia(
     proyecto_nombre    = p.get("nombre") or "nuestro proyecto"
     proyecto_ubicacion = p.get("ubicacion") or ""
     proyecto_inmobiliaria      = mind["inmobiliaria"]
-    proyecto_fecha_entrega     = p.get("fecha_entrega") or "por confirmar"
+
+    # Datos de Etapa y Tipologia (ya no viven en Proyecto)
+    _etapa_bot = None
+    _tip_monto_bot = None
+    if p.get("id"):
+        _etapas_bot = await _supabase_request("GET", "/Etapa",
+            params={"proyecto_id": f"eq.{p['id']}", "select": "fecha_entrega,estado", "limit": "1", "order": "id.asc"}) or []
+        _etapa_bot = _etapas_bot[0] if _etapas_bot else None
+        _tips_bot = await _supabase_request("GET", "/Tipologia",
+            params={"proyecto_id": f"eq.{p['id']}", "select": "monto_subsidio", "limit": "1", "order": "id.asc"}) or []
+        _raw_monto = _tips_bot[0].get("monto_subsidio") if _tips_bot else None
+        try:
+            _tip_monto_bot = float(_raw_monto) if _raw_monto is not None else None
+        except (TypeError, ValueError):
+            _tip_monto_bot = None
+
+    proyecto_fecha_entrega     = (_etapa_bot.get("fecha_entrega") if _etapa_bot else None) or "por confirmar"
     proyecto_ahorro_minimo     = p.get("ahorro_minimo_uf") or 50
     proyecto_reserva_clp       = p.get("valor_reserva_clp") or ""
     proyecto_reserva_uf        = p.get("valor_reserva_uf") or ""
@@ -1790,7 +1827,7 @@ async def generar_respuesta_ia(
     proyecto_estac_obligatorio = p.get("estacionamiento_obligatorio")
     proyecto_notas             = p.get("notas") or ""
     proyecto_acepta_ds19       = p.get("acepta_ds19", True)
-    proyecto_monto_subsidio    = p.get("monto_subsidio") or 700
+    proyecto_monto_subsidio    = _tip_monto_bot or 700
     proyecto_acepta_ds1t23     = p.get("acepta_ds1_t23", False)
     proyecto_subsidio_ds1t23   = p.get("subsidio_ds1_t23_uf") or ""
     proyecto_tipologias        = p.get("tipologias") or []
@@ -1817,7 +1854,7 @@ async def generar_respuesta_ia(
 
     # Variables adicionales para nuevo PASOS_CONFIG
     tipo_subsidio_datos   = datos.get("tipo_subsidio") or "no_determinado"
-    tipo_entrega_proyecto = p.get("tipo_entrega") or "futura"
+    tipo_entrega_proyecto = (_etapa_bot.get("estado") if _etapa_bot else None) or "entrega_futura"
     grupo_ds19_proyecto   = p.get("grupo_ds19") or "A"
     _credito_uf_est: Any = "consultar"
     if proyecto_tipologias:
@@ -3180,11 +3217,11 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
     """Copia los campos opcionales del proyecto desde body → payload."""
     if es_admin and body.get("imagen_url") is not None:
         payload["imagen_url"] = body["imagen_url"] or None
-    for campo in ("fecha_entrega", "notas"):
+    for campo in ("notas",):
         if campo in body:
             payload[campo] = (body[campo] or "").strip() or None
     for campo in ("ahorro_minimo_uf", "valor_reserva_clp", "valor_reserva_uf",
-                  "valor_estacionamiento_uf", "monto_subsidio", "subsidio_ds1_t23_uf"):
+                  "valor_estacionamiento_uf", "subsidio_ds1_t23_uf"):
         if campo in body:
             try:    payload[campo] = float(body[campo]) if body[campo] not in (None, "") else None
             except: pass
