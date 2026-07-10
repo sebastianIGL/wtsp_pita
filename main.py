@@ -1501,7 +1501,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,template_bienvenida,grupo_ds19"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23,tipologias,template_bienvenida,grupo_ds19"
 
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
@@ -1716,7 +1716,7 @@ def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
 
 _PROYECTO_SELECT_LIGHT = (
     "id,nombre,ubicacion,acepta_ds19,"
-    "acepta_ds1_t23,subsidio_ds1_t23_uf,tipologias,"
+    "acepta_ds1_t23,tipologias,"
     "ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
     "tiene_piloto,valor_estacionamiento_uf,notas,grupo_ds19"
 )
@@ -3221,7 +3221,7 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
         if campo in body:
             payload[campo] = (body[campo] or "").strip() or None
     for campo in ("ahorro_minimo_uf", "valor_reserva_clp", "valor_reserva_uf",
-                  "valor_estacionamiento_uf", "subsidio_ds1_t23_uf"):
+                  "valor_estacionamiento_uf"):
         if campo in body:
             try:    payload[campo] = float(body[campo]) if body[campo] not in (None, "") else None
             except: pass
