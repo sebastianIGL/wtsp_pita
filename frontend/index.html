@@ -2403,17 +2403,39 @@ function renderTablaInbox() {
     const tel      = p.telefono_e164 || '—'
     const msg      = esc(p.ultimo_texto_entrante || '—')
     const pJson    = esc(JSON.stringify(p))
-    return `<tr class="border-b transition cursor-pointer hover:bg-white/5" style="border-color:rgba(255,255,255,0.06)">
+    return `<tr class="border-b transition hover:bg-white/5" style="border-color:rgba(255,255,255,0.06)">
       <td class="px-6 py-4 font-mono text-sm val-text">${esc(tel)}</td>
       <td class="px-6 py-4 val-text">${esc(nombre)}</td>
       <td class="px-6 py-4 sidebar-text text-sm">${esc(proyecto)}</td>
       <td class="px-6 py-4 sidebar-text text-sm max-w-xs truncate" title="${msg}">${msg}</td>
       <td class="px-6 py-4 sidebar-text text-xs whitespace-nowrap">${fecha}</td>
       <td class="px-6 py-4">
-        <button onclick='abrirRegistrarInbox(${pJson})' class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">+ Registrar</button>
+        <div class="flex items-center gap-2">
+          <button onclick='abrirConversacionProspecto("${esc(p.id)}", "${esc(nombre)}")' title="Ver conversación"
+            class="p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+          </button>
+          <button onclick='abrirRegistrarInbox(${pJson})' class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">+ Registrar</button>
+        </div>
       </td>
     </tr>`
   }).join('')
+}
+
+async function abrirConversacionProspecto(prospectoId, nombre) {
+  document.getElementById('conv-titulo').textContent = `Conversación — ${nombre}`
+  document.getElementById('conv-body').innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`
+  document.getElementById('conv-paso').textContent = ''
+  document.getElementById('modal-conversacion').classList.remove('hidden')
+  try {
+    const data = await api('GET', `/api/prospectos/${prospectoId}/conversacion`)
+    renderConversacion(data)
+  } catch(e) {
+    document.getElementById('conv-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${e.message}</p>`
+  }
 }
 
 function abrirRegistrarInbox(p) {

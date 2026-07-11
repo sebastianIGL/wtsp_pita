@@ -3896,6 +3896,27 @@ async def api_conversacion_cliente(cliente_id: int, request: Request):
     return {"mensajes": mensajes, "paso": p.get("paso"), "estado": p.get("estado")}
 
 
+@app.get("/api/prospectos/{prospecto_id}/conversacion")
+async def api_conversacion_prospecto(prospecto_id: str, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    mensajes = await _supabase_request(
+        "GET", "/Mensaje",
+        params={
+            "prospecto_id": f"eq.{prospecto_id}",
+            "select":       "id,direccion,texto,creado_en",
+            "order":        "creado_en.asc",
+            "limit":        "200",
+        },
+    ) or []
+    prospectos = await _supabase_request(
+        "GET", "/Prospecto",
+        params={"id": f"eq.{prospecto_id}", "select": "paso,estado", "limit": "1"},
+    ) or []
+    p = prospectos[0] if prospectos else {}
+    return {"mensajes": mensajes, "paso": p.get("paso"), "estado": p.get("estado")}
+
+
 @app.get("/api/clientes/{cliente_id}/contexto")
 async def api_contexto_cliente(cliente_id: int, request: Request):
     if not await _get_usuario_actual(request):
