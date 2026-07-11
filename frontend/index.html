@@ -1790,7 +1790,7 @@ let _asignarClienteId = null
 
 // ── Editar cliente ──────────────────────────────────────────────
 let _editClienteId = null
-function abrirEditarCliente(c) {
+async function abrirEditarCliente(c) {
   _editClienteId = c.id
   document.getElementById('ec-titulo').textContent   = c.Contacto || 'Cliente'
   document.getElementById('ec-telefono').textContent = c.Telefono  || '—'
@@ -1800,25 +1800,46 @@ function abrirEditarCliente(c) {
   document.getElementById('ec-renta').value          = c['Tramo de renta'] || ''
   document.getElementById('ec-integrantes').value    = c.numero_integrantes ?? ''
   const sel = document.getElementById('ec-proyecto')
-  sel.innerHTML = proyectos.map(p =>
-    `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${p.nombre}</option>`
-  ).join('')
+  sel.innerHTML = '<option value="">— Sin proyecto —</option>'
+    + proyectos.map(p =>
+      `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${p.nombre}</option>`
+    ).join('')
+  await _cargarTipologiasEdicion(c.proyecto_id, c.tipologia_id)
   document.getElementById('modal-editar-cliente').classList.remove('hidden')
 }
 function cerrarEditarCliente() {
   document.getElementById('modal-editar-cliente').classList.add('hidden')
 }
+async function onEcProyectoChange(proyectoId) {
+  await _cargarTipologiasEdicion(proyectoId ? proyectoId : null, null)
+}
+async function _cargarTipologiasEdicion(proyectoId, tipologiaActualId) {
+  const sel = document.getElementById('ec-tipologia')
+  sel.innerHTML = '<option value="">— Sin tipología —</option>'
+  if (!proyectoId) return
+  try {
+    const tips = await api('GET', `/api/tipologias?proyecto_id=${proyectoId}`)
+    tips.forEach(t => {
+      const opt = new Option(t.nombre, t.id)
+      if (t.id === tipologiaActualId) opt.selected = true
+      sel.appendChild(opt)
+    })
+  } catch(_) {}
+}
 async function guardarEditarCliente() {
   const nombre = document.getElementById('ec-nombre').value.trim()
   if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
-  const intVal = document.getElementById('ec-integrantes').value
+  const intVal   = document.getElementById('ec-integrantes').value
+  const tipRaw   = document.getElementById('ec-tipologia').value
+  const proyRaw  = document.getElementById('ec-proyecto').value
   const payload = {
     Contacto:           nombre,
     Rut:                document.getElementById('ec-rut').value.trim()    || null,
     Correo:             document.getElementById('ec-correo').value.trim() || null,
     'Tramo de renta':   document.getElementById('ec-renta').value         || null,
-    numero_integrantes: intVal !== '' ? parseInt(intVal) : null,
-    proyecto_id:        document.getElementById('ec-proyecto').value      || null,
+    numero_integrantes: intVal  !== '' ? parseInt(intVal)  : null,
+    proyecto_id:        proyRaw !== '' ? proyRaw           : null,
+    tipologia_id:       tipRaw  !== '' ? parseInt(tipRaw)  : null,
   }
   const btn = document.getElementById('ec-btn-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
@@ -2497,7 +2518,13 @@ async function eliminarEtapa(id) {
       </div>
       <div>
         <label class="block text-xs sidebar-text mb-1.5">Proyecto</label>
-        <select id="ec-proyecto" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+        <select id="ec-proyecto" onchange="onEcProyectoChange(this.value)" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+      </div>
+      <div id="ec-wrap-tipologia">
+        <label class="block text-xs sidebar-text mb-1.5">Tipología</label>
+        <select id="ec-tipologia" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="">— Sin tipología —</option>
+        </select>
       </div>
     </div>
     <div class="px-7 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
