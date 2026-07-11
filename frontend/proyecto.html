@@ -152,21 +152,28 @@
         </div>
       </div>
 
-      <!-- Entrega y financiero -->
+      <!-- Etapa de entrega -->
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Entrega y financiero</p>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Etapa de entrega</p>
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
-            <input id="f-fecha-entrega" type="text" placeholder="Ej: Semestre 1 - 2026" class="w-full rounded-lg px-3 py-2 text-sm" />
+            <input id="f-etapa-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" />
           </div>
           <div>
             <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
-            <select id="f-tipo-entrega" class="w-full rounded-lg px-3 py-2 text-sm">
-              <option value="futura">Futura (ahorro en cuotas)</option>
-              <option value="inmediata">Inmediata (ahorro de una vez)</option>
+            <select id="f-etapa-estado" class="w-full rounded-lg px-3 py-2 text-sm">
+              <option value="entrega_futura">Futura (ahorro en cuotas)</option>
+              <option value="entrega_inmediata">Inmediata (ahorro de una vez)</option>
             </select>
           </div>
+        </div>
+      </div>
+
+      <!-- Financiero -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Financiero</p>
+        <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-xs sidebar-text mb-1.5">Ahorro mínimo (UF)</label>
             <input id="f-ahorro-minimo" type="number" step="0.1" min="0" placeholder="50" class="w-full rounded-lg px-3 py-2 text-sm" />
@@ -207,46 +214,17 @@
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Subsidios</p>
         <div class="space-y-3">
-          <div>
-            <label class="block text-xs sidebar-text mb-1.5">Grupo DS19 (tope de renta)</label>
-            <select id="f-grupo-ds19" class="w-full rounded-lg px-3 py-2 text-sm">
-              <option value="A">Grupo A — Regiones principales (RM, Bio Bio, etc.)</option>
-              <option value="B">Grupo B — Regiones extremas (Antofagasta, Aysén, etc.)</option>
-            </select>
-            <p class="text-xs sidebar-text mt-1.5">Define el tope máximo de renta para calificar al DS19.</p>
-          </div>
-          <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex items-center gap-6 flex-wrap">
             <label class="flex items-center gap-2 cursor-pointer select-none">
-              <input id="f-acepta-ds19" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" onchange="toggleSubsidio()" />
+              <input id="f-acepta-ds19" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
               <span class="text-sm val-text">Acepta DS19</span>
             </label>
-            <div id="wrap-monto-ds19" class="hidden flex items-center gap-2">
-              <label class="text-xs sidebar-text">Monto (UF)</label>
-              <input id="f-monto-ds19" type="number" step="1" min="0" placeholder="700" class="rounded-lg px-3 py-1.5 text-sm w-28" />
-            </div>
-          </div>
-          <div class="flex items-center gap-4 flex-wrap">
             <label class="flex items-center gap-2 cursor-pointer select-none">
-              <input id="f-acepta-ds1t23" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" onchange="toggleSubsidio()" />
+              <input id="f-acepta-ds1t23" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
               <span class="text-sm val-text">Acepta DS1 Tramo 2 y 3</span>
             </label>
-            <div id="wrap-monto-ds1t23" class="hidden flex items-center gap-2">
-              <label class="text-xs sidebar-text">Monto (UF)</label>
-              <input id="f-monto-ds1t23" type="number" step="1" min="0" placeholder="200" class="rounded-lg px-3 py-1.5 text-sm w-28" />
-            </div>
           </div>
-        </div>
-      </div>
-
-      <!-- WhatsApp -->
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">WhatsApp</p>
-        <div>
-          <label class="block text-xs sidebar-text mb-1.5">Plantilla de bienvenida</label>
-          <select id="f-template-bienvenida" class="w-full rounded-lg px-3 py-2 text-sm font-mono">
-            <option value="">Sin plantilla automática</option>
-          </select>
-          <p id="f-template-estado" class="text-xs sidebar-text mt-1.5">Cargando plantillas…</p>
+          <p class="text-xs sidebar-text">El monto del subsidio se configura en cada tipología.</p>
         </div>
       </div>
 
@@ -465,11 +443,9 @@
   }
 
   function _resetModal() {
-    ['f-nombre','f-codigo','f-ubicacion','f-fecha-entrega','f-ahorro-minimo',
-     'f-reserva-clp','f-reserva-uf','f-estac-uf','f-monto-ds19','f-monto-ds1t23',
-     'f-template-bienvenida','f-notas'
+    ['f-nombre','f-codigo','f-ubicacion','f-ahorro-minimo',
+     'f-reserva-clp','f-reserva-uf','f-estac-uf','f-notas'
     ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
-    document.getElementById('f-grupo-ds19').value = 'A'
     document.getElementById('f-tiene-piloto').checked       = false
     document.getElementById('f-estac-obligatorio').checked  = false
     document.getElementById('f-acepta-ds19').checked        = false
@@ -478,77 +454,56 @@
     document.getElementById('img-estado').textContent       = ''
     document.getElementById('img-preview-wrap').classList.add('hidden')
     _imagenUrlActual = null
-    toggleSubsidio()
+    document.getElementById('f-etapa-fecha').value  = ''
+    document.getElementById('f-etapa-estado').value = 'entrega_futura'
   }
 
-  let _templatesCache = null
-
-  async function cargarTemplates(valorActual = '') {
-    const select = document.getElementById('f-template-bienvenida')
-    const estado = document.getElementById('f-template-estado')
-    estado.textContent = 'Cargando plantillas…'
-    try {
-      if (!_templatesCache) {
-        const data = await api('GET', '/api/templates')
-        _templatesCache = data.templates || []
-      }
-      const templates = _templatesCache
-      select.innerHTML = '<option value="">Sin plantilla automática</option>'
-      templates.forEach(t => {
-        const opt = document.createElement('option')
-        opt.value = t.name
-        opt.textContent = `${t.name}  [${t.category}]`
-        select.appendChild(opt)
-      })
-      if (valorActual) select.value = valorActual
-      estado.textContent = templates.length
-        ? `${templates.length} plantilla${templates.length !== 1 ? 's' : ''} aprobada${templates.length !== 1 ? 's' : ''} en Meta`
-        : 'No hay plantillas aprobadas en Meta.'
-    } catch(e) {
-      estado.textContent = `Error cargando plantillas: ${e.message}`
-    }
-  }
+  let _etapaId = null
 
   function abrirModal() {
     _editandoId = null
+    _etapaId    = null
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Nuevo proyecto'
     document.getElementById('seccion-tipologias').classList.add('hidden')
     document.getElementById('modal').classList.remove('hidden')
-    cargarTemplates('')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
 
-  function editar(row) {
+  async function editar(row) {
     _editandoId = row.id
+    _etapaId    = null
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Editar proyecto'
-    document.getElementById('f-nombre').value          = row.nombre           || ''
-    document.getElementById('f-codigo').value          = row.codigo           || ''
-    document.getElementById('f-ubicacion').value       = row.ubicacion        || ''
-    document.getElementById('f-fecha-entrega').value   = row.fecha_entrega    || ''
-    document.getElementById('f-tipo-entrega').value    = row.tipo_entrega     || 'futura'
-    document.getElementById('f-ahorro-minimo').value   = row.ahorro_minimo_uf ?? ''
-    document.getElementById('f-reserva-clp').value     = row.valor_reserva_clp ?? ''
-    document.getElementById('f-reserva-uf').value      = row.valor_reserva_uf  ?? ''
-    document.getElementById('f-estac-uf').value        = row.valor_estacionamiento_uf ?? ''
+    document.getElementById('f-nombre').value          = row.nombre                    || ''
+    document.getElementById('f-codigo').value          = row.codigo                    || ''
+    document.getElementById('f-ubicacion').value       = row.ubicacion                 || ''
+    document.getElementById('f-ahorro-minimo').value   = row.ahorro_minimo_uf          ?? ''
+    document.getElementById('f-reserva-clp').value     = row.valor_reserva_clp         ?? ''
+    document.getElementById('f-reserva-uf').value      = row.valor_reserva_uf          ?? ''
+    document.getElementById('f-estac-uf').value        = row.valor_estacionamiento_uf  ?? ''
     document.getElementById('f-tiene-piloto').checked      = !!row.tiene_piloto
     document.getElementById('f-estac-obligatorio').checked = !!row.estacionamiento_obligatorio
     document.getElementById('f-acepta-ds19').checked       = !!row.acepta_ds19
     document.getElementById('f-acepta-ds1t23').checked     = !!row.acepta_ds1_t23
-    document.getElementById('f-grupo-ds19').value       = row.grupo_ds19            || 'A'
-    document.getElementById('f-monto-ds19').value      = row.monto_subsidio        ?? ''
-    document.getElementById('f-monto-ds1t23').value    = row.subsidio_ds1_t23_uf   ?? ''
     document.getElementById('f-notas').value = row.notas || ''
     if (row.imagen_url) {
       _imagenUrlActual = row.imagen_url
       document.getElementById('img-preview').src = row.imagen_url
       document.getElementById('img-preview-wrap').classList.remove('hidden')
     }
-    toggleSubsidio()
+    // Cargar etapa del proyecto
+    try {
+      const etapas = await api('GET', `/api/etapas?proyecto_id=${row.id}`)
+      if (etapas && etapas.length) {
+        const e = etapas[0]
+        _etapaId = e.id
+        document.getElementById('f-etapa-fecha').value  = e.fecha_entrega || ''
+        document.getElementById('f-etapa-estado').value = e.estado        || 'entrega_futura'
+      }
+    } catch(_) {}
     document.getElementById('seccion-tipologias').classList.remove('hidden')
     cargarTipologias()
-    cargarTemplates(row.template_bienvenida || '')
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -556,11 +511,6 @@
   function cerrarModal() {
     document.getElementById('modal').classList.add('hidden')
     _editandoId = null
-  }
-
-  function toggleSubsidio() {
-    document.getElementById('wrap-monto-ds19').classList.toggle('hidden',   !document.getElementById('f-acepta-ds19').checked)
-    document.getElementById('wrap-monto-ds1t23').classList.toggle('hidden', !document.getElementById('f-acepta-ds1t23').checked)
   }
 
   function previsualizarImagen(input) {
@@ -614,8 +564,6 @@
       const payload = {
         nombre, codigo, ubicacion,
         imagen_url,
-        fecha_entrega:               document.getElementById('f-fecha-entrega').value.trim() || null,
-        tipo_entrega:                document.getElementById('f-tipo-entrega').value,
         ahorro_minimo_uf:            numOrNull('f-ahorro-minimo'),
         valor_reserva_clp:           numOrNull('f-reserva-clp'),
         valor_reserva_uf:            numOrNull('f-reserva-uf'),
@@ -623,21 +571,33 @@
         tiene_piloto:                document.getElementById('f-tiene-piloto').checked,
         estacionamiento_obligatorio: document.getElementById('f-estac-obligatorio').checked,
         acepta_ds19:                 document.getElementById('f-acepta-ds19').checked,
-        grupo_ds19:                  document.getElementById('f-grupo-ds19').value,
-        monto_subsidio:              numOrNull('f-monto-ds19'),
         acepta_ds1_t23:              document.getElementById('f-acepta-ds1t23').checked,
-        subsidio_ds1_t23_uf:         numOrNull('f-monto-ds1t23'),
-        template_bienvenida:         document.getElementById('f-template-bienvenida').value.trim() || null,
         notas:                       document.getElementById('f-notas').value.trim() || null,
       }
 
+      const etapaPayload = {
+        fecha_entrega: document.getElementById('f-etapa-fecha').value || null,
+        estado:        document.getElementById('f-etapa-estado').value,
+      }
+
+      let proyectoId = _editandoId
       if (_editandoId) {
         await api('PATCH', `/api/proyectos/${_editandoId}`, payload)
-        toast('Proyecto actualizado')
       } else {
-        await api('POST', '/api/proyectos', { ...payload, inmobiliaria_id: _inmobiliaria.id })
-        toast('Proyecto creado')
+        const nuevo = await api('POST', '/api/proyectos', { ...payload, inmobiliaria_id: _inmobiliaria.id })
+        proyectoId = nuevo.id
       }
+
+      // Guardar etapa
+      if (etapaPayload.fecha_entrega || etapaPayload.estado) {
+        if (_etapaId) {
+          await api('PATCH', `/api/etapas/${_etapaId}`, etapaPayload)
+        } else {
+          await api('POST', '/api/etapas', { ...etapaPayload, proyecto_id: proyectoId })
+        }
+      }
+
+      toast(_editandoId ? 'Proyecto actualizado' : 'Proyecto creado')
       cerrarModal()
       cargarProyectos()
     } catch(e) {
