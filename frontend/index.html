@@ -199,6 +199,8 @@
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">Sin enviar</button>
           <button id="btn-docs" onclick="setTab('docs')"
             class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">📋 Docs</button>
+          <button id="btn-inbox" onclick="setTab('inbox')"
+            class="px-3 py-1.5 font-medium transition-colors border-l border-slate-600">📥 Inbox <span id="badge-inbox" class="ml-1 text-amber-400 font-bold hidden"></span></button>
         </div>
       </div>
       <div class="flex items-center gap-3">
@@ -239,6 +241,21 @@
             </td>
           </tr>
         </tbody>
+      </table>
+
+      <!-- Tabla inbox (visible solo en tab inbox) -->
+      <table id="tabla-inbox" class="w-full text-sm hidden">
+        <thead>
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
+            <th class="px-6 py-3 text-left">Teléfono</th>
+            <th class="px-6 py-3 text-left">Nombre</th>
+            <th class="px-6 py-3 text-left">Proyecto</th>
+            <th class="px-6 py-3 text-left">Último mensaje</th>
+            <th class="px-6 py-3 text-left">Fecha</th>
+            <th class="px-6 py-3 text-left">Acción</th>
+          </tr>
+        </thead>
+        <tbody id="inbox-tbody"></tbody>
       </table>
     </div>
   </div>
@@ -694,6 +711,7 @@ async function initAuth() {
   cargarUsuarios()
   cargarTipologias()
   cargarEtapas()
+  cargarInbox()
 }
 
 function _actualizarToggle() {
@@ -702,6 +720,7 @@ function _actualizarToggle() {
   const btnTim    = document.getElementById('btn-timidos')
   const btnSin    = document.getElementById('btn-sin-enviar')
   const btnDocs   = document.getElementById('btn-docs')
+  const btnInbox  = document.getElementById('btn-inbox')
   const activo    = 'bg-brand-600 text-white'
   const inactivo  = 'text-slate-400 hover:text-slate-200'
   const isAdmin   = _perfil?.rol === 'administrador'
@@ -713,12 +732,14 @@ function _actualizarToggle() {
     btnTim.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'timidos' ? activo : inactivo}`
     btnSin.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
     btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
+    btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
   } else {
     // No-admin: primer botón visible es Todos (sin border-l)
     btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'todos' ? activo : inactivo}`
     btnTim.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'timidos' ? activo : inactivo}`
     btnSin.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
     btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
+    btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
   }
 }
 
@@ -726,10 +747,24 @@ function setTab(tab) {
   const tabAnterior = _filtroTab
   _filtroTab = tab
   _actualizarToggle()
+
+  const tablaBody  = document.getElementById('tabla-body').closest('table')
+  const tablaInbox = document.getElementById('tabla-inbox')
+
+  if (tab === 'inbox') {
+    tablaBody.classList.add('hidden')
+    tablaInbox.classList.remove('hidden')
+    if (tabAnterior !== 'inbox') cargarInbox()
+    return
+  }
+
+  tablaBody.classList.remove('hidden')
+  tablaInbox.classList.add('hidden')
+
   const isAdmin = _perfil?.rol === 'administrador'
   // Admin: recargar del server solo si cambia entre 'mis' y otros (diferente query)
   // No-admin: siempre filtrar client-side (server ya filtra por su usuario)
-  const necesitaRecargar = isAdmin && (tab === 'mis' || tabAnterior === 'mis')
+  const necesitaRecargar = isAdmin && (tab === 'mis' || tabAnterior === 'mis' || tabAnterior === 'inbox')
   if (necesitaRecargar) {
     cargarClientes()
   } else {
@@ -2308,6 +2343,117 @@ async function eliminarEtapa(id) {
     renderTablaEtapas()
   } catch(e) { toast(e.message, 'error') }
 }
+
+// ─── INBOX ────────────────────────────────────────
+
+let _inboxData = []
+let _prospectoActual = null
+
+async function cargarInbox() {
+  try {
+    const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+    const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+    const empresa      = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
+    const qs = proyecto?.id
+      ? `?proyecto_id=${proyecto.id}`
+      : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
+      : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
+    _inboxData = await api('GET', `/api/inbox${qs}`) || []
+
+    const badge = document.getElementById('badge-inbox')
+    if (_inboxData.length > 0) {
+      badge.textContent = _inboxData.length
+      badge.classList.remove('hidden')
+    } else {
+      badge.classList.add('hidden')
+    }
+
+    if (_filtroTab === 'inbox') renderTablaInbox()
+  } catch(e) { console.warn('cargarInbox:', e) }
+}
+
+function renderTablaInbox() {
+  const tbody = document.getElementById('inbox-tbody')
+  if (!_inboxData.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center empty-text">No hay mensajes sin cliente vinculado</td></tr>`
+    return
+  }
+  tbody.innerHTML = _inboxData.map(p => {
+    const fecha = p.ultimo_entrante_en
+      ? new Date(p.ultimo_entrante_en).toLocaleDateString('es-CL', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
+      : '—'
+    const proyecto = p.Proyecto?.nombre || '—'
+    const nombre   = p.nombre || '—'
+    const tel      = p.telefono_e164 || '—'
+    const msg      = esc(p.ultimo_texto_entrante || '—')
+    const pJson    = esc(JSON.stringify(p))
+    return `<tr class="border-b transition cursor-pointer hover:bg-white/5" style="border-color:rgba(255,255,255,0.06)">
+      <td class="px-6 py-4 font-mono text-sm val-text">${esc(tel)}</td>
+      <td class="px-6 py-4 val-text">${esc(nombre)}</td>
+      <td class="px-6 py-4 sidebar-text text-sm">${esc(proyecto)}</td>
+      <td class="px-6 py-4 sidebar-text text-sm max-w-xs truncate" title="${msg}">${msg}</td>
+      <td class="px-6 py-4 sidebar-text text-xs whitespace-nowrap">${fecha}</td>
+      <td class="px-6 py-4">
+        <button onclick='abrirRegistrarInbox(${pJson})' class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition">+ Registrar</button>
+      </td>
+    </tr>`
+  }).join('')
+}
+
+function abrirRegistrarInbox(p) {
+  _prospectoActual = p
+  document.getElementById('ir-telefono').textContent  = p.telefono_e164 || '—'
+  document.getElementById('ir-nombre').value          = p.nombre        || ''
+  document.getElementById('ir-rut').value             = p.rut           || ''
+  document.getElementById('ir-correo').value          = ''
+  document.getElementById('ir-renta').value           = p.rango_sueldo  || ''
+  const intSel = document.getElementById('ir-integrantes')
+  intSel.value = p.numero_integrantes != null ? String(p.numero_integrantes) : ''
+
+  const proySel = document.getElementById('ir-proyecto')
+  proySel.innerHTML = '<option value="">— Sin proyecto —</option>'
+    + (proyectos || []).map(pr =>
+        `<option value="${pr.id}" ${pr.id === p.proyecto_id ? 'selected' : ''}>${esc(pr.nombre)}</option>`
+      ).join('')
+
+  document.getElementById('modal-inbox-registrar').classList.remove('hidden')
+  document.getElementById('ir-nombre').focus()
+}
+
+function cerrarRegistrarInbox() {
+  document.getElementById('modal-inbox-registrar').classList.add('hidden')
+  _prospectoActual = null
+}
+
+async function guardarRegistrarInbox() {
+  if (!_prospectoActual) return
+  const nombre = document.getElementById('ir-nombre').value.trim()
+  if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+
+  const btn = document.getElementById('btn-guardar-inbox')
+  btn.disabled = true; btn.textContent = 'Registrando…'
+  try {
+    const payload = {
+      nombre:             nombre,
+      rut:                document.getElementById('ir-rut').value.trim()    || null,
+      correo:             document.getElementById('ir-correo').value.trim() || null,
+      rango_sueldo:       document.getElementById('ir-renta').value         || null,
+      numero_integrantes: document.getElementById('ir-integrantes').value
+                            ? parseInt(document.getElementById('ir-integrantes').value) : null,
+      proyecto_id:        document.getElementById('ir-proyecto').value
+                            ? parseInt(document.getElementById('ir-proyecto').value) : null,
+    }
+    await api('POST', `/api/inbox/${_prospectoActual.id}/registrar`, payload)
+    toast('Cliente registrado correctamente')
+    cerrarRegistrarInbox()
+    await cargarInbox()
+    await cargarClientes()
+  } catch(e) {
+    toast(e.message || 'Error al registrar', 'error')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Registrar cliente'
+  }
+}
 </script>
 
 <!-- ═══ MODAL CONVERSACIÓN ═══ -->
@@ -2645,6 +2791,70 @@ async function eliminarEtapa(id) {
     <div class="flex gap-3 mt-6">
       <button onclick="cerrarFormEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button id="btn-guardar-etapa" onclick="guardarEtapa()" class="flex-1 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL INBOX REGISTRAR ═══ -->
+<div id="modal-inbox-registrar" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="px-7 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h3 class="font-bold val-text">Registrar como cliente</h3>
+      <button onclick="cerrarRegistrarInbox()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="px-7 py-5 space-y-4">
+      <div class="bg-slate-700/40 rounded-lg px-4 py-3 text-sm">
+        <span class="sidebar-text text-xs">Teléfono</span>
+        <p id="ir-telefono" class="val-text font-mono mt-0.5"></p>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="ir-nombre" type="text" class="w-full rounded-lg px-3 py-2 text-sm" placeholder="Nombre completo" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">RUT</label>
+          <input id="ir-rut" type="text" class="w-full rounded-lg px-3 py-2 text-sm" placeholder="12.345.678-9" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Correo</label>
+          <input id="ir-correo" type="email" class="w-full rounded-lg px-3 py-2 text-sm" placeholder="correo@email.com" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Tramo de renta</label>
+        <select id="ir-renta" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="">Sin especificar</option>
+          <option>Hasta $500.000</option>
+          <option>$500.000 - $800.000</option>
+          <option>$800.000 - $1.100.000</option>
+          <option>$1.100.000 - $1.500.000</option>
+          <option>$1.500.000 - $2.000.000</option>
+          <option>$2.000.000 - $2.500.000</option>
+          <option>$2.500.000 - $3.000.000</option>
+          <option>Más de $3.000.000</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Integrantes del hogar</label>
+          <select id="ir-integrantes" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Sin especificar</option>
+            <option value="1">1 persona</option>
+            <option value="2">2 personas</option>
+            <option value="3">3 personas</option>
+            <option value="4">4 o más personas</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Proyecto</label>
+          <select id="ir-proyecto" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+      </div>
+    </div>
+    <div class="px-7 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarRegistrarInbox()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button id="btn-guardar-inbox" onclick="guardarRegistrarInbox()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition">Registrar cliente</button>
     </div>
   </div>
 </div>

@@ -3647,6 +3647,113 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
         return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
 
 
+# ── Inbox (prospectos sin cliente) ────────────────────────────────────────────
+
+_INBOX_SELECT = (
+    "id,telefono_e164,nombre,rut,rango_sueldo,numero_integrantes,"
+    "proyecto_id,Proyecto(nombre),"
+    "paso,estado,ultimo_texto_entrante,ultimo_entrante_en,actualizado_en"
+)
+
+
+@app.get("/api/inbox")
+async def api_inbox(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+
+    proyecto_id     = request.query_params.get("proyecto_id")
+    inmobiliaria_id = request.query_params.get("inmobiliaria_id")
+    empresa_id      = request.query_params.get("empresa_id")
+
+    params: Dict[str, str] = {
+        "select":     _INBOX_SELECT,
+        "cliente_id": "is.null",
+        "opt_out":    "neq.true",
+        "order":      "ultimo_entrante_en.desc.nullslast",
+        "limit":      "200",
+    }
+
+    if proyecto_id:
+        params["proyecto_id"] = f"eq.{proyecto_id}"
+    elif inmobiliaria_id:
+        prows = await _supabase_request("GET", "/Proyecto",
+            params={"inmobiliaria_id": f"eq.{inmobiliaria_id}", "select": "id"}) or []
+        ids = ",".join(str(p["id"]) for p in prows)
+        if not ids:
+            return []
+        params["proyecto_id"] = f"in.({ids})"
+    elif empresa_id:
+        inms = await _supabase_request("GET", "/Inmobiliaria",
+            params={"empresa_id": f"eq.{empresa_id}", "select": "id"}) or []
+        inm_ids = ",".join(str(i["id"]) for i in inms)
+        if not inm_ids:
+            return []
+        prows = await _supabase_request("GET", "/Proyecto",
+            params={"inmobiliaria_id": f"in.({inm_ids})", "select": "id"}) or []
+        ids = ",".join(str(p["id"]) for p in prows)
+        if not ids:
+            return []
+        params["proyecto_id"] = f"in.({ids})"
+
+    rows = await _supabase_request("GET", "/Prospecto", params=params) or []
+    return rows
+
+
+@app.post("/api/inbox/{prospecto_id}/registrar")
+async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        # Obtener el prospecto
+        prospectos = await _supabase_request("GET", "/Prospecto",
+            params={"id": f"eq.{prospecto_id}", "select": "*", "limit": "1"}) or []
+        if not prospectos:
+            return Response(content="Prospecto no encontrado", status_code=404)
+        p = prospectos[0]
+        if p.get("cliente_id"):
+            return Response(content="Ya tiene un cliente vinculado", status_code=409)
+
+        nombre = (body.get("nombre") or p.get("nombre") or "").strip()
+        if not nombre:
+            return Response(content="El nombre es obligatorio", status_code=400)
+        telefono = p.get("telefono_e164") or ""
+        if not telefono:
+            return Response(content="El prospecto no tiene teléfono", status_code=400)
+
+        cliente_payload: Dict[str, Any] = {
+            "Contacto":           nombre,
+            "Telefono":           telefono,
+            "Rut":                body.get("rut")      or p.get("rut")      or None,
+            "Correo":             body.get("correo")   or None,
+            "Tramo de renta":     body.get("rango_sueldo") or p.get("rango_sueldo") or None,
+            "numero_integrantes": body.get("numero_integrantes") or p.get("numero_integrantes") or None,
+            "proyecto_id":        body.get("proyecto_id") or p.get("proyecto_id") or None,
+            "usuario_id":         perfil["id"],
+            "es_nuevo":           True,
+            "primer mensaje":     False,
+        }
+
+        nuevo = await _supabase_request("POST", "/Cliente",
+            json=cliente_payload,
+            extra_headers={"Prefer": "return=representation"})
+        cliente_id = nuevo[0]["id"] if isinstance(nuevo, list) and nuevo else None
+        if not cliente_id:
+            return Response(content="Error creando cliente", status_code=500)
+
+        await _supabase_request("PATCH", "/Prospecto",
+            params={"id": f"eq.{prospecto_id}"},
+            json={"cliente_id": cliente_id},
+            extra_headers={"Prefer": "return=minimal"})
+
+        return {"ok": True, "cliente_id": cliente_id}
+    except Exception as e:
+        logger.exception("Error en POST /api/inbox/%s/registrar", prospecto_id)
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
 @app.post("/api/clientes/{cliente_id}/enviar-plantilla")
 async def api_enviar_plantilla(cliente_id: int, request: Request):
     if not await _get_usuario_actual(request):
