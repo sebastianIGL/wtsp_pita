@@ -930,6 +930,19 @@ function aplicarFiltros() {
   renderPaginacion(filtrados.length)
 }
 
+function _badgeEntrega(estado_plantilla) {
+  if (!estado_plantilla) return ''
+  const cfg = {
+    enviado:    { txt: '✓ Enviado',     cls: 'text-slate-400'   },
+    entregado:  { txt: '✓✓ Entregado',  cls: 'text-sky-400'     },
+    leido:      { txt: '✓✓ Leído',      cls: 'text-emerald-400' },
+    fallido:    { txt: '✗ Fallido',     cls: 'text-red-400'     },
+  }
+  const c = cfg[estado_plantilla]
+  if (!c) return ''
+  return `<span class="text-xs font-medium ${c.cls}">${c.txt}</span>`
+}
+
 function renderTabla(data) {
   const tbody = document.getElementById('tabla-body')
   if (!data.length) {
@@ -949,6 +962,7 @@ function renderTabla(data) {
       : estado === 'timido'
       ? `<span class="badge-timido text-xs px-2.5 py-1 rounded-full font-medium">Tímido</span>`
       : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">Sin enviar</span>`
+    const badgeEntrega = _badgeEntrega(c.estado_plantilla)
 
     const btnWA = `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
         class="text-xs px-3 py-1.5 rounded-lg ${estado === 'activo' || estado === 'timido' ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
@@ -1033,7 +1047,9 @@ function renderTabla(data) {
       </td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Rut || '—')}</td>
       <td class="px-6 py-4 sidebar-text text-xs">${esc(c['Tramo de renta'] || '—')}</td>
-      <td class="px-6 py-4">${badge}</td>
+      <td class="px-6 py-4">
+        <div class="flex flex-col gap-1">${badge}${badgeEntrega}</div>
+      </td>
       <td class="px-6 py-4">${accion}</td>
     </tr>`
   }).join('')

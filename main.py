@@ -2171,6 +2171,32 @@ async def _procesar_webhook(msg: Dict):
         logger.exception("Error procesando webhook: %s", _safe_httpx_error(e))
 
 
+_ORDEN_ESTADO_PLANTILLA = {"enviado": 1, "entregado": 2, "leido": 3, "fallido": 0}
+_META_ESTADO_MAP        = {"sent": "enviado", "delivered": "entregado", "read": "leido", "failed": "fallido"}
+
+
+async def _procesar_status(status: Dict) -> None:
+    wamid      = status.get("id")
+    meta_estado = status.get("status")
+    if not wamid or not meta_estado:
+        return
+    estado_crm = _META_ESTADO_MAP.get(meta_estado)
+    if not estado_crm:
+        return
+    rows = await _supabase_request("GET", "/Cliente",
+        params={"wamid_plantilla": f"eq.{wamid}", "select": "id,estado_plantilla", "limit": "1"}) or []
+    if not rows:
+        return
+    c = rows[0]
+    actual = c.get("estado_plantilla") or ""
+    if _ORDEN_ESTADO_PLANTILLA.get(estado_crm, 0) > _ORDEN_ESTADO_PLANTILLA.get(actual, 0):
+        await _supabase_request("PATCH", "/Cliente",
+            params={"id": f"eq.{c['id']}"},
+            json={"estado_plantilla": estado_crm},
+            extra_headers={"Prefer": "return=minimal"})
+        logger.info("estado_plantilla %s → %s (wamid=%s)", actual or "—", estado_crm, wamid)
+
+
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
     payload = await request.json()
@@ -2178,6 +2204,11 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
         entry   = payload["entry"][0]
         changes = entry["changes"][0]
         value   = changes["value"]
+
+        # Procesar actualizaciones de estado (entregado, leído, fallido)
+        statuses_list = value.get("statuses", [])
+        if statuses_list:
+            asyncio.create_task(_procesar_status(statuses_list[0]))
 
         messages_list = value.get("messages", [])
         if not messages_list:
@@ -3050,11 +3081,14 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
             body_text_params=body_text_params, image_url=image_url,
         )
         ahora_wtsp = datetime.now(timezone.utc)
+        wamid_enviado = (wa.get("messages") or [{}])[0].get("id") if isinstance(wa, dict) else None
         patch_cliente: Dict[str, Any] = {
             "primer mensaje": False,
             "wtsp_habilitado": False,
             "primer_wtsp_en": ahora_wtsp.isoformat(),
             "Fecha Ult. Gestión": ahora_wtsp.isoformat(),
+            "wamid_plantilla":  wamid_enviado,
+            "estado_plantilla": "enviado",
         }
         # Auto-agendar recordatorio 24h después si no hay uno ya programado
         if not c.get("recordatorio_at"):
@@ -3782,10 +3816,13 @@ async def api_enviar_plantilla(cliente_id: int, request: Request):
             image_url=proyecto.get("imagen_url"),
         )
         ahora_plt = datetime.now(timezone.utc)
+        wamid_enviado = (wa.get("messages") or [{}])[0].get("id") if isinstance(wa, dict) else None
         patch_plt: Dict[str, Any] = {
             "primer mensaje": False,
             "primer_wtsp_en": ahora_plt.isoformat(),
             "Fecha Ult. Gestión": ahora_plt.isoformat(),
+            "wamid_plantilla":  wamid_enviado,
+            "estado_plantilla": "enviado",
         }
         if not c.get("recordatorio_at"):
             patch_plt["recordatorio_at"] = (ahora_plt + timedelta(hours=24)).isoformat()
