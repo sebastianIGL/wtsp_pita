@@ -1838,7 +1838,7 @@ async def generar_respuesta_ia(
         subsidios_lineas.append(f"DS19: {proyecto_monto_subsidio} UF")
     if proyecto_acepta_ds1t23 and proyecto_subsidio_ds1t23:
         subsidios_lineas.append(f"DS1 T23: {proyecto_subsidio_ds1t23} UF")
-    subsidios_texto = " | ".join(subsidios_lineas) if subsidios_lineas else "consultar"
+    subsidios_texto = " | ".join(subsidios_lineas) if subsidios_lineas else "Este proyecto NO acepta subsidios habitacionales"
 
     # Estacionamiento
     if proyecto_estac_uf:
@@ -1953,6 +1953,11 @@ Notas del proyecto:  {proyecto_notas}
 - Usa emojis con moderación.
 - Usa los datos del proyecto para responder preguntas específicas del cliente
   (precio, fecha, estacionamiento, etc.) sin inventar información.
+- NUNCA menciones nombres de empresas, constructoras o inmobiliarias que no estén
+  explícitamente en los datos del sistema. Si no tienes la información, di que la
+  coordinarás con el equipo a cargo, sin inventar nombres.
+- Si el proyecto NO acepta subsidios, NO hables de subsidios ni consultes si el
+  cliente tiene uno. Ignora completamente ese tema.
 - Si el cliente pregunta algo fuera del tema del proyecto o subsidio,
   redirígelo amablemente sin ser brusco, recordándole en qué punto del proceso está.
 - Si el cliente pide ver otros proyectos o mostrar alternativas, preséntale
