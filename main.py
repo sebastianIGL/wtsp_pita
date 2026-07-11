@@ -2042,6 +2042,13 @@ async def _procesar_webhook(msg: Dict):
         from_number = _normalize_phone(msg["from"])
         msg_type    = msg.get("type", "text")
 
+        texto_preview = ""
+        if msg_type == "text":
+            texto_preview = (msg.get("text", {}).get("body") or "")[:80]
+        elif msg_type in ("image", "audio", "video", "document"):
+            texto_preview = f"[{msg_type}]"
+        logger.info("📨 Mensaje entrante | %s | tipo: %s | %s", from_number, msg_type, texto_preview)
+
         # ── Obtener o crear prospecto de inmediato ─────────────────────────
         prospecto = None
         proyecto  = None
