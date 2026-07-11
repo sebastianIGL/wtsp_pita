@@ -3675,26 +3675,24 @@ async def api_inbox(request: Request):
     }
 
     if proyecto_id:
-        params["proyecto_id"] = f"eq.{proyecto_id}"
+        params["or"] = f"(proyecto_id.eq.{proyecto_id},proyecto_id.is.null)"
     elif inmobiliaria_id:
         prows = await _supabase_request("GET", "/Proyecto",
             params={"inmobiliaria_id": f"eq.{inmobiliaria_id}", "select": "id"}) or []
         ids = ",".join(str(p["id"]) for p in prows)
-        if not ids:
-            return []
-        params["proyecto_id"] = f"in.({ids})"
+        if ids:
+            params["or"] = f"(proyecto_id.in.({ids}),proyecto_id.is.null)"
+        # si no hay proyectos, igual devolvemos los sin proyecto
     elif empresa_id:
         inms = await _supabase_request("GET", "/Inmobiliaria",
             params={"empresa_id": f"eq.{empresa_id}", "select": "id"}) or []
         inm_ids = ",".join(str(i["id"]) for i in inms)
-        if not inm_ids:
-            return []
-        prows = await _supabase_request("GET", "/Proyecto",
-            params={"inmobiliaria_id": f"in.({inm_ids})", "select": "id"}) or []
-        ids = ",".join(str(p["id"]) for p in prows)
-        if not ids:
-            return []
-        params["proyecto_id"] = f"in.({ids})"
+        if inm_ids:
+            prows = await _supabase_request("GET", "/Proyecto",
+                params={"inmobiliaria_id": f"in.({inm_ids})", "select": "id"}) or []
+            ids = ",".join(str(p["id"]) for p in prows)
+            if ids:
+                params["or"] = f"(proyecto_id.in.({ids}),proyecto_id.is.null)"
 
     rows = await _supabase_request("GET", "/Prospecto", params=params) or []
     return rows
