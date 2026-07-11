@@ -1826,9 +1826,9 @@ async def generar_respuesta_ia(
     proyecto_estac_uf          = p.get("valor_estacionamiento_uf") or ""
     proyecto_estac_obligatorio = p.get("estacionamiento_obligatorio")
     proyecto_notas             = p.get("notas") or ""
-    proyecto_acepta_ds19       = p.get("acepta_ds19", True)
+    proyecto_acepta_ds19       = p.get("acepta_ds19") or False
     proyecto_monto_subsidio    = _tip_monto_bot or 700
-    proyecto_acepta_ds1t23     = p.get("acepta_ds1_t23", False)
+    proyecto_acepta_ds1t23     = p.get("acepta_ds1_t23") or False
     proyecto_subsidio_ds1t23   = p.get("subsidio_ds1_t23_uf") or ""
     proyecto_tipologias        = p.get("tipologias") or []
 
