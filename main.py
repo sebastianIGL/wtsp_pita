@@ -1836,8 +1836,9 @@ async def generar_respuesta_ia(
     subsidios_lineas = []
     if proyecto_acepta_ds19:
         subsidios_lineas.append(f"DS19: {proyecto_monto_subsidio} UF")
-    if proyecto_acepta_ds1t23 and proyecto_subsidio_ds1t23:
-        subsidios_lineas.append(f"DS1 T23: {proyecto_subsidio_ds1t23} UF")
+    if proyecto_acepta_ds1t23:
+        monto_ds1t23 = proyecto_subsidio_ds1t23 or _tip_monto_bot or ""
+        subsidios_lineas.append(f"DS1 T2/T3 (adjudicado){f': {monto_ds1t23} UF' if monto_ds1t23 else ''}")
     subsidios_texto = " | ".join(subsidios_lineas) if subsidios_lineas else "Este proyecto NO acepta subsidios habitacionales"
 
     # Estacionamiento
