@@ -284,20 +284,20 @@
           <input id="tip-terreno" type="number" step="0.01" min="0" placeholder="Ej: 60" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
-          <label class="block text-xs sidebar-text mb-1.5">Precio desde (UF)</label>
+          <label class="block text-xs sidebar-text mb-1.5">Valor propiedad (UF)</label>
           <input id="tip-precio-desde" type="number" step="0.1" min="0" placeholder="1200" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
-          <label class="block text-xs sidebar-text mb-1.5">Precio hasta (UF)</label>
-          <input id="tip-precio-hasta" type="number" step="0.1" min="0" placeholder="1400" class="w-full rounded-lg px-3 py-2 text-sm" />
+          <label class="block text-xs sidebar-text mb-1.5">Monto subsidio (UF)</label>
+          <input id="tip-precio-hasta" type="number" step="0.1" min="0" placeholder="700" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
         <div>
           <label class="block text-xs sidebar-text mb-1.5">Tipo subsidio</label>
           <select id="tip-tipo-subsidio" class="w-full rounded-lg px-3 py-2 text-sm">
-            <option value="">Sin especificar</option>
-            <option value="DS19">DS19</option>
-            <option value="DS1 T2">DS1 Tramo 2</option>
-            <option value="DS1 T3">DS1 Tramo 3</option>
+            <option value="ninguno">Sin especificar</option>
+            <option value="ds19">DS19</option>
+            <option value="ds1_t23">DS1 T23</option>
+            <option value="ambos">DS19 + DS1 T23</option>
           </select>
         </div>
         <div>
@@ -665,7 +665,7 @@
           t.banos != null ? `${t.banos}B` : null,
           t.superficie_util_m2 != null ? `${t.superficie_util_m2}m²` : null,
           t.terreno_m2 != null ? `terreno ${t.terreno_m2}m²` : null,
-          t.precio_desde_uf != null ? `desde ${t.precio_desde_uf} UF` : null,
+          t.valor_uf != null ? `desde ${t.valor_uf} UF` : null,
           t.tipo_subsidio ? esc(t.tipo_subsidio) : null,
           t.stock_disponible != null ? `stock: ${t.stock_disponible}` : null,
           t.estado ? esc(t.estado) : null,
@@ -712,8 +712,8 @@
     document.getElementById('tip-banos').value         = t.banos              ?? ''
     document.getElementById('tip-superficie').value    = t.superficie_util_m2 ?? ''
     document.getElementById('tip-terreno').value       = t.terreno_m2         ?? ''
-    document.getElementById('tip-precio-desde').value  = t.precio_desde_uf    ?? ''
-    document.getElementById('tip-precio-hasta').value  = t.precio_hasta_uf    ?? ''
+    document.getElementById('tip-precio-desde').value  = t.valor_uf       ?? ''
+    document.getElementById('tip-precio-hasta').value  = t.monto_subsidio ?? ''
     document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio       || ''
     document.getElementById('tip-stock').value         = t.stock_disponible    ?? ''
     document.getElementById('tip-estado').value        = t.estado              || 'disponible'
@@ -739,8 +739,8 @@
       banos:              intOrNull('tip-banos'),
       superficie_util_m2: floatOrNull('tip-superficie'),
       terreno_m2:         floatOrNull('tip-terreno'),
-      precio_desde_uf:    floatOrNull('tip-precio-desde'),
-      precio_hasta_uf:    floatOrNull('tip-precio-hasta'),
+      valor_uf:           floatOrNull('tip-precio-desde'),
+      monto_subsidio:     floatOrNull('tip-precio-hasta'),
       tipo_subsidio:      document.getElementById('tip-tipo-subsidio').value || null,
       stock_disponible:   intOrNull('tip-stock'),
       estado:             document.getElementById('tip-estado').value || null,
