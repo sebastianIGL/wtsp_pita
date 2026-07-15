@@ -2189,16 +2189,31 @@ _META_ESTADO_MAP        = {"sent": "enviado", "delivered": "entregado", "read": 
 
 
 async def _procesar_status(status: Dict) -> None:
-    wamid      = status.get("id")
+    wamid       = status.get("id")
     meta_estado = status.get("status")
+    timestamp   = status.get("timestamp", "")
+    errors      = status.get("errors") or []
+
     if not wamid or not meta_estado:
         return
+
+    # Log siempre el status que llega desde Meta
+    if errors:
+        err_code = errors[0].get("code") if errors else ""
+        err_msg  = errors[0].get("message") if errors else ""
+        logger.warning("WA status FAILED wamid=%s code=%s msg=%s", wamid, err_code, err_msg)
+    else:
+        logger.info("WA status recibido: %s | wamid=%s | ts=%s", meta_estado, wamid, timestamp)
+
     estado_crm = _META_ESTADO_MAP.get(meta_estado)
     if not estado_crm:
+        logger.warning("WA status desconocido '%s' ignorado wamid=%s", meta_estado, wamid)
         return
+
     rows = await _supabase_request("GET", "/Cliente",
         params={"wamid_plantilla": f"eq.{wamid}", "select": "id,estado_plantilla", "limit": "1"}) or []
     if not rows:
+        logger.warning("WA status '%s' sin cliente para wamid=%s", meta_estado, wamid)
         return
     c = rows[0]
     actual = c.get("estado_plantilla") or ""
@@ -2207,7 +2222,7 @@ async def _procesar_status(status: Dict) -> None:
             params={"id": f"eq.{c['id']}"},
             json={"estado_plantilla": estado_crm},
             extra_headers={"Prefer": "return=minimal"})
-        logger.info("estado_plantilla %s → %s (wamid=%s)", actual or "—", estado_crm, wamid)
+        logger.info("estado_plantilla %s → %s (cliente=%s wamid=%s)", actual or "—", estado_crm, c["id"], wamid)
 
 
 @app.post("/webhook")
