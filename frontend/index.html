@@ -1292,9 +1292,16 @@ async function abrirModal() {
     await _proyectosPromise
     const sel = document.getElementById('f-proyecto')
     sel.value = proyAct.id
-    sel.required = false
-    wrapProy.classList.add('hidden')
-    await onProyectoChange(proyAct.id)
+    if (sel.value) {
+      // El ID coincidió con una opción — ocultar selector
+      sel.required = false
+      wrapProy.classList.add('hidden')
+      await onProyectoChange(proyAct.id)
+    } else {
+      // La opción no existe en el select (p.ej. proyectos no cargaron) — mostrar selector
+      wrapProy.classList.remove('hidden')
+      sel.required = true
+    }
   } else {
     wrapProy.classList.remove('hidden')
     document.getElementById('f-proyecto').required = true
@@ -1389,8 +1396,17 @@ async function crearCliente(e) {
   }
 
   try {
+    const _proyIdSel = document.getElementById('f-proyecto').value
+    const _proyActSS = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+    const _proyId    = _proyIdSel || (_proyActSS?.id ? String(_proyActSS.id) : '')
+    if (!_proyId) {
+      toast('❌ Selecciona un proyecto', 'error')
+      resetBtn()
+      _guardando = false
+      return
+    }
     const resp = await api('POST', '/api/clientes', {
-      'proyecto_id':        document.getElementById('f-proyecto').value,
+      'proyecto_id':        _proyId,
       'Contacto':           document.getElementById('f-contacto').value.trim(),
       'Rut':                document.getElementById('f-rut').value.trim(),
       'Correo':             document.getElementById('f-correo').value.trim() || null,

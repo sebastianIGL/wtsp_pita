@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mi Camino · quesubsidio.cl</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg:         #0c0820;
+      --bg2:        #150f35;
+      --surface:    rgba(124,58,237,0.07);
+      --surface-h:  rgba(124,58,237,0.13);
+      --border:     rgba(167,139,250,0.15);
+      --text:       #f5f3ff;
+      --text-muted: #a78bfa;
+      --text-sub:   #6b5fa8;
+      --violet:     #7c3aed;
+      --violet-l:   #a78bfa;
+    }
+    [data-theme="light"] {
+      --bg:         #faf9ff;
+      --bg2:        #f0ecff;
+      --surface:    rgba(255,255,255,0.92);
+      --surface-h:  rgba(124,58,237,0.06);
+      --border:     rgba(124,58,237,0.14);
+      --text:       #1e1b4b;
+      --text-muted: #5b21b6;
+      --text-sub:   #8b5cf6;
+      --violet:     #7c3aed;
+      --violet-l:   #5b21b6;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      padding: 1.5rem 1rem 5rem;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 760px; margin: 0 auto; }
+
+    /* Header */
+    .header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+    .btn-back {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      color: var(--text-muted); font-size: 0.85rem;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 0.45rem 0.9rem; border-radius: 0.5rem;
+      cursor: pointer; text-decoration: none; transition: all 0.18s;
+    }
+    .btn-back:hover { background: var(--surface-h); color: var(--text); }
+    .page-title { font-size: 1.5rem; font-weight: 700; }
+    .page-tag {
+      margin-left: auto;
+      font-size: 0.7rem; font-weight: 600;
+      background: rgba(124,58,237,0.18); border: 1px solid rgba(124,58,237,0.35);
+      color: var(--violet-l); padding: 0.25rem 0.7rem; border-radius: 9999px;
+      letter-spacing: 0.06em;
+    }
+
+    /* Tab pills */
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 2rem; }
+    .tab {
+      flex: 1; text-align: center; padding: 0.75rem 1rem;
+      border-radius: 0.875rem; cursor: pointer; font-size: 0.9rem; font-weight: 600;
+      transition: all 0.22s; color: var(--text-muted);
+      background: var(--surface); border: 1px solid var(--border);
+      user-select: none;
+    }
+    .tab.active-s {
+      background: rgba(124,58,237,0.22); color: #c4b5fd;
+      border-color: rgba(124,58,237,0.45);
+      box-shadow: 0 0 16px rgba(124,58,237,0.2);
+    }
+    .tab.active-h {
+      background: rgba(13,148,136,0.18); color: #5eead4;
+      border-color: rgba(13,148,136,0.45);
+      box-shadow: 0 0 16px rgba(13,148,136,0.2);
+    }
+
+    /* Progress ring section */
+    .ring-section {
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 0.5rem; margin-bottom: 2rem;
+    }
+    .ring-wrap {
+      position: relative; width: 160px; height: 160px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ring-wrap svg { transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--border); stroke-width: 10; }
+    .ring-fg { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease, stroke 0.3s; }
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .ring-num { font-size: 1.9rem; font-weight: 800; line-height: 1; }
+    .ring-den { font-size: 0.8rem; font-weight: 500; color: var(--text-sub); margin-top: 0.15rem; }
+    .ring-label {
+      font-size: 0.85rem; font-weight: 600; color: var(--text-muted);
+      letter-spacing: 0.04em; text-transform: uppercase;
+    }
+
+    /* Badge completo */
+    .badge-done {
+      display: none; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 1.25rem; border-radius: 9999px; border: 1px solid;
+      font-size: 0.82rem; font-weight: 600; margin-bottom: 1.5rem;
+    }
+    .badge-done.visible { display: inline-flex; }
+    .mundo-s .badge-done { background: rgba(124,58,237,0.12); border-color: rgba(167,139,250,0.35); color: #c4b5fd; }
+    .mundo-h .badge-done { background: rgba(13,148,136,0.12); border-color: rgba(94,234,212,0.35); color: #5eead4; }
+
+    /* Cards grid */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.875rem;
+    }
+    @media (max-width: 500px) { .cards-grid { grid-template-columns: 1fr; } }
+
+    .req-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 1rem; cursor: pointer;
+      transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .req-card:hover { background: var(--surface-h); transform: translateY(-1px); }
+    .req-card.done {
+      border-color: var(--card-accent);
+    }
+    .req-card.done::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: var(--card-bg-done);
+      pointer-events: none;
+    }
+
+    .card-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.6rem; }
+    .card-icon { font-size: 1.4rem; line-height: 1; }
+    .card-check {
+      width: 1.5rem; height: 1.5rem; border-radius: 9999px;
+      border: 2px solid var(--border); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+    }
+    .req-card.done .card-check {
+      background: var(--card-accent); border-color: var(--card-accent);
+    }
+
+    .card-title { font-size: 0.875rem; font-weight: 600; line-height: 1.35; }
+    .card-sub { font-size: 0.75rem; color: var(--text-sub); margin-top: 0.3rem; line-height: 1.4; }
+
+    .btn-tengo {
+      margin-top: 0.875rem; width: 100%;
+      padding: 0.45rem 0.75rem; border-radius: 0.5rem;
+      font-size: 0.78rem; font-weight: 600;
+      border: 1px solid var(--border); background: var(--surface-h);
+      color: var(--text-muted); cursor: pointer; transition: all 0.18s;
+    }
+    .btn-tengo:hover { color: var(--text); }
+    .req-card.done .btn-tengo {
+      background: var(--card-accent); border-color: var(--card-accent);
+      color: white;
+    }
+
+    /* World color tokens */
+    .mundo-s {
+      --card-accent:  #7c3aed;
+      --card-bg-done: rgba(124,58,237,0.06);
+      --ring-stroke:  #7c3aed;
+      --ring-alt:     #a78bfa;
+    }
+    .mundo-h {
+      --card-accent:  #0d9488;
+      --card-bg-done: rgba(13,148,136,0.06);
+      --ring-stroke:  #0d9488;
+      --ring-alt:     #5eead4;
+    }
+
+    /* Theme toggle */
+    .theme-btn {
+      position: fixed; top: 0.875rem; right: 1rem; z-index: 50;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 9999px; padding: 0.45rem;
+      cursor: pointer; color: var(--text-muted); transition: all 0.2s;
+    }
+    .theme-btn:hover { color: var(--text); }
+
+    /* ── Perfil ─────────────────────────────────────────────────── */
+    .profile-btn {
+      position: fixed; top: 0.875rem; right: 3.5rem; z-index: 50;
+      width: 2rem; height: 2rem; border-radius: 9999px;
+      background: var(--violet); border: 2px solid rgba(167,139,250,0.35);
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 0.8rem; font-weight: 700; color: white;
+      letter-spacing: 0; transition: transform 0.18s, box-shadow 0.18s;
+    }
+    .profile-btn:hover { transform: scale(1.08); box-shadow: 0 0 0 3px rgba(124,58,237,0.3); }
+    .profile-btn.visible { display: flex; }
+
+    .profile-dd {
+      position: fixed; top: 3.25rem; right: 0.75rem; z-index: 50;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 1rem; padding: 0.625rem;
+      min-width: 230px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(124,58,237,0.08);
+      opacity: 0; pointer-events: none;
+      transform: translateY(-6px) scale(0.97);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .profile-dd.open { opacity: 1; pointer-events: all; transform: none; }
+
+    .profile-user {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.625rem 0.5rem 0.75rem;
+    }
+    .profile-avatar-lg {
+      width: 2.5rem; height: 2.5rem; border-radius: 9999px; flex-shrink: 0;
+      background: var(--violet); display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1rem; color: white;
+    }
+    .profile-name-txt { font-size: 0.875rem; font-weight: 600; }
+    .profile-email-txt { font-size: 0.75rem; color: var(--text-sub); margin-top: 0.1rem; word-break: break-all; }
+
+    .profile-sep { height: 1px; background: var(--border); margin: 0.375rem 0; }
+
+    .profile-item {
+      display: flex; align-items: center; gap: 0.625rem; width: 100%;
+      padding: 0.55rem 0.625rem; border-radius: 0.5rem;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-muted); font-size: 0.8125rem; text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+    .profile-item:hover { background: rgba(239,68,68,0.08); color: #f87171; }
+  </style>
+</head>
+<body>
+
+  <!-- Tema -->
+  <button class="theme-btn" id="themeToggle" title="Cambiar tema">
+    <svg id="iconMoon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+    </svg>
+    <svg id="iconSun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+    </svg>
+  </button>
+
+  <!-- Perfil de usuario -->
+  <button class="profile-btn" id="profileBtn" aria-label="Perfil de usuario" aria-expanded="false">
+    <span id="profileInitial">U</span>
+  </button>
+
+  <div class="profile-dd" id="profileDd" role="menu" aria-label="Menú de perfil">
+    <div class="profile-user">
+      <div class="profile-avatar-lg" id="profileAvatarLg">U</div>
+      <div>
+        <div class="profile-name-txt" id="profileName">—</div>
+        <div class="profile-email-txt" id="profileEmail">—</div>
+      </div>
+    </div>
+    <div class="profile-sep"></div>
+    <button class="profile-item" id="btnCerrarSesion" role="menuitem">
+      <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      </svg>
+      Cerrar sesión
+    </button>
+  </div>
+
+  <div class="container">
+
+    <!-- Header -->
+    <div class="header">
+      <a href="/" class="btn-back">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Inicio
+      </a>
+      <h1 class="page-title">Mi Camino</h1>
+      <span class="page-tag">OPCIÓN C</span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div class="tab active-s" id="tab-s" onclick="cambiarMundo('s')">🏠 Subsidios Habitacionales</div>
+      <div class="tab" id="tab-h" onclick="cambiarMundo('h')">🏦 Crédito Hipotecario</div>
+    </div>
+
+    <!-- World panel -->
+    <div id="panel"></div>
+
+  </div>
+
+<script>
+  // ── Supabase + Perfil ─────────────────────────────────────────
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc';
+  const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+  (async function initPerfil() {
+    const { data: { session } } = await _sb.auth.getSession();
+    if (!session) return;
+
+    const user   = session.user;
+    const nombre = (user.user_metadata?.nombre || user.email.split('@')[0]).trim();
+    const inicial = nombre.charAt(0).toUpperCase();
+
+    document.getElementById('profileInitial').textContent    = inicial;
+    document.getElementById('profileAvatarLg').textContent   = inicial;
+    document.getElementById('profileName').textContent       = nombre;
+    document.getElementById('profileEmail').textContent      = user.email;
+    document.getElementById('profileBtn').classList.add('visible');
+  })();
+
+  // Toggle dropdown
+  document.getElementById('profileBtn').addEventListener('click', e => {
+    e.stopPropagation();
+    const dd  = document.getElementById('profileDd');
+    const btn = document.getElementById('profileBtn');
+    const open = dd.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+
+  // Cerrar al hacer click fuera
+  document.addEventListener('click', e => {
+    if (!document.getElementById('profileDd').contains(e.target) &&
+        e.target !== document.getElementById('profileBtn')) {
+      document.getElementById('profileDd').classList.remove('open');
+      document.getElementById('profileBtn').setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Cerrar sesión
+  document.getElementById('btnCerrarSesion').addEventListener('click', async () => {
+    document.getElementById('btnCerrarSesion').textContent = 'Cerrando…';
+    await _sb.auth.signOut();
+    window.location.href = '/';
+  });
+
+  // ── Tema ──────────────────────────────────────────────────────
+  const htmlEl = document.documentElement;
+  const savedT = localStorage.getItem('crm-theme');
+  const sysDrk = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initT  = savedT || (sysDrk ? 'dark' : 'light');
+  htmlEl.setAttribute('data-theme', initT);
+  document.getElementById('iconMoon').classList.toggle('hidden', initT === 'light');
+  document.getElementById('iconSun').classList.toggle('hidden',  initT === 'dark');
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const n = htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    htmlEl.setAttribute('data-theme', n);
+    localStorage.setItem('crm-theme', n);
+    document.getElementById('iconMoon').classList.toggle('hidden', n === 'light');
+    document.getElementById('iconSun').classList.toggle('hidden',  n === 'dark');
+  });
+
+  // ── Datos ─────────────────────────────────────────────────────
+  const REQS = {
+    s: [
+      { id: 'edad',     icon: '🪪', titulo: 'Mayor de 18 años',                 sub: 'Requisito básico para postular' },
+      { id: 'nacional', icon: '🇨🇱', titulo: 'Chileno o residente (≥5 años)',     sub: 'Cédula de identidad vigente' },
+      { id: 'sin_prop', icon: '🚫', titulo: 'Sin propiedad a tu nombre',         sub: 'Beneficio solo para primera vivienda' },
+      { id: 'sin_sub',  icon: '🔄', titulo: 'Sin subsidio previo',               sub: 'El beneficio se usa una sola vez' },
+      { id: 'rsh',      icon: '📋', titulo: 'Inscrito en el RSH',                sub: 'Tramítalo gratis en registrosocial.gob.cl' },
+      { id: 'ahorro',   icon: '💰', titulo: 'Ahorro mínimo (10–50 UF)',          sub: 'Cuenta bancaria o libreta CAV' },
+      { id: 'puntaje',  icon: '📊', titulo: 'Puntaje RSH en el tramo',           sub: 'DS19: tramos 1-5 del RSH' },
+    ],
+    h: [
+      { id: 'edad',     icon: '🪪', titulo: 'Mayor de 18 años',                 sub: 'Requisito legal para contratar' },
+      { id: 'ingresos', icon: '💼', titulo: 'Ingresos demostrables',            sub: 'Liquidaciones, boletas o carpeta tributaria' },
+      { id: 'antigued', icon: '📅', titulo: 'Antigüedad laboral (6–12 meses)',   sub: 'Continuidad en el trabajo actual' },
+      { id: 'dicom',    icon: '✅', titulo: 'Sin morosidades graves',           sub: 'Sin protestos ni deudas castigadas' },
+      { id: 'capacid',  icon: '📐', titulo: 'Cuota ≤ 25–30% de tu renta',       sub: 'Capacidad real de pago mensual' },
+      { id: 'pie',      icon: '🏦', titulo: 'Pie disponible (10–20%)',           sub: 'Pago inicial al reservar' },
+      { id: 'cotiz',    icon: '🔐', titulo: 'Cotizaciones previsionales al día', sub: 'AFP sin lagunas los últimos 12 meses' },
+    ]
+  };
+
+  const CIRCUM = 2 * Math.PI * 54; // r=54 → circunference
+  const STORE_KEY = 'quesubsidio-progreso-c';
+  let mundoActual = 's';
+
+  function cargar() {
+    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{"s":[],"h":[]}'); }
+    catch { return { s: [], h: [] }; }
+  }
+  function guardar(p) { localStorage.setItem(STORE_KEY, JSON.stringify(p)); }
+
+  function cambiarMundo(m) {
+    mundoActual = m;
+    document.getElementById('tab-s').className = 'tab' + (m === 's' ? ' active-s' : '');
+    document.getElementById('tab-h').className = 'tab' + (m === 'h' ? ' active-h' : '');
+    render();
+  }
+
+  function toggleReq(id) {
+    const p = cargar();
+    if (!p[mundoActual]) p[mundoActual] = [];
+    const i = p[mundoActual].indexOf(id);
+    if (i >= 0) p[mundoActual].splice(i, 1);
+    else p[mundoActual].push(id);
+    guardar(p);
+    render();
+  }
+
+  function render() {
+    const p    = cargar();
+    const done = p[mundoActual] || [];
+    const reqs = REQS[mundoActual];
+    const total = reqs.length;
+    const count = done.length;
+    const pct   = count / total;
+    const offset = CIRCUM * (1 - pct);
+    const isComplete = count === total;
+
+    const m = mundoActual;
+    const ringColor = m === 's'
+      ? (isComplete ? '#a78bfa' : '#7c3aed')
+      : (isComplete ? '#5eead4' : '#0d9488');
+
+    const badgeHtml = isComplete
+      ? `<div class="badge-done visible">
+           <svg style="width:16px;height:16px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+           </svg>
+           ${m === 's' ? '¡Listo para postular al subsidio!' : '¡Listo para solicitar el crédito!'}
+         </div>`
+      : '';
+
+    // Cards HTML
+    const cardsHtml = reqs.map(r => {
+      const isDone = done.includes(r.id);
+      return `
+        <div class="req-card${isDone ? ' done' : ''}" onclick="toggleReq('${r.id}')">
+          <div class="card-top">
+            <div class="card-icon">${r.icon}</div>
+            <div class="card-check">
+              ${isDone ? `<svg style="width:12px;height:12px;color:white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+              </svg>` : ''}
+            </div>
+          </div>
+          <div class="card-title">${r.titulo}</div>
+          <div class="card-sub">${r.sub}</div>
+          <button class="btn-tengo" onclick="event.stopPropagation(); toggleReq('${r.id}')">
+            ${isDone ? '✓ Completado' : 'Ya lo tengo'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('panel').innerHTML = `
+      <div class="mundo-${m}">
+        <div class="ring-section">
+          <div class="ring-wrap">
+            <svg width="160" height="160" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="54"/>
+              <circle class="ring-fg" cx="60" cy="60" r="54"
+                stroke="${ringColor}"
+                stroke-dasharray="${CIRCUM}"
+                stroke-dashoffset="${offset}"/>
+            </svg>
+            <div class="ring-center">
+              <div class="ring-num">${count}</div>
+              <div class="ring-den">de ${total}</div>
+            </div>
+          </div>
+          <div class="ring-label">${Math.round(pct * 100)}% completado</div>
+          ${badgeHtml}
+        </div>
+        <div class="cards-grid">${cardsHtml}</div>
+        <p style="text-align:center;margin-top:1.5rem;font-size:0.75rem;color:var(--text-sub)">
+          Tu progreso se guarda automáticamente en este dispositivo
+        </p>
+      </div>
+    `;
+  }
+
+  render();
+</script>
+</body>
+</html>

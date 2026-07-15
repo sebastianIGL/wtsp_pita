@@ -1,7 +1,7 @@
 from __future__ import annotations
 from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, File, Form
 from contextlib import asynccontextmanager
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 import asyncio
 import os
 import json
@@ -4605,6 +4605,72 @@ async def _movendo_get_token() -> str:
         return r.json()["access_token"]
 
 
+# ── Landing pública ───────────────────────────────────────────────────────────
+@app.get("/")
+async def page_home():
+    return FileResponse("frontend/home.html")
+
+@app.get("/api/proyectos-landing")
+async def api_proyectos_landing():
+    """Devuelve proyectos públicos para el carrusel de la landing (sin autenticación)."""
+    rows = await _supabase_request("GET", "/Proyecto", params={
+        "select": "id,nombre,descripcion,imagen_url,comuna,region",
+        "order": "creado_en.desc",
+        "limit": "12",
+    }) or []
+    proyectos = [
+        {
+            "id":    r.get("id"),
+            "nombre": r.get("nombre") or "Proyecto",
+            "imagen": r.get("imagen_url") or None,
+            "comuna": r.get("comuna") or "",
+            "region": r.get("region") or "",
+        }
+        for r in rows
+        if r.get("nombre")
+    ]
+    return {"proyectos": proyectos}
+
+@app.post("/api/contacto")
+async def api_contacto(request: Request):
+    """Recibe formulario de contacto de la landing y notifica por email."""
+    body = await request.json()
+    nombre   = (body.get("nombre")   or "").strip()
+    correo   = (body.get("correo")   or "").strip()
+    telefono = (body.get("telefono") or "").strip()
+    empresa  = (body.get("empresa")  or "").strip()
+    mensaje  = (body.get("mensaje")  or "").strip()
+
+    if not nombre or not correo:
+        return Response(content="nombre y correo son requeridos", status_code=422)
+
+    logger.info("📩 Contacto landing | %s | %s | %s", nombre, correo, empresa)
+
+    email_remitente = os.getenv("EMAIL_REMITENTE")
+    email_password  = os.getenv("EMAIL_PASSWORD")
+    if email_remitente and email_password:
+        try:
+            asunto = f"[Neurobytes] Contacto desde la landing — {nombre}"
+            cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
+<p><b>Nombre:</b> {nombre}<br>
+<b>Correo:</b> {correo}<br>
+<b>Teléfono:</b> {telefono or '—'}<br>
+<b>Empresa:</b> {empresa or '—'}</p>
+<p><b>Mensaje:</b><br>{mensaje or '—'}</p>"""
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = asunto
+            msg["From"]    = email_remitente
+            msg["To"]      = email_remitente
+            msg.attach(MIMEText(cuerpo, "html"))
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
+                s.login(email_remitente, email_password)
+                s.sendmail(email_remitente, [email_remitente], msg.as_string())
+        except Exception as exc:
+            logger.warning("No se pudo enviar email de contacto: %s", exc)
+
+    return {"ok": True}
+
+
 # ── Rutas de páginas (URLs limpias sin .html) ────────────────────────────────
 @app.get("/empresas")
 async def page_empresas():
@@ -4612,7 +4678,7 @@ async def page_empresas():
 
 @app.get("/login")
 async def page_login():
-    return FileResponse("frontend/login.html")
+    return RedirectResponse(url="/", status_code=301)
 
 @app.get("/inmobiliaria")
 async def page_inmobiliaria():
@@ -4621,6 +4687,74 @@ async def page_inmobiliaria():
 @app.get("/proyecto")
 async def page_proyecto():
     return FileResponse("frontend/proyecto.html")
+
+@app.get("/perfil")
+async def page_perfil():
+    return FileResponse("frontend/opcion_c.html")
+
+
+# ── API Progreso usuario (requiere JWT de Supabase en Authorization header) ──
+
+async def _uid_desde_jwt(request: Request) -> Optional[str]:
+    """Extrae el user_id desde el JWT de Supabase en el header Authorization."""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth[7:]
+    try:
+        # Verificamos llamando a /auth/v1/user con el token del usuario
+        sb_url = _supabase_url()
+        if not sb_url:
+            return None
+        anon_key = _get_env("SUPABASE_ANON_KEY", "SUPABASE_KEY")
+        if not anon_key:
+            return None
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{sb_url.rstrip('/')}/auth/v1/user",
+                headers={"apikey": anon_key, "Authorization": f"Bearer {token}"},
+            )
+            if r.status_code != 200:
+                return None
+            return r.json().get("id")
+    except Exception:
+        return None
+
+
+@app.get("/api/progreso")
+async def api_get_progreso(request: Request):
+    uid = await _uid_desde_jwt(request)
+    if not uid:
+        return Response(content="no autorizado", status_code=401)
+    rows = await _supabase_request("GET", "/progreso_usuario",
+        params={"user_id": f"eq.{uid}", "select": "mundo,req_id,completado"},
+    ) or []
+    resultado: Dict[str, List[str]] = {"s": [], "h": []}
+    for row in rows:
+        if row.get("completado"):
+            m = row.get("mundo", "")
+            if m in resultado:
+                resultado[m].append(row.get("req_id", ""))
+    return resultado
+
+
+@app.post("/api/progreso")
+async def api_set_progreso(request: Request):
+    uid = await _uid_desde_jwt(request)
+    if not uid:
+        return Response(content="no autorizado", status_code=401)
+    body = await request.json()
+    mundo  = (body.get("mundo")  or "").strip()
+    req_id = (body.get("req_id") or "").strip()
+    completado = bool(body.get("completado", True))
+    if not mundo or not req_id:
+        return Response(content="mundo y req_id son requeridos", status_code=422)
+    await _supabase_request(
+        "POST", "/progreso_usuario",
+        json={"user_id": uid, "mundo": mundo, "req_id": req_id, "completado": completado},
+        extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+    )
+    return {"ok": True}
 
 
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
