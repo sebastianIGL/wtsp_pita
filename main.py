@@ -2217,7 +2217,12 @@ async def _procesar_status(status: Dict) -> None:
         return
     c = rows[0]
     actual = c.get("estado_plantilla") or ""
-    if _ORDEN_ESTADO_PLANTILLA.get(estado_crm, 0) > _ORDEN_ESTADO_PLANTILLA.get(actual, 0):
+    # "fallido" siempre se aplica (ignora el orden); el resto solo avanza
+    debe_actualizar = (
+        estado_crm == "fallido"
+        or _ORDEN_ESTADO_PLANTILLA.get(estado_crm, 0) > _ORDEN_ESTADO_PLANTILLA.get(actual, 0)
+    )
+    if debe_actualizar:
         await _supabase_request("PATCH", "/Cliente",
             params={"id": f"eq.{c['id']}"},
             json={"estado_plantilla": estado_crm},
