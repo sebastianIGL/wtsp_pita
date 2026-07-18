@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+{% include "partials/_head.html" %}
+</head>
+<body>
+
+{% include "partials/_navbar.html" %}
+
+<main>
+
+  <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
+  <section style="padding:5rem 0 4rem;background:radial-gradient(ellipse 70% 50% at 60% 30%,rgba(13,148,136,0.12) 0%,transparent 70%)">
+    <div class="container" style="text-align:center;max-width:760px;margin:0 auto">
+      <div class="chip">Proyectos disponibles</div>
+      <h1 style="font-size:clamp(2rem,5vw,3rem);font-weight:900;line-height:1.15;letter-spacing:-0.025em;margin-bottom:1.25rem">
+        Viviendas con <span style="color:var(--primary)">subsidio habitacional</span>
+      </h1>
+      <p class="section-lead" style="margin:0 auto">
+        Explora proyectos inmobiliarios disponibles con subsidio DS19 y DS1 T2/T3 en todo Chile. Encuentra el que se ajusta a tu familia.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── FILTROS + GRILLA ──────────────────────────────────────────────────── -->
+  <section class="section">
+    <div class="container">
+
+      <!-- Barra de búsqueda -->
+      <div style="display:flex;gap:1rem;margin-bottom:2.5rem;flex-wrap:wrap">
+        <input type="text" class="inp" placeholder="Buscar por nombre o comuna…" id="filtroTexto" style="max-width:360px" oninput="filtrarProyectos()" />
+        <select class="inp" id="filtroSubsidio" style="max-width:200px" onchange="filtrarProyectos()">
+          <option value="">Todos los subsidios</option>
+          <option value="ds19">DS19</option>
+          <option value="ds1">DS1 T2/T3</option>
+        </select>
+        <select class="inp" id="filtroRegion" style="max-width:220px" onchange="filtrarProyectos()">
+          <option value="">Todas las regiones</option>
+          <option value="metropolitana">Región Metropolitana</option>
+          <option value="valparaiso">Valparaíso</option>
+          <option value="biobio">Biobío</option>
+          <option value="ohiggins">O'Higgins</option>
+        </select>
+      </div>
+
+      <!-- Grilla de proyectos -->
+      <div id="proyectosGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem">
+        <div style="grid-column:1/-1;text-align:center;padding:4rem 0;color:var(--text-muted)">
+          <div class="spinner" style="margin:0 auto 1rem;width:32px;height:32px;border-width:3px"></div>
+          Cargando proyectos…
+        </div>
+      </div>
+
+      <!-- Estado vacío -->
+      <div id="sinResultados" style="display:none;text-align:center;padding:4rem 0;color:var(--text-muted)">
+        <p style="font-size:1.1rem;margin-bottom:0.5rem">No encontramos proyectos con esos filtros.</p>
+        <p style="font-size:0.9rem">Prueba modificando los criterios de búsqueda.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
+  <section class="section-sm" id="cta-final">
+    <div class="container" style="text-align:center">
+      <h2 class="section-h" style="margin-bottom:0.875rem">¿No encuentras lo que buscas?</h2>
+      <p class="section-lead" style="margin:0 auto 2rem">
+        Escríbenos y te ayudamos a encontrar el proyecto ideal para tu situación y subsidio.
+      </p>
+      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+        <a href="/subsidios" class="btn btn-primary">Ver subsidios disponibles</a>
+        <a href="/como-funciona" class="btn btn-ghost">¿Cómo funciona?</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+{% include "partials/_footer.html" %}
+{% include "partials/_scripts_common.html" %}
+
+<script>
+let _todosLosProyectos = []
+
+async function cargarProyectos() {
+  try {
+    const r = await fetch('/api/proyectos-landing')
+    const data = await r.json()
+    _todosLosProyectos = data.proyectos || []
+    renderProyectos(_todosLosProyectos)
+  } catch {
+    document.getElementById('proyectosGrid').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:4rem 0;color:var(--text-muted)">
+        <p>No se pudo cargar los proyectos. Intenta de nuevo más tarde.</p>
+      </div>`
+  }
+}
+
+function renderProyectos(lista) {
+  const grid = document.getElementById('proyectosGrid')
+  const vacio = document.getElementById('sinResultados')
+  if (!lista.length) {
+    grid.innerHTML = ''
+    vacio.style.display = 'block'
+    return
+  }
+  vacio.style.display = 'none'
+  grid.innerHTML = lista.map(p => `
+    <div class="card" style="overflow:hidden;cursor:pointer" onclick="window.location.href='/login.html'">
+      <div style="height:180px;background:linear-gradient(135deg,rgba(13,148,136,0.25),rgba(15,23,42,0.8));display:flex;align-items:center;justify-content:center;position:relative">
+        ${p.imagen ? `<img src="${p.imagen}" alt="${p.nombre}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" loading="lazy" />` : ''}
+        <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(7,21,32,0.7),transparent)"></div>
+        <div style="position:absolute;bottom:0.875rem;left:1rem;right:1rem">
+          <span class="badge badge-teal" style="font-size:0.68rem">DS19 · DS1 T2/T3</span>
+        </div>
+      </div>
+      <div style="padding:1.25rem">
+        <h3 style="font-weight:700;font-size:1rem;margin-bottom:0.375rem">${p.nombre}</h3>
+        <p style="font-size:0.85rem;color:var(--text-muted)">${[p.comuna, p.region].filter(Boolean).join(' · ') || 'Chile'}</p>
+      </div>
+    </div>
+  `).join('')
+}
+
+function filtrarProyectos() {
+  const texto = document.getElementById('filtroTexto').value.toLowerCase()
+  const subsidio = document.getElementById('filtroSubsidio').value
+  const region = document.getElementById('filtroRegion').value
+  const filtrados = _todosLosProyectos.filter(p => {
+    const matchTexto = !texto || (p.nombre + p.comuna + p.region).toLowerCase().includes(texto)
+    const matchRegion = !region || (p.region || '').toLowerCase().includes(region)
+    return matchTexto && matchRegion
+  })
+  renderProyectos(filtrados)
+}
+
+document.addEventListener('DOMContentLoaded', cargarProyectos)
+</script>
+
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+{% include "partials/_head.html" %}
+<style>
+  /* ── HERO ──────────────────────────────────────────────────────────── */
+  #cf-hero {
+    background: linear-gradient(160deg, #0b1929 0%, #0d2e2a 100%);
+    padding: 5.5rem 0 4.5rem;
+    text-align: center;
+  }
+  #cf-hero h1 {
+    color: #ffffff;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    margin-bottom: 1.25rem;
+  }
+  #cf-hero p {
+    color: #94a3b8;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  /* ── PASOS ZIGZAG ──────────────────────────────────────────────────── */
+  .cf-step { padding: 5rem 0; }
+  .cf-step:nth-child(odd)  { background: #ffffff; }
+  .cf-step:nth-child(even) { background: #f8fafc; }
+  [data-theme="dark"] .cf-step:nth-child(odd)  { background: var(--bg);  }
+  [data-theme="dark"] .cf-step:nth-child(even) { background: var(--bg2); }
+
+  .cf-step-inner {
+    display: flex;
+    gap: 5rem;
+    align-items: center;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+  .cf-step-inner.reverse .cf-icon-side { order: 2; }
+  .cf-step-inner.reverse .cf-text-side { order: 1; }
+
+  /* Icon illustration */
+  .cf-icon-side { flex: 0 0 auto; position: relative; }
+  .cf-num-badge {
+    position: absolute;
+    top: -10px; left: -10px;
+    background: #ffffff;
+    color: #0f172a;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: 7px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+    z-index: 2;
+    letter-spacing: 0.02em;
+  }
+  [data-theme="dark"] .cf-num-badge { background: #1e293b; color: #f1f5f9; }
+  .cf-icon-box {
+    width: 200px;
+    height: 200px;
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.18);
+  }
+
+  /* Text content */
+  .cf-text-side { flex: 1; }
+  .cf-text-side h3 {
+    font-size: clamp(1.375rem, 3vw, 1.875rem);
+    font-weight: 800;
+    line-height: 1.25;
+    margin-bottom: 0.875rem;
+    color: var(--text);
+  }
+  .cf-text-side > p {
+    color: var(--text-muted);
+    line-height: 1.8;
+    font-size: 0.9375rem;
+    margin-bottom: 1.375rem;
+  }
+  .cf-checks { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+  .cf-checks li { display: flex; align-items: center; gap: 0.625rem; font-size: 0.875rem; color: var(--text-muted); }
+  .cf-check-dot {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--primary);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── BENEFICIOS ────────────────────────────────────────────────────── */
+  #cf-beneficios {
+    padding: 5.5rem 0;
+    background: #ffffff;
+  }
+  [data-theme="dark"] #cf-beneficios { background: var(--bg); }
+  .cf-ben-header { text-align: center; max-width: 640px; margin: 0 auto 3rem; }
+  .cf-ben-header h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 900; color: var(--text); margin-bottom: 0.75rem; }
+  .cf-ben-header p { color: var(--text-muted); font-size: 1.0625rem; }
+  .cf-ben-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+  .cf-ben-card {
+    background: #f8fffe;
+    border: 1px solid #d1fae5;
+    border-radius: 1rem;
+    padding: 1.75rem;
+  }
+  [data-theme="dark"] .cf-ben-card { background: var(--surface); border-color: var(--border); }
+  .cf-ben-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    background: rgba(13,148,136,0.1);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary);
+    margin-bottom: 1rem;
+  }
+  .cf-ben-card h4 { font-size: 0.9375rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text); }
+  .cf-ben-card p  { font-size: 0.875rem; color: var(--text-muted); line-height: 1.7; }
+
+  /* ── CTA ────────────────────────────────────────────────────────────── */
+  #cf-cta {
+    background: #0f172a;
+    padding: 5.5rem 0;
+    text-align: center;
+  }
+  #cf-cta h2 { color: #ffffff; font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 900; line-height: 1.2; margin-bottom: 1rem; }
+  #cf-cta p  { color: #94a3b8; font-size: 1.0625rem; margin: 0 auto 2.25rem; max-width: 440px; }
+
+  /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .cf-step-inner { flex-direction: column; gap: 2.5rem; }
+    .cf-step-inner.reverse .cf-icon-side,
+    .cf-step-inner.reverse .cf-text-side { order: unset; }
+    .cf-ben-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .cf-icon-box { width: 160px; height: 160px; }
+    .cf-ben-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+{% include "partials/_navbar.html" %}
+
+<main>
+
+  <!-- ── HERO ──────────────────────────────────────────────────────────────── -->
+  <section id="cf-hero">
+    <div class="container">
+      <h1>Cómo funciona Qué Subsidio</h1>
+      <p>Tecnología de inteligencia artificial al servicio de las familias chilenas. Descubre cómo te ayudamos a acceder a los beneficios que te corresponden.</p>
+    </div>
+  </section>
+
+  <!-- ── PASO 1 ─────────────────────────────────────────────────────────────── -->
+  <section class="cf-step">
+    <div class="cf-step-inner reveal">
+      <div class="cf-icon-side">
+        <span class="cf-num-badge">01</span>
+        <div class="cf-icon-box" style="background:linear-gradient(135deg,#0ea5e9 0%,#0d9488 100%)">
+          <svg width="88" height="88" fill="none" viewBox="0 0 88 88">
+            <circle cx="44" cy="34" r="16" fill="rgba(255,255,255,0.95)"/>
+            <path d="M18 74c0-14.36 11.64-26 26-26s26 11.64 26 26" stroke="rgba(255,255,255,0.95)" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="65" cy="60" r="13" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.9)" stroke-width="2.5"/>
+            <path d="M61 60l2.5 2.5 5.5-5" stroke="rgba(255,255,255,0.95)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="cf-text-side">
+        <h3>Crea tu perfil socioeconómico</h3>
+        <p>Completa un formulario simple con información sobre tu hogar, ingresos, situación habitacional y objetivos. Todo el proceso toma menos de 5 minutos.</p>
+        <ul class="cf-checks">
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Datos básicos: edad, región, comuna, estado civil</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Composición del hogar e ingresos familiares</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Situación habitacional actual</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Objetivos principales (vivienda, educación, emprendimiento)</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PASO 2 ─────────────────────────────────────────────────────────────── -->
+  <section class="cf-step">
+    <div class="cf-step-inner reverse reveal">
+      <div class="cf-icon-side">
+        <span class="cf-num-badge">02</span>
+        <div class="cf-icon-box" style="background:linear-gradient(135deg,#0d9488 0%,#059669 100%)">
+          <svg width="88" height="88" fill="none" viewBox="0 0 88 88">
+            <rect x="26" y="26" width="36" height="36" rx="5" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.95)" stroke-width="3"/>
+            <rect x="33" y="33" width="22" height="22" rx="3" fill="rgba(255,255,255,0.3)"/>
+            <line x1="35" y1="24" x2="35" y2="20" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="44" y1="24" x2="44" y2="20" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="53" y1="24" x2="53" y2="20" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="35" y1="64" x2="35" y2="68" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="44" y1="64" x2="44" y2="68" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="53" y1="64" x2="53" y2="68" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="24" y1="35" x2="20" y2="35" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="24" y1="44" x2="20" y2="44" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="24" y1="53" x2="20" y2="53" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="64" y1="35" x2="68" y2="35" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="64" y1="44" x2="68" y2="44" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="64" y1="53" x2="68" y2="53" stroke="rgba(255,255,255,0.85)" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="cf-text-side">
+        <h3>IA analiza tu elegibilidad</h3>
+        <p>Nuestro motor de inteligencia artificial procesa tu información y la compara con los requisitos oficiales de más de 47 subsidios estatales activos.</p>
+        <ul class="cf-checks">
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Algoritmos de aprendizaje supervisado</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Comparación con requisitos oficiales actualizados</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Cálculo de probabilidad de aprobación</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Identificación de documentos necesarios</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PASO 3 ─────────────────────────────────────────────────────────────── -->
+  <section class="cf-step">
+    <div class="cf-step-inner reveal">
+      <div class="cf-icon-side">
+        <span class="cf-num-badge">03</span>
+        <div class="cf-icon-box" style="background:linear-gradient(135deg,#7c3aed 0%,#a855f7 100%)">
+          <svg width="88" height="88" fill="none" viewBox="0 0 88 88">
+            <rect x="24" y="18" width="40" height="52" rx="6" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.95)" stroke-width="3"/>
+            <line x1="33" y1="32" x2="55" y2="32" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="33" y1="40" x2="55" y2="40" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+            <line x1="33" y1="48" x2="48" y2="48" stroke="rgba(255,255,255,0.9)" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="30" cy="58" r="5" fill="rgba(255,255,255,0.3)" stroke="rgba(255,255,255,0.9)" stroke-width="2"/>
+            <path d="M28 58l1.5 1.5 3-3" stroke="rgba(255,255,255,0.95)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="cf-text-side">
+        <h3>Recibe recomendaciones personalizadas</h3>
+        <p>Obtén una lista priorizada de subsidios con alta, media o baja probabilidad de aprobación, junto con las razones específicas de cada evaluación.</p>
+        <ul class="cf-checks">
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Lista ordenada por probabilidad de éxito</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Explicación clara de por qué calificas</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Requisitos que cumples y los que faltan</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Montos y beneficios específicos</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PASO 4 ─────────────────────────────────────────────────────────────── -->
+  <section class="cf-step">
+    <div class="cf-step-inner reverse reveal">
+      <div class="cf-icon-side">
+        <span class="cf-num-badge">04</span>
+        <div class="cf-icon-box" style="background:linear-gradient(135deg,#16a34a 0%,#65a30d 100%)">
+          <svg width="88" height="88" fill="none" viewBox="0 0 88 88">
+            <rect x="22" y="20" width="44" height="48" rx="6" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.95)" stroke-width="3"/>
+            <rect x="30" y="30" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.95)"/>
+            <line x1="41" y1="33" x2="58" y2="33" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
+            <rect x="30" y="42" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.4)" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>
+            <line x1="41" y1="45" x2="58" y2="45" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
+            <rect x="30" y="54" width="6" height="6" rx="1.5" fill="rgba(255,255,255,0.4)" stroke="rgba(255,255,255,0.9)" stroke-width="1.5"/>
+            <line x1="41" y1="57" x2="54" y2="57" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+      <div class="cf-text-side">
+        <h3>Sigue la guía paso a paso</h3>
+        <p>Para cada subsidio, te proporcionamos una guía detallada de postulación con checklist de documentos, fechas importantes y recordatorios automáticos.</p>
+        <ul class="cf-checks">
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Checklist interactivo de documentos</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Calendario de fechas clave</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Alertas de apertura y cierre de postulaciones</li>
+          <li><span class="cf-check-dot"><svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5l2 2 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Seguimiento del estado de tus postulaciones</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BENEFICIOS ─────────────────────────────────────────────────────────── -->
+  <section id="cf-beneficios">
+    <div class="container">
+      <div class="cf-ben-header reveal">
+        <h2>Beneficios de usar Qué Subsidio</h2>
+        <p>Más que una plataforma, somos tu aliado en el acceso a beneficios estatales</p>
+      </div>
+      <div class="cf-ben-grid reveal">
+
+        <div class="cf-ben-card">
+          <div class="cf-ben-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <h4>Ahorra tiempo</h4>
+          <p>Evita buscar manualmente entre cientos de subsidios. Nuestra IA hace el trabajo por ti.</p>
+        </div>
+
+        <div class="cf-ben-card">
+          <div class="cf-ben-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <h4>Maximiza tus beneficios</h4>
+          <p>Descubre subsidios que no conocías y que pueden significar miles de dólares en apoyo.</p>
+        </div>
+
+        <div class="cf-ben-card">
+          <div class="cf-ben-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <h4>Información confiable</h4>
+          <p>Datos actualizados directamente desde fuentes oficiales del gobierno.</p>
+        </div>
+
+        <div class="cf-ben-card">
+          <div class="cf-ben-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+          </div>
+          <h4>Nunca pierdas una oportunidad</h4>
+          <p>Recibe alertas cuando se abran nuevos llamados o cambien requisitos.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
+  <section id="cf-cta">
+    <div class="container">
+      <div class="reveal" style="max-width:520px;margin:0 auto">
+        <h2>¿Listo para descubrir tus subsidios?</h2>
+        <p>Comienza ahora y obtén resultados en menos de 5 minutos</p>
+        <button onclick="typeof abrirLogin==='function'?abrirLogin():window.location.href='/login.html'" class="btn btn-primary" style="font-size:1rem;padding:0.9rem 2.25rem">
+          Evaluar mi elegibilidad gratis
+        </button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+{% include "partials/_footer.html" %}
+{% include "partials/_scripts_common.html" %}
+
+</body>
+</html>

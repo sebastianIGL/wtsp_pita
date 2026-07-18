@@ -1,25 +1,7 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Neurobytes — CRM para Proyectos Inmobiliarios con Subsidios Habitacionales en Chile</title>
-  <meta name="description" content="Neurobytes es el CRM inmobiliario especializado en proyectos DS19 y DS1 T2/T3 en Chile. Automatiza la atención por WhatsApp, gestiona etapas y simplifica el proceso de subsidio habitacional para tu inmobiliaria." />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://neurobytes.cl/" />
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Neurobytes — CRM Inmobiliario para Subsidios Habitacionales en Chile" />
-  <meta property="og:description" content="CRM especializado en DS19 y DS1 T2/T3. Atención automática por WhatsApp, gestión de etapas y documentos en un solo lugar." />
-  <meta property="og:url" content="https://neurobytes.cl/" />
-  <meta property="og:site_name" content="Neurobytes" />
-  <meta property="og:locale" content="es_CL" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Neurobytes — CRM Inmobiliario para Subsidios Habitacionales en Chile" />
-  <meta name="twitter:description" content="CRM especializado en proyectos DS19 y DS1 T2/T3 en Chile. WhatsApp automatizado, gestión de clientes y subsidios." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>" />
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+{% include "partials/_head.html" %}
 
   <script type="application/ld+json">
   {
@@ -27,19 +9,19 @@
     "@graph": [
       {
         "@type": "Organization",
-        "@id": "https://neurobytes.cl/#organization",
-        "name": "Neurobytes",
-        "url": "https://neurobytes.cl",
+        "@id": "https://quesubsidio.cl/#organization",
+        "name": "QueSubsidio",
+        "url": "https://quesubsidio.cl",
         "description": "CRM inmobiliario especializado en la gestión de proyectos habitacionales con subsidios DS19 y DS1 T2/T3 en Chile. Automatización de atención por WhatsApp, gestión de etapas y documentación centralizada.",
         "areaServed": { "@type": "Country", "name": "Chile" },
         "contactPoint": { "@type": "ContactPoint", "contactType": "ventas", "availableLanguage": "Spanish" }
       },
       {
         "@type": "WebSite",
-        "@id": "https://neurobytes.cl/#website",
-        "url": "https://neurobytes.cl",
-        "name": "Neurobytes — CRM Inmobiliario",
-        "publisher": { "@id": "https://neurobytes.cl/#organization" },
+        "@id": "https://quesubsidio.cl/#website",
+        "url": "https://quesubsidio.cl",
+        "name": "QueSubsidio — CRM Inmobiliario",
+        "publisher": { "@id": "https://quesubsidio.cl/#organization" },
         "inLanguage": "es-CL"
       },
       {
@@ -100,196 +82,32 @@
   </script>
 
   <style>
-    /* ── Variables de tema ───────────────────────────────────────────────────── */
-    :root {
-      --bg:            #0c0820;
-      --bg2:           #150f35;
-      --surface:       rgba(124,58,237,0.07);
-      --surface-hover: rgba(124,58,237,0.12);
-      --border:        rgba(167,139,250,0.15);
-      --border-strong: rgba(124,58,237,0.35);
-      --text:          #f5f3ff;
-      --text-muted:    #a78bfa;
-      --text-subtle:   #6b5fa8;
-      --violet:        #7c3aed;
-      --violet-hover:  #6d28d9;
-      --violet-light:  #a78bfa;
-      --nav-bg:        rgba(12,8,32,0.88);
-      --footer-bg:     #080514;
-      --inp-bg:        rgba(255,255,255,0.04);
-      --inp-border:    rgba(167,139,250,0.22);
-      --inp-text:      #f5f3ff;
-      --inp-ph:        #6b5fa8;
-      --sep:           rgba(167,139,250,0.1);
-    }
-    [data-theme="light"] {
-      --bg:            #faf9ff;
-      --bg2:           #f0ecff;
-      --surface:       rgba(255,255,255,0.92);
-      --surface-hover: rgba(124,58,237,0.05);
-      --border:        rgba(124,58,237,0.14);
-      --border-strong: rgba(124,58,237,0.4);
-      --text:          #1e1b4b;
-      --text-muted:    #5b21b6;
-      --text-subtle:   #8b5cf6;
-      --violet:        #7c3aed;
-      --violet-hover:  #6d28d9;
-      --violet-light:  #5b21b6;
-      --nav-bg:        rgba(250,249,255,0.94);
-      --footer-bg:     #100830;
-      --inp-bg:        #ffffff;
-      --inp-border:    #ddd6fe;
-      --inp-text:      #1e1b4b;
-      --inp-ph:        #a78bfa;
-      --sep:           rgba(124,58,237,0.1);
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      background-color: var(--bg);
-      color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      line-height: 1.7;
-      -webkit-font-smoothing: antialiased;
-    }
-    :focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; }
-
-    /* ── Navbar ──────────────────────────────────────────────────────────────── */
-    #navbar {
-      position: sticky; top: 0; z-index: 50;
-      background: var(--nav-bg);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      border-bottom: 1px solid var(--sep);
-    }
-    .nav-inner {
-      max-width: 1200px; margin: 0 auto;
-      padding: 0 1.5rem; height: 64px;
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .nav-logo {
-      display: flex; align-items: center; gap: 0.625rem;
-      text-decoration: none; color: var(--text);
-      font-weight: 700; font-size: 1.1rem;
-    }
-    .nav-logo-box {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--violet);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .nav-links { display: flex; align-items: center; gap: 0.25rem; }
-    .nav-link {
-      padding: 0.5rem 0.875rem; border-radius: 0.5rem;
-      font-size: 0.875rem; color: var(--text-muted);
-      text-decoration: none; transition: color 0.2s, background 0.2s;
-    }
-    .nav-link:hover { color: var(--text); background: var(--surface); }
-    .nav-link-cta {
-      background: var(--violet); color: #fff !important;
-      font-weight: 600; padding: 0.5rem 1.1rem;
-      border-radius: 0.5rem;
-    }
-    .nav-link-cta:hover { background: var(--violet-hover) !important; }
-    .nav-btn-theme {
-      background: none; border: none; cursor: pointer;
-      color: var(--text-subtle); padding: 0.375rem;
-      border-radius: 0.5rem; display: flex; align-items: center;
-      transition: color 0.2s, background 0.2s; margin-left: 0.25rem;
-    }
-    .nav-btn-theme:hover { color: var(--text); background: var(--surface); }
-    .nav-hamburger {
-      display: none; background: none; border: none;
-      cursor: pointer; color: var(--text-muted);
-      padding: 0.375rem; border-radius: 0.5rem;
-      transition: color 0.2s, background 0.2s;
-    }
-    .nav-hamburger:hover { color: var(--text); background: var(--surface); }
-    .nav-mobile {
-      display: none; flex-direction: column;
-      border-top: 1px solid var(--sep);
-      padding: 0.5rem 1.5rem 1rem;
-      background: var(--nav-bg);
-      backdrop-filter: blur(18px);
-    }
-    .nav-mobile.open { display: flex; }
-    .nav-mobile-link {
-      padding: 0.875rem 0.5rem; font-size: 0.9375rem;
-      color: var(--text-muted); text-decoration: none;
-      border-bottom: 1px solid var(--sep);
-      transition: color 0.2s;
-    }
-    .nav-mobile-link:last-child { border-bottom: none; }
-    .nav-mobile-link:hover { color: var(--text); }
-    @media (max-width: 640px) {
-      .nav-links { display: none; }
-      .nav-hamburger { display: flex; }
-    }
-
-    /* ── Botones ─────────────────────────────────────────────────────────────── */
-    .btn {
-      display: inline-flex; align-items: center; gap: 0.5rem;
-      font-weight: 600; font-size: 0.9375rem;
-      padding: 0.75rem 1.75rem; border-radius: 0.625rem;
-      border: none; cursor: pointer; text-decoration: none;
-      transition: all 0.2s;
-    }
-    .btn-primary {
-      background: var(--violet); color: #fff;
-      box-shadow: 0 4px 20px rgba(124,58,237,0.35);
-    }
-    .btn-primary:hover { background: var(--violet-hover); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(124,58,237,0.45); }
-    .btn-primary:active { transform: none; }
-    .btn-ghost {
-      background: transparent; color: var(--text-muted);
-      border: 1px solid var(--border);
-    }
-    .btn-ghost:hover { border-color: var(--violet-light); color: var(--text); background: var(--surface); }
-
-    /* ── Inputs ──────────────────────────────────────────────────────────────── */
-    .inp {
-      width: 100%; background: var(--inp-bg);
-      border: 1px solid var(--inp-border);
-      color: var(--inp-text); border-radius: 0.5rem;
-      padding: 0.75rem 1rem; font-size: 0.875rem;
-      outline: none; transition: box-shadow 0.2s, border-color 0.2s;
-      font-family: inherit;
-    }
-    .inp:focus { box-shadow: 0 0 0 2px rgba(124,58,237,0.35); border-color: var(--violet); }
-    .inp::placeholder { color: var(--inp-ph); }
-    textarea.inp { resize: vertical; min-height: 110px; }
-    .lbl { display: block; font-size: 0.8125rem; font-weight: 500; color: var(--text-muted); margin-bottom: 0.375rem; }
-
-    /* ── Glass card ──────────────────────────────────────────────────────────── */
-    .glass {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(12px);
-    }
-
-    /* ── Sección layout ──────────────────────────────────────────────────────── */
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }
-    .section { padding: 5rem 0; }
-    .section-sm { padding: 3.5rem 0; }
-    .chip {
-      display: inline-block; font-size: 0.72rem; font-weight: 700;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--violet); background: rgba(124,58,237,0.1);
-      border: 1px solid rgba(124,58,237,0.22);
-      border-radius: 9999px; padding: 0.25rem 0.875rem; margin-bottom: 1rem;
-    }
-    h2.section-h { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.2; margin-bottom: 0.875rem; }
-    .section-lead { font-size: 1.0625rem; color: var(--text-muted); max-width: 580px; line-height: 1.8; }
-
     /* ── Hero ────────────────────────────────────────────────────────────────── */
     #hero {
       min-height: calc(100svh - 64px);
       display: flex; align-items: center;
       padding: 4rem 0;
-      background:
-        radial-gradient(ellipse 70% 60% at 75% 40%, rgba(124,58,237,0.14) 0%, transparent 70%),
-        radial-gradient(ellipse 50% 50% at 10% 80%, rgba(167,139,250,0.07) 0%, transparent 60%);
+      position: relative;
+      background-image:
+        linear-gradient(to bottom,
+          rgba(7,21,32,0.55) 0%,
+          rgba(7,21,32,0.40) 40%,
+          rgba(7,21,32,0.72) 100%),
+        url('https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/Subsidios.cl/home_quesubsidio.jpg');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    @media (max-width: 640px) {
+      #hero {
+        background-image:
+          linear-gradient(to bottom,
+            rgba(7,21,32,0.65) 0%,
+            rgba(7,21,32,0.50) 40%,
+            rgba(7,21,32,0.82) 100%),
+          url('https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/Subsidios.cl/home_quesubsidio.jpg');
+        background-position: 65% center;
+      }
     }
     .hero-grid {
       display: grid; grid-template-columns: 1fr 1fr;
@@ -298,9 +116,9 @@
     @media (max-width: 900px) { .hero-grid { grid-template-columns: 1fr; gap: 2.5rem; } }
     .hero-badge {
       display: inline-flex; align-items: center; gap: 0.5rem;
-      background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.22);
+      background: rgba(13,148,136,0.15); border: 1px solid rgba(45,212,191,0.35);
       border-radius: 9999px; padding: 0.375rem 0.875rem;
-      font-size: 0.8rem; color: var(--violet-light); margin-bottom: 1.25rem;
+      font-size: 0.8rem; color: #99f6e4; margin-bottom: 1.25rem;
     }
     .badge-dot {
       width: 7px; height: 7px; background: #22c55e;
@@ -313,47 +131,91 @@
       font-weight: 900; line-height: 1.15;
       letter-spacing: -0.025em; margin-bottom: 1.25rem;
     }
-    h1 .accent { color: var(--violet); }
+    h1 .accent { color: var(--primary); }
     .hero-desc { font-size: 1.0625rem; color: var(--text-muted); margin-bottom: 2rem; line-height: 1.8; }
     .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
 
-    /* ── Features ────────────────────────────────────────────────────────────── */
-    #features { background: var(--bg2); }
-    .features-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+    /* ── Por qué confiar ─────────────────────────────────────────────────────── */
+    #confianza { background: #f0fdf9; }
+    [data-theme="dark"] #confianza { background: var(--bg2); }
+    .confianza-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 1.5rem; }
+    @media (max-width: 640px) { .confianza-grid { grid-template-columns: 1fr; } }
+    .confianza-card {
+      background: #fff; border: 1px solid #d1fae5; border-radius: 1rem;
+      padding: 1.75rem; display: flex; align-items: flex-start; gap: 1.125rem;
+      transition: box-shadow 0.2s;
     }
+    [data-theme="dark"] .confianza-card { background: var(--surface); border-color: var(--border); }
+    .confianza-card:hover { box-shadow: 0 4px 20px rgba(13,148,136,0.1); }
+    .confianza-icon {
+      width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0;
+      background: rgba(13,148,136,0.1);
+      display: flex; align-items: center; justify-content: center; color: var(--primary);
+    }
+    .confianza-title { font-weight: 700; font-size: 0.9375rem; color: #0f172a; margin-bottom: 0.375rem; }
+    [data-theme="dark"] .confianza-title { color: var(--text); }
+    .confianza-desc { font-size: 0.875rem; color: #475569; line-height: 1.75; }
+    [data-theme="dark"] .confianza-desc { color: var(--text-muted); }
+
+    /* ── Features ────────────────────────────────────────────────────────────── */
+    #features { background: #fff; }
+    [data-theme="dark"] #features { background: var(--bg); }
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
     @media (max-width: 768px) { .features-grid { grid-template-columns: 1fr; } }
     .feature-card {
-      padding: 1.75rem; border-radius: 1rem; border: 1px solid var(--border);
-      background: var(--surface);
-      transition: border-color 0.2s, background 0.2s;
+      padding: 1.75rem; border-radius: 1rem; border: 1px solid #d1fae5;
+      background: #f8fffe; transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .feature-card:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+    [data-theme="dark"] .feature-card { background: var(--surface); border-color: var(--border); }
+    .feature-card:hover { border-color: var(--primary); box-shadow: 0 4px 20px rgba(13,148,136,0.08); }
     .feature-icon {
       width: 44px; height: 44px; border-radius: 10px;
-      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.22);
+      background: rgba(13,148,136,0.1); border: 1px solid rgba(13,148,136,0.2);
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 1.125rem; color: var(--violet-light);
+      margin-bottom: 1.125rem; color: var(--primary);
     }
-    .feature-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.5rem; }
-    .feature-desc { font-size: 0.9rem; color: var(--text-subtle); line-height: 1.75; }
+    .feature-title { font-weight: 700; font-size: 1rem; margin-bottom: 0.5rem; color: #0f172a; }
+    [data-theme="dark"] .feature-title { color: var(--text); }
+    .feature-desc { font-size: 0.9rem; color: #475569; line-height: 1.75; }
+    [data-theme="dark"] .feature-desc { color: var(--text-muted); }
 
     /* ── Stats ───────────────────────────────────────────────────────────────── */
-    #stats { border-top: 1px solid var(--sep); border-bottom: 1px solid var(--sep); }
+    #stats { background: #dff4f6; padding: 3rem 0; }
+    [data-theme="dark"] #stats { background: var(--bg2); }
     .stats-grid {
       display: grid; grid-template-columns: repeat(3, 1fr);
       gap: 0; text-align: center;
     }
     @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr; } }
-    .stat-item { padding: 2.5rem 1.5rem; border-right: 1px solid var(--sep); }
+    .stat-item { padding: 2rem 1.5rem; border-right: 1px solid rgba(13,148,136,0.2); }
     .stat-item:last-child { border-right: none; }
-    @media (max-width: 640px) { .stat-item { border-right: none; border-bottom: 1px solid var(--sep); } }
+    @media (max-width: 640px) { .stat-item { border-right: none; border-bottom: 1px solid rgba(13,148,136,0.15); } }
     .stat-number {
-      font-size: clamp(2rem, 5vw, 2.75rem); font-weight: 900;
-      color: var(--violet-light); line-height: 1;
-      margin-bottom: 0.375rem;
+      font-size: clamp(2.25rem, 5vw, 3rem); font-weight: 900;
+      color: #0d9488; line-height: 1; margin-bottom: 0.5rem;
     }
-    .stat-label { font-size: 0.875rem; color: var(--text-subtle); }
+    .stat-label { font-size: 0.9rem; color: #0f3d3a; font-weight: 500; }
+    [data-theme="dark"] .stat-label { color: var(--text-muted); }
+
+    /* ── 3 Pasos ─────────────────────────────────────────────────────────────── */
+    #pasos { background: #ffffff; }
+    [data-theme="dark"] #pasos { background: var(--bg); }
+    .pasos-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 2.5rem; text-align: center;
+    }
+    @media (max-width: 768px) { .pasos-grid { grid-template-columns: 1fr; gap: 2rem; } }
+    .paso-num {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: var(--primary); color: #fff;
+      font-size: 1.625rem; font-weight: 900; line-height: 64px;
+      margin: 0 auto 1.25rem; flex-shrink: 0;
+    }
+    .paso-icon { margin: 0 auto 1rem; color: #0f172a; }
+    [data-theme="dark"] .paso-icon { color: var(--text-muted); }
+    .paso-title { font-size: 1rem; font-weight: 700; color: #0f172a; margin-bottom: 0.625rem; }
+    [data-theme="dark"] .paso-title { color: var(--text); }
+    .paso-desc { font-size: 0.875rem; color: #475569; line-height: 1.75; max-width: 280px; margin: 0 auto; }
+    [data-theme="dark"] .paso-desc { color: var(--text-muted); }
 
     /* ── Carousel ────────────────────────────────────────────────────────────── */
     .carousel-outer { position: relative; }
@@ -392,7 +254,7 @@
       display: flex; align-items: center; justify-content: center;
       backdrop-filter: blur(8px); transition: background 0.2s;
     }
-    .carousel-arrow:hover { background: var(--violet); }
+    .carousel-arrow:hover { background: var(--primary); }
     .carousel-arrow-prev { left: 12px; }
     .carousel-arrow-next { right: 12px; }
     .carousel-dots { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.125rem; }
@@ -401,10 +263,11 @@
       background: var(--border); border: none; cursor: pointer;
       transition: background 0.25s, transform 0.25s; padding: 0;
     }
-    .carousel-dot.active { background: var(--violet); transform: scale(1.3); }
+    .carousel-dot.active { background: var(--primary); transform: scale(1.3); }
 
     /* ── FAQ ─────────────────────────────────────────────────────────────────── */
-    #faq { background: var(--bg2); }
+    #faq { background: #f8fafc; }
+    [data-theme="dark"] #faq { background: var(--bg2); }
     .faq-list { display: flex; flex-direction: column; gap: 0.75rem; }
     details.faq {
       border: 1px solid var(--border); border-radius: 0.875rem;
@@ -425,7 +288,7 @@
       border-radius: 50%; background: rgba(124,58,237,0.12);
       border: 1px solid rgba(124,58,237,0.22);
       display: flex; align-items: center; justify-content: center;
-      color: var(--violet); font-size: 1.1rem; font-weight: 300; line-height: 1;
+      color: var(--primary); font-size: 1.1rem; font-weight: 300; line-height: 1;
       transition: transform 0.2s, background 0.2s;
     }
     details.faq[open] .faq-icon { transform: rotate(45deg); background: rgba(124,58,237,0.2); }
@@ -437,59 +300,11 @@
     }
 
     /* ── CTA Final ───────────────────────────────────────────────────────────── */
-    #cta-final {
-      background: linear-gradient(135deg, rgba(124,58,237,0.18) 0%, rgba(109,40,217,0.08) 100%);
-      border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
-    }
-
-    /* ── Footer ──────────────────────────────────────────────────────────────── */
-    footer { background: var(--footer-bg); padding: 3rem 0 2rem; }
-    .footer-grid {
-      display: grid; grid-template-columns: 1.8fr 1fr 1fr;
-      gap: 3rem; margin-bottom: 2.5rem;
-    }
-    @media (max-width: 768px) { .footer-grid { grid-template-columns: 1fr; gap: 2rem; } }
-    .footer-col-title {
-      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--text-subtle); margin-bottom: 1rem;
-    }
-    .footer-link {
-      display: block; font-size: 0.875rem; color: var(--text-subtle);
-      text-decoration: none; margin-bottom: 0.625rem;
-      transition: color 0.2s;
-    }
-    .footer-link:hover { color: var(--violet-light); }
-    .social-row { display: flex; gap: 0.625rem; margin-top: 1rem; }
-    .social-btn {
-      width: 36px; height: 36px; border-radius: 8px;
-      background: var(--surface); border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--text-subtle); text-decoration: none;
-      transition: all 0.2s;
-    }
-    .social-btn:hover { background: var(--violet); color: #fff; border-color: transparent; }
-    .footer-divider { height: 1px; background: var(--sep); margin-bottom: 1.5rem; }
-    .footer-bottom {
-      display: flex; align-items: center; justify-content: space-between;
-      gap: 1rem; flex-wrap: wrap;
-    }
-    .footer-copy { font-size: 0.8125rem; color: var(--text-subtle); }
-
-    /* ── Form feedback ───────────────────────────────────────────────────────── */
-    .msg-ok  { background:rgba(34,197,94,.1);  border:1px solid rgba(34,197,94,.28);  color:#86efac; border-radius:.5rem; padding:.875rem 1rem; font-size:.875rem; margin-top:.75rem; }
-    .msg-err { background:rgba(239,68,68,.1);  border:1px solid rgba(239,68,68,.28);  color:#fca5a5; border-radius:.5rem; padding:.875rem 1rem; font-size:.875rem; margin-top:.75rem; }
-
-    /* ── Spinner ─────────────────────────────────────────────────────────────── */
-    .spinner { width:17px;height:17px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0; }
-    @keyframes spin { to{transform:rotate(360deg)} }
-
-    /* ── Reveal on scroll ────────────────────────────────────────────────────── */
-    .reveal { opacity:0; transform:translateY(20px); transition:opacity .5s ease,transform .5s ease; }
-    .reveal.visible { opacity:1; transform:none; }
+    #cta-final { background: #0f172a !important; border: none; }
 
     /* ── Gradient text ───────────────────────────────────────────────────────── */
     .grad-text {
-      background: linear-gradient(135deg,#c4b5fd 0%,#7c3aed 50%,#a78bfa 100%);
+      background: linear-gradient(135deg, #99f6e4 0%, #0d9488 50%, #2dd4bf 100%);
       -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
     }
@@ -528,7 +343,7 @@
     .modal-close:hover { color: var(--text); background: var(--surface); }
     .modal-logo {
       width: 40px; height: 40px; border-radius: 10px;
-      background: var(--violet);
+      background: var(--primary);
       display: flex; align-items: center; justify-content: center;
       margin-bottom: 1.125rem;
     }
@@ -560,69 +375,8 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════ NAVBAR ═══════════════════════════════════ -->
-<header>
-  <nav id="navbar" role="navigation" aria-label="Navegación principal">
-    <div class="nav-inner">
-      <!-- Logo -->
-      <a href="/" class="nav-logo" aria-label="Neurobytes — Inicio">
-        <span class="nav-logo-box" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <circle cx="4"    cy="6"    r="1.8" fill="#fff"/>
-            <circle cx="4"    cy="12"   r="1.8" fill="#fff"/>
-            <circle cx="4"    cy="18"   r="1.8" fill="#fff"/>
-            <circle cx="12.5" cy="8.5"  r="1.8" fill="#fff"/>
-            <circle cx="12.5" cy="15.5" r="1.8" fill="#fff"/>
-            <circle cx="20"   cy="12"   r="1.8" fill="#fff"/>
-            <line x1="5.8" y1="6.3"  x2="10.7" y2="8.2"  stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="5.8" y1="6.6"  x2="10.7" y2="15.0" stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="5.8" y1="12"   x2="10.7" y2="8.8"  stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="5.8" y1="12"   x2="10.7" y2="15.2" stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="5.8" y1="17.7" x2="10.7" y2="9.0"  stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="5.8" y1="17.8" x2="10.7" y2="15.5" stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="14.3" y1="8.8"  x2="18.2" y2="11.5" stroke="#fff" stroke-width=".9" opacity=".6"/>
-            <line x1="14.3" y1="15.2" x2="18.2" y2="12.5" stroke="#fff" stroke-width=".9" opacity=".6"/>
-          </svg>
-        </span>
-        Neurobytes
-      </a>
+{% include "partials/_navbar.html" %}
 
-      <!-- Desktop links -->
-      <div class="nav-links" role="list">
-        <a href="#vitrina"   class="nav-link" role="listitem">Propiedades</a>
-        <a href="#faq"       class="nav-link" role="listitem">Blog</a>
-        <button id="btnTheme" class="nav-btn-theme" aria-label="Cambiar tema">
-          <svg id="iconMoon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-          </svg>
-          <svg id="iconSun" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="hidden">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-          </svg>
-        </button>
-        <button onclick="abrirLogin()" class="nav-link nav-link-cta" role="listitem">Iniciar sesión</button>
-      </div>
-
-      <!-- Mobile hamburger -->
-      <button class="nav-hamburger" id="btnMenu" aria-expanded="false" aria-controls="mobileMenu" aria-label="Abrir menú">
-        <svg id="iconMenu"  width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-        </svg>
-        <svg id="iconClose" width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="hidden">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Mobile menu -->
-    <div id="mobileMenu" class="nav-mobile" role="menu">
-      <a href="#vitrina" class="nav-mobile-link" role="menuitem">Propiedades</a>
-      <a href="#faq"     class="nav-mobile-link" role="menuitem">Blog</a>
-      <button onclick="abrirLogin();toggleMenu(false)" class="nav-mobile-link" role="menuitem" style="color:var(--violet);font-weight:600;background:none;border:none;text-align:left;width:100%;cursor:pointer;">Iniciar sesión</button>
-    </div>
-  </nav>
-</header>
-
-<!-- ═══════════════════════════════ MAIN ═════════════════════════════════════ -->
 <main>
 
   <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
@@ -640,9 +394,7 @@
             El <span class="accent">CRM inmobiliario</span> que entiende los subsidios habitacionales en Chile
           </h1>
           <p class="hero-desc">
-            Neurobytes centraliza la gestión de tus proyectos DS19 y DS1 T2/T3.
-            Atiende prospectos por WhatsApp de forma automática, rastrea cada etapa
-            y cierra más promesas sin perder tiempo en procesos manuales.
+            Comprar tu propiedad con subsidio aún es posible. QueSubsidio acerca la vivienda a más familias chilenas, ayudándote a entender los subsidios habitacionales DS19 y DS1 T2/T3 y a avanzar con claridad en cada etapa: desde tu primera consulta por WhatsApp hasta la promesa de compraventa.
           </p>
           <div class="hero-actions">
             <a href="#contacto" class="btn btn-primary">
@@ -662,15 +414,15 @@
             <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:1.5rem;">Descubre si calificas para un subsidio habitacional o crédito hipotecario.</p>
             <form id="formRegistro" novalidate>
               <div style="margin-bottom:0.875rem;">
-                <label class="lbl" for="r-nombre">Nombre <span aria-hidden="true" style="color:var(--violet)">*</span></label>
+                <label class="lbl" for="r-nombre">Nombre <span aria-hidden="true" style="color:var(--primary)">*</span></label>
                 <input id="r-nombre" name="nombre" type="text" class="inp" placeholder="Tu nombre" required autocomplete="given-name" />
               </div>
               <div style="margin-bottom:0.875rem;">
-                <label class="lbl" for="r-correo">Correo <span aria-hidden="true" style="color:var(--violet)">*</span></label>
+                <label class="lbl" for="r-correo">Correo <span aria-hidden="true" style="color:var(--primary)">*</span></label>
                 <input id="r-correo" name="correo" type="email" class="inp" placeholder="tu@correo.cl" required autocomplete="email" />
               </div>
               <div style="margin-bottom:0.875rem;">
-                <label class="lbl" for="r-pwd">Contraseña <span aria-hidden="true" style="color:var(--violet)">*</span></label>
+                <label class="lbl" for="r-pwd">Contraseña <span aria-hidden="true" style="color:var(--primary)">*</span></label>
                 <div class="pwd-wrap">
                   <input id="r-pwd" name="password" type="password" class="inp inp-pw" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password" />
                   <button type="button" class="pwd-toggle" id="r-toggle-pwd" aria-label="Mostrar contraseña">
@@ -685,7 +437,7 @@
               </button>
               <p style="text-align:center;font-size:0.8rem;color:var(--text-subtle);margin-top:1rem;">
                 ¿Ya tienes cuenta?
-                <button type="button" onclick="abrirLogin()" style="background:none;border:none;cursor:pointer;color:var(--violet-light);font-size:0.8rem;padding:0;">Iniciar sesión</button>
+                <button type="button" onclick="abrirLogin()" style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;">Iniciar sesión</button>
               </p>
             </form>
           </div>
@@ -696,81 +448,123 @@
   </section>
 
   <!-- ── ESTADÍSTICAS ──────────────────────────────────────────────────────── -->
-  <section id="stats" aria-label="Estadísticas de Neurobytes">
+  <!-- ── STATS ────────────────────────────────────────────────────────────── -->
+  <section id="stats" aria-label="Estadísticas de QueSubsidio">
     <div class="container">
       <div class="stats-grid">
         <div class="stat-item reveal">
-          <div class="stat-number">DS19</div>
-          <div class="stat-label">Subsidio integrador hasta 650 UF</div>
+          <div class="stat-number">12.847</div>
+          <div class="stat-label">usuarios activos</div>
         </div>
         <div class="stat-item reveal">
-          <div class="stat-number">DS1 T2/T3</div>
-          <div class="stat-label">Para compradores con subsidio adjudicado</div>
+          <div class="stat-number">89%</div>
+          <div class="stat-label">tasa de éxito</div>
         </div>
         <div class="stat-item reveal">
-          <div class="stat-number">WhatsApp</div>
-          <div class="stat-label">Atención automatizada 24/7 para tus clientes</div>
+          <div class="stat-number">47</div>
+          <div class="stat-label">subsidios activos</div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ── QUIÉNES SOMOS / ENFOQUE SOCIAL ───────────────────────────────────── -->
-  <section id="quienes-somos" class="section" aria-labelledby="qs-title">
+  <!-- ── 3 PASOS ───────────────────────────────────────────────────────────── -->
+  <section id="pasos" class="section" aria-labelledby="pasos-title">
     <div class="container">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4rem;align-items:center;" class="reveal">
-        <!-- Texto -->
-        <div>
-          <span class="chip">Nuestra misión</span>
-          <h2 id="qs-title" class="section-h">Tecnología al servicio de la vivienda social</h2>
-          <p class="section-lead" style="margin-bottom:1.25rem;">
-            En Chile, miles de familias acceden a su primera vivienda gracias a los subsidios habitacionales del MINVU.
-            Sin embargo, el proceso —desde la postulación hasta la entrega de llaves— está lleno de etapas, documentos
-            y plazos que son difíciles de gestionar manualmente.
-          </p>
-          <p style="font-size:1rem;color:var(--text-muted);line-height:1.8;margin-bottom:1.5rem;">
-            <strong style="color:var(--text)">Neurobytes nació para resolver eso.</strong>
-            Centralizamos toda la gestión de tus proyectos inmobiliarios con subsidio:
-            el CRM registra automáticamente qué tipo de subsidio tiene cada prospecto,
-            cuándo debe actuar el ejecutivo y qué documentos faltan.
-            Y el bot de WhatsApp explica el proceso al comprador en su idioma, sin inventar información.
-          </p>
-          <a href="#contacto" class="btn btn-primary">Crea tu cuenta gratis</a>
+      <div class="reveal" style="text-align:center;max-width:640px;margin:0 auto 3.5rem">
+        <h2 id="pasos-title" class="section-h" style="color:#0f172a">Tu camino en 3 pasos simples</h2>
+        <p class="section-lead" style="margin:0 auto;color:#475569">
+          Sin burocracia, sin confusión. Solo respuestas claras sobre los subsidios que te corresponden.
+        </p>
+      </div>
+      <div class="pasos-grid">
+        <div class="reveal">
+          <div class="paso-num">1</div>
+          <div class="paso-icon">
+            <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414A1 1 0 0119 8.414V19a2 2 0 01-2 2z"/>
+            </svg>
+          </div>
+          <div class="paso-title">Completa tu perfil</div>
+          <p class="paso-desc">Responde preguntas simples sobre tu situación socioeconómica, hogar e ingresos. Solo toma 5 minutos.</p>
         </div>
-        <!-- Cards de beneficios -->
-        <div style="display:flex;flex-direction:column;gap:1rem;">
-          <div class="feature-card" style="display:flex;align-items:flex-start;gap:1rem;padding:1.25rem 1.5rem;">
-            <div class="feature-icon" style="margin:0;flex-shrink:0;">
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="feature-title">Sin errores de subsidio</div>
-              <div class="feature-desc">El sistema sabe exactamente qué proyectos aceptan DS19 y cuáles DS1 T2/T3. El bot jamás da información incorrecta al cliente.</div>
-            </div>
+        <div class="reveal">
+          <div class="paso-num">2</div>
+          <div class="paso-icon">
+            <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+              <rect x="4" y="4" width="16" height="16" rx="2" stroke-linecap="round"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 9h.01M15 9h.01M9 15h.01M15 15h.01M12 9v6"/>
+            </svg>
           </div>
-          <div class="feature-card" style="display:flex;align-items:flex-start;gap:1rem;padding:1.25rem 1.5rem;">
-            <div class="feature-icon" style="margin:0;flex-shrink:0;">
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="feature-title">WhatsApp inteligente</div>
-              <div class="feature-desc">Responde consultas al instante, agenda visitas y envía plantillas en el momento preciso del proceso de compra.</div>
-            </div>
+          <div class="paso-title">IA analiza tu elegibilidad</div>
+          <p class="paso-desc">Nuestro motor de inteligencia artificial procesa tu información y la compara con requisitos oficiales de 47+ subsidios.</p>
+        </div>
+        <div class="reveal">
+          <div class="paso-num">3</div>
+          <div class="paso-icon">
+            <svg width="36" height="36" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
           </div>
-          <div class="feature-card" style="display:flex;align-items:flex-start;gap:1rem;padding:1.25rem 1.5rem;">
-            <div class="feature-icon" style="margin:0;flex-shrink:0;">
-              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="feature-title">Documentos centralizados</div>
-              <div class="feature-desc">Todos los documentos del proceso de subsidio en un solo lugar. Sabe en tiempo real qué falta para avanzar a la siguiente etapa.</div>
-            </div>
+          <div class="paso-title">Recibe tu plan personalizado</div>
+          <p class="paso-desc">Obtén una lista priorizada de subsidios con alta probabilidad, guías paso a paso y recordatorios de fechas clave.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── POR QUÉ CONFIAR ──────────────────────────────────────────────────── -->
+  <section id="confianza" class="section" aria-labelledby="confianza-title">
+    <div class="container">
+      <div class="reveal" style="text-align:center;max-width:640px;margin:0 auto 3rem">
+        <h2 id="confianza-title" class="section-h">Por qué confiar en QueSubsidio</h2>
+        <p class="section-lead" style="margin:0 auto">
+          Tecnología diseñada para que las familias chilenas accedan a su vivienda con seguridad y sin complicaciones.
+        </p>
+      </div>
+      <div class="confianza-grid reveal">
+        <div class="confianza-card">
+          <div class="confianza-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="confianza-title">Datos protegidos y certificados</div>
+            <p class="confianza-desc">Tu información está encriptada y protegida. Cumplimos con todas las normativas de protección de datos en Chile.</p>
+          </div>
+        </div>
+        <div class="confianza-card">
+          <div class="confianza-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div>
+            <div class="confianza-title">Resultados en minutos</div>
+            <p class="confianza-desc">Nuestra IA analiza tu perfil y te muestra subsidios compatibles en menos de 5 minutos, sin trámites complejos.</p>
+          </div>
+        </div>
+        <div class="confianza-card">
+          <div class="confianza-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="confianza-title">Inteligencia artificial avanzada</div>
+            <p class="confianza-desc">Algoritmos de aprendizaje supervisado que predicen tu elegibilidad con precisión superior al 89%.</p>
+          </div>
+        </div>
+        <div class="confianza-card">
+          <div class="confianza-icon">
+            <svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="confianza-title">Seguimiento en tiempo real</div>
+            <p class="confianza-desc">Monitorea el estado de tus postulaciones y recibe alertas de nuevos subsidios que califiquen para ti.</p>
           </div>
         </div>
       </div>
@@ -869,7 +663,7 @@
     <div class="container">
       <div class="reveal" style="text-align:center;max-width:600px;margin:0 auto 2.5rem;">
         <span class="chip">Proyectos</span>
-        <h2 id="vitrina-title" class="section-h">Proyectos gestionados con Neurobytes</h2>
+        <h2 id="vitrina-title" class="section-h">Proyectos gestionados con QueSubsidio</h2>
         <p class="section-lead" style="margin:0 auto;">
           Inmobiliarias de distintas regiones de Chile confían en nuestra plataforma para gestionar sus proyectos habitacionales con subsidio.
         </p>
@@ -1064,25 +858,22 @@
   <!-- ── CIERRE + CTA ──────────────────────────────────────────────────────── -->
   <section id="cta-final" class="section" aria-labelledby="cta-title">
     <div class="container">
-      <div class="reveal" style="text-align:center;max-width:680px;margin:0 auto;">
-        <span class="chip">Únete</span>
-        <h2 id="cta-title" class="section-h">
-          Haz que tus proyectos lleguen a <span class="grad-text">más familias</span>
+      <div class="reveal" style="text-align:center;max-width:640px;margin:0 auto;">
+        <h2 id="cta-title" style="font-size:clamp(1.75rem,4vw,2.75rem);font-weight:900;line-height:1.2;color:#ffffff;margin-bottom:1.25rem;">
+          Empieza tu evaluación ahora
         </h2>
-        <p class="section-lead" style="margin:0 auto 2rem;">
-          En Chile hay miles de familias esperando una vivienda digna.
-          Los proyectos con subsidio son la oportunidad de que eso ocurra.
-          Neurobytes hace que el proceso sea más simple, más rápido y más humano
-          —para el equipo de ventas y para el comprador.
+        <p style="font-size:1.0625rem;color:#94a3b8;line-height:1.75;margin:0 auto 2.25rem;max-width:480px;">
+          Sin costo, sin compromiso, 100% confidencial
         </p>
-        <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;">
-          <a href="#contacto" class="btn btn-primary" style="font-size:1rem;padding:0.875rem 2rem;">
-            Agrega tus propiedades con nosotros
-          </a>
-          <button onclick="abrirLogin()" class="btn btn-ghost" style="font-size:1rem;padding:0.875rem 2rem;">
-            Iniciar sesión
+        <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.75rem;">
+          <button onclick="abrirLogin()" class="btn btn-primary" style="font-size:1rem;padding:0.9rem 2.25rem;">
+            Comenzar evaluación gratuita
           </button>
         </div>
+        <p style="font-size:0.78rem;color:#64748b;line-height:1.6;">
+          Tus datos están protegidos bajo la Ley 19.628 de Protección de la Vida Privada.<br>
+          No compartimos tu información con terceros sin tu consentimiento.
+        </p>
       </div>
     </div>
   </section>
@@ -1115,7 +906,7 @@
     </div>
 
     <div id="modal-login-title" class="modal-title">Iniciar sesión</div>
-    <p class="modal-sub">Ingresa con tu cuenta de Neurobytes</p>
+    <p class="modal-sub">Ingresa con tu cuenta de QueSubsidio</p>
     <div id="modalAlerta" class="modal-alert" role="alert"></div>
 
     <!-- Formulario principal -->
@@ -1226,12 +1017,12 @@
           <p style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:1.5rem;">Te contactamos en menos de 24 horas hábiles.</p>
           <form id="formEmpresa" novalidate>
             <div style="margin-bottom:0.875rem;">
-              <label class="lbl" for="e-empresa">Inmobiliaria <span aria-hidden="true" style="color:var(--violet)">*</span></label>
+              <label class="lbl" for="e-empresa">Inmobiliaria <span aria-hidden="true" style="color:var(--primary)">*</span></label>
               <input id="e-empresa" name="empresa" type="text" class="inp" placeholder="Nombre de la inmobiliaria" required autocomplete="organization" />
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.875rem;margin-bottom:0.875rem;">
               <div>
-                <label class="lbl" for="e-nombre">Nombre <span aria-hidden="true" style="color:var(--violet)">*</span></label>
+                <label class="lbl" for="e-nombre">Nombre <span aria-hidden="true" style="color:var(--primary)">*</span></label>
                 <input id="e-nombre" name="nombre" type="text" class="inp" placeholder="Tu nombre" required autocomplete="given-name" />
               </div>
               <div>
@@ -1240,7 +1031,7 @@
               </div>
             </div>
             <div style="margin-bottom:0.875rem;">
-              <label class="lbl" for="e-correo">Correo <span aria-hidden="true" style="color:var(--violet)">*</span></label>
+              <label class="lbl" for="e-correo">Correo <span aria-hidden="true" style="color:var(--primary)">*</span></label>
               <input id="e-correo" name="correo" type="email" class="inp" placeholder="contacto@inmobiliaria.cl" required autocomplete="email" />
             </div>
             <div style="margin-bottom:1rem;">
@@ -1259,134 +1050,11 @@
   </div>
 </section>
 
-<!-- ═══════════════════════════════ FOOTER ════════════════════════════════════ -->
-<footer>
-  <div class="container">
-    <div class="footer-grid">
-      <!-- Columna marca -->
-      <div>
-        <a href="/" class="nav-logo" style="margin-bottom:1rem;display:inline-flex;">
-          <span class="nav-logo-box" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <circle cx="4"    cy="6"    r="1.8" fill="#fff"/>
-              <circle cx="4"    cy="12"   r="1.8" fill="#fff"/>
-              <circle cx="4"    cy="18"   r="1.8" fill="#fff"/>
-              <circle cx="12.5" cy="8.5"  r="1.8" fill="#fff"/>
-              <circle cx="12.5" cy="15.5" r="1.8" fill="#fff"/>
-              <circle cx="20"   cy="12"   r="1.8" fill="#fff"/>
-              <line x1="5.8" y1="6.3"  x2="10.7" y2="8.2"  stroke="#fff" stroke-width=".9" opacity=".6"/>
-              <line x1="5.8" y1="12"   x2="10.7" y2="8.8"  stroke="#fff" stroke-width=".9" opacity=".6"/>
-              <line x1="14.3" y1="8.8"  x2="18.2" y2="11.5" stroke="#fff" stroke-width=".9" opacity=".6"/>
-              <line x1="14.3" y1="15.2" x2="18.2" y2="12.5" stroke="#fff" stroke-width=".9" opacity=".6"/>
-            </svg>
-          </span>
-          <span style="color:#f5f3ff;">Neurobytes</span>
-        </a>
-        <p style="font-size:0.875rem;color:var(--text-subtle);max-width:280px;line-height:1.7;margin-bottom:0.25rem;">
-          CRM inmobiliario especializado en proyectos habitacionales con subsidio DS19 y DS1 en Chile.
-        </p>
-        <div class="social-row">
-          <a href="#" class="social-btn" aria-label="Instagram de Neurobytes" rel="noopener noreferrer" target="_blank">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke-width="2"/>
-              <circle cx="12" cy="12" r="4" stroke-width="2"/>
-              <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
-            </svg>
-          </a>
-          <a href="#" class="social-btn" aria-label="LinkedIn de Neurobytes" rel="noopener noreferrer" target="_blank">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2z"/>
-              <circle cx="4" cy="4" r="2"/>
-            </svg>
-          </a>
-          <a href="#" class="social-btn" aria-label="WhatsApp de Neurobytes" rel="noopener noreferrer" target="_blank">
-            <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-            </svg>
-          </a>
-        </div>
-      </div>
+{% include "partials/_footer.html" %}
 
-      <!-- Columna plataforma -->
-      <div>
-        <p class="footer-col-title">Plataforma</p>
-        <a href="#vitrina"      class="footer-link">Propiedades</a>
-        <a href="#faq"          class="footer-link">Blog</a>
-        <a href="#quienes-somos" class="footer-link">Quiénes somos</a>
-        <a href="#faq"          class="footer-link">Preguntas frecuentes</a>
-        <button onclick="abrirLogin()" class="footer-link" style="background:none;border:none;cursor:pointer;text-align:left;padding:0;">Iniciar sesión</button>
-      </div>
+{% include "partials/_scripts_common.html" %}
 
-      <!-- Columna legal -->
-      <div>
-        <p class="footer-col-title">Legal</p>
-        <a href="#" class="footer-link">Términos y condiciones</a>
-        <a href="#" class="footer-link">Política de privacidad</a>
-        <a href="#" class="footer-link">Política de cookies</a>
-        <a href="#contacto" class="footer-link">Contacto</a>
-      </div>
-    </div>
-
-    <div class="footer-divider"></div>
-
-    <div class="footer-bottom">
-      <p class="footer-copy">© 2026 Neurobytes SpA. Todos los derechos reservados. Chile.</p>
-      <p class="footer-copy">Hecho con ❤️ para la vivienda social en Chile.</p>
-    </div>
-  </div>
-</footer>
-
-<!-- ═══════════════════════════════ SCRIPTS ═══════════════════════════════════ -->
 <script>
-  // ── Tema ─────────────────────────────────────────────────────────────────
-  (function () {
-    const html = document.documentElement;
-    const saved = localStorage.getItem('nb-theme');
-    const sys   = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const init  = saved || (sys ? 'dark' : 'dark');
-    html.setAttribute('data-theme', init);
-    document.getElementById('iconMoon').classList.toggle('hidden', init === 'light');
-    document.getElementById('iconSun').classList.toggle('hidden', init !== 'light');
-  })();
-
-  document.getElementById('btnTheme').addEventListener('click', () => {
-    const html = document.documentElement;
-    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-    localStorage.setItem('nb-theme', next);
-    document.getElementById('iconMoon').classList.toggle('hidden', next === 'light');
-    document.getElementById('iconSun').classList.toggle('hidden', next !== 'light');
-  });
-
-  // ── Navbar hamburguesa ────────────────────────────────────────────────────
-  const btnMenu   = document.getElementById('btnMenu');
-  const mobileMenu = document.getElementById('mobileMenu');
-
-  function toggleMenu(open) {
-    const isOpen = open !== undefined ? open : mobileMenu.classList.contains('open');
-    mobileMenu.classList.toggle('open', !isOpen);
-    btnMenu.setAttribute('aria-expanded', String(!isOpen));
-    document.getElementById('iconMenu').classList.toggle('hidden', !isOpen);
-    document.getElementById('iconClose').classList.toggle('hidden', isOpen);
-  }
-
-  btnMenu.addEventListener('click', () => toggleMenu());
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && mobileMenu.classList.contains('open')) toggleMenu(false);
-  });
-
-  document.addEventListener('click', e => {
-    if (mobileMenu.classList.contains('open') &&
-        !mobileMenu.contains(e.target) && !btnMenu.contains(e.target)) {
-      toggleMenu(false);
-    }
-  });
-
-  mobileMenu.querySelectorAll('.nav-mobile-link').forEach(link => {
-    link.addEventListener('click', () => toggleMenu(false));
-  });
-
   // ── Carrusel ──────────────────────────────────────────────────────────────
   (function () {
     const track    = document.getElementById('carouselTrack');
@@ -1434,16 +1102,6 @@
     startAuto();
     carousel.addEventListener('mouseenter', () => clearInterval(autoId));
     carousel.addEventListener('mouseleave', () => startAuto());
-  })();
-
-  // ── Scroll reveal ─────────────────────────────────────────────────────────
-  (function () {
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
-      });
-    }, { threshold: 0.12 });
-    document.querySelectorAll('.reveal').forEach(el => obs.observe(el));
   })();
 
   // ── Modal login ───────────────────────────────────────────────────────────

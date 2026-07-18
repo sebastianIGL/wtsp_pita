@@ -1,0 +1,40 @@
+<script>
+// ── Theme toggle ───────────────────────────────────────────────────────────
+;(function () {
+  const saved = localStorage.getItem('qs-theme')
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const theme = saved || (prefersDark ? 'dark' : 'light')
+  document.documentElement.setAttribute('data-theme', theme)
+})()
+
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t)
+  localStorage.setItem('qs-theme', t)
+  const sun  = document.getElementById('iconSun')
+  const moon = document.getElementById('iconMoon')
+  if (sun)  sun.style.display  = t === 'light' ? 'none' : ''
+  if (moon) moon.style.display = t === 'light' ? ''    : 'none'
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark'
+  applyTheme(cur)
+  document.getElementById('themeToggle')?.addEventListener('click', function () {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'
+    applyTheme(next)
+  })
+
+  // ── Hamburger menu ─────────────────────────────────────────────────────
+  document.getElementById('hamburger')?.addEventListener('click', function () {
+    document.getElementById('mobileMenu')?.classList.toggle('open')
+  })
+
+  // ── Reveal on scroll ───────────────────────────────────────────────────
+  const observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target) }
+    })
+  }, { threshold: 0.12 })
+  document.querySelectorAll('.reveal').forEach(function (el) { observer.observe(el) })
+})
+</script>

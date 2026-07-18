@@ -34,6 +34,7 @@ except Exception:
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -41,6 +42,7 @@ async def _lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=_lifespan)
+templates = Jinja2Templates(directory="frontend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -2676,8 +2678,9 @@ async def api_crear_usuario(request: Request):
         nombre  = (body.get("nombre") or "").strip()
         rut     = (body.get("rut") or "").strip()
         correo  = (body.get("correo") or "").strip()
-        celular = (body.get("celular") or "").strip() or None
-        rol     = body.get("rol", "usuario")
+        celular      = (body.get("celular") or "").strip() or None
+        rol          = body.get("rol", "usuario")
+        email_alias  = (body.get("email_alias") or "").strip() or None
         if not nombre or not rut or not correo:
             return Response(content="Faltan campos obligatorios: nombre, rut, correo", status_code=400)
         if rol not in ("ejecutivo", "administrador"):
@@ -2686,6 +2689,7 @@ async def api_crear_usuario(request: Request):
         await _supabase_request("POST", "/Usuario", json={
             "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
             "celular": celular, "rol": rol, "password_provisional": False,
+            "email_alias": email_alias,
         })
         asyncio.create_task(_log_correo("invitacion", correo, "Invitación al CRM", "enviado", usuario_id=user_id))
         return {"ok": True, "usuario_id": user_id}
@@ -2713,7 +2717,7 @@ async def api_actualizar_usuario(usuario_id: str, request: Request):
         return Response(content="Solo administradores", status_code=403)
     try:
         body   = await request.json()
-        update = {k: body[k] for k in ("nombre", "celular", "rol", "estado") if k in body}
+        update = {k: body[k] for k in ("nombre", "celular", "rol", "estado", "email_alias") if k in body}
         if not update:
             return Response(content="Nada que actualizar", status_code=400)
         await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{usuario_id}"}, json=update)
@@ -4126,7 +4130,7 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
     return r.content
 
 
-async def _enviar_email_evaluacion(cliente_id: int) -> dict:
+async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None) -> dict:
     email_remitente = os.getenv("EMAIL_REMITENTE")
     email_password  = os.getenv("EMAIL_PASSWORD")
     if not email_remitente or not email_password:
@@ -4208,13 +4212,17 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
         {filas_docs}
       </table>
       <p style="font-size:12px;color:#aaa;margin-top:24px;">
-        Generado automaticamente por NeuroCRM.
+        Generado automaticamente por CRM QueSubsidio.
       </p>
     </div>
     """
 
+    # Alias del usuario que dispara el envío; si no tiene, usa EMAIL_FROM o el buzón principal
+    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_FROM", email_remitente)
+    nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
+    email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
     msg = MIMEMultipart()
-    msg["From"]    = email_remitente
+    msg["From"]    = email_from
     msg["To"]      = ", ".join(destinatarios)
     msg["Subject"] = f"Evaluacion de credito - {nombre}"
     msg.attach(MIMEText(body_html, "html"))
@@ -4237,8 +4245,10 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
     def _smtp_send():
-        logger.info("SMTP: conectando a smtp.gmail.com:465 desde %s hacia %s", email_remitente, destinatarios)
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+        smtp_host = os.getenv("SMTP_HOST", "smtp.hostinger.com")
+        smtp_port = int(os.getenv("SMTP_PORT", "465"))
+        logger.info("SMTP: conectando a %s:%s desde %s hacia %s", smtp_host, smtp_port, email_remitente, destinatarios)
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
             server.login(email_remitente, email_password)
             logger.info("SMTP: login OK, enviando correo...")
             server.sendmail(email_remitente, destinatarios, msg.as_string())
@@ -4255,10 +4265,11 @@ async def _enviar_email_evaluacion(cliente_id: int) -> dict:
 
 @app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
 async def api_enviar_evaluacion(cliente_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     try:
-        result = await _enviar_email_evaluacion(cliente_id)
+        result = await _enviar_email_evaluacion(cliente_id, usuario=perfil)
         return {"ok": True, **result}
     except Exception as e:
         logger.exception("Error enviando evaluación cliente %s", cliente_id)
@@ -4449,7 +4460,7 @@ async def api_movendo_nuevo_cliente(request: Request):
                         media_type="text/plain")
 
 
-@app.post("/api/aplicaciones/actualizar-contactos-neurobytes")
+@app.post("/api/aplicaciones/actualizar-contactos-quesubsidio")
 async def api_movendo_actualizar_contacto(request: Request):
     """Recibe el resumen de conversación de Movendo y actualiza el Cliente."""
     if not _verificar_movendo_auth(request):
@@ -4502,7 +4513,7 @@ async def api_movendo_actualizar_contacto(request: Request):
         return {"ok": True, "cliente_id": cliente_id}
 
     except Exception as e:
-        logger.exception("Error en /api/aplicaciones/actualizar-contactos-neurobytes")
+        logger.exception("Error en /api/aplicaciones/actualizar-contactos-quesubsidio")
         return Response(content=_safe_httpx_error(e) or "Internal Server Error", status_code=500,
                         media_type="text/plain")
 
@@ -4588,16 +4599,19 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
                 <tr><td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
                     <td style="padding:8px 12px;">{proyecto_nombre}</td></tr>
               </table>
-              <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por NeuroCRM.</p>
+              <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
             </div>"""
+            email_from = os.getenv("EMAIL_FROM", email_remitente)
             msg = MIMEMultipart()
-            msg["From"]    = email_remitente
+            msg["From"]    = email_from
             msg["To"]      = correo_admin
             msg["Subject"] = f"🆕 Nuevo lead — {nombre}"
             msg.attach(MIMEText(body_html, "html"))
 
             def _send():
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                _host = os.getenv("SMTP_HOST", "smtp.hostinger.com")
+                _port = int(os.getenv("SMTP_PORT", "465"))
+                with smtplib.SMTP_SSL(_host, _port) as server:
                     server.login(email_remitente, email_password)
                     server.sendmail(email_remitente, [correo_admin], msg.as_string())
 
@@ -4627,8 +4641,55 @@ async def _movendo_get_token() -> str:
 
 # ── Landing pública ───────────────────────────────────────────────────────────
 @app.get("/")
-async def page_home():
-    return FileResponse("frontend/home.html")
+async def page_home(request: Request):
+    return templates.TemplateResponse("home.html", {
+        "request": request,
+        "active": "inicio",
+        "page_title": "QueSubsidio — Subsidios Habitacionales en Chile",
+        "page_description": "Comprar tu propiedad con subsidio aún es posible. QueSubsidio acerca la vivienda a más familias chilenas con información clara sobre DS19, DS49 y DS1 T2/T3.",
+        "page_path": "/",
+        "supabase_needed": True,
+    })
+
+@app.get("/como-funciona")
+async def page_como_funciona(request: Request):
+    return templates.TemplateResponse("como-funciona.html", {
+        "request": request,
+        "active": "como-funciona",
+        "page_title": "Cómo funciona — QueSubsidio",
+        "page_description": "Conoce el proceso paso a paso para postular a un subsidio habitacional en Chile con la ayuda de QueSubsidio.",
+        "page_path": "/como-funciona",
+    })
+
+@app.get("/subsidios")
+async def page_subsidios(request: Request):
+    return templates.TemplateResponse("subsidios.html", {
+        "request": request,
+        "active": "subsidios",
+        "page_title": "Subsidios Habitacionales — QueSubsidio",
+        "page_description": "Conoce todos los subsidios disponibles: DS19, DS49, DS1 T2/T3 y más. Encuentra el que se ajusta a tu situación.",
+        "page_path": "/subsidios",
+    })
+
+@app.get("/viviendas")
+async def page_viviendas(request: Request):
+    return templates.TemplateResponse("viviendas.html", {
+        "request": request,
+        "active": "viviendas",
+        "page_title": "Viviendas con Subsidio — QueSubsidio",
+        "page_description": "Explora proyectos inmobiliarios disponibles con subsidio habitacional en todo Chile.",
+        "page_path": "/viviendas",
+    })
+
+@app.get("/blog")
+async def page_blog(request: Request):
+    return templates.TemplateResponse("blog.html", {
+        "request": request,
+        "active": "blog",
+        "page_title": "Blog — QueSubsidio",
+        "page_description": "Artículos, guías y novedades sobre subsidios habitacionales y el mercado inmobiliario chileno.",
+        "page_path": "/blog",
+    })
 
 @app.get("/api/proyectos-landing")
 async def api_proyectos_landing():
@@ -4670,7 +4731,7 @@ async def api_contacto(request: Request):
     email_password  = os.getenv("EMAIL_PASSWORD")
     if email_remitente and email_password:
         try:
-            asunto = f"[Neurobytes] Contacto desde la landing — {nombre}"
+            asunto = f"[QueSubsidio] Contacto desde la landing — {nombre}"
             cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
 <p><b>Nombre:</b> {nombre}<br>
 <b>Correo:</b> {correo}<br>
@@ -4682,11 +4743,37 @@ async def api_contacto(request: Request):
             msg["From"]    = email_remitente
             msg["To"]      = email_remitente
             msg.attach(MIMEText(cuerpo, "html"))
-            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as s:
+            _host = os.getenv("SMTP_HOST", "smtp.hostinger.com")
+            _port = int(os.getenv("SMTP_PORT", "465"))
+            with smtplib.SMTP_SSL(_host, _port, timeout=20) as s:
                 s.login(email_remitente, email_password)
                 s.sendmail(email_remitente, [email_remitente], msg.as_string())
         except Exception as exc:
             logger.warning("No se pudo enviar email de contacto: %s", exc)
+
+    return {"ok": True}
+
+
+@app.post("/api/newsletter")
+async def api_newsletter(request: Request):
+    """Guarda suscripción al blog/newsletter en Supabase."""
+    body = await request.json()
+    email = (body.get("email") or "").strip().lower()
+
+    if not email or "@" not in email:
+        return Response(content="email inválido", status_code=422)
+
+    logger.info("📧 Newsletter suscripción: %s", email)
+
+    # Guardar en Supabase (upsert para evitar duplicados)
+    try:
+        await _supabase_request(
+            "POST", "/newsletter",
+            json={"email": email},
+            extra_headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
+        )
+    except Exception as exc:
+        logger.warning("No se pudo guardar newsletter en Supabase: %s", exc)
 
     return {"ok": True}
 

@@ -1,0 +1,110 @@
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+
+      <!-- Col 1: Marca -->
+      <div>
+        <a href="/" class="nav-logo" style="margin-bottom:1rem;display:inline-flex">
+          <div class="nav-logo-box">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
+              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+            </svg>
+          </div>
+          <span style="color:#f0fdfa">QueSubsidio</span>
+        </a>
+        <p style="font-size:.875rem;color:#5eead4;line-height:1.75;margin-top:.75rem;max-width:240px">
+          Acercamos la vivienda a más familias chilenas con información clara sobre subsidios habitacionales.
+        </p>
+        <div class="social-row">
+          <a href="#" class="social-btn" aria-label="Instagram">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/>
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+            </svg>
+          </a>
+          <a href="#" class="social-btn" aria-label="LinkedIn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+              <rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/>
+            </svg>
+          </a>
+          <a href="#" class="social-btn" aria-label="Facebook">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
+      <!-- Col 2: Navegación -->
+      <div>
+        <div class="footer-col-title">Navegación</div>
+        <a href="/"              class="footer-link">Inicio</a>
+        <a href="/como-funciona" class="footer-link">Cómo funciona</a>
+        <a href="/subsidios"     class="footer-link">Subsidios</a>
+        <a href="/viviendas"     class="footer-link">Viviendas</a>
+        <a href="/blog"          class="footer-link">Blog</a>
+        <a href="/login.html"    class="footer-link">CRM Acceso</a>
+      </div>
+
+      <!-- Col 3: Legal -->
+      <div>
+        <div class="footer-col-title">Legal</div>
+        <a href="/terminos"  class="footer-link">Términos de uso</a>
+        <a href="/privacidad" class="footer-link">Política de privacidad</a>
+        <a href="/cookies"   class="footer-link">Cookies</a>
+        <div style="margin-top:1.5rem">
+          <div class="footer-col-title">Contacto</div>
+          <a href="mailto:hola@quesubsidio.cl" class="footer-link">hola@quesubsidio.cl</a>
+          <p style="font-size:.8125rem;color:#2dd4bf;margin-top:.25rem">Santiago, Chile</p>
+        </div>
+      </div>
+
+      <!-- Col 4: Newsletter -->
+      <div>
+        <div class="footer-col-title">Newsletter</div>
+        <p style="font-size:.875rem;color:#5eead4;line-height:1.7;margin-bottom:1rem">
+          Recibe alertas sobre nuevos proyectos y actualizaciones de subsidios.
+        </p>
+        <form id="footerNewsletterForm" onsubmit="submitNewsletter(event)">
+          <div style="display:flex;flex-direction:column;gap:.625rem">
+            <input type="email" id="footerEmail" class="inp" placeholder="tu@correo.cl" required autocomplete="email" />
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center" id="footerNewsletterBtn">
+              <span id="footerNewsletterLabel">Suscribirme</span>
+            </button>
+          </div>
+          <div id="footerNewsletterMsg" style="display:none"></div>
+        </form>
+      </div>
+
+    </div>
+
+    <div class="footer-divider"></div>
+    <div class="footer-bottom">
+      <p class="footer-copy">© <span id="footerYear"></span> QueSubsidio SpA. Todos los derechos reservados.</p>
+      <p class="footer-copy" style="color:#1e3a50">Hecho con ♥ en Chile</p>
+    </div>
+  </div>
+</footer>
+<script>
+document.getElementById('footerYear').textContent = new Date().getFullYear()
+
+async function submitNewsletter(e) {
+  e.preventDefault()
+  const email = document.getElementById('footerEmail').value.trim()
+  const btn   = document.getElementById('footerNewsletterBtn')
+  const lbl   = document.getElementById('footerNewsletterLabel')
+  const msg   = document.getElementById('footerNewsletterMsg')
+  lbl.textContent = 'Enviando…'; btn.disabled = true
+  try {
+    const r = await fetch('/api/newsletter', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
+    if (r.ok) {
+      msg.className = 'msg-ok'; msg.textContent = '¡Listo! Te avisaremos con novedades.'; msg.style.display = 'block'
+      document.getElementById('footerNewsletterForm').reset()
+    } else {
+      msg.className = 'msg-err'; msg.textContent = 'No se pudo suscribir, intenta de nuevo.'; msg.style.display = 'block'
+    }
+  } catch { msg.className = 'msg-err'; msg.textContent = 'Error de conexión.'; msg.style.display = 'block' }
+  lbl.textContent = 'Suscribirme'; btn.disabled = false
+}
+</script>
