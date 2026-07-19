@@ -7,19 +7,15 @@ import os
 import json
 import re
 import httpx
-import smtplib
 import csv
 import io
 import unicodedata
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timezone, timedelta
 from collections import defaultdict
 import logging
 import time
+import base64
 
 try:
     import anthropic
@@ -100,6 +96,40 @@ def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
 # ── Caché en memoria para endpoints públicos de la landing ────────────────────
 _cache_proyectos: Dict = {"data": None, "ts": 0.0}
 _CACHE_TTL = 300  # 5 minutos
+
+# ── Resend (email transaccional via HTTP) ────────────────────────────────────
+async def _resend_send(
+    *,
+    from_addr: str,
+    to: List[str],
+    subject: str,
+    html: str,
+    attachments: Optional[List[Dict]] = None,
+) -> None:
+    """Envía un email vía Resend REST API. `attachments` es lista de
+    {"filename": str, "content": bytes, "content_type": str}."""
+    api_key = os.getenv("API_KEY_RESEND")
+    if not api_key:
+        raise RuntimeError("API_KEY_RESEND no configurada")
+
+    payload: Dict = {"from": from_addr, "to": to, "subject": subject, "html": html}
+    if attachments:
+        payload["attachments"] = [
+            {
+                "filename": a["filename"],
+                "content":  base64.b64encode(a["content"]).decode(),
+            }
+            for a in attachments
+        ]
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+        )
+        if r.status_code not in (200, 201):
+            raise RuntimeError(f"Resend error {r.status_code}: {r.text}")
 
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
@@ -4181,10 +4211,8 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
 
 
 async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None) -> dict:
-    email_remitente = os.getenv("EMAIL_REMITENTE")
-    email_password  = os.getenv("EMAIL_PASSWORD")
-    if not email_remitente or not email_password:
-        raise RuntimeError("EMAIL_REMITENTE o EMAIL_PASSWORD no configurados")
+    if not os.getenv("API_KEY_RESEND"):
+        raise RuntimeError("API_KEY_RESEND no configurada")
 
     clientes = await _supabase_request("GET", "/Cliente",
         params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
@@ -4267,16 +4295,13 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     </div>
     """
 
-    # Alias del usuario que dispara el envío; si no tiene, usa EMAIL_FROM o el buzón principal
-    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_FROM", email_remitente)
+    # Alias del usuario que dispara el envío
+    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_FROM", "noreply@quesubsidio.cl")
     nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
     email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
-    msg = MIMEMultipart()
-    msg["From"]    = email_from
-    msg["To"]      = ", ".join(destinatarios)
-    msg["Subject"] = f"Evaluacion de credito - {nombre}"
-    msg.attach(MIMEText(body_html, "html"))
 
+    # Descargar adjuntos
+    adjuntos: List[Dict] = []
     for doc in docs:
         url            = doc.get("url_storage")
         nombre_archivo = doc.get("nombre_archivo") or doc.get("tipo") or "documento"
@@ -4285,32 +4310,21 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         try:
             file_bytes = await _descargar_documento_storage(url)
             mime_type  = doc.get("mime_type") or "application/octet-stream"
-            main_type, sub_type = (mime_type.split("/", 1) if "/" in mime_type else ("application", "octet-stream"))
-            part = MIMEBase(main_type, sub_type)
-            part.set_payload(file_bytes)
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", "attachment", filename=nombre_archivo)
-            msg.attach(part)
+            adjuntos.append({"filename": nombre_archivo, "content": file_bytes, "content_type": mime_type})
         except Exception as e:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
-    def _smtp_send():
-        smtp_host = os.getenv("SMTP_HOST", "smtp.hostinger.com")
-        smtp_port = int(os.getenv("SMTP_PORT", "465"))
-        logger.info("SMTP: conectando a %s:%s desde %s hacia %s", smtp_host, smtp_port, email_remitente, destinatarios)
-        with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=30) as server:
-            server.login(email_remitente, email_password)
-            logger.info("SMTP: login OK, enviando correo...")
-            server.sendmail(email_remitente, destinatarios, msg.as_string())
-            logger.info("SMTP: correo enviado exitosamente")
+    logger.info("Resend: enviando evaluación de %s a %s (%d adjuntos)", nombre, destinatarios, len(adjuntos))
+    await _resend_send(
+        from_addr=email_from,
+        to=destinatarios,
+        subject=f"Evaluacion de credito - {nombre}",
+        html=body_html,
+        attachments=adjuntos,
+    )
+    logger.info("Resend: evaluación enviada correctamente")
 
-    try:
-        await asyncio.get_event_loop().run_in_executor(None, _smtp_send)
-    except Exception as exc:
-        logger.exception("SMTP: error — %s", exc)
-        raise
-
-    return {"enviado_a": destinatarios, "documentos_adjuntos": len(docs)}
+    return {"enviado_a": destinatarios, "documentos_adjuntos": len(adjuntos)}
 
 
 @app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
@@ -4633,13 +4647,11 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
         except Exception as e:
             logger.warning("Notificación WA fallida: %s", e)
 
-    email_remitente = os.getenv("EMAIL_REMITENTE")
-    email_password  = os.getenv("EMAIL_PASSWORD")
-    if correo_admin and email_remitente and email_password:
+    if correo_admin:
         try:
             body_html = f"""
             <div style="font-family:Arial,sans-serif;max-width:500px;">
-              <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">🆕 Nuevo lead recibido</h2>
+              <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">Nuevo lead recibido</h2>
               <table style="font-size:14px;width:100%;border-collapse:collapse;">
                 <tr><td style="padding:8px 12px;font-weight:bold;color:#555;width:120px;">Nombre</td>
                     <td style="padding:8px 12px;">{nombre}</td></tr>
@@ -4651,21 +4663,13 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
               </table>
               <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
             </div>"""
-            email_from = os.getenv("EMAIL_FROM", email_remitente)
-            msg = MIMEMultipart()
-            msg["From"]    = email_from
-            msg["To"]      = correo_admin
-            msg["Subject"] = f"🆕 Nuevo lead — {nombre}"
-            msg.attach(MIMEText(body_html, "html"))
-
-            def _send():
-                _host = os.getenv("SMTP_HOST", "smtp.hostinger.com")
-                _port = int(os.getenv("SMTP_PORT", "465"))
-                with smtplib.SMTP_SSL(_host, _port) as server:
-                    server.login(email_remitente, email_password)
-                    server.sendmail(email_remitente, [correo_admin], msg.as_string())
-
-            await asyncio.get_event_loop().run_in_executor(None, _send)
+            email_from = os.getenv("EMAIL_FROM", "noreply@quesubsidio.cl")
+            await _resend_send(
+                from_addr=email_from,
+                to=[correo_admin],
+                subject=f"Nuevo lead — {nombre}",
+                html=body_html,
+            )
         except Exception as e:
             logger.warning("Notificación email fallida: %s", e)
 
@@ -4783,27 +4787,21 @@ async def api_contacto(request: Request):
 
     logger.info("📩 Contacto landing | %s | %s | %s", nombre, correo, empresa)
 
-    email_remitente = os.getenv("EMAIL_REMITENTE")
-    email_password  = os.getenv("EMAIL_PASSWORD")
-    if email_remitente and email_password:
+    destino = os.getenv("EMAIL_REMITENTE") or os.getenv("EMAIL_FROM")
+    if destino:
         try:
-            asunto = f"[QueSubsidio] Contacto desde la landing — {nombre}"
             cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
 <p><b>Nombre:</b> {nombre}<br>
 <b>Correo:</b> {correo}<br>
 <b>Teléfono:</b> {telefono or '—'}<br>
 <b>Empresa:</b> {empresa or '—'}</p>
 <p><b>Mensaje:</b><br>{mensaje or '—'}</p>"""
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = asunto
-            msg["From"]    = email_remitente
-            msg["To"]      = email_remitente
-            msg.attach(MIMEText(cuerpo, "html"))
-            _host = os.getenv("SMTP_HOST", "smtp.hostinger.com")
-            _port = int(os.getenv("SMTP_PORT", "465"))
-            with smtplib.SMTP_SSL(_host, _port, timeout=20) as s:
-                s.login(email_remitente, email_password)
-                s.sendmail(email_remitente, [email_remitente], msg.as_string())
+            await _resend_send(
+                from_addr="noreply@quesubsidio.cl",
+                to=[destino],
+                subject=f"[QueSubsidio] Contacto desde la landing — {nombre}",
+                html=cuerpo,
+            )
         except Exception as exc:
             logger.warning("No se pudo enviar email de contacto: %s", exc)
 
