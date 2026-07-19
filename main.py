@@ -17,7 +17,9 @@ from email.mime.base import MIMEBase
 from email import encoders
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timezone, timedelta
+from collections import defaultdict
 import logging
+import time
 
 try:
     import anthropic
@@ -35,6 +37,8 @@ except Exception:
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
@@ -44,12 +48,58 @@ async def _lifespan(app: FastAPI):
 app = FastAPI(lifespan=_lifespan)
 templates = Jinja2Templates(directory="frontend")
 
+# ── Security headers ──────────────────────────────────────────────────────────
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"]  = "nosniff"
+        response.headers["X-Frame-Options"]          = "DENY"
+        response.headers["Referrer-Policy"]          = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"]         = "1; mode=block"
+        if request.url.scheme == "https":
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+# Orden de add_middleware: el último en agregarse queda más externo (primer en procesar).
+# GZip → CORS → SecurityHeaders → App
+app.add_middleware(_SecurityHeadersMiddleware)
+
+_cors_origins = ["http://localhost:8000", "http://127.0.0.1:8000"]
+_site_url = os.getenv("SITE_URL", "")
+if _site_url:
+    _cors_origins.append(_site_url.rstrip("/"))
+    # Agrega variante con/sin www
+    if _site_url.startswith("https://www."):
+        _cors_origins.append("https://" + _site_url[len("https://www."):].rstrip("/"))
+    elif _site_url.startswith("https://"):
+        _cors_origins.append("https://www." + _site_url[len("https://"):].rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# ── Rate limiting (en memoria, single-instance) ───────────────────────────────
+_rl_store: Dict[str, List[float]] = defaultdict(list)
+
+def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
+    """Retorna True si el request está dentro del límite, False si debe bloquearse."""
+    now = time.time()
+    bucket = _rl_store[key]
+    _rl_store[key] = [t for t in bucket if now - t < window]
+    if len(_rl_store[key]) >= max_req:
+        return False
+    _rl_store[key].append(now)
+    return True
+
+# ── Caché en memoria para endpoints públicos de la landing ────────────────────
+_cache_proyectos: Dict = {"data": None, "ts": 0.0}
+_CACHE_TTL = 300  # 5 minutos
 
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
@@ -4642,8 +4692,7 @@ async def _movendo_get_token() -> str:
 # ── Landing pública ───────────────────────────────────────────────────────────
 @app.get("/")
 async def page_home(request: Request):
-    return templates.TemplateResponse("home.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "home.html", {
         "active": "inicio",
         "page_title": "QueSubsidio — Subsidios Habitacionales en Chile",
         "page_description": "Comprar tu propiedad con subsidio aún es posible. QueSubsidio acerca la vivienda a más familias chilenas con información clara sobre DS19, DS49 y DS1 T2/T3.",
@@ -4653,8 +4702,7 @@ async def page_home(request: Request):
 
 @app.get("/como-funciona")
 async def page_como_funciona(request: Request):
-    return templates.TemplateResponse("como-funciona.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "como-funciona.html", {
         "active": "como-funciona",
         "page_title": "Cómo funciona — QueSubsidio",
         "page_description": "Conoce el proceso paso a paso para postular a un subsidio habitacional en Chile con la ayuda de QueSubsidio.",
@@ -4663,8 +4711,7 @@ async def page_como_funciona(request: Request):
 
 @app.get("/subsidios")
 async def page_subsidios(request: Request):
-    return templates.TemplateResponse("subsidios.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "subsidios.html", {
         "active": "subsidios",
         "page_title": "Subsidios Habitacionales — QueSubsidio",
         "page_description": "Conoce todos los subsidios disponibles: DS19, DS49, DS1 T2/T3 y más. Encuentra el que se ajusta a tu situación.",
@@ -4673,8 +4720,7 @@ async def page_subsidios(request: Request):
 
 @app.get("/viviendas")
 async def page_viviendas(request: Request):
-    return templates.TemplateResponse("viviendas.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "viviendas.html", {
         "active": "viviendas",
         "page_title": "Viviendas con Subsidio — QueSubsidio",
         "page_description": "Explora proyectos inmobiliarios disponibles con subsidio habitacional en todo Chile.",
@@ -4683,8 +4729,7 @@ async def page_viviendas(request: Request):
 
 @app.get("/blog")
 async def page_blog(request: Request):
-    return templates.TemplateResponse("blog.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "blog.html", {
         "active": "blog",
         "page_title": "Blog — QueSubsidio",
         "page_description": "Artículos, guías y novedades sobre subsidios habitacionales y el mercado inmobiliario chileno.",
@@ -4694,6 +4739,10 @@ async def page_blog(request: Request):
 @app.get("/api/proyectos-landing")
 async def api_proyectos_landing():
     """Devuelve proyectos públicos para el carrusel de la landing (sin autenticación)."""
+    now = time.time()
+    if _cache_proyectos["data"] and now - _cache_proyectos["ts"] < _CACHE_TTL:
+        return _cache_proyectos["data"]
+
     rows = await _supabase_request("GET", "/Proyecto", params={
         "select": "id,nombre,descripcion,imagen_url,comuna,region",
         "order": "creado_en.desc",
@@ -4710,11 +4759,18 @@ async def api_proyectos_landing():
         for r in rows
         if r.get("nombre")
     ]
-    return {"proyectos": proyectos}
+    result = {"proyectos": proyectos}
+    _cache_proyectos["data"] = result
+    _cache_proyectos["ts"]   = now
+    return result
 
 @app.post("/api/contacto")
 async def api_contacto(request: Request):
     """Recibe formulario de contacto de la landing y notifica por email."""
+    ip = request.client.host if request.client else "unknown"
+    if not _rate_limit_ok(f"contacto:{ip}", max_req=5, window=60):
+        return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
+
     body = await request.json()
     nombre   = (body.get("nombre")   or "").strip()
     correo   = (body.get("correo")   or "").strip()
@@ -4757,6 +4813,10 @@ async def api_contacto(request: Request):
 @app.post("/api/newsletter")
 async def api_newsletter(request: Request):
     """Guarda suscripción al blog/newsletter en Supabase."""
+    ip = request.client.host if request.client else "unknown"
+    if not _rate_limit_ok(f"newsletter:{ip}", max_req=3, window=60):
+        return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
+
     body = await request.json()
     email = (body.get("email") or "").strip().lower()
 
