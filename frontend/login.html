@@ -159,6 +159,37 @@
                  disabled:opacity-50 disabled:cursor-not-allowed">
           Iniciar sesión
         </button>
+        <div class="text-center pt-1">
+          <button type="button" onclick="mostrarRecuperar()"
+            class="text-xs muted hover:underline transition">
+            ¿Olvidaste tu contraseña?
+          </button>
+        </div>
+      </form>
+
+      <!-- Recuperar contraseña -->
+      <form id="formRecuperar" class="hidden space-y-5">
+        <div class="mb-2">
+          <h2 class="font-semibold heading text-base">Recuperar contraseña</h2>
+          <p class="text-sm muted mt-1">Te enviaremos un enlace para crear una nueva contraseña.</p>
+        </div>
+        <div>
+          <label class="lbl">Correo electrónico</label>
+          <input id="correoRecuperar" type="email" required autocomplete="email"
+            placeholder="tu@correo.cl" class="inp" />
+        </div>
+        <button type="submit" id="btnRecuperar"
+          class="w-full bg-violet-600 hover:bg-violet-500 text-white font-semibold
+                 rounded-lg py-3 text-sm transition-all shadow-lg shadow-violet-500/20
+                 disabled:opacity-50 disabled:cursor-not-allowed">
+          Enviar enlace
+        </button>
+        <div class="text-center">
+          <button type="button" onclick="mostrarLogin()"
+            class="text-xs muted hover:underline transition">
+            ← Volver al inicio de sesión
+          </button>
+        </div>
       </form>
 
       <!-- Change password form (provisional) -->
@@ -290,6 +321,40 @@
       mostrarAlerta(err.message || 'Error al cambiar contraseña');
       btn.disabled = false;
       btn.textContent = 'Guardar nueva contraseña';
+    }
+  });
+
+  function mostrarLogin() {
+    ocultarAlerta();
+    document.getElementById('formLogin').classList.remove('hidden');
+    document.getElementById('formCambio').classList.add('hidden');
+    document.getElementById('formRecuperar').classList.add('hidden');
+  }
+  function mostrarRecuperar() {
+    ocultarAlerta();
+    document.getElementById('formLogin').classList.add('hidden');
+    document.getElementById('formRecuperar').classList.remove('hidden');
+  }
+
+  document.getElementById('formRecuperar').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn    = document.getElementById('btnRecuperar');
+    const correo = document.getElementById('correoRecuperar').value.trim();
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    ocultarAlerta();
+    try {
+      const { error } = await _supabase.auth.resetPasswordForEmail(correo, {
+        redirectTo: 'https://quesubsidio.cl/reset-password',
+      });
+      if (error) throw error;
+      mostrarAlerta('Te enviamos el enlace. Revisa tu correo (y la carpeta de spam).', 'ok');
+      document.getElementById('formRecuperar').classList.add('hidden');
+    } catch (err) {
+      mostrarAlerta(err.message || 'Error al enviar el correo');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enviar enlace';
     }
   });
 
