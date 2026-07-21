@@ -308,7 +308,7 @@
     const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } });
     if (!res.ok) { window.location.href = '/login.html'; return; }
     _perfil = await res.json();
-    if (_perfil.rol !== 'administrador') { window.location.href = '/'; return; }
+    if (!['owner', 'administrador'].includes(_perfil.rol)) { window.location.href = '/'; return; }
     document.getElementById('adminNombre').textContent = _perfil.nombre || '';
     cargarUsuarios();
     cargarProyectos();
@@ -389,8 +389,8 @@
         <td class="px-5 py-3 text-slate-300">${u.correo}</td>
         <td class="px-5 py-3">
           <span class="px-2.5 py-1 rounded-full text-xs font-medium
-            ${u.rol === 'administrador' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-700 text-slate-300'}">
-            ${u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'}
+            ${u.rol === 'owner' ? 'bg-amber-900/50 text-amber-300' : u.rol === 'administrador' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-700 text-slate-300'}">
+            ${u.rol === 'owner' ? 'Owner' : u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'}
           </span>
         </td>
         <td class="px-5 py-3">

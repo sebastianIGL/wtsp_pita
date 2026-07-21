@@ -652,6 +652,8 @@ const savedTheme = localStorage.getItem('theme')
 applyTheme(savedTheme === 'dark')
 
 // ─── AUTH ─────────────────────────────────────────
+const _esAdmin = r => ['owner', 'administrador'].includes(r)
+
 async function initAuth() {
   const { data: { session } } = await _supabase.auth.getSession()
   if (!session) { window.location.href = '/login.html'; return }
@@ -686,7 +688,7 @@ async function initAuth() {
     const tog = document.getElementById('toggle-filtro-usuario')
     tog.classList.remove('hidden')
     tog.classList.add('flex')
-    if (_perfil.rol === 'administrador') {
+    if (_esAdmin(_perfil.rol)) {
       document.getElementById('admin-link').classList.remove('hidden')
       _filtroTab = 'mis'
     } else {
@@ -723,7 +725,7 @@ function _actualizarToggle() {
   const btnInbox  = document.getElementById('btn-inbox')
   const activo    = 'bg-brand-600 text-white'
   const inactivo  = 'text-slate-400 hover:text-slate-200'
-  const isAdmin   = _perfil?.rol === 'administrador'
+  const isAdmin   = _esAdmin(_perfil?.rol)
   const sep       = 'border-l border-slate-600'
 
   if (isAdmin) {
@@ -761,7 +763,7 @@ function setTab(tab) {
   tablaBody.classList.remove('hidden')
   tablaInbox.classList.add('hidden')
 
-  const isAdmin = _perfil?.rol === 'administrador'
+  const isAdmin = _esAdmin(_perfil?.rol)
   // Admin: recargar del server solo si cambia entre 'mis' y otros (diferente query)
   // No-admin: siempre filtrar client-side (server ya filtra por su usuario)
   const necesitaRecargar = isAdmin && (tab === 'mis' || tabAnterior === 'mis' || tabAnterior === 'inbox')
@@ -844,7 +846,7 @@ async function cargarClientes(preservar = false) {
       : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
       : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
     const sep = qs ? '&' : '?'
-    const usuarioQs = (_perfil?.rol === 'administrador' && _filtroTab === 'mis')
+    const usuarioQs = (_esAdmin(_perfil?.rol) && _filtroTab === 'mis')
       ? `${sep}usuario_id=${_perfil.id}` : ''
     clientes = await api('GET', `/api/clientes${qs}${usuarioQs}`)
     actualizarStats()
@@ -997,7 +999,7 @@ function renderTabla(data) {
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
         </svg>
       </button>
-      ${_perfil?.rol === 'administrador' ? `
+      ${_esAdmin(_perfil?.rol) ? `
       <button onclick="abrirAsignar(${c.id}, '${esc(c.Contacto)}', '${esc(c.usuario_id || '')}')" title="Asignar ejecutivo"
         class="text-xs p-1.5 rounded-lg glass transition ${c.usuario_id ? 'text-blue-400 hover:text-blue-300' : 'sidebar-text hover:text-blue-400'}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1036,7 +1038,7 @@ function renderTabla(data) {
       <td class="px-6 py-4 font-medium val-text">
         <span class="inline-flex items-center gap-1 flex-wrap">${esc(c.Contacto)}${badgeNuevo}${badgeContacto}</span>
         ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
-        ${_perfil?.rol === 'administrador' && c.usuario_id ? `<div class="text-xs mt-0.5 text-blue-400">👤 ${_nombreUsuario(c.usuario_id)}</div>` : ''}
+        ${_esAdmin(_perfil?.rol) && c.usuario_id ? `<div class="text-xs mt-0.5 text-blue-400">👤 ${_nombreUsuario(c.usuario_id)}</div>` : ''}
       </td>
       <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.proyecto_id))}</td>
       <td class="px-6 py-4 font-mono text-xs">
@@ -1929,7 +1931,7 @@ function abrirAsignar(clienteId, nombre, usuarioActualId) {
   const sel = document.getElementById('asignar-usuario')
   sel.innerHTML = '<option value="">— Sin asignar —</option>'
   _usuarios.forEach(u => {
-    const opt = new Option(`${u.nombre} (${u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'})`, u.id)
+    const opt = new Option(`${u.nombre} (${u.rol === 'owner' ? 'Owner' : u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'})`, u.id)
     if (u.id === usuarioActualId) opt.selected = true
     sel.appendChild(opt)
   })

@@ -372,7 +372,7 @@
     try {
       const r = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
       _perfil = await r.json()
-      if (_perfil.rol === 'administrador') document.getElementById('seccion-imagen').classList.remove('hidden')
+      if (['owner', 'administrador'].includes(_perfil.rol)) document.getElementById('seccion-imagen').classList.remove('hidden')
     } catch(e) { console.warn('perfil:', e) }
 
     cargarProyectos()

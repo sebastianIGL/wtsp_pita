@@ -4595,7 +4595,7 @@ async def _get_default_user() -> Optional[Dict]:
     if env_id:
         params["id"] = f"eq.{env_id}"
     else:
-        params["rol"]    = "eq.administrador"
+        params["rol"]    = "in.(owner,administrador)"
         params["estado"] = "eq.1"
     rows = await _supabase_request("GET", "/Usuario", params=params) or []
     return rows[0] if rows else None
