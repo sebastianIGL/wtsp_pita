@@ -501,6 +501,9 @@
   }
 
   function leerCheckboxes(contenedor) {
+    return [...contenedor.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+  }
+  function leerCheckboxesInt(contenedor) {
     return [...contenedor.querySelectorAll('input[type=checkbox]:checked')].map(c => Number(c.value));
   }
 
@@ -544,7 +547,7 @@
         email_alias:  document.getElementById('u-alias').value.trim() || null,
       };
       if (rol === 'ejecutivo') {
-        body.inmobiliaria_ids = leerCheckboxes(document.getElementById('u-inm-lista'));
+        body.inmobiliaria_ids = leerCheckboxesInt(document.getElementById('u-inm-lista'));
         body.proyecto_ids     = leerCheckboxes(document.getElementById('u-proy-lista'));
       }
       const res = await fetch('/api/usuarios', {
@@ -603,7 +606,7 @@
         estado:       parseInt(document.getElementById('e-estado').value),
         email_alias:  document.getElementById('e-alias').value.trim() || null,
         inmobiliaria_ids: rol === 'ejecutivo'
-          ? leerCheckboxes(document.getElementById('e-inm-lista'))
+          ? leerCheckboxesInt(document.getElementById('e-inm-lista'))
           : [],
         proyecto_ids: rol === 'ejecutivo'
           ? leerCheckboxes(document.getElementById('e-proy-lista'))

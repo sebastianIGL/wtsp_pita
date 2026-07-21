@@ -3279,7 +3279,7 @@ async def api_listar_inmobiliarias(request: Request):
     if empresa_id:
         params["empresa_id"] = f"eq.{empresa_id}"
     if not _solo_admin(perfil):
-        inm_ids = perfil.get("inmobiliaria_ids") or []
+        inm_ids = [i for i in (perfil.get("inmobiliaria_ids") or []) if i is not None]
         if not inm_ids:
             return []
         params["id"] = f"in.({','.join(str(i) for i in inm_ids)})"
@@ -3338,15 +3338,15 @@ async def api_listar_proyectos(request: Request):
                 return []
             params["inmobiliaria_id"] = f"in.({inm_ids})"
     else:
-        inm_asig  = perfil.get("inmobiliaria_ids") or []
-        proy_asig = [str(p) for p in (perfil.get("proyecto_ids") or [])]
+        inm_asig  = [i for i in (perfil.get("inmobiliaria_ids") or []) if i is not None]
+        proy_asig = [str(p) for p in (perfil.get("proyecto_ids") or []) if p is not None]
         proy_de_inm: List[str] = []
         if inm_asig:
             inm_str = ",".join(str(i) for i in inm_asig)
             proy_de_inm = [str(p["id"]) for p in (await _supabase_request(
                 "GET", "/Proyecto",
                 params={"inmobiliaria_id": f"in.({inm_str})", "select": "id"},
-            ) or [])]
+            ) or []) if p.get("id")]
         visibles = set(proy_asig + proy_de_inm)
         if not visibles:
             return []
