@@ -2771,11 +2771,15 @@ async def api_crear_usuario(request: Request):
         roles_permitidos = ("ejecutivo", "administrador") if _solo_owner(perfil) else ("ejecutivo",)
         if rol not in roles_permitidos:
             return Response(content=f"rol debe ser uno de: {', '.join(roles_permitidos)}", status_code=400)
+        inmobiliaria_ids = body.get("inmobiliaria_ids") or []
+        proyecto_ids     = body.get("proyecto_ids") or []
         user_id = await _invitar_usuario_supabase(correo, nombre, rol)
         await _supabase_request("POST", "/Usuario", json={
             "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
             "celular": celular, "rol": rol, "password_provisional": False,
             "email_alias": email_alias,
+            "inmobiliaria_ids": inmobiliaria_ids,
+            "proyecto_ids": proyecto_ids,
         })
         asyncio.create_task(_log_correo("invitacion", correo, "Invitación al CRM", "enviado", usuario_id=user_id))
         return {"ok": True, "usuario_id": user_id}
@@ -2803,7 +2807,7 @@ async def api_actualizar_usuario(usuario_id: str, request: Request):
         return Response(content="Solo administradores", status_code=403)
     try:
         body   = await request.json()
-        update = {k: body[k] for k in ("nombre", "celular", "rol", "estado", "email_alias") if k in body}
+        update = {k: body[k] for k in ("nombre", "celular", "rol", "estado", "email_alias", "inmobiliaria_ids", "proyecto_ids") if k in body}
         if not update:
             return Response(content="Nada que actualizar", status_code=400)
         await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{usuario_id}"}, json=update)
@@ -3267,12 +3271,18 @@ async def api_listar_empresas(request: Request):
 
 @app.get("/api/inmobiliarias")
 async def api_listar_inmobiliarias(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     empresa_id = request.query_params.get("empresa_id")
     params: Dict[str, str] = {"select": "id,nombre,empresa_id", "order": "nombre.asc"}
     if empresa_id:
         params["empresa_id"] = f"eq.{empresa_id}"
+    if not _solo_admin(perfil):
+        inm_ids = perfil.get("inmobiliaria_ids") or []
+        if not inm_ids:
+            return []
+        params["id"] = f"in.({','.join(str(i) for i in inm_ids)})"
     rows = await _supabase_request("GET", "/Inmobiliaria", params=params)
     return rows or []
 
@@ -3309,22 +3319,38 @@ async def api_editar_inmobiliaria(inm_id: int, request: Request):
 
 @app.get("/api/proyectos")
 async def api_listar_proyectos(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
     inmobiliaria_id = request.query_params.get("inmobiliaria_id")
     empresa_id      = request.query_params.get("empresa_id")
     params: Dict[str, str] = {"select": _PROYECTO_SELECT, "order": "nombre.asc"}
-    if inmobiliaria_id:
-        params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
-    elif empresa_id:
-        inmobiliarias = await _supabase_request(
-            "GET", "/Inmobiliaria",
-            params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
-        ) or []
-        inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
-        if not inm_ids:
+    if _solo_admin(perfil):
+        if inmobiliaria_id:
+            params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
+        elif empresa_id:
+            inmobiliarias = await _supabase_request(
+                "GET", "/Inmobiliaria",
+                params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+            ) or []
+            inm_ids = ",".join(str(i["id"]) for i in inmobiliarias)
+            if not inm_ids:
+                return []
+            params["inmobiliaria_id"] = f"in.({inm_ids})"
+    else:
+        inm_asig  = perfil.get("inmobiliaria_ids") or []
+        proy_asig = [str(p) for p in (perfil.get("proyecto_ids") or [])]
+        proy_de_inm: List[str] = []
+        if inm_asig:
+            inm_str = ",".join(str(i) for i in inm_asig)
+            proy_de_inm = [str(p["id"]) for p in (await _supabase_request(
+                "GET", "/Proyecto",
+                params={"inmobiliaria_id": f"in.({inm_str})", "select": "id"},
+            ) or [])]
+        visibles = set(proy_asig + proy_de_inm)
+        if not visibles:
             return []
-        params["inmobiliaria_id"] = f"in.({inm_ids})"
+        params["id"] = f"in.({','.join(visibles)})"
     rows = await _supabase_request("GET", "/Proyecto", params=params)
     return rows or []
 
