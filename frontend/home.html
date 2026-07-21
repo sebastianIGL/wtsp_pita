@@ -938,6 +938,34 @@
       <button type="submit" id="ml-btn-login" class="btn btn-primary" style="width:100%;justify-content:center;">
         Ingresar
       </button>
+      <div style="text-align:center;margin-top:0.5rem;">
+        <button type="button" onclick="mostrarRecuperarModal()"
+          style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;text-decoration:underline;">
+          ¿Olvidaste tu contraseña?
+        </button>
+      </div>
+    </form>
+
+    <!-- Formulario recuperar contraseña -->
+    <form id="modalFormRecuperar" class="modal-form modal-form-hidden">
+      <div>
+        <p style="font-size:0.9rem;font-weight:600;color:var(--text-heading);margin-bottom:0.25rem;">Recuperar contraseña</p>
+        <p style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.25rem;">Te enviaremos un enlace para crear una nueva contraseña.</p>
+      </div>
+      <div>
+        <label class="lbl" for="ml-correo-rec">Correo electrónico</label>
+        <input id="ml-correo-rec" type="email" class="inp" placeholder="tu@correo.cl"
+               required autocomplete="email" />
+      </div>
+      <button type="submit" id="ml-btn-rec" class="btn btn-primary" style="width:100%;justify-content:center;">
+        Enviar enlace
+      </button>
+      <div style="text-align:center;margin-top:0.25rem;">
+        <button type="button" onclick="volverALoginModal()"
+          style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;">
+          ← Volver al inicio de sesión
+        </button>
+      </div>
     </form>
 
     <!-- Formulario cambio de contraseña provisional -->
@@ -1147,13 +1175,30 @@
     document.getElementById('modalAlerta').textContent = '';
     document.getElementById('modalFormLogin').classList.remove('modal-form-hidden');
     document.getElementById('modalFormCambio').classList.add('modal-form-hidden');
+    document.getElementById('modalFormRecuperar').classList.add('modal-form-hidden');
     document.getElementById('ml-correo').value = '';
     document.getElementById('ml-pwd').value = '';
     document.getElementById('ml-nueva').value = '';
     document.getElementById('ml-confirmar').value = '';
+    document.getElementById('ml-correo-rec').value = '';
     const btn = document.getElementById('ml-btn-login');
     btn.disabled = false;
     btn.textContent = 'Ingresar';
+  }
+
+  function mostrarRecuperarModal() {
+    document.getElementById('modalAlerta').className = 'modal-alert';
+    document.getElementById('modalAlerta').textContent = '';
+    document.getElementById('modalFormLogin').classList.add('modal-form-hidden');
+    document.getElementById('modalFormRecuperar').classList.remove('modal-form-hidden');
+    document.getElementById('ml-correo-rec').focus();
+  }
+
+  function volverALoginModal() {
+    document.getElementById('modalAlerta').className = 'modal-alert';
+    document.getElementById('modalAlerta').textContent = '';
+    document.getElementById('modalFormRecuperar').classList.add('modal-form-hidden');
+    document.getElementById('modalFormLogin').classList.remove('modal-form-hidden');
   }
 
   function mostrarAlertaModal(msg, tipo) {
@@ -1259,6 +1304,28 @@
       mostrarAlertaModal(err.message || 'Error al cambiar la contraseña.', 'err');
       btn.disabled = false;
       btn.textContent = 'Guardar contraseña';
+    }
+  });
+
+  // Submit recuperar contraseña
+  document.getElementById('modalFormRecuperar').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn    = document.getElementById('ml-btn-rec');
+    const correo = document.getElementById('ml-correo-rec').value.trim();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+      const { error } = await _sb.auth.resetPasswordForEmail(correo, {
+        redirectTo: 'https://quesubsidio.cl/reset-password',
+      });
+      if (error) throw error;
+      mostrarAlertaModal('Te enviamos el enlace. Revisa tu correo (y la carpeta de spam).', 'ok');
+      document.getElementById('modalFormRecuperar').classList.add('modal-form-hidden');
+    } catch (err) {
+      mostrarAlertaModal(err.message || 'Error al enviar el correo.', 'err');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Enviar enlace';
     }
   });
 
