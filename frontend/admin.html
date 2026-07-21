@@ -216,8 +216,7 @@
         <div id="u-inm-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
           <p class="text-xs text-slate-500">Cargando…</p>
         </div>
-        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide pt-2 border-t border-slate-700">Proyectos adicionales</p>
-        <p class="text-xs text-slate-500">Proyectos fuera de las inmobiliarias asignadas.</p>
+        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide pt-2 border-t border-slate-700">Proyectos</p>
         <div id="u-proy-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
           <p class="text-xs text-slate-500">Cargando…</p>
         </div>
@@ -298,8 +297,7 @@
         <div id="e-inm-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
           <p class="text-xs text-slate-500">Cargando…</p>
         </div>
-        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide pt-2 border-t border-slate-700">Proyectos adicionales</p>
-        <p class="text-xs text-slate-500">Proyectos fuera de las inmobiliarias asignadas.</p>
+        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide pt-2 border-t border-slate-700">Proyectos</p>
         <div id="e-proy-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
           <p class="text-xs text-slate-500">Cargando…</p>
         </div>
@@ -459,15 +457,47 @@
     </label>`;
   }
 
-  function renderCheckboxes(contInm, contProy, inmIds = [], proyIds = []) {
+  function actualizarProyectos(contInm, contProy) {
+    const prevMostrados = new Set([...contProy.querySelectorAll('input[type=checkbox]')].map(c => Number(c.value)));
+    const prevChecked   = new Set([...contProy.querySelectorAll('input[type=checkbox]:checked')].map(c => Number(c.value)));
+    const selInmIds     = new Set([...contInm.querySelectorAll('input:checked')].map(c => Number(c.value)));
+    const filtrados     = _allProyectos.filter(p => p.inmobiliaria_id && selInmIds.has(Number(p.inmobiliaria_id)));
+    if (!filtrados.length) {
+      contProy.innerHTML = selInmIds.size
+        ? '<p class="text-xs text-slate-500 italic">Sin proyectos en las inmobiliarias seleccionadas</p>'
+        : '<p class="text-xs text-slate-500 italic">Selecciona una inmobiliaria para ver sus proyectos</p>';
+      return;
+    }
+    contProy.innerHTML = filtrados.map(p => {
+      const pid = Number(p.id);
+      const checked = prevMostrados.has(pid) ? prevChecked.has(pid) : true;
+      return checkboxItem(p.id, p.nombre, checked);
+    }).join('');
+  }
+
+  function renderAsignacion(contInm, contProy, inmIds = [], proyIds = []) {
     const inmSet  = new Set(inmIds.map(Number));
     const proySet = new Set(proyIds.map(Number));
-    contInm.innerHTML  = _allInmobiliarias.length
+    contInm.innerHTML = _allInmobiliarias.length
       ? _allInmobiliarias.map(i => checkboxItem(i.id, i.nombre, inmSet.has(i.id))).join('')
       : '<p class="text-xs text-slate-500">Sin inmobiliarias registradas</p>';
-    contProy.innerHTML = _allProyectos.length
-      ? _allProyectos.map(p => checkboxItem(p.id, p.nombre, proySet.has(p.id))).join('')
-      : '<p class="text-xs text-slate-500">Sin proyectos registrados</p>';
+    contInm.querySelectorAll('input[type=checkbox]').forEach(cb =>
+      cb.addEventListener('change', () => actualizarProyectos(contInm, contProy))
+    );
+    // Render inicial de proyectos según inmobiliarias ya seleccionadas
+    const selInmIds = new Set([...contInm.querySelectorAll('input:checked')].map(c => Number(c.value)));
+    const filtrados = _allProyectos.filter(p => p.inmobiliaria_id && selInmIds.has(Number(p.inmobiliaria_id)));
+    if (!filtrados.length) {
+      contProy.innerHTML = selInmIds.size
+        ? '<p class="text-xs text-slate-500 italic">Sin proyectos en las inmobiliarias seleccionadas</p>'
+        : '<p class="text-xs text-slate-500 italic">Selecciona una inmobiliaria para ver sus proyectos</p>';
+      return;
+    }
+    contProy.innerHTML = filtrados.map(p => {
+      const pid     = Number(p.id);
+      const checked = proyIds.length ? proySet.has(pid) : true;
+      return checkboxItem(p.id, p.nombre, checked);
+    }).join('');
   }
 
   function leerCheckboxes(contenedor) {
@@ -486,7 +516,7 @@
     document.getElementById('u-acceso').classList.add('hidden');
     document.getElementById('modalCrear').classList.remove('hidden');
     await cargarOpcionesAsignacion();
-    renderCheckboxes(
+    renderAsignacion(
       document.getElementById('u-inm-lista'),
       document.getElementById('u-proy-lista'),
     );
@@ -545,7 +575,7 @@
     document.getElementById('errorEditar').classList.add('hidden');
     document.getElementById('modalEditar').classList.remove('hidden');
     await cargarOpcionesAsignacion();
-    renderCheckboxes(
+    renderAsignacion(
       document.getElementById('e-inm-lista'),
       document.getElementById('e-proy-lista'),
       u.inmobiliaria_ids || [],
