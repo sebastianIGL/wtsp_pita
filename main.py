@@ -2699,7 +2699,7 @@ async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
         r = await client.post(
             f"{supa_url}/auth/v1/invite",
             headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
-            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{os.getenv('SITE_URL', 'http://localhost:8000')}/reset-password.html"},
+            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{os.getenv('SITE_URL', 'http://localhost:8000')}/reset-password"},
         )
         r.raise_for_status()
         return r.json()["id"]
@@ -4843,6 +4843,10 @@ async def api_newsletter(request: Request):
 
 
 # ── Rutas de páginas (URLs limpias sin .html) ────────────────────────────────
+@app.get("/reset-password")
+async def page_reset_password():
+    return FileResponse("frontend/reset-password.html")
+
 @app.get("/empresas")
 async def page_empresas():
     return FileResponse("frontend/empresas.html")
