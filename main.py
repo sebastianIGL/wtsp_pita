@@ -3260,12 +3260,24 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
 
 @app.get("/api/empresas")
 async def api_listar_empresas(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    rows = await _supabase_request(
-        "GET", "/Empresa",
-        params={"estado": "eq.activa", "select": "id,nombre,slug,logo_url,color_marca", "order": "nombre.asc"},
-    )
+    params: Dict[str, str] = {"estado": "eq.activa", "select": "id,nombre,slug,logo_url,color_marca", "order": "nombre.asc"}
+    if not _solo_admin(perfil):
+        inm_ids = [i for i in (perfil.get("inmobiliaria_ids") or []) if i is not None]
+        if not inm_ids:
+            return []
+        inm_str = ",".join(str(i) for i in inm_ids)
+        inmobiliarias = await _supabase_request(
+            "GET", "/Inmobiliaria",
+            params={"id": f"in.({inm_str})", "select": "empresa_id"},
+        ) or []
+        empresa_ids = list({str(i["empresa_id"]) for i in inmobiliarias if i.get("empresa_id")})
+        if not empresa_ids:
+            return []
+        params["id"] = f"in.({','.join(empresa_ids)})"
+    rows = await _supabase_request("GET", "/Empresa", params=params)
     return rows or []
 
 
