@@ -2684,7 +2684,12 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
 
 
 def _solo_admin(perfil: Optional[Dict]) -> bool:
-    return bool(perfil and perfil.get("rol") == "administrador")
+    """True para owner y administrador — acceso a todo el CRM."""
+    return bool(perfil and perfil.get("rol") in ("owner", "administrador"))
+
+def _solo_owner(perfil: Optional[Dict]) -> bool:
+    """True solo para owner — operaciones exclusivas del dueño."""
+    return bool(perfil and perfil.get("rol") == "owner")
 
 
 async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
@@ -2763,8 +2768,9 @@ async def api_crear_usuario(request: Request):
         email_alias  = (body.get("email_alias") or "").strip() or None
         if not nombre or not rut or not correo:
             return Response(content="Faltan campos obligatorios: nombre, rut, correo", status_code=400)
-        if rol not in ("ejecutivo", "administrador"):
-            return Response(content="rol debe ser 'ejecutivo' o 'administrador'", status_code=400)
+        roles_permitidos = ("ejecutivo", "administrador") if _solo_owner(perfil) else ("ejecutivo",)
+        if rol not in roles_permitidos:
+            return Response(content=f"rol debe ser uno de: {', '.join(roles_permitidos)}", status_code=400)
         user_id = await _invitar_usuario_supabase(correo, nombre, rol)
         await _supabase_request("POST", "/Usuario", json={
             "id": user_id, "nombre": nombre, "rut": rut, "correo": correo,
@@ -2872,7 +2878,7 @@ async def api_listar_plantillas_config(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    if perfil.get("rol") != "administrador":
+    if not _solo_admin(perfil):
         return Response(content="Forbidden", status_code=403)
     rows = await _supabase_request("GET", "/PlantillaConfig", params={"select": "*"}) or []
     # Combinar hardcoded (fallback) con lo que hay en DB; DB tiene prioridad
@@ -2890,7 +2896,7 @@ async def api_upsert_plantilla_config(template_name: str, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    if perfil.get("rol") != "administrador":
+    if not _solo_admin(perfil):
         return Response(content="Forbidden", status_code=403)
     body = await request.json()
     variables   = body.get("variables", [])
@@ -3658,7 +3664,7 @@ async def api_listar_clientes(request: Request):
         params["proyecto_id"] = f"in.({ids})"
 
     usuario_filtro = request.query_params.get("usuario_id")
-    if perfil.get("rol") != "administrador":
+    if not _solo_admin(perfil):
         params["usuario_id"] = f"eq.{perfil['id']}"
     elif usuario_filtro:
         params["usuario_id"] = f"eq.{usuario_filtro}"
