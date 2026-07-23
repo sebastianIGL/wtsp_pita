@@ -672,55 +672,14 @@
       <div class="carousel-outer reveal" id="carousel" tabindex="0" aria-label="Carrusel de proyectos inmobiliarios" role="region">
         <div class="carousel-overflow">
           <div class="carousel-track" id="carouselTrack">
-
-            <div class="carousel-slide" role="group" aria-label="Proyecto 1 de 4">
+            <!-- slides se cargan dinámicamente desde /api/proyectos-landing -->
+            <div class="carousel-slide" role="group" aria-label="Cargando proyectos">
               <div class="carousel-card" style="background:linear-gradient(135deg,#1e1050 0%,#312e81 40%,#4c1d95 100%);">
                 <div class="carousel-card-content">
-                  <p class="carousel-card-title">Miraflores</p>
-                  <p class="carousel-card-sub">
-                    Chillán, Biobío
-                    <span class="carousel-badge-tag">DS1 T2/T3</span>
-                  </p>
+                  <p class="carousel-card-title" style="opacity:.4;">Cargando proyectos…</p>
                 </div>
               </div>
             </div>
-
-            <div class="carousel-slide" role="group" aria-label="Proyecto 2 de 4">
-              <div class="carousel-card" style="background:linear-gradient(135deg,#0c1a35 0%,#1e3a5f 40%,#1e40af 100%);">
-                <div class="carousel-card-content">
-                  <p class="carousel-card-title">Alto del Valle</p>
-                  <p class="carousel-card-sub">
-                    Santiago Metropolitana
-                    <span class="carousel-badge-tag">DS19</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class="carousel-slide" role="group" aria-label="Proyecto 3 de 4">
-              <div class="carousel-card" style="background:linear-gradient(135deg,#0a1e1a 0%,#134e4a 40%,#0f766e 100%);">
-                <div class="carousel-card-content">
-                  <p class="carousel-card-title">Terrazas del Sur</p>
-                  <p class="carousel-card-sub">
-                    Concepción, Biobío
-                    <span class="carousel-badge-tag">DS19 + DS1 T2/T3</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class="carousel-slide" role="group" aria-label="Proyecto 4 de 4">
-              <div class="carousel-card" style="background:linear-gradient(135deg,#1a0a0a 0%,#4c1414 40%,#7f1d1d 100%);">
-                <div class="carousel-card-content">
-                  <p class="carousel-card-title">Vista Andina</p>
-                  <p class="carousel-card-sub">
-                    Rancagua, O'Higgins
-                    <span class="carousel-badge-tag">DS19</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
 
@@ -1085,51 +1044,93 @@
 <script>
   // ── Carrusel ──────────────────────────────────────────────────────────────
   (function () {
+    const GRADIENTS = [
+      'linear-gradient(135deg,#1e1050 0%,#312e81 40%,#4c1d95 100%)',
+      'linear-gradient(135deg,#0c1a35 0%,#1e3a5f 40%,#1e40af 100%)',
+      'linear-gradient(135deg,#0a1e1a 0%,#134e4a 40%,#0f766e 100%)',
+      'linear-gradient(135deg,#1a0a0a 0%,#4c1414 40%,#7f1d1d 100%)',
+      'linear-gradient(135deg,#0f1a0a 0%,#1a3a14 40%,#166534 100%)',
+      'linear-gradient(135deg,#1a1a0a 0%,#3a3a14 40%,#713f12 100%)',
+    ];
+
     const track    = document.getElementById('carouselTrack');
     const dotsEl   = document.getElementById('carouselDots');
     const carousel = document.getElementById('carousel');
-    const slides   = [...track.querySelectorAll('.carousel-slide')];
     let current = 0, autoId;
 
-    slides.forEach((_, i) => {
-      const btn = document.createElement('button');
-      btn.className  = 'carousel-dot' + (i === 0 ? ' active' : '');
-      btn.setAttribute('aria-label', `Proyecto ${i + 1}`);
-      btn.setAttribute('role', 'tab');
-      btn.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
-      btn.addEventListener('click', () => { goTo(i); resetAuto(); });
-      dotsEl.appendChild(btn);
-    });
+    function initCarousel() {
+      const slides = [...track.querySelectorAll('.carousel-slide')];
+      if (!slides.length) return;
 
-    function goTo(idx) {
-      current = ((idx % slides.length) + slides.length) % slides.length;
-      track.style.transform = `translateX(-${current * 100}%)`;
-      dotsEl.querySelectorAll('.carousel-dot').forEach((d, i) => {
-        d.classList.toggle('active', i === current);
-        d.setAttribute('aria-selected', String(i === current));
+      dotsEl.innerHTML = '';
+      slides.forEach((_, i) => {
+        const btn = document.createElement('button');
+        btn.className  = 'carousel-dot' + (i === 0 ? ' active' : '');
+        btn.setAttribute('aria-label', `Proyecto ${i + 1}`);
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', i === 0 ? 'true' : 'false');
+        btn.addEventListener('click', () => { goTo(i); resetAuto(); });
+        dotsEl.appendChild(btn);
       });
+
+      function goTo(idx) {
+        current = ((idx % slides.length) + slides.length) % slides.length;
+        track.style.transform = `translateX(-${current * 100}%)`;
+        dotsEl.querySelectorAll('.carousel-dot').forEach((d, i) => {
+          d.classList.toggle('active', i === current);
+          d.setAttribute('aria-selected', String(i === current));
+        });
+      }
+
+      document.getElementById('carouselPrev').onclick = () => { goTo(current - 1); resetAuto(); };
+      document.getElementById('carouselNext').onclick = () => { goTo(current + 1); resetAuto(); };
+
+      carousel.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft')  { goTo(current - 1); resetAuto(); }
+        if (e.key === 'ArrowRight') { goTo(current + 1); resetAuto(); }
+      });
+
+      let touchStart = 0;
+      track.addEventListener('touchstart', e => { touchStart = e.touches[0].clientX; }, { passive: true });
+      track.addEventListener('touchend',   e => {
+        const diff = touchStart - e.changedTouches[0].clientX;
+        if (Math.abs(diff) > 45) { goTo(current + (diff > 0 ? 1 : -1)); resetAuto(); }
+      }, { passive: true });
+
+      function startAuto() { autoId = setInterval(() => goTo(current + 1), 4500); }
+      function resetAuto()  { clearInterval(autoId); startAuto(); }
+      startAuto();
+      carousel.addEventListener('mouseenter', () => clearInterval(autoId));
+      carousel.addEventListener('mouseleave', () => startAuto());
     }
 
-    document.getElementById('carouselPrev').addEventListener('click', () => { goTo(current - 1); resetAuto(); });
-    document.getElementById('carouselNext').addEventListener('click', () => { goTo(current + 1); resetAuto(); });
+    async function cargarCarrusel() {
+      try {
+        const res = await fetch('/api/proyectos-landing');
+        const data = res.ok ? await res.json() : {};
+        const proyectos = (data.proyectos || []).filter(p => p.nombre);
+        if (!proyectos.length) { initCarousel(); return; }
 
-    carousel.addEventListener('keydown', e => {
-      if (e.key === 'ArrowLeft')  { goTo(current - 1); resetAuto(); }
-      if (e.key === 'ArrowRight') { goTo(current + 1); resetAuto(); }
-    });
+        track.innerHTML = proyectos.map((p, i) => {
+          const bg = p.imagen
+            ? `url(${JSON.stringify(p.imagen)}) center/cover no-repeat`
+            : GRADIENTS[i % GRADIENTS.length];
+          const ubicacion = [p.comuna, p.region].filter(Boolean).join(', ');
+          return `
+            <div class="carousel-slide" role="group" aria-label="Proyecto ${i+1} de ${proyectos.length}">
+              <div class="carousel-card" style="background:${bg};">
+                <div class="carousel-card-content">
+                  <p class="carousel-card-title">${p.nombre}</p>
+                  ${ubicacion ? `<p class="carousel-card-sub">${ubicacion}</p>` : ''}
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (_) { /* en error, usar slide de loading ya en el DOM */ }
+      initCarousel();
+    }
 
-    let touchStart = 0;
-    track.addEventListener('touchstart', e => { touchStart = e.touches[0].clientX; }, { passive: true });
-    track.addEventListener('touchend',   e => {
-      const diff = touchStart - e.changedTouches[0].clientX;
-      if (Math.abs(diff) > 45) { goTo(current + (diff > 0 ? 1 : -1)); resetAuto(); }
-    }, { passive: true });
-
-    function startAuto() { autoId = setInterval(() => goTo(current + 1), 4500); }
-    function resetAuto()  { clearInterval(autoId); startAuto(); }
-    startAuto();
-    carousel.addEventListener('mouseenter', () => clearInterval(autoId));
-    carousel.addEventListener('mouseleave', () => startAuto());
+    cargarCarrusel();
   })();
 
   // ── Modal login ───────────────────────────────────────────────────────────

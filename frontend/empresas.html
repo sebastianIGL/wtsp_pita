@@ -122,6 +122,16 @@
     Salir
   </button>
 
+  <!-- Acceso directo admin (solo owner) -->
+  <a href="/admin.html" id="btnAdmin" class="logout-btn hidden" style="left:auto;right:1rem;">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+    Admin
+  </a>
+
   <!-- Toggle tema -->
   <button class="theme-btn" id="themeToggle" title="Cambiar tema">
     <svg id="iconMoon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,9 +195,16 @@
     const token = session?.access_token;
 
     try {
-      const res = await fetch('/api/empresas', { headers: { Authorization: `Bearer ${token}` } });
-      if (res.status === 401) { await _supabase.auth.signOut(); window.location.href = '/login.html'; return; }
-      const empresas = await res.json();
+      const [resEmpresas, resPerfil] = await Promise.all([
+        fetch('/api/empresas',      { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/usuarios/me',   { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (resEmpresas.status === 401) { await _supabase.auth.signOut(); window.location.href = '/login.html'; return; }
+      const empresas = await resEmpresas.json();
+      const perfil   = resPerfil.ok ? await resPerfil.json() : {};
+      if (perfil.rol === 'owner') {
+        document.getElementById('btnAdmin').classList.remove('hidden');
+      }
       renderEmpresas(empresas);
     } catch (e) {
       document.getElementById('error-msg').textContent = 'Error al cargar empresas: ' + e.message;
@@ -203,14 +220,22 @@
   function renderEmpresas(empresas) {
     const grid = document.getElementById('empresas-grid');
     if (!empresas.length) {
-      grid.innerHTML = '<p class="col-span-3 text-center muted text-sm py-10">No hay empresas activas.</p>';
+      grid.className = 'flex justify-center';
+      grid.innerHTML = '<p class="text-center muted text-sm py-10">No hay empresas activas.</p>';
       return;
     }
+    const n = empresas.length;
+    grid.className = n === 1
+      ? 'flex justify-center'
+      : n === 2
+        ? 'grid grid-cols-1 sm:grid-cols-2 gap-5 justify-items-center'
+        : 'grid grid-cols-1 sm:grid-cols-3 gap-5';
+    const extraClass = n === 1 ? ' w-full max-w-xs' : '';
     grid.innerHTML = empresas.map((e, idx) => {
       const color = e.color_marca || '#7c3aed';
       const shadow = color + '40';
       return `
-        <button class="empresa-card" data-idx="${idx}"
+        <button class="empresa-card${extraClass}" data-idx="${idx}"
           style="--accent:${color}">
           <div class="empresa-avatar" style="background:${color}; box-shadow: 0 8px 24px ${shadow}">
             ${e.logo_url

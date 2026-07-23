@@ -3405,6 +3405,7 @@ async def api_editar_proyecto(proyecto_id: str, request: Request):
     await _supabase_request("PATCH", "/Proyecto",
         params={"id": f"eq.{proyecto_id}"},
         json=payload, extra_headers={"Prefer": "return=minimal"})
+    _cache_proyectos["data"] = None
     return {"ok": True}
 
 
@@ -4283,8 +4284,15 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     nombre   = (c.get("Contacto") or "Sin nombre").strip()
     rut      = c.get("Rut") or "No registrado"
     telefono = c.get("Telefono") or "No registrado"
-    proyecto = c.get("proyecto_id") or "No registrado"
     renta    = c.get("Tramo de renta") or "No registrado"
+
+    proyecto_nombre = "No registrado"
+    proyecto_id_raw = c.get("proyecto_id")
+    if proyecto_id_raw:
+        proy_rows = await _supabase_request("GET", "/Proyecto",
+            params={"id": f"eq.{proyecto_id_raw}", "select": "nombre", "limit": "1"})
+        if proy_rows:
+            proyecto_nombre = proy_rows[0].get("nombre") or "No registrado"
 
     NOMBRES_TIPO = {
         "liquidacion_sueldo": "Liquidación de sueldo",
@@ -4296,10 +4304,28 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         "otro": "Otro documento",
     }
 
-    filas_docs = "".join(
-        f"<tr><td style='padding:4px 12px;color:#555;'>▸ {NOMBRES_TIPO.get(d.get('tipo',''), d.get('tipo',''))}</td>"
-        f"<td style='padding:4px 12px;color:#333;'>{d.get('nombre_archivo','')}</td></tr>"
-        for d in docs
+    conteo_docs: Dict[str, int] = {}
+    for d in docs:
+        tipo = d.get("tipo") or "otro"
+        conteo_docs[tipo] = conteo_docs.get(tipo, 0) + 1
+
+    PLURAL_TIPO = {
+        "liquidacion_sueldo": ("liquidación de sueldo", "liquidaciones de sueldo"),
+        "certificado_afp": ("certificado AFP", "certificados AFP"),
+        "carnet_identidad": ("cédula de identidad", "cédulas de identidad"),
+        "libreta_ahorro": ("libreta de ahorro", "libretas de ahorro"),
+        "informe_deudas": ("informe de deudas", "informes de deudas"),
+        "antiguedad_laboral": ("certificado de antigüedad laboral", "certificados de antigüedad laboral"),
+        "otro": ("documento adicional", "documentos adicionales"),
+    }
+    partes_docs = []
+    for tipo, cant in conteo_docs.items():
+        sing, plur = PLURAL_TIPO.get(tipo, (tipo, tipo))
+        partes_docs.append(f"{cant} {sing if cant == 1 else plur}")
+
+    resumen_docs = (
+        "Se adjuntan: " + ", ".join(partes_docs) + "."
+        if partes_docs else "No se adjuntan documentos."
     )
 
     body_html = f"""
@@ -4322,7 +4348,7 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
-          <td style="padding:8px 12px;">{proyecto}</td>
+          <td style="padding:8px 12px;">{proyecto_nombre}</td>
         </tr>
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Tramo de renta</td>
@@ -4330,9 +4356,7 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         </tr>
       </table>
       <h3 style="color:#1e3a5f;margin-top:24px;">Documentos adjuntos ({len(docs)})</h3>
-      <table style="border-collapse:collapse;font-size:13px;">
-        {filas_docs}
-      </table>
+      <p style="font-size:13px;color:#444;margin:4px 0 0;">{resumen_docs}</p>
       <p style="font-size:12px;color:#aaa;margin-top:24px;">
         Generado automaticamente por CRM QueSubsidio.
       </p>

@@ -142,13 +142,14 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Imagen</th>
             <th class="text-left px-5 py-3">Código</th>
             <th class="text-left px-5 py-3">Nombre en DB</th>
             <th class="text-left px-5 py-3">Nombres en CSV</th>
           </tr>
         </thead>
         <tbody id="tablaProyectos">
-          <tr><td colspan="3" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -636,16 +637,39 @@
     const rows = await res.json();
     const tbody = document.getElementById('tablaProyectos');
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="3" class="text-center text-slate-500 py-10">Sin proyectos</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Sin proyectos</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(p => `
-      <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
-        <td class="px-5 py-3 font-mono text-xs text-blue-400">${p.codigo}</td>
-        <td class="px-5 py-3 font-medium">${p.nombre}</td>
-        <td class="px-5 py-3 text-slate-400 text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = rows.map(p => {
+      const thumb = p.imagen_url
+        ? `<img src="${p.imagen_url}" alt="${p.nombre}" class="w-14 h-10 object-cover rounded-lg border border-slate-600" />`
+        : `<div class="w-14 h-10 rounded-lg border border-slate-700 bg-slate-700 flex items-center justify-center text-slate-500 text-xs">—</div>`;
+      return `
+        <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+          <td class="px-5 py-2">
+            <button onclick="editarImagenProyecto('${p.id}','${(p.nombre||'').replace(/'/g,"\\'")}','${(p.imagen_url||'').replace(/'/g,"\\'")}'))"
+              class="group relative" title="Editar imagen">
+              ${thumb}
+              <span class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition text-white text-xs">✏️</span>
+            </button>
+          </td>
+          <td class="px-5 py-3 font-mono text-xs text-blue-400">${p.codigo}</td>
+          <td class="px-5 py-3 font-medium">${p.nombre}</td>
+          <td class="px-5 py-3 text-slate-400 text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function editarImagenProyecto(id, nombre, actual) {
+    const nueva = prompt(`URL de imagen para "${nombre}":\n(deja vacío para quitar la imagen)`, actual || '');
+    if (nueva === null) return;
+    const res = await fetch(`/api/proyectos/${id}`, {
+      method: 'PATCH',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imagen_url: nueva.trim() || null }),
+    });
+    if (res.ok) { toast('Imagen actualizada', 'ok'); cargarProyectos(); }
+    else        { toast('Error al actualizar imagen', 'error'); }
   }
 
   // ── Plantillas WA ─────────────────────────────────────────────────────
