@@ -93,6 +93,7 @@
     <table class="w-full text-sm">
       <thead>
         <tr class="thead-row border-b">
+          <th class="px-3 py-3 text-left font-medium w-16">Imagen</th>
           <th class="px-6 py-3 text-left font-medium">Nombre</th>
           <th class="px-6 py-3 text-left font-medium">Código</th>
           <th class="px-6 py-3 text-left font-medium">Ubicación</th>
@@ -101,7 +102,7 @@
         </tr>
       </thead>
       <tbody id="tabla-body">
-        <tr><td colspan="4" class="px-6 py-12 text-center empty-text">Cargando…</td></tr>
+        <tr><td colspan="5" class="px-6 py-12 text-center empty-text">Cargando…</td></tr>
       </tbody>
     </table>
   </div>
@@ -404,7 +405,7 @@
     document.getElementById('contador').textContent = `${rows.length} proyecto${rows.length !== 1 ? 's' : ''}`
     const tbody = document.getElementById('tabla-body')
     const esTodos = !!_inmobiliaria._todos
-    const cols = esTodos ? 5 : 4
+    const cols = esTodos ? 6 : 5
     const contexto = esTodos ? _empresa.nombre : _inmobiliaria.nombre
 
     const filaTodosClientes = `
@@ -429,6 +430,11 @@
     }
     tbody.innerHTML = filaTodosClientes + rows.map(r => `
       <tr class="trow border-b transition">
+        <td class="px-3 py-3">
+          ${r.imagen_url
+            ? `<img src="${esc(r.imagen_url)}" alt="${esc(r.nombre)}" class="w-14 h-10 object-cover rounded-lg" style="border:1px solid rgba(255,255,255,0.1)" />`
+            : `<div class="w-14 h-10 rounded-lg flex items-center justify-center text-xs" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.2)">—</div>`}
+        </td>
         <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
         <td class="px-6 py-4 font-mono text-xs sidebar-text">${esc(r.codigo)}</td>
         <td class="px-6 py-4 sidebar-text">${esc(r.ubicacion || '—')}</td>
