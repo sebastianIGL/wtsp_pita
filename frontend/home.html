@@ -1113,7 +1113,7 @@
 
         track.innerHTML = proyectos.map((p, i) => {
           const bg = p.imagen
-            ? `url(${JSON.stringify(p.imagen)}) center/cover no-repeat`
+            ? `url('${p.imagen}') center/cover no-repeat`
             : GRADIENTS[i % GRADIENTS.length];
           return `
             <div class="carousel-slide" role="group" aria-label="Proyecto ${i+1} de ${proyectos.length}">
