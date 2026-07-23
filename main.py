@@ -4848,7 +4848,7 @@ async def api_proyectos_landing():
 
     rows = await _supabase_request("GET", "/Proyecto", params={
         "select": "id,nombre,imagen_url,ubicacion",
-        "order": "creado_en.desc",
+        "order": "nombre.asc",
         "limit": "12",
     }) or []
     proyectos = [
