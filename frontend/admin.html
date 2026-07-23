@@ -647,7 +647,7 @@
       return `
         <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
           <td class="px-5 py-2">
-            <button onclick="editarImagenProyecto('${p.id}','${(p.nombre||'').replace(/'/g,"\\'")}','${(p.imagen_url||'').replace(/'/g,"\\'")}'))"
+            <button onclick="editarImagenProyecto('${p.id}','${(p.nombre||'').replace(/'/g,"\\'")}','${(p.imagen_url||'').replace(/'/g,"\\'")}')"
               class="group relative" title="Editar imagen">
               ${thumb}
               <span class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition text-white text-xs">✏️</span>

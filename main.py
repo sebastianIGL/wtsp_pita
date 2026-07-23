@@ -4816,17 +4816,16 @@ async def api_proyectos_landing():
         return _cache_proyectos["data"]
 
     rows = await _supabase_request("GET", "/Proyecto", params={
-        "select": "id,nombre,descripcion,imagen_url,comuna,region",
+        "select": "id,nombre,imagen_url,ubicacion",
         "order": "creado_en.desc",
         "limit": "12",
     }) or []
     proyectos = [
         {
-            "id":    r.get("id"),
-            "nombre": r.get("nombre") or "Proyecto",
-            "imagen": r.get("imagen_url") or None,
-            "comuna": r.get("comuna") or "",
-            "region": r.get("region") or "",
+            "id":      r.get("id"),
+            "nombre":  r.get("nombre") or "Proyecto",
+            "imagen":  r.get("imagen_url") or None,
+            "ubicacion": r.get("ubicacion") or "",
         }
         for r in rows
         if r.get("nombre")

@@ -1115,13 +1115,12 @@
           const bg = p.imagen
             ? `url(${JSON.stringify(p.imagen)}) center/cover no-repeat`
             : GRADIENTS[i % GRADIENTS.length];
-          const ubicacion = [p.comuna, p.region].filter(Boolean).join(', ');
           return `
             <div class="carousel-slide" role="group" aria-label="Proyecto ${i+1} de ${proyectos.length}">
               <div class="carousel-card" style="background:${bg};">
                 <div class="carousel-card-content">
                   <p class="carousel-card-title">${p.nombre}</p>
-                  ${ubicacion ? `<p class="carousel-card-sub">${ubicacion}</p>` : ''}
+                  ${p.ubicacion ? `<p class="carousel-card-sub">${p.ubicacion}</p>` : ''}
                 </div>
               </div>
             </div>`;
