@@ -529,13 +529,17 @@
     document.getElementById('img-estado').textContent = `${file.name} (${(file.size/1024).toFixed(0)} KB) — se subirá al guardar`
   }
 
-  async function _subirImagen(file, codigo) {
-    const ext  = file.name.split('.').pop()
-    const path = `${codigo}-${Date.now()}.${ext}`
-    const { error } = await _supabase.storage.from(BUCKET).upload(path, file, { upsert: true, contentType: file.type })
-    if (error) throw new Error('Error subiendo imagen: ' + error.message)
-    const { data } = _supabase.storage.from(BUCKET).getPublicUrl(path)
-    return data.publicUrl
+  async function _subirImagen(file) {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/proyectos/upload-imagen', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${_token}` },
+      body: fd,
+    })
+    if (!res.ok) throw new Error(await res.text())
+    const { imagen_url } = await res.json()
+    return imagen_url
   }
 
   // Auto-generar código desde nombre
@@ -563,7 +567,7 @@
       let imagen_url  = _imagenUrlActual
       if (fileInput.files[0]) {
         document.getElementById('img-estado').textContent = 'Subiendo imagen…'
-        imagen_url = await _subirImagen(fileInput.files[0], codigo)
+        imagen_url = await _subirImagen(fileInput.files[0])
         document.getElementById('img-estado').textContent = 'Imagen subida ✓'
       }
 

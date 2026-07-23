@@ -3409,6 +3409,37 @@ async def api_editar_proyecto(proyecto_id: str, request: Request):
     return {"ok": True}
 
 
+@app.post("/api/proyectos/upload-imagen")
+async def api_subir_imagen_proyecto(request: Request, file: UploadFile = File(...)):
+    perfil = await _get_usuario_actual(request)
+    if not perfil or not _solo_admin(perfil):
+        return Response(content="Unauthorized", status_code=401)
+
+    MAX_SIZE = 3 * 1024 * 1024
+    contenido = await file.read()
+    if len(contenido) > MAX_SIZE:
+        return Response(content="La imagen supera los 3MB", status_code=400)
+
+    mime = file.content_type or "image/jpeg"
+    ext  = (file.filename or "imagen").rsplit(".", 1)[-1].lower() or "jpg"
+    path = f"proyecto-{int(time.time())}.{ext}"
+
+    supa_url = _supabase_url()
+    key      = _supabase_service_role_key()
+    upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/proyectos-imagenes/{path}"
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        r = await client.post(upload_url,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": mime,
+                     "x-upsert": "true"},
+            content=contenido)
+        if r.status_code not in (200, 201):
+            return Response(content=f"Error storage: {r.text}", status_code=500)
+
+    public_url = f"{supa_url.rstrip('/')}/storage/v1/object/public/proyectos-imagenes/{path}"
+    return {"imagen_url": public_url}
+
+
 def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> None:
     """Copia los campos opcionales del proyecto desde body → payload."""
     if es_admin and body.get("imagen_url") is not None:
