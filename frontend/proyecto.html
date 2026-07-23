@@ -442,7 +442,8 @@
       <tr class="trow border-b transition">
         <td class="px-3 py-3">
           ${r.imagen_url
-            ? `<button onclick="abrirLightbox(${JSON.stringify(r.imagen_url)},${JSON.stringify(r.nombre)})"
+            ? `<button data-img="${esc(r.imagen_url)}" data-nombre="${esc(r.nombre)}"
+                onclick="abrirLightbox(this.dataset.img,this.dataset.nombre)"
                 class="group relative block w-14 h-10 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-violet-500"
                 style="border:1px solid rgba(255,255,255,0.1)">
                 <img src="${esc(r.imagen_url)}" alt="${esc(r.nombre)}" class="w-full h-full object-cover transition group-hover:scale-105" />
