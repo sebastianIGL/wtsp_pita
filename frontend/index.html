@@ -358,6 +358,35 @@
   </div>
 </div>
 
+<!-- ═══════════════════ MODAL PREVIEW EVALUACIÓN ═══════════════════ -->
+<div id="modal-preview-eval" class="fixed inset-0 z-[60] flex items-center justify-center p-4 hidden">
+  <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarPreviewEval()"></div>
+  <div class="glass relative rounded-2xl w-full max-w-lg z-10 shadow-2xl overflow-hidden">
+    <div class="px-6 pt-5 pb-4 border-b border-white/10 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+        </svg>
+        <h3 class="font-semibold text-base">Vista previa del correo</h3>
+      </div>
+      <button onclick="cerrarPreviewEval()" class="text-slate-400 hover:text-white transition text-lg leading-none">✕</button>
+    </div>
+    <div id="preview-eval-cuerpo" class="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto text-sm">
+      <div class="flex justify-center py-6"><div class="spinner-sm"></div></div>
+    </div>
+    <div class="px-6 py-4 border-t border-white/10 flex justify-end gap-3">
+      <button onclick="cerrarPreviewEval()" class="px-4 py-2 rounded-lg text-sm text-slate-400 hover:text-white transition">Cancelar</button>
+      <button id="btn-confirmar-envio" onclick="confirmarEnvioEval()"
+        class="px-5 py-2 rounded-lg text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition flex items-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+        </svg>
+        Confirmar y enviar
+      </button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ MODAL EVALUACIÓN ═══════════════════ -->
 <div id="modal-eval" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
   <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarEvaluacion()"></div>
@@ -1694,9 +1723,26 @@ function actualizarBtnEval() {
   }
 }
 
+const LABEL_TIPO = {
+  liquidacion_sueldo: 'Liquidación de sueldo',
+  certificado_afp:    'Certificado AFP',
+  carnet_identidad:   'Cédula de identidad',
+  libreta_ahorro:     'Libreta de ahorro',
+  informe_deudas:     'Informe de deudas',
+  antiguedad_laboral: 'Antigüedad laboral',
+  otro:               'Otro documento',
+}
+
 async function enviarEvaluacion() {
   const btn = document.getElementById('btn-eval-enviar')
   const esEnvio = btn.textContent.trim() === 'Enviar a evaluar'
+
+  // Si es envío, mostrar preview primero
+  if (esEnvio) {
+    await mostrarPreviewEval()
+    return
+  }
+
   btn.disabled = true
   btn.innerHTML = '<span class="spinner"></span> Subiendo…'
 
@@ -1735,22 +1781,7 @@ async function enviarEvaluacion() {
     return
   }
 
-  // Si era "Enviar a evaluar" enviar correo a ejecutivos disponibles
-  if (esEnvio) {
-    btn.innerHTML = '<span class="spinner"></span> Enviando correo…'
-    try {
-      const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/enviar-evaluacion`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${_token}` },
-      })
-      if (!res.ok) { const t = await res.text(); throw new Error(t) }
-      const data = await res.json()
-      const destinos = (data.enviado_a || []).join(', ')
-      toast(`✅ Evaluación enviada a ${destinos}`, 'success')
-    } catch(e) {
-      toast(`❌ Error al enviar correo: ${e.message}`, 'error')
-    }
-  } else if (subidos > 0) {
+  if (subidos > 0) {
     toast(`✅ ${subidos} documento${subidos > 1 ? 's' : ''} guardado${subidos > 1 ? 's' : ''} correctamente`, 'success')
   } else {
     toast('ℹ️ No hay documentos nuevos que subir', 'success')
@@ -1758,6 +1789,115 @@ async function enviarEvaluacion() {
 
   btn.disabled = false
   actualizarBtnEval()
+  await abrirEvaluacion(_evalClienteId)
+}
+
+// ─── PREVIEW EVALUACIÓN ────────────────────────────────
+async function mostrarPreviewEval() {
+  document.getElementById('modal-preview-eval').classList.remove('hidden')
+  document.getElementById('preview-eval-cuerpo').innerHTML =
+    '<div class="flex justify-center py-6"><div class="w-6 h-6 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div></div>'
+  document.getElementById('btn-confirmar-envio').disabled = true
+
+  try {
+    const data = await api('GET', `/api/clientes/${_evalClienteId}/preview-evaluacion`)
+
+    // Docs nuevos seleccionados (aún no subidos)
+    const nuevos = Object.entries(_evalDocsSeleccionados)
+      .filter(([, v]) => v instanceof File)
+      .map(([slot]) => LABEL_TIPO[TIPOS_DOC[slot]] || 'Documento')
+
+    const docsHTML = data.documentos.length || nuevos.length
+      ? [...data.documentos.map(d => `<li>${d.cantidad > 1 ? d.cantidad + '× ' : ''}${d.tipo}</li>`),
+         ...nuevos.map(n => `<li class="text-violet-300">${n} <span class="text-xs opacity-60">(nuevo)</span></li>`)
+        ].join('')
+      : '<li class="opacity-50">Sin documentos cargados</li>'
+
+    const destHTML = data.destinatarios.length
+      ? data.destinatarios.map(e => `<span class="inline-block bg-white/10 rounded px-2 py-0.5 text-xs">${e}</span>`).join(' ')
+      : '<span class="opacity-50">Sin ejecutivos disponibles</span>'
+
+    document.getElementById('preview-eval-cuerpo').innerHTML = `
+      <div class="space-y-3">
+        <div class="rounded-xl p-4 space-y-2" style="background:rgba(255,255,255,0.05)">
+          <p class="text-xs uppercase tracking-wider opacity-50 mb-1">De</p>
+          <p class="font-mono text-xs text-violet-300">${data.remitente}</p>
+        </div>
+        <div class="rounded-xl p-4 space-y-2" style="background:rgba(255,255,255,0.05)">
+          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Para</p>
+          <div class="flex flex-wrap gap-1">${destHTML}</div>
+        </div>
+        <div class="rounded-xl p-4 space-y-2" style="background:rgba(255,255,255,0.05)">
+          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Datos del cliente</p>
+          <div class="grid grid-cols-2 gap-y-1.5 text-xs">
+            <span class="opacity-60">Nombre</span><span class="font-medium">${data.cliente.nombre}</span>
+            <span class="opacity-60">RUT</span><span>${data.cliente.rut}</span>
+            <span class="opacity-60">Teléfono</span><span>${data.cliente.telefono}</span>
+            <span class="opacity-60">Proyecto</span><span>${data.cliente.proyecto}</span>
+            <span class="opacity-60">Tramo renta</span><span>${data.cliente.renta}</span>
+          </div>
+        </div>
+        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
+          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Documentos adjuntos (${data.total_docs + nuevos.length})</p>
+          <ul class="space-y-1 text-xs list-disc list-inside">${docsHTML}</ul>
+        </div>
+      </div>`
+    document.getElementById('btn-confirmar-envio').disabled = !data.destinatarios.length
+  } catch(e) {
+    document.getElementById('preview-eval-cuerpo').innerHTML =
+      `<p class="text-red-400 text-sm text-center py-4">Error al cargar preview: ${e.message}</p>`
+  }
+}
+
+function cerrarPreviewEval() {
+  document.getElementById('modal-preview-eval').classList.add('hidden')
+}
+
+async function confirmarEnvioEval() {
+  cerrarPreviewEval()
+  // Continuar con el flujo original (subir docs + enviar)
+  const btn = document.getElementById('btn-eval-enviar')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> Subiendo…'
+
+  const slots = [1,2,3,4,5,6,7]
+  const errores = []
+  let subidos = 0
+
+  for (const n of slots) {
+    const val = _evalDocsSeleccionados[n]
+    if (!val || !(val instanceof File)) continue
+    const tipo = TIPOS_DOC[n]
+    const fd   = new FormData()
+    fd.append('file', val)
+    fd.append('tipo', tipo)
+    btn.innerHTML = `<span class="spinner"></span> Subiendo ${subidos + 1}…`
+    try {
+      const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/upload`, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${_token}` }, body: fd,
+      })
+      if (!res.ok) { const t = await res.text(); throw new Error(t) }
+      subidos++
+    } catch(e) { errores.push(`Doc ${n}: ${e.message}`) }
+  }
+
+  if (errores.length) {
+    btn.disabled = false; actualizarBtnEval()
+    toast('❌ Error al subir: ' + errores.join(', '), 'error'); return
+  }
+
+  btn.innerHTML = '<span class="spinner"></span> Enviando correo…'
+  try {
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/enviar-evaluacion`, {
+      method: 'POST', headers: { 'Authorization': `Bearer ${_token}` },
+    })
+    if (!res.ok) { const t = await res.text(); throw new Error(t) }
+    const data = await res.json()
+    toast(`✅ Evaluación enviada a ${(data.enviado_a || []).join(', ')}`, 'success')
+  } catch(e) {
+    toast(`❌ Error al enviar correo: ${e.message}`, 'error')
+  }
+  btn.disabled = false; actualizarBtnEval()
   await abrirEvaluacion(_evalClienteId)
 }
 

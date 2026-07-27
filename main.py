@@ -4426,6 +4426,70 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     return {"enviado_a": destinatarios, "documentos_adjuntos": len(adjuntos)}
 
 
+@app.get("/api/clientes/{cliente_id}/preview-evaluacion")
+async def api_preview_evaluacion(cliente_id: int, request: Request):
+    """Devuelve los datos que se incluirán en el correo de evaluación, sin enviarlo."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+
+    clientes = await _supabase_request("GET", "/Cliente",
+        params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
+    if not clientes:
+        return Response(content="Cliente no encontrado", status_code=404)
+    c = clientes[0]
+
+    ejecutivos = await _supabase_request("GET", "/Ejecutivo",
+        params={"disponible": "eq.true", "select": "email,ejecutivo"}) or []
+    destinatarios = [e["email"] for e in ejecutivos if e.get("email")]
+
+    prospectos = await _supabase_request("GET", "/Prospecto",
+        params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"}) or []
+    docs = []
+    if prospectos:
+        docs = await _supabase_request("GET", "/Documento",
+            params={"prospecto_id": f"eq.{prospectos[0]['id']}",
+                    "select": "tipo,nombre_archivo"}) or []
+
+    proyecto_nombre = "No registrado"
+    if c.get("proyecto_id"):
+        proy = await _supabase_request("GET", "/Proyecto",
+            params={"id": f"eq.{c['proyecto_id']}", "select": "nombre", "limit": "1"})
+        if proy:
+            proyecto_nombre = proy[0].get("nombre") or "No registrado"
+
+    NOMBRES_TIPO = {
+        "liquidacion_sueldo": "Liquidación de sueldo",
+        "certificado_afp": "Certificado AFP",
+        "carnet_identidad": "Cédula de identidad",
+        "libreta_ahorro": "Libreta de ahorro",
+        "informe_deudas": "Informe de deudas",
+        "antiguedad_laboral": "Antigüedad laboral",
+        "otro": "Otro documento",
+    }
+    from collections import Counter
+    conteo = Counter(d.get("tipo", "otro") for d in docs)
+    docs_resumen = [
+        {"tipo": NOMBRES_TIPO.get(t, t), "cantidad": n}
+        for t, n in conteo.items()
+    ]
+
+    alias = perfil.get("email_alias") or os.getenv("EMAIL_FROM", "noreply@quesubsidio.cl")
+    return {
+        "remitente": alias,
+        "destinatarios": destinatarios,
+        "cliente": {
+            "nombre":   (c.get("Contacto") or "Sin nombre").strip(),
+            "rut":      c.get("Rut") or "—",
+            "telefono": c.get("Telefono") or "—",
+            "proyecto": proyecto_nombre,
+            "renta":    c.get("Tramo de renta") or "—",
+        },
+        "documentos": docs_resumen,
+        "total_docs": len(docs),
+    }
+
+
 @app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
 async def api_enviar_evaluacion(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
