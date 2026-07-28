@@ -13,7 +13,7 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="{{ page_title | default('QueSubsidio') }}" />
   <meta name="twitter:description" content="{{ page_description | default('') }}" />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>" />
+  <link rel="icon" type="image/png" href="/img/favicon.png" />
 
   <script src="https://cdn.tailwindcss.com"></script>
   {% if supabase_needed %}<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>{% endif %}
@@ -116,14 +116,11 @@
       display: flex; align-items: center; justify-content: space-between;
     }
     .nav-logo {
-      display: flex; align-items: center; gap: 0.625rem;
-      text-decoration: none; color: var(--text);
-      font-weight: 700; font-size: 1.1rem;
+      display: flex; align-items: center;
+      text-decoration: none; flex-shrink: 0;
     }
-    .nav-logo-box {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--primary);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    .nav-logo-img {
+      height: 44px; width: auto; object-fit: contain;
     }
     .nav-links { display: flex; align-items: center; gap: 0.1rem; }
     .nav-link {
