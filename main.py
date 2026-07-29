@@ -4448,15 +4448,17 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         except Exception as e:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
-    logger.info("Gmail: enviando evaluación de %s a %s (%d adjuntos)", nombre, destinatarios, len(adjuntos))
-    await _gmail_send(
-        from_addr=email_from,
-        to=destinatarios,
-        subject=f"Evaluacion de credito - {nombre}",
-        html=body_html,
-        attachments=adjuntos,
-    )
-    logger.info("Gmail: evaluación enviada correctamente")
+    logger.info("Gmail: enviando evaluación de %s a %d destinatarios (%d adjuntos)", nombre, len(destinatarios), len(adjuntos))
+    for destinatario in destinatarios:
+        await _gmail_send(
+            from_addr=email_from,
+            to=[destinatario],
+            subject=f"Evaluacion de credito - {nombre}",
+            html=body_html,
+            attachments=adjuntos,
+        )
+        logger.info("Gmail: evaluación enviada a %s", destinatario)
+    logger.info("Gmail: evaluación enviada correctamente a todos los destinatarios")
 
     return {"enviado_a": destinatarios, "documentos_adjuntos": len(adjuntos)}
 
