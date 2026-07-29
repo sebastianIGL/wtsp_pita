@@ -16,6 +16,10 @@ from collections import defaultdict
 import logging
 import time
 import base64
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email import encoders as _email_encoders
 
 try:
     import anthropic
@@ -97,8 +101,22 @@ def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
 _cache_proyectos: Dict = {"data": None, "ts": 0.0}
 _CACHE_TTL = 300  # 5 minutos
 
-# ── Resend (email transaccional via HTTP) ────────────────────────────────────
-async def _resend_send(
+# ── Gmail API (email transaccional via Service Account) ──────────────────────
+def _gmail_get_token_sync(impersonate_email: str) -> str:
+    """Obtiene access token de Gmail API via Service Account. Síncrono — usar en executor."""
+    from google.oauth2 import service_account
+    from google.auth.transport.requests import Request
+    sa_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "{}"))
+    if not sa_info:
+        raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON no configurada")
+    creds = service_account.Credentials.from_service_account_info(
+        sa_info,
+        scopes=["https://www.googleapis.com/auth/gmail.send"],
+    ).with_subject(impersonate_email)
+    creds.refresh(Request())
+    return creds.token
+
+async def _gmail_send(
     *,
     from_addr: str,
     to: List[str],
@@ -106,30 +124,47 @@ async def _resend_send(
     html: str,
     attachments: Optional[List[Dict]] = None,
 ) -> None:
-    """Envía un email vía Resend REST API. `attachments` es lista de
-    {"filename": str, "content": bytes, "content_type": str}."""
-    api_key = os.getenv("API_KEY_RESEND")
-    if not api_key:
-        raise RuntimeError("API_KEY_RESEND no configurada")
+    """Envía un email vía Gmail API usando Service Account con impersonación de dominio.
+    `attachments` es lista de {"filename": str, "content": bytes, "content_type": str}."""
+    # Extraer solo el email si viene como "Nombre <email@dom>"
+    m = re.search(r"<([^>]+)>", from_addr)
+    impersonate = m.group(1) if m else from_addr.strip()
 
-    payload: Dict = {"from": from_addr, "to": to, "subject": subject, "html": html}
+    # Obtener token (sincrónico en executor para no bloquear el event loop)
+    token = await asyncio.get_event_loop().run_in_executor(
+        None, _gmail_get_token_sync, impersonate
+    )
+
+    # Construir mensaje MIME
     if attachments:
-        payload["attachments"] = [
-            {
-                "filename": a["filename"],
-                "content":  base64.b64encode(a["content"]).decode(),
-            }
-            for a in attachments
-        ]
+        msg = MIMEMultipart("mixed")
+        alt = MIMEMultipart("alternative")
+        alt.attach(MIMEText(html, "html"))
+        msg.attach(alt)
+        for a in attachments:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(a["content"])
+            _email_encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f'attachment; filename="{a["filename"]}"')
+            msg.attach(part)
+    else:
+        msg = MIMEMultipart("alternative")
+        msg.attach(MIMEText(html, "html"))
+
+    msg["Subject"] = subject
+    msg["From"] = from_addr
+    msg["To"] = ", ".join(to)
+
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
     async with httpx.AsyncClient(timeout=60) as client:
         r = await client.post(
-            "https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload,
+            f"https://gmail.googleapis.com/gmail/v1/users/{impersonate}/messages/send",
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            json={"raw": raw},
         )
         if r.status_code not in (200, 201):
-            raise RuntimeError(f"Resend error {r.status_code}: {r.text}")
+            raise RuntimeError(f"Gmail API error {r.status_code}: {r.text}")
 
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
@@ -4287,8 +4322,8 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
 
 
 async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None) -> dict:
-    if not os.getenv("API_KEY_RESEND"):
-        raise RuntimeError("API_KEY_RESEND no configurada")
+    if not os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"):
+        raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON no configurada")
 
     clientes = await _supabase_request("GET", "/Cliente",
         params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
@@ -4395,7 +4430,7 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     """
 
     # Alias del usuario que dispara el envío
-    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_FROM", "noreply@quesubsidio.cl")
+    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_ADMIN", "noreply@quesubsidio.cl")
     nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
     email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
 
@@ -4413,15 +4448,15 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         except Exception as e:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
-    logger.info("Resend: enviando evaluación de %s a %s (%d adjuntos)", nombre, destinatarios, len(adjuntos))
-    await _resend_send(
+    logger.info("Gmail: enviando evaluación de %s a %s (%d adjuntos)", nombre, destinatarios, len(adjuntos))
+    await _gmail_send(
         from_addr=email_from,
         to=destinatarios,
         subject=f"Evaluacion de credito - {nombre}",
         html=body_html,
         attachments=adjuntos,
     )
-    logger.info("Resend: evaluación enviada correctamente")
+    logger.info("Gmail: evaluación enviada correctamente")
 
     return {"enviado_a": destinatarios, "documentos_adjuntos": len(adjuntos)}
 
@@ -4474,7 +4509,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         for t, n in conteo.items()
     ]
 
-    alias = perfil.get("email_alias") or os.getenv("EMAIL_FROM", "noreply@quesubsidio.cl")
+    alias = perfil.get("email_alias") or os.getenv("EMAIL_ADMIN", "noreply@quesubsidio.cl")
     return {
         "remitente": alias,
         "destinatarios": destinatarios,
@@ -4826,8 +4861,10 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
               </table>
               <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
             </div>"""
-            email_from = os.getenv("EMAIL_FROM", "noreply@quesubsidio.cl")
-            await _resend_send(
+            email_from = os.getenv("EMAIL_ADMIN", "")
+            if not email_from:
+                raise RuntimeError("EMAIL_ADMIN no configurada")
+            await _gmail_send(
                 from_addr=email_from,
                 to=[correo_admin],
                 subject=f"Nuevo lead — {nombre}",
@@ -4949,7 +4986,7 @@ async def api_contacto(request: Request):
 
     logger.info("📩 Contacto landing | %s | %s | %s", nombre, correo, empresa)
 
-    destino = os.getenv("EMAIL_REMITENTE") or os.getenv("EMAIL_FROM")
+    destino = os.getenv("EMAIL_REMITENTE") or os.getenv("EMAIL_ADMIN")
     if destino:
         try:
             cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
@@ -4958,8 +4995,8 @@ async def api_contacto(request: Request):
 <b>Teléfono:</b> {telefono or '—'}<br>
 <b>Empresa:</b> {empresa or '—'}</p>
 <p><b>Mensaje:</b><br>{mensaje or '—'}</p>"""
-            await _resend_send(
-                from_addr="noreply@quesubsidio.cl",
+            await _gmail_send(
+                from_addr=os.getenv("EMAIL_ADMIN", ""),
                 to=[destino],
                 subject=f"[QueSubsidio] Contacto desde la landing — {nombre}",
                 html=cuerpo,
