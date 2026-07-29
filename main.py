@@ -4430,7 +4430,7 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     """
 
     # Alias del usuario que dispara el envío
-    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_ADMIN", "noreply@quesubsidio.cl")
+    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_ADMIN", "")
     nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
     email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
 
@@ -4511,7 +4511,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         for t, n in conteo.items()
     ]
 
-    alias = perfil.get("email_alias") or os.getenv("EMAIL_ADMIN", "noreply@quesubsidio.cl")
+    alias = perfil.get("email_alias") or os.getenv("EMAIL_ADMIN", "")
     return {
         "remitente": alias,
         "destinatarios": destinatarios,
@@ -4988,7 +4988,7 @@ async def api_contacto(request: Request):
 
     logger.info("📩 Contacto landing | %s | %s | %s", nombre, correo, empresa)
 
-    destino = os.getenv("EMAIL_REMITENTE") or os.getenv("EMAIL_ADMIN")
+    destino = os.getenv("EMAIL_ADMIN")
     if destino:
         try:
             cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
