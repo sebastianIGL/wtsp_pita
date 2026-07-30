@@ -3682,6 +3682,56 @@ async def api_eliminar_etapa(etapa_id: int, request: Request):
     return {"ok": True}
 
 
+# ── Ejecutivos bancarios ──────────────────────────────────────────────────────
+
+@app.get("/api/ejecutivos")
+async def api_listar_ejecutivos(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil or not _solo_admin(perfil):
+        return Response(content="Unauthorized", status_code=401)
+    rows = await _supabase_request("GET", "/Ejecutivo",
+        params={"select": "id,ejecutivo,email,disponible", "order": "ejecutivo.asc"}) or []
+    return rows
+
+@app.post("/api/ejecutivos")
+async def api_crear_ejecutivo(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil or not _solo_admin(perfil):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    payload = {
+        "ejecutivo": (body.get("ejecutivo") or "").strip(),
+        "email":     (body.get("email") or "").strip().lower(),
+        "disponible": bool(body.get("disponible", True)),
+    }
+    if not payload["ejecutivo"] or not payload["email"]:
+        return Response(content="Nombre y email son obligatorios", status_code=400)
+    row = await _supabase_request("POST", "/Ejecutivo", json=payload)
+    return row[0] if isinstance(row, list) else row
+
+@app.patch("/api/ejecutivos/{ejecutivo_id}")
+async def api_editar_ejecutivo(ejecutivo_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil or not _solo_admin(perfil):
+        return Response(content="Unauthorized", status_code=401)
+    body = await request.json()
+    allowed = {"ejecutivo", "email", "disponible"}
+    payload = {k: v for k, v in body.items() if k in allowed}
+    if "email" in payload:
+        payload["email"] = payload["email"].strip().lower()
+    if "ejecutivo" in payload:
+        payload["ejecutivo"] = payload["ejecutivo"].strip()
+    await _supabase_request("PATCH", f"/Ejecutivo?id=eq.{ejecutivo_id}", json=payload)
+    return {"ok": True}
+
+@app.delete("/api/ejecutivos/{ejecutivo_id}")
+async def api_eliminar_ejecutivo(ejecutivo_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil or not _solo_admin(perfil):
+        return Response(content="Unauthorized", status_code=401)
+    await _supabase_request("DELETE", f"/Ejecutivo?id=eq.{ejecutivo_id}")
+    return {"ok": True}
+
 # ── ProyectoEjecutivo ─────────────────────────────────────────────────────────
 
 @app.get("/api/proyecto-ejecutivos")

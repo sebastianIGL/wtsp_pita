@@ -323,18 +323,23 @@
             <option value="inactivo">Inactivo</option>
           </select>
         </div>
-        <div>
-          <label class="block text-xs sidebar-text mb-1.5">Entrega</label>
-          <select id="tip-entrega" class="w-full rounded-lg px-3 py-2 text-sm">
-            <option value="">Sin especificar</option>
-            <option value="inmediata">Inmediata (ahorro de una vez)</option>
-            <option value="futura">Futura (ahorro en cuotas)</option>
-          </select>
+        <div class="col-span-2">
+          <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
+          <div class="flex gap-6 mt-1">
+            <label class="flex items-center gap-2 cursor-pointer text-sm sidebar-text">
+              <input type="radio" name="tip-entrega" id="tip-entrega-inmediata" value="inmediata" class="accent-violet-500" />
+              Inmediata <span class="text-xs" style="color:var(--muted)">(ahorro de una vez)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-sm sidebar-text">
+              <input type="radio" name="tip-entrega" id="tip-entrega-futura" value="futura" class="accent-violet-500" />
+              Futura <span class="text-xs" style="color:var(--muted)">(ahorro en cuotas)</span>
+            </label>
+          </div>
         </div>
         <div>
           <label class="block text-xs sidebar-text mb-1.5">Cuotas de ahorro</label>
-          <input id="tip-cuotas-ahorro" type="number" min="0" placeholder="0 = regalo, 1 = inmediato, +1 = cuotas" class="w-full rounded-lg px-3 py-2 text-sm" />
-          <p class="text-xs mt-1" style="color:var(--muted)">0 = inmobiliaria regala el ahorro · 1 = pago único · +1 = número de cuotas</p>
+          <input id="tip-cuotas-ahorro" type="number" min="0" value="1" class="w-full rounded-lg px-3 py-2 text-sm" />
+          <p class="text-xs mt-1" style="color:var(--muted)">0 = inmobiliaria regala el ahorro · 1 = pago único · +1 = nº de cuotas</p>
         </div>
       </div>
     </div>
@@ -744,7 +749,8 @@
     ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
     document.getElementById('tip-tipo-subsidio').value = ''
     document.getElementById('tip-estado').value = 'activo'
-    document.getElementById('tip-entrega').value = ''
+    document.querySelectorAll('input[name="tip-entrega"]').forEach(r => r.checked = false)
+    document.getElementById('tip-cuotas-ahorro').value = '1'
   }
 
   function abrirModalTipologia() {
@@ -769,8 +775,9 @@
     document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio       || ''
     document.getElementById('tip-stock').value         = t.stock_disponible    ?? ''
     document.getElementById('tip-estado').value        = t.estado              || 'activo'
-    document.getElementById('tip-entrega').value       = t.entrega             || ''
-    document.getElementById('tip-cuotas-ahorro').value = t.cuotas_ahorro       ?? ''
+    const entregaVal = t.entrega || ''
+    document.querySelectorAll('input[name="tip-entrega"]').forEach(r => r.checked = r.value === entregaVal)
+    document.getElementById('tip-cuotas-ahorro').value = t.cuotas_ahorro ?? '1'
     document.getElementById('modal-tipologia').classList.remove('hidden')
     setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
   }
@@ -798,7 +805,7 @@
       tipo_subsidio:      document.getElementById('tip-tipo-subsidio').value || null,
       stock_disponible:   intOrNull('tip-stock'),
       estado:             document.getElementById('tip-estado').value || null,
-      entrega:            document.getElementById('tip-entrega').value || null,
+      entrega:            (document.querySelector('input[name="tip-entrega"]:checked') || {}).value || null,
       cuotas_ahorro:      intOrNull('tip-cuotas-ahorro'),
     }
     try {

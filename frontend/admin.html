@@ -42,6 +42,10 @@
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition bg-blue-600 text-white">
       Usuarios
     </button>
+    <button onclick="mostrarTab('ejecutivos')" id="tab-ejecutivos"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      Ejecutivos
+    </button>
     <button onclick="mostrarTab('proyectos')" id="tab-proyectos"
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
       Proyectos
@@ -154,7 +158,78 @@
       </table>
     </div>
   </div>
+
+  <!-- TAB: EJECUTIVOS BANCARIOS -->
+  <div id="panel-ejecutivos" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xl font-semibold">Ejecutivos bancarios</h2>
+      <button onclick="abrirModalEjecutivo()"
+        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Nuevo ejecutivo
+      </button>
+    </div>
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Nombre</th>
+            <th class="text-left px-5 py-3">Email</th>
+            <th class="text-left px-5 py-3">Estado</th>
+            <th class="text-left px-5 py-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="tablaEjecutivos">
+          <tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
 </main>
+
+<!-- Modal: Ejecutivo bancario -->
+<div id="modalEjecutivo" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+      <h3 id="modal-ejec-titulo" class="font-semibold text-lg">Nuevo ejecutivo</h3>
+      <button onclick="cerrarModalEjecutivo()" class="text-slate-400 hover:text-white transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <input type="hidden" id="ejec-id" />
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Nombre *</label>
+        <input id="ejec-nombre" type="text" placeholder="Ej: Juan Pérez"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Email *</label>
+        <input id="ejec-email" type="email" placeholder="ejecutivo@banco.cl"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div class="flex items-center gap-3">
+        <input id="ejec-disponible" type="checkbox" checked class="w-4 h-4 accent-blue-500 cursor-pointer" />
+        <label for="ejec-disponible" class="text-slate-300 text-sm cursor-pointer">Disponible para recibir evaluaciones</label>
+      </div>
+      <div id="ejec-error" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="cerrarModalEjecutivo()"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-lg text-sm transition">
+          Cancelar
+        </button>
+        <button onclick="guardarEjecutivo()" id="btn-guardar-ejec"
+          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
+          Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Modal: Crear usuario -->
 <div id="modalCrear" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -352,7 +427,7 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'proyectos', 'logs', 'plantillas'].forEach(t => {
+    ['usuarios', 'proyectos', 'logs', 'plantillas', 'ejecutivos'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-blue-600', t === tab);
@@ -362,6 +437,97 @@
     });
     if (tab === 'logs') cargarLogs();
     if (tab === 'plantillas') cargarPlantillas();
+    if (tab === 'ejecutivos') cargarEjecutivos();
+  }
+
+  // ── Ejecutivos bancarios ──────────────────────────────────────────────────
+  let _editandoEjecId = null
+
+  async function cargarEjecutivos() {
+    const tbody = document.getElementById('tablaEjecutivos')
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>'
+    const res = await fetch('/api/ejecutivos', { headers: authHeaders() })
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; return }
+    const rows = await res.json()
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Sin ejecutivos registrados</td></tr>'; return }
+    tbody.innerHTML = rows.map(e => `
+      <tr class="border-t border-slate-700 hover:bg-slate-700/40 transition">
+        <td class="px-5 py-3 font-medium text-slate-100">${e.ejecutivo || '—'}</td>
+        <td class="px-5 py-3 text-slate-300">${e.email || '—'}</td>
+        <td class="px-5 py-3">
+          <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${e.disponible ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'}">
+            ${e.disponible ? 'Disponible' : 'Inactivo'}
+          </span>
+        </td>
+        <td class="px-5 py-3">
+          <div class="flex gap-2">
+            <button onclick='editarEjecutivo(${JSON.stringify(e)})'
+              class="text-xs px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition">Editar</button>
+            <button onclick="eliminarEjecutivo(${e.id})"
+              class="text-xs px-3 py-1 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Eliminar</button>
+          </div>
+        </td>
+      </tr>`).join('')
+  }
+
+  function abrirModalEjecutivo() {
+    _editandoEjecId = null
+    document.getElementById('ejec-id').value = ''
+    document.getElementById('ejec-nombre').value = ''
+    document.getElementById('ejec-email').value = ''
+    document.getElementById('ejec-disponible').checked = true
+    document.getElementById('ejec-error').classList.add('hidden')
+    document.getElementById('modal-ejec-titulo').textContent = 'Nuevo ejecutivo'
+    document.getElementById('modalEjecutivo').classList.remove('hidden')
+    setTimeout(() => document.getElementById('ejec-nombre').focus(), 50)
+  }
+
+  function editarEjecutivo(e) {
+    _editandoEjecId = e.id
+    document.getElementById('ejec-id').value = e.id
+    document.getElementById('ejec-nombre').value = e.ejecutivo || ''
+    document.getElementById('ejec-email').value = e.email || ''
+    document.getElementById('ejec-disponible').checked = !!e.disponible
+    document.getElementById('ejec-error').classList.add('hidden')
+    document.getElementById('modal-ejec-titulo').textContent = 'Editar ejecutivo'
+    document.getElementById('modalEjecutivo').classList.remove('hidden')
+    setTimeout(() => document.getElementById('ejec-nombre').focus(), 50)
+  }
+
+  function cerrarModalEjecutivo() {
+    document.getElementById('modalEjecutivo').classList.add('hidden')
+    _editandoEjecId = null
+  }
+
+  async function guardarEjecutivo() {
+    const nombre = document.getElementById('ejec-nombre').value.trim()
+    const email  = document.getElementById('ejec-email').value.trim()
+    const errEl  = document.getElementById('ejec-error')
+    if (!nombre || !email) { errEl.textContent = 'Nombre y email son obligatorios'; errEl.classList.remove('hidden'); return }
+    const btn = document.getElementById('btn-guardar-ejec')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    const payload = { ejecutivo: nombre, email, disponible: document.getElementById('ejec-disponible').checked }
+    try {
+      const url = _editandoEjecId ? `/api/ejecutivos/${_editandoEjecId}` : '/api/ejecutivos'
+      const method = _editandoEjecId ? 'PATCH' : 'POST'
+      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(payload) })
+      if (!res.ok) throw new Error(await res.text())
+      toast(_editandoEjecId ? 'Ejecutivo actualizado' : 'Ejecutivo creado')
+      cerrarModalEjecutivo()
+      cargarEjecutivos()
+    } catch(e) {
+      errEl.textContent = e.message; errEl.classList.remove('hidden')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  async function eliminarEjecutivo(id) {
+    if (!confirm('¿Eliminar este ejecutivo? Esta acción no se puede deshacer.')) return
+    const res = await fetch(`/api/ejecutivos/${id}`, { method: 'DELETE', headers: authHeaders() })
+    if (!res.ok) { toast(await res.text(), 'error'); return }
+    toast('Ejecutivo eliminado')
+    cargarEjecutivos()
   }
 
   async function cargarLogs() {
