@@ -163,24 +163,6 @@
         </div>
       </div>
 
-      <!-- Etapa de entrega -->
-      <div>
-        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Etapa de entrega</p>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
-            <input id="f-etapa-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" />
-          </div>
-          <div>
-            <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
-            <select id="f-etapa-estado" class="w-full rounded-lg px-3 py-2 text-sm">
-              <option value="entrega_futura">Futura (ahorro en cuotas)</option>
-              <option value="entrega_inmediata">Inmediata (ahorro de una vez)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
       <!-- Financiero -->
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Financiero</p>
@@ -239,14 +221,25 @@
         </div>
       </div>
 
-      <!-- Tipologías (solo al editar) -->
-      <div id="seccion-tipologias" class="hidden">
-        <div class="flex items-center justify-between mb-3">
-          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías</p>
-          <button onclick="abrirModalTipologia()" class="text-xs px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Agregar</button>
+      <!-- Tipologías y Etapas (solo al editar) -->
+      <div id="seccion-tipologias" class="hidden space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías</p>
+            <div class="flex gap-2">
+              <button onclick="abrirModalEtapa()" class="text-xs px-3 py-1 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-medium transition">+ Etapa</button>
+              <button onclick="abrirModalTipologia()" class="text-xs px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Tipología</button>
+            </div>
+          </div>
+          <div id="lista-tipologias" class="space-y-2">
+            <p class="text-xs sidebar-text italic">Cargando…</p>
+          </div>
         </div>
-        <div id="lista-tipologias" class="space-y-2">
-          <p class="text-xs sidebar-text italic">Cargando…</p>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-2">Etapas del proyecto</p>
+          <div id="lista-etapas" class="space-y-1.5">
+            <p class="text-xs sidebar-text italic">Cargando…</p>
+          </div>
         </div>
       </div>
 
@@ -312,10 +305,6 @@
           </select>
         </div>
         <div>
-          <label class="block text-xs sidebar-text mb-1.5">Stock disponible</label>
-          <input id="tip-stock" type="number" min="0" placeholder="10" class="w-full rounded-lg px-3 py-2 text-sm" />
-        </div>
-        <div>
           <label class="block text-xs sidebar-text mb-1.5">Estado</label>
           <select id="tip-estado" class="w-full rounded-lg px-3 py-2 text-sm">
             <option value="activo">Activo</option>
@@ -323,29 +312,72 @@
             <option value="inactivo">Inactivo</option>
           </select>
         </div>
-        <div class="col-span-2">
-          <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
-          <div class="flex gap-6 mt-1">
-            <label class="flex items-center gap-2 cursor-pointer text-sm sidebar-text">
-              <input type="radio" name="tip-entrega" id="tip-entrega-inmediata" value="inmediata" class="accent-violet-500" />
-              Inmediata <span class="text-xs" style="color:var(--muted)">(ahorro de una vez)</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer text-sm sidebar-text">
-              <input type="radio" name="tip-entrega" id="tip-entrega-futura" value="futura" class="accent-violet-500" />
-              Futura <span class="text-xs" style="color:var(--muted)">(ahorro en cuotas)</span>
-            </label>
-          </div>
-        </div>
         <div>
           <label class="block text-xs sidebar-text mb-1.5">Cuotas de ahorro</label>
-          <input id="tip-cuotas-ahorro" type="number" min="0" value="1" class="w-full rounded-lg px-3 py-2 text-sm" />
-          <p class="text-xs mt-1" style="color:var(--muted)">0 = inmobiliaria regala el ahorro · 1 = pago único · +1 = nº de cuotas</p>
+          <input id="tip-cuotas-ahorro" type="number" min="0" placeholder="1" class="w-full rounded-lg px-3 py-2 text-sm" />
+          <p class="text-xs mt-1" style="color:var(--muted)">0 = regalo · 1 = pago único · +1 = nº de cuotas</p>
         </div>
       </div>
     </div>
     <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
       <button onclick="cerrarModalTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button onclick="guardarTipologia()" id="btn-guardar-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ETAPA -->
+<div id="modal-etapa" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h3 id="modal-etapa-titulo" class="text-base font-bold val-text">Nueva etapa</h3>
+      <button onclick="cerrarModalEtapa()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="eta-nombre" type="text" placeholder="Ej: Etapa 1" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
+        <select id="eta-estado" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="entrega_futura">Futura (ahorro en cuotas)</option>
+          <option value="entrega_inmediata">Inmediata (ahorro de una vez)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
+        <input id="eta-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarEtapa()" id="btn-guardar-eta" class="flex-1 py-2.5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ASIGNAR ETAPA A TIPOLOGÍA -->
+<div id="modal-asignar-etapa" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
+  <div class="glass rounded-2xl w-full max-w-xs shadow-2xl">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h3 id="modal-asgn-titulo" class="text-base font-bold val-text">Asignar etapa</h3>
+      <button onclick="cerrarModalAsignarEtapa()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+      <input type="hidden" id="asgn-et-id" />
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Etapa</label>
+        <select id="asgn-etapa-id" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Stock en esta etapa</label>
+        <input id="asgn-stock" type="number" min="0" placeholder="0" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalAsignarEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarEtapaTipologia()" id="btn-guardar-asgn" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
   </div>
 </div>
@@ -493,11 +525,7 @@
     document.getElementById('img-estado').textContent       = ''
     document.getElementById('img-preview-wrap').classList.add('hidden')
     _imagenUrlActual = null
-    document.getElementById('f-etapa-fecha').value  = ''
-    document.getElementById('f-etapa-estado').value = 'entrega_futura'
   }
-
-  let _etapaId = null
 
   function abrirModal() {
     _editandoId = null
@@ -511,7 +539,6 @@
 
   async function editar(row) {
     _editandoId = row.id
-    _etapaId    = null
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Editar proyecto'
     document.getElementById('f-nombre').value          = row.nombre                    || ''
@@ -531,18 +558,9 @@
       document.getElementById('img-preview').src = row.imagen_url
       document.getElementById('img-preview-wrap').classList.remove('hidden')
     }
-    // Cargar etapa del proyecto
-    try {
-      const etapas = await api('GET', `/api/etapas?proyecto_id=${row.id}`)
-      if (etapas && etapas.length) {
-        const e = etapas[0]
-        _etapaId = e.id
-        document.getElementById('f-etapa-fecha').value  = e.fecha_entrega || ''
-        document.getElementById('f-etapa-estado').value = e.estado        || 'entrega_futura'
-      }
-    } catch(_) {}
     document.getElementById('seccion-tipologias').classList.remove('hidden')
     cargarTipologias()
+    cargarEtapas()
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -631,26 +649,10 @@
         notas:                       document.getElementById('f-notas').value.trim() || null,
       }
 
-      const etapaPayload = {
-        fecha_entrega: document.getElementById('f-etapa-fecha').value || null,
-        estado:        document.getElementById('f-etapa-estado').value,
-      }
-
-      let proyectoId = _editandoId
       if (_editandoId) {
         await api('PATCH', `/api/proyectos/${_editandoId}`, payload)
       } else {
-        const nuevo = await api('POST', '/api/proyectos', { ...payload, inmobiliaria_id: _inmobiliaria.id })
-        proyectoId = nuevo.id
-      }
-
-      // Guardar etapa
-      if (etapaPayload.fecha_entrega || etapaPayload.estado) {
-        if (_etapaId) {
-          await api('PATCH', `/api/etapas/${_etapaId}`, etapaPayload)
-        } else {
-          await api('POST', '/api/etapas', { ...etapaPayload, proyecto_id: proyectoId })
-        }
+        await api('POST', '/api/proyectos', { ...payload, inmobiliaria_id: _inmobiliaria.id })
       }
 
       toast(_editandoId ? 'Proyecto actualizado' : 'Proyecto creado')
@@ -694,7 +696,11 @@
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      if (!document.getElementById('modal-tipologia').classList.contains('hidden')) {
+      if (!document.getElementById('modal-asignar-etapa').classList.contains('hidden')) {
+        cerrarModalAsignarEtapa()
+      } else if (!document.getElementById('modal-etapa').classList.contains('hidden')) {
+        cerrarModalEtapa()
+      } else if (!document.getElementById('modal-tipologia').classList.contains('hidden')) {
         cerrarModalTipologia()
       } else {
         cerrarModal()
@@ -704,6 +710,13 @@
 
   // ── Tipologías ────────────────────────────────────────────────────────────────
   let _editandoTipId = null
+
+  function _fmtFecha(iso) {
+    if (!iso) return ''
+    const [y, m, d] = iso.split('-')
+    const ms = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    return `${parseInt(d)} ${ms[parseInt(m)]} ${y}`
+  }
 
   async function cargarTipologias() {
     const contenedor = document.getElementById('lista-tipologias')
@@ -720,21 +733,40 @@
           t.dormitorios != null ? `${t.dormitorios}D` : null,
           t.banos != null ? `${t.banos}B` : null,
           t.superficie_util_m2 != null ? `${t.superficie_util_m2}m²` : null,
-          t.terreno_m2 != null ? `terreno ${t.terreno_m2}m²` : null,
-          t.valor_uf != null ? `desde ${t.valor_uf} UF` : null,
-          t.tipo_subsidio ? esc(t.tipo_subsidio) : null,
-          t.stock_disponible != null ? `stock: ${t.stock_disponible}` : null,
-          t.estado ? esc(t.estado) : null,
+          t.valor_uf != null ? `${t.valor_uf} UF` : null,
+          t.tipo_subsidio || null,
+          t.estado || null,
         ].filter(Boolean).join(' · ')
+        const etapas = (t.EtapaTipologia || [])
+        const pills = etapas.map(et => {
+          const nombre = et.Etapa?.nombre || '—'
+          const fecha  = et.Etapa?.fecha_entrega ? ` · ${_fmtFecha(et.Etapa.fecha_entrega)}` : ''
+          const etJson = JSON.stringify(et).replace(/'/g,"&#39;")
+          return `<button onclick='editarEtapaTipologia(${etJson})'
+            class="text-xs px-2 py-0.5 rounded-full bg-slate-700 hover:bg-slate-600 val-text transition whitespace-nowrap">
+            ${esc(nombre)}${fecha} · ${et.stock ?? 0}u ✏
+          </button>
+          <button onclick="eliminarEtapaTipologia(${et.id})"
+            class="text-xs px-1 py-0.5 rounded sidebar-text hover:text-red-400 transition -ml-1" title="Quitar etapa">×</button>`
+        }).join('')
         return `
-          <div class="glass rounded-xl px-4 py-3 flex items-start justify-between gap-3">
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium val-text">${esc(t.nombre)}</p>
-              ${info ? `<p class="text-xs sidebar-text mt-0.5">${info}</p>` : ''}
+          <div class="glass rounded-xl px-4 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium val-text">${esc(t.nombre)}</p>
+                ${info ? `<p class="text-xs sidebar-text mt-0.5">${info}</p>` : ''}
+              </div>
+              <div class="flex gap-2 flex-shrink-0">
+                <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+                <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+              </div>
             </div>
-            <div class="flex gap-2 flex-shrink-0">
-              <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
-              <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+            <div class="flex flex-wrap items-center gap-1.5 mt-2">
+              ${pills}
+              <button onclick="abrirModalAsignarEtapa(${t.id})"
+                class="text-xs px-2 py-0.5 rounded-full sidebar-text hover:text-violet-400 transition" style="border:1px dashed currentColor">
+                + etapa
+              </button>
             </div>
           </div>`
       }).join('')
@@ -745,12 +777,10 @@
 
   function _resetModalTipologia() {
     ['tip-nombre','tip-dormitorios','tip-banos','tip-superficie','tip-terreno',
-     'tip-precio-desde','tip-precio-hasta','tip-stock','tip-cuotas-ahorro'
+     'tip-precio-desde','tip-precio-hasta','tip-cuotas-ahorro'
     ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
-    document.getElementById('tip-tipo-subsidio').value = ''
+    document.getElementById('tip-tipo-subsidio').value = 'ninguno'
     document.getElementById('tip-estado').value = 'activo'
-    document.querySelectorAll('input[name="tip-entrega"]').forEach(r => r.checked = false)
-    document.getElementById('tip-cuotas-ahorro').value = '1'
   }
 
   function abrirModalTipologia() {
@@ -770,14 +800,11 @@
     document.getElementById('tip-banos').value         = t.banos              ?? ''
     document.getElementById('tip-superficie').value    = t.superficie_util_m2 ?? ''
     document.getElementById('tip-terreno').value       = t.terreno_m2         ?? ''
-    document.getElementById('tip-precio-desde').value  = t.valor_uf       ?? ''
-    document.getElementById('tip-precio-hasta').value  = t.monto_subsidio ?? ''
-    document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio       || ''
-    document.getElementById('tip-stock').value         = t.stock_disponible    ?? ''
-    document.getElementById('tip-estado').value        = t.estado              || 'activo'
-    const entregaVal = t.entrega || ''
-    document.querySelectorAll('input[name="tip-entrega"]').forEach(r => r.checked = r.value === entregaVal)
-    document.getElementById('tip-cuotas-ahorro').value = t.cuotas_ahorro ?? '1'
+    document.getElementById('tip-precio-desde').value  = t.valor_uf           ?? ''
+    document.getElementById('tip-precio-hasta').value  = t.monto_subsidio     ?? ''
+    document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio      || 'ninguno'
+    document.getElementById('tip-estado').value        = t.estado             || 'activo'
+    document.getElementById('tip-cuotas-ahorro').value = t.cuotas_ahorro      ?? ''
     document.getElementById('modal-tipologia').classList.remove('hidden')
     setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
   }
@@ -792,7 +819,7 @@
     if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
     const btn = document.getElementById('btn-guardar-tip')
     btn.disabled = true; btn.textContent = 'Guardando…'
-    const intOrNull  = id => { const v = document.getElementById(id).value; return v !== '' ? parseInt(v) : null }
+    const intOrNull   = id => { const v = document.getElementById(id).value; return v !== '' ? parseInt(v) : null }
     const floatOrNull = id => { const v = document.getElementById(id).value; return v !== '' ? parseFloat(v) : null }
     const payload = {
       nombre,
@@ -803,9 +830,7 @@
       valor_uf:           floatOrNull('tip-precio-desde'),
       monto_subsidio:     floatOrNull('tip-precio-hasta'),
       tipo_subsidio:      document.getElementById('tip-tipo-subsidio').value || null,
-      stock_disponible:   intOrNull('tip-stock'),
       estado:             document.getElementById('tip-estado').value || null,
-      entrega:            (document.querySelector('input[name="tip-entrega"]:checked') || {}).value || null,
       cuotas_ahorro:      intOrNull('tip-cuotas-ahorro'),
     }
     try {
@@ -830,6 +855,177 @@
     try {
       await api('DELETE', `/api/tipologias/${id}`)
       toast('Tipología eliminada')
+      cargarTipologias()
+    } catch(e) {
+      toast(e.message, 'error')
+    }
+  }
+
+  // ── Etapas del proyecto ───────────────────────────────────────────────────────
+  let _editandoEtapaId = null
+  let _etapasProyecto  = []
+
+  async function cargarEtapas() {
+    const contenedor = document.getElementById('lista-etapas')
+    if (!_editandoId) return
+    contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+    try {
+      _etapasProyecto = await api('GET', `/api/etapas?proyecto_id=${_editandoId}`)
+      if (!_etapasProyecto.length) {
+        contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Sin etapas registradas.</p>'
+        return
+      }
+      contenedor.innerHTML = _etapasProyecto.map(e => {
+        const tipo  = e.estado === 'entrega_inmediata' ? 'Inmediata' : 'Futura'
+        const fecha = e.fecha_entrega ? ` · ${_fmtFecha(e.fecha_entrega)}` : ''
+        const eJson = JSON.stringify(e).replace(/'/g,"&#39;")
+        return `
+          <div class="glass rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <span class="text-xs font-medium val-text">${esc(e.nombre || '—')}</span>
+              <span class="text-xs sidebar-text ml-2">${tipo}${fecha}</span>
+            </div>
+            <div class="flex gap-1.5 flex-shrink-0">
+              <button onclick='editarEtapa(${eJson})' class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-slate-300 transition">Editar</button>
+              <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-red-400 transition">✕</button>
+            </div>
+          </div>`
+      }).join('')
+    } catch(e) {
+      contenedor.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>`
+    }
+  }
+
+  function abrirModalEtapa() {
+    _editandoEtapaId = null
+    document.getElementById('modal-etapa-titulo').textContent = 'Nueva etapa'
+    document.getElementById('eta-nombre').value = ''
+    document.getElementById('eta-estado').value = 'entrega_futura'
+    document.getElementById('eta-fecha').value  = ''
+    document.getElementById('modal-etapa').classList.remove('hidden')
+    setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
+  }
+
+  function editarEtapa(e) {
+    _editandoEtapaId = e.id
+    document.getElementById('modal-etapa-titulo').textContent = 'Editar etapa'
+    document.getElementById('eta-nombre').value = e.nombre        || ''
+    document.getElementById('eta-estado').value = e.estado        || 'entrega_futura'
+    document.getElementById('eta-fecha').value  = e.fecha_entrega || ''
+    document.getElementById('modal-etapa').classList.remove('hidden')
+    setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
+  }
+
+  function cerrarModalEtapa() {
+    document.getElementById('modal-etapa').classList.add('hidden')
+    _editandoEtapaId = null
+  }
+
+  async function guardarEtapa() {
+    const nombre = document.getElementById('eta-nombre').value.trim()
+    if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+    const btn = document.getElementById('btn-guardar-eta')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    const payload = {
+      nombre,
+      estado:        document.getElementById('eta-estado').value,
+      fecha_entrega: document.getElementById('eta-fecha').value || null,
+    }
+    try {
+      if (_editandoEtapaId) {
+        await api('PATCH', `/api/etapas/${_editandoEtapaId}`, payload)
+        toast('Etapa actualizada')
+      } else {
+        await api('POST', '/api/etapas', { ...payload, proyecto_id: _editandoId })
+        toast('Etapa creada')
+      }
+      cerrarModalEtapa()
+      cargarEtapas()
+      cargarTipologias()
+    } catch(e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  async function eliminarEtapa(id) {
+    if (!confirm('¿Eliminar esta etapa? Se eliminarán también sus asignaciones a tipologías.')) return
+    try {
+      await api('DELETE', `/api/etapas/${id}`)
+      toast('Etapa eliminada')
+      cargarEtapas()
+      cargarTipologias()
+    } catch(e) {
+      toast(e.message, 'error')
+    }
+  }
+
+  // ── EtapaTipologia ────────────────────────────────────────────────────────────
+  let _asignandoTipId  = null
+  let _editandoEtaTipId = null
+
+  function abrirModalAsignarEtapa(tipId) {
+    _asignandoTipId   = tipId
+    _editandoEtaTipId = null
+    document.getElementById('modal-asgn-titulo').textContent = 'Asignar etapa'
+    document.getElementById('asgn-et-id').value  = ''
+    document.getElementById('asgn-stock').value  = '0'
+    const sel = document.getElementById('asgn-etapa-id')
+    sel.disabled = false
+    sel.innerHTML = _etapasProyecto.length
+      ? _etapasProyecto.map(e => `<option value="${e.id}">${esc(e.nombre || '—')}</option>`).join('')
+      : '<option value="">Sin etapas — crea una primero</option>'
+    document.getElementById('modal-asignar-etapa').classList.remove('hidden')
+  }
+
+  function editarEtapaTipologia(et) {
+    _asignandoTipId   = null
+    _editandoEtaTipId = et.id
+    document.getElementById('modal-asgn-titulo').textContent = 'Editar stock'
+    document.getElementById('asgn-et-id').value  = et.id
+    document.getElementById('asgn-stock').value  = et.stock ?? 0
+    const sel = document.getElementById('asgn-etapa-id')
+    sel.innerHTML = `<option value="${et.Etapa?.id}">${esc(et.Etapa?.nombre || '—')}</option>`
+    sel.disabled  = true
+    document.getElementById('modal-asignar-etapa').classList.remove('hidden')
+  }
+
+  function cerrarModalAsignarEtapa() {
+    document.getElementById('modal-asignar-etapa').classList.add('hidden')
+    document.getElementById('asgn-etapa-id').disabled = false
+    _asignandoTipId   = null
+    _editandoEtaTipId = null
+  }
+
+  async function guardarEtapaTipologia() {
+    const stock = parseInt(document.getElementById('asgn-stock').value) || 0
+    const btn   = document.getElementById('btn-guardar-asgn')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      if (_editandoEtaTipId) {
+        await api('PATCH', `/api/etapa-tipologia/${_editandoEtaTipId}`, { stock })
+        toast('Stock actualizado')
+      } else {
+        const etapa_id = parseInt(document.getElementById('asgn-etapa-id').value)
+        if (!etapa_id) { toast('Selecciona una etapa', 'error'); return }
+        await api('POST', '/api/etapa-tipologia', { etapa_id, tipologia_id: _asignandoTipId, stock })
+        toast('Etapa asignada')
+      }
+      cerrarModalAsignarEtapa()
+      cargarTipologias()
+    } catch(e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  async function eliminarEtapaTipologia(id) {
+    if (!confirm('¿Quitar esta etapa de la tipología?')) return
+    try {
+      await api('DELETE', `/api/etapa-tipologia/${id}`)
+      toast('Etapa removida')
       cargarTipologias()
     } catch(e) {
       toast(e.message, 'error')

@@ -3494,7 +3494,7 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
 
 # ── Tipologia ─────────────────────────────────────────────────────────────────
 
-_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,valor_uf,monto_subsidio,tipo_subsidio,stock_disponible,estado"
+_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,valor_uf,monto_subsidio,tipo_subsidio,estado,cuotas_ahorro,EtapaTipologia(id,stock,Etapa(id,nombre,fecha_entrega,estado))"
 
 @app.get("/api/tipologias")
 async def api_listar_tipologias(request: Request):
@@ -3530,7 +3530,7 @@ async def api_listar_tipologias(request: Request):
 
 _CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2", "terreno_m2",
                      "valor_uf", "monto_subsidio",
-                     "tipo_subsidio", "stock_disponible", "estado")
+                     "tipo_subsidio", "estado", "cuotas_ahorro")
 
 @app.post("/api/tipologias")
 async def api_crear_tipologia(request: Request):
@@ -3589,8 +3589,8 @@ async def api_eliminar_tipologia(tip_id: int, request: Request):
 
 # ── Etapa ─────────────────────────────────────────────────────────────────────
 
-_ETAPA_SELECT = "id,proyecto_id,Proyecto(nombre),fecha_entrega,estado"
-_CAMPOS_ETAPA = ("fecha_entrega", "estado")
+_ETAPA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,descripcion,fecha_entrega,estado"
+_CAMPOS_ETAPA = ("nombre", "descripcion", "fecha_entrega", "estado")
 
 
 @app.get("/api/etapas")
@@ -3678,6 +3678,74 @@ async def api_eliminar_etapa(etapa_id: int, request: Request):
         return Response(content="Unauthorized", status_code=401)
     await _supabase_request("DELETE", "/Etapa",
         params={"id": f"eq.{etapa_id}"},
+        extra_headers={"Prefer": "return=minimal"})
+    return {"ok": True}
+
+
+# ── EtapaTipologia ────────────────────────────────────────────────────────────
+
+_ETAPA_TIP_SELECT = "id,etapa_id,tipologia_id,stock,Etapa(id,nombre,fecha_entrega,estado)"
+
+@app.get("/api/etapa-tipologia")
+async def api_listar_etapa_tipologia(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    tipologia_id = request.query_params.get("tipologia_id")
+    etapa_id     = request.query_params.get("etapa_id")
+    params: Dict[str, str] = {"select": _ETAPA_TIP_SELECT}
+    if tipologia_id:
+        params["tipologia_id"] = f"eq.{tipologia_id}"
+    elif etapa_id:
+        params["etapa_id"] = f"eq.{etapa_id}"
+    else:
+        return Response(content="Se requiere tipologia_id o etapa_id", status_code=400)
+    rows = await _supabase_request("GET", "/EtapaTipologia", params=params)
+    return rows or []
+
+
+@app.post("/api/etapa-tipologia")
+async def api_crear_etapa_tipologia(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        etapa_id     = body.get("etapa_id")
+        tipologia_id = body.get("tipologia_id")
+        stock        = body.get("stock", 0)
+        if not etapa_id or not tipologia_id:
+            return Response(content="Faltan etapa_id o tipologia_id", status_code=400)
+        payload = {"etapa_id": int(etapa_id), "tipologia_id": int(tipologia_id), "stock": int(stock or 0)}
+        row = await _supabase_request("POST", "/EtapaTipologia",
+            json=payload, extra_headers={"Prefer": "return=representation"})
+        return row[0] if isinstance(row, list) and row else row
+    except Exception as e:
+        logger.exception("Error en POST /api/etapa-tipologia")
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
+@app.patch("/api/etapa-tipologia/{et_id}")
+async def api_editar_etapa_tipologia(et_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        stock = body.get("stock", 0)
+        await _supabase_request("PATCH", "/EtapaTipologia",
+            params={"id": f"eq.{et_id}"},
+            json={"stock": int(stock or 0)},
+            extra_headers={"Prefer": "return=minimal"})
+        return {"ok": True}
+    except Exception as e:
+        logger.exception("Error en PATCH /api/etapa-tipologia/%s", et_id)
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+
+
+@app.delete("/api/etapa-tipologia/{et_id}")
+async def api_eliminar_etapa_tipologia(et_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    await _supabase_request("DELETE", "/EtapaTipologia",
+        params={"id": f"eq.{et_id}"},
         extra_headers={"Prefer": "return=minimal"})
     return {"ok": True}
 
