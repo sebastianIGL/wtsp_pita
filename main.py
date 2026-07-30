@@ -3690,7 +3690,7 @@ async def api_listar_ejecutivos(request: Request):
     if not perfil or not _solo_admin(perfil):
         return Response(content="Unauthorized", status_code=401)
     rows = await _supabase_request("GET", "/Ejecutivo",
-        params={"select": "id,ejecutivo,email,disponible", "order": "ejecutivo.asc"}) or []
+        params={"select": "id,ejecutivo,entidad,email,telefono,disponible", "order": "ejecutivo.asc"}) or []
     return rows
 
 @app.post("/api/ejecutivos")
@@ -3701,11 +3701,14 @@ async def api_crear_ejecutivo(request: Request):
     body = await request.json()
     payload = {
         "ejecutivo": (body.get("ejecutivo") or "").strip(),
+        "entidad":   (body.get("entidad") or "").strip(),
         "email":     (body.get("email") or "").strip().lower(),
         "disponible": bool(body.get("disponible", True)),
     }
-    if not payload["ejecutivo"] or not payload["email"]:
-        return Response(content="Nombre y email son obligatorios", status_code=400)
+    if body.get("telefono"):
+        payload["telefono"] = body["telefono"]
+    if not payload["ejecutivo"] or not payload["entidad"] or not payload["email"]:
+        return Response(content="Nombre, entidad y email son obligatorios", status_code=400)
     row = await _supabase_request("POST", "/Ejecutivo", json=payload)
     return row[0] if isinstance(row, list) else row
 
@@ -3715,12 +3718,14 @@ async def api_editar_ejecutivo(ejecutivo_id: int, request: Request):
     if not perfil or not _solo_admin(perfil):
         return Response(content="Unauthorized", status_code=401)
     body = await request.json()
-    allowed = {"ejecutivo", "email", "disponible"}
+    allowed = {"ejecutivo", "entidad", "email", "telefono", "disponible"}
     payload = {k: v for k, v in body.items() if k in allowed}
     if "email" in payload:
         payload["email"] = payload["email"].strip().lower()
     if "ejecutivo" in payload:
         payload["ejecutivo"] = payload["ejecutivo"].strip()
+    if "entidad" in payload:
+        payload["entidad"] = payload["entidad"].strip()
     await _supabase_request("PATCH", f"/Ejecutivo?id=eq.{ejecutivo_id}", json=payload)
     return {"ok": True}
 

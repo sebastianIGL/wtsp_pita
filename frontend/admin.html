@@ -176,13 +176,14 @@
         <thead>
           <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
             <th class="text-left px-5 py-3">Nombre</th>
+            <th class="text-left px-5 py-3">Entidad</th>
             <th class="text-left px-5 py-3">Email</th>
             <th class="text-left px-5 py-3">Estado</th>
             <th class="text-left px-5 py-3">Acciones</th>
           </tr>
         </thead>
         <tbody id="tablaEjecutivos">
-          <tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -208,8 +209,35 @@
           class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
       <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Entidad bancaria *</label>
+        <select id="ejec-entidad"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="">Seleccionar banco…</option>
+          <option value="Banco Estado">Banco Estado</option>
+          <option value="Banco de Chile">Banco de Chile</option>
+          <option value="Banco Santander">Banco Santander</option>
+          <option value="BCI">BCI</option>
+          <option value="Itaú">Itaú</option>
+          <option value="Scotiabank">Scotiabank</option>
+          <option value="Banco Security">Banco Security</option>
+          <option value="BICE">BICE</option>
+          <option value="Banco Internacional">Banco Internacional</option>
+          <option value="Banco Falabella">Banco Falabella</option>
+          <option value="Banco Ripley">Banco Ripley</option>
+          <option value="Banco Consorcio">Banco Consorcio</option>
+          <option value="Coopeuch">Coopeuch</option>
+          <option value="HSBC Chile">HSBC Chile</option>
+          <option value="BTG Pactual Chile">BTG Pactual Chile</option>
+        </select>
+      </div>
+      <div>
         <label class="block text-slate-300 text-xs font-medium mb-1.5">Email *</label>
         <input id="ejec-email" type="email" placeholder="ejecutivo@banco.cl"
+          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Teléfono</label>
+        <input id="ejec-telefono" type="tel" placeholder="Ej: 56912345678"
           class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
       <div class="flex items-center gap-3">
@@ -445,14 +473,15 @@
 
   async function cargarEjecutivos() {
     const tbody = document.getElementById('tablaEjecutivos')
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>'
     const res = await fetch('/api/ejecutivos', { headers: authHeaders() })
-    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; return }
+    if (!res.ok) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; return }
     const rows = await res.json()
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Sin ejecutivos registrados</td></tr>'; return }
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Sin ejecutivos registrados</td></tr>'; return }
     tbody.innerHTML = rows.map(e => `
       <tr class="border-t border-slate-700 hover:bg-slate-700/40 transition">
         <td class="px-5 py-3 font-medium text-slate-100">${e.ejecutivo || '—'}</td>
+        <td class="px-5 py-3 text-slate-300">${e.entidad || '—'}</td>
         <td class="px-5 py-3 text-slate-300">${e.email || '—'}</td>
         <td class="px-5 py-3">
           <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${e.disponible ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'}">
@@ -474,7 +503,9 @@
     _editandoEjecId = null
     document.getElementById('ejec-id').value = ''
     document.getElementById('ejec-nombre').value = ''
+    document.getElementById('ejec-entidad').value = ''
     document.getElementById('ejec-email').value = ''
+    document.getElementById('ejec-telefono').value = ''
     document.getElementById('ejec-disponible').checked = true
     document.getElementById('ejec-error').classList.add('hidden')
     document.getElementById('modal-ejec-titulo').textContent = 'Nuevo ejecutivo'
@@ -486,7 +517,9 @@
     _editandoEjecId = e.id
     document.getElementById('ejec-id').value = e.id
     document.getElementById('ejec-nombre').value = e.ejecutivo || ''
+    document.getElementById('ejec-entidad').value = e.entidad || ''
     document.getElementById('ejec-email').value = e.email || ''
+    document.getElementById('ejec-telefono').value = e.telefono || ''
     document.getElementById('ejec-disponible').checked = !!e.disponible
     document.getElementById('ejec-error').classList.add('hidden')
     document.getElementById('modal-ejec-titulo').textContent = 'Editar ejecutivo'
@@ -500,13 +533,15 @@
   }
 
   async function guardarEjecutivo() {
-    const nombre = document.getElementById('ejec-nombre').value.trim()
-    const email  = document.getElementById('ejec-email').value.trim()
-    const errEl  = document.getElementById('ejec-error')
-    if (!nombre || !email) { errEl.textContent = 'Nombre y email son obligatorios'; errEl.classList.remove('hidden'); return }
+    const nombre   = document.getElementById('ejec-nombre').value.trim()
+    const entidad  = document.getElementById('ejec-entidad').value.trim()
+    const email    = document.getElementById('ejec-email').value.trim()
+    const telefono = document.getElementById('ejec-telefono').value.trim()
+    const errEl    = document.getElementById('ejec-error')
+    if (!nombre || !entidad || !email) { errEl.textContent = 'Nombre, entidad y email son obligatorios'; errEl.classList.remove('hidden'); return }
     const btn = document.getElementById('btn-guardar-ejec')
     btn.disabled = true; btn.textContent = 'Guardando…'
-    const payload = { ejecutivo: nombre, email, disponible: document.getElementById('ejec-disponible').checked }
+    const payload = { ejecutivo: nombre, entidad, email, telefono: telefono || null, disponible: document.getElementById('ejec-disponible').checked }
     try {
       const url = _editandoEjecId ? `/api/ejecutivos/${_editandoEjecId}` : '/api/ejecutivos'
       const method = _editandoEjecId ? 'PATCH' : 'POST'
