@@ -318,10 +318,23 @@
         <div>
           <label class="block text-xs sidebar-text mb-1.5">Estado</label>
           <select id="tip-estado" class="w-full rounded-lg px-3 py-2 text-sm">
-            <option value="disponible">Disponible</option>
+            <option value="activo">Activo</option>
             <option value="agotado">Agotado</option>
-            <option value="próximamente">Próximamente</option>
+            <option value="inactivo">Inactivo</option>
           </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Entrega</label>
+          <select id="tip-entrega" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Sin especificar</option>
+            <option value="inmediata">Inmediata (ahorro de una vez)</option>
+            <option value="futura">Futura (ahorro en cuotas)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Cuotas de ahorro</label>
+          <input id="tip-cuotas-ahorro" type="number" min="0" placeholder="0 = regalo, 1 = inmediato, +1 = cuotas" class="w-full rounded-lg px-3 py-2 text-sm" />
+          <p class="text-xs mt-1" style="color:var(--muted)">0 = inmobiliaria regala el ahorro · 1 = pago único · +1 = número de cuotas</p>
         </div>
       </div>
     </div>
@@ -727,10 +740,11 @@
 
   function _resetModalTipologia() {
     ['tip-nombre','tip-dormitorios','tip-banos','tip-superficie','tip-terreno',
-     'tip-precio-desde','tip-precio-hasta','tip-stock'
+     'tip-precio-desde','tip-precio-hasta','tip-stock','tip-cuotas-ahorro'
     ].forEach(id => { const el = document.getElementById(id); if(el) el.value = '' })
     document.getElementById('tip-tipo-subsidio').value = ''
-    document.getElementById('tip-estado').value = 'disponible'
+    document.getElementById('tip-estado').value = 'activo'
+    document.getElementById('tip-entrega').value = ''
   }
 
   function abrirModalTipologia() {
@@ -754,7 +768,9 @@
     document.getElementById('tip-precio-hasta').value  = t.monto_subsidio ?? ''
     document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio       || ''
     document.getElementById('tip-stock').value         = t.stock_disponible    ?? ''
-    document.getElementById('tip-estado').value        = t.estado              || 'disponible'
+    document.getElementById('tip-estado').value        = t.estado              || 'activo'
+    document.getElementById('tip-entrega').value       = t.entrega             || ''
+    document.getElementById('tip-cuotas-ahorro').value = t.cuotas_ahorro       ?? ''
     document.getElementById('modal-tipologia').classList.remove('hidden')
     setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
   }
@@ -782,6 +798,8 @@
       tipo_subsidio:      document.getElementById('tip-tipo-subsidio').value || null,
       stock_disponible:   intOrNull('tip-stock'),
       estado:             document.getElementById('tip-estado').value || null,
+      entrega:            document.getElementById('tip-entrega').value || null,
+      cuotas_ahorro:      intOrNull('tip-cuotas-ahorro'),
     }
     try {
       if (_editandoTipId) {
