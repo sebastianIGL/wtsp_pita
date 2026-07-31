@@ -328,12 +328,12 @@
 
 <!-- MODAL ETAPA -->
 <div id="modal-etapa" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
-  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl">
-    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
       <h3 id="modal-etapa-titulo" class="text-base font-bold val-text">Nueva etapa</h3>
       <button onclick="cerrarModalEtapa()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
     </div>
-    <div class="px-6 py-5 space-y-4">
+    <div class="overflow-y-auto flex-1 px-6 py-5 space-y-4">
       <div>
         <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
         <input id="eta-nombre" type="text" placeholder="Ej: Etapa 1" class="w-full rounded-lg px-3 py-2 text-sm" />
@@ -349,35 +349,44 @@
         <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
         <input id="eta-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" />
       </div>
+      <!-- Sub-sección tipologías: solo visible al editar una etapa existente -->
+      <div id="eta-tip-seccion" class="hidden pt-2 border-t" style="border-color:rgba(255,255,255,0.08)">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías en esta etapa</p>
+          <button onclick="abrirModalAsignarTipologia()" class="text-xs px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Asignar</button>
+        </div>
+        <div id="eta-tip-lista" class="space-y-1.5">
+          <p class="text-xs sidebar-text italic">Cargando…</p>
+        </div>
+      </div>
     </div>
-    <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
-      <button onclick="cerrarModalEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+    <div class="px-6 py-4 flex gap-3 border-t flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cerrar</button>
       <button onclick="guardarEtapa()" id="btn-guardar-eta" class="flex-1 py-2.5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL ASIGNAR ETAPA A TIPOLOGÍA -->
-<div id="modal-asignar-etapa" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
+<!-- MODAL ASIGNAR TIPOLOGÍA A ETAPA -->
+<div id="modal-asignar-tipologia" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
   <div class="glass rounded-2xl w-full max-w-xs shadow-2xl">
     <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
-      <h3 id="modal-asgn-titulo" class="text-base font-bold val-text">Asignar etapa</h3>
-      <button onclick="cerrarModalAsignarEtapa()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+      <h3 id="modal-asgn-tip-titulo" class="text-base font-bold val-text">Asignar tipología</h3>
+      <button onclick="cerrarModalAsignarTipologia()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
     </div>
     <div class="px-6 py-5 space-y-4">
-      <input type="hidden" id="asgn-et-id" />
-      <div>
-        <label class="block text-xs sidebar-text mb-1.5">Etapa</label>
-        <select id="asgn-etapa-id" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+      <div id="asgn-tip-select-wrap">
+        <label class="block text-xs sidebar-text mb-1.5">Tipología</label>
+        <select id="asgn-tipologia-id" class="w-full rounded-lg px-3 py-2 text-sm"></select>
       </div>
       <div>
         <label class="block text-xs sidebar-text mb-1.5">Stock en esta etapa</label>
-        <input id="asgn-stock" type="number" min="0" placeholder="0" class="w-full rounded-lg px-3 py-2 text-sm" />
+        <input id="asgn-tip-stock" type="number" min="0" placeholder="0" class="w-full rounded-lg px-3 py-2 text-sm" />
       </div>
     </div>
     <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
-      <button onclick="cerrarModalAsignarEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
-      <button onclick="guardarEtapaTipologia()" id="btn-guardar-asgn" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+      <button onclick="cerrarModalAsignarTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarAsignacionTipologia()" id="btn-guardar-asgn-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
   </div>
 </div>
@@ -696,8 +705,8 @@
 
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      if (!document.getElementById('modal-asignar-etapa').classList.contains('hidden')) {
-        cerrarModalAsignarEtapa()
+      if (!document.getElementById('modal-asignar-tipologia').classList.contains('hidden')) {
+        cerrarModalAsignarTipologia()
       } else if (!document.getElementById('modal-etapa').classList.contains('hidden')) {
         cerrarModalEtapa()
       } else if (!document.getElementById('modal-tipologia').classList.contains('hidden')) {
@@ -724,6 +733,7 @@
     contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
     try {
       const rows = await api('GET', `/api/tipologias?proyecto_id=${_editandoId}`)
+      _tipologiasProyecto = rows
       if (!rows.length) {
         contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Sin tipologías registradas.</p>'
         return
@@ -737,18 +747,6 @@
           t.tipo_subsidio || null,
           t.estado || null,
         ].filter(Boolean).join(' · ')
-        const etapas = (t.EtapaTipologia || [])
-        const pills = etapas.map(et => {
-          const nombre = et.Etapa?.nombre || '—'
-          const fecha  = et.Etapa?.fecha_entrega ? ` · ${_fmtFecha(et.Etapa.fecha_entrega)}` : ''
-          const etJson = JSON.stringify(et).replace(/'/g,"&#39;")
-          return `<button onclick='editarEtapaTipologia(${etJson})'
-            class="text-xs px-2 py-0.5 rounded-full bg-slate-700 hover:bg-slate-600 val-text transition whitespace-nowrap">
-            ${esc(nombre)}${fecha} · ${et.stock ?? 0}u ✏
-          </button>
-          <button onclick="eliminarEtapaTipologia(${et.id})"
-            class="text-xs px-1 py-0.5 rounded sidebar-text hover:text-red-400 transition -ml-1" title="Quitar etapa">×</button>`
-        }).join('')
         return `
           <div class="glass rounded-xl px-4 py-3">
             <div class="flex items-start justify-between gap-3">
@@ -760,13 +758,6 @@
                 <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
                 <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
               </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-1.5 mt-2">
-              ${pills}
-              <button onclick="abrirModalAsignarEtapa(${t.id})"
-                class="text-xs px-2 py-0.5 rounded-full sidebar-text hover:text-violet-400 transition" style="border:1px dashed currentColor">
-                + etapa
-              </button>
             </div>
           </div>`
       }).join('')
@@ -862,8 +853,9 @@
   }
 
   // ── Etapas del proyecto ───────────────────────────────────────────────────────
-  let _editandoEtapaId = null
-  let _etapasProyecto  = []
+  let _editandoEtapaId    = null
+  let _etapasProyecto     = []
+  let _tipologiasProyecto = []
 
   async function cargarEtapas() {
     const contenedor = document.getElementById('lista-etapas')
@@ -902,6 +894,7 @@
     document.getElementById('eta-nombre').value = ''
     document.getElementById('eta-estado').value = 'entrega_futura'
     document.getElementById('eta-fecha').value  = ''
+    document.getElementById('eta-tip-seccion').classList.add('hidden')
     document.getElementById('modal-etapa').classList.remove('hidden')
     setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
   }
@@ -912,7 +905,9 @@
     document.getElementById('eta-nombre').value = e.nombre        || ''
     document.getElementById('eta-estado').value = e.estado        || 'entrega_futura'
     document.getElementById('eta-fecha').value  = e.fecha_entrega || ''
+    document.getElementById('eta-tip-seccion').classList.remove('hidden')
     document.getElementById('modal-etapa').classList.remove('hidden')
+    cargarTipologiasDeEtapa(e.id)
     setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
   }
 
@@ -962,58 +957,86 @@
   }
 
   // ── EtapaTipologia ────────────────────────────────────────────────────────────
-  let _asignandoTipId  = null
   let _editandoEtaTipId = null
 
-  function abrirModalAsignarEtapa(tipId) {
-    _asignandoTipId   = tipId
-    _editandoEtaTipId = null
-    document.getElementById('modal-asgn-titulo').textContent = 'Asignar etapa'
-    document.getElementById('asgn-et-id').value  = ''
-    document.getElementById('asgn-stock').value  = '0'
-    const sel = document.getElementById('asgn-etapa-id')
-    sel.disabled = false
-    sel.innerHTML = _etapasProyecto.length
-      ? _etapasProyecto.map(e => `<option value="${e.id}">${esc(e.nombre || '—')}</option>`).join('')
-      : '<option value="">Sin etapas — crea una primero</option>'
-    document.getElementById('modal-asignar-etapa').classList.remove('hidden')
+  async function cargarTipologiasDeEtapa(etapaId) {
+    const lista = document.getElementById('eta-tip-lista')
+    lista.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+    try {
+      const rows = await api('GET', `/api/etapa-tipologia?etapa_id=${etapaId}`)
+      if (!rows.length) {
+        lista.innerHTML = '<p class="text-xs sidebar-text italic">Sin tipologías asignadas.</p>'
+        return
+      }
+      lista.innerHTML = rows.map(et => {
+        const tip  = et.Tipologia || {}
+        const sub  = [
+          tip.dormitorios != null ? `${tip.dormitorios}D` : null,
+          tip.banos != null ? `${tip.banos}B` : null,
+          tip.valor_uf != null ? `${tip.valor_uf} UF` : null,
+        ].filter(Boolean).join(' · ')
+        const etJson = JSON.stringify(et).replace(/'/g,"&#39;")
+        return `
+          <div class="glass rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <span class="text-xs font-medium val-text">${esc(tip.nombre || '—')}</span>
+              ${sub ? `<span class="text-xs sidebar-text ml-2">${sub}</span>` : ''}
+              <span class="text-xs ml-2 font-semibold" style="color:var(--primary)">${et.stock ?? 0}u</span>
+            </div>
+            <div class="flex gap-1.5 flex-shrink-0">
+              <button onclick='editarStockEtapaTipologia(${etJson})' class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-violet-400 transition">Stock</button>
+              <button onclick="quitarTipologiaDeEtapa(${et.id},${etapaId})" class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-red-400 transition">✕</button>
+            </div>
+          </div>`
+      }).join('')
+    } catch(e) {
+      lista.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>`
+    }
   }
 
-  function editarEtapaTipologia(et) {
-    _asignandoTipId   = null
+  function abrirModalAsignarTipologia() {
+    _editandoEtaTipId = null
+    document.getElementById('modal-asgn-tip-titulo').textContent = 'Asignar tipología'
+    document.getElementById('asgn-tip-stock').value = '0'
+    const wrap = document.getElementById('asgn-tip-select-wrap')
+    wrap.classList.remove('hidden')
+    const sel = document.getElementById('asgn-tipologia-id')
+    sel.innerHTML = _tipologiasProyecto.length
+      ? _tipologiasProyecto.map(t => `<option value="${t.id}">${esc(t.nombre || '—')}</option>`).join('')
+      : '<option value="">Sin tipologías — crea una primero</option>'
+    document.getElementById('modal-asignar-tipologia').classList.remove('hidden')
+  }
+
+  function editarStockEtapaTipologia(et) {
     _editandoEtaTipId = et.id
-    document.getElementById('modal-asgn-titulo').textContent = 'Editar stock'
-    document.getElementById('asgn-et-id').value  = et.id
-    document.getElementById('asgn-stock').value  = et.stock ?? 0
-    const sel = document.getElementById('asgn-etapa-id')
-    sel.innerHTML = `<option value="${et.Etapa?.id}">${esc(et.Etapa?.nombre || '—')}</option>`
-    sel.disabled  = true
-    document.getElementById('modal-asignar-etapa').classList.remove('hidden')
+    document.getElementById('modal-asgn-tip-titulo').textContent = 'Editar stock'
+    document.getElementById('asgn-tip-stock').value = et.stock ?? 0
+    document.getElementById('asgn-tip-select-wrap').classList.add('hidden')
+    document.getElementById('modal-asignar-tipologia').classList.remove('hidden')
   }
 
-  function cerrarModalAsignarEtapa() {
-    document.getElementById('modal-asignar-etapa').classList.add('hidden')
-    document.getElementById('asgn-etapa-id').disabled = false
-    _asignandoTipId   = null
+  function cerrarModalAsignarTipologia() {
+    document.getElementById('modal-asignar-tipologia').classList.add('hidden')
+    document.getElementById('asgn-tip-select-wrap').classList.remove('hidden')
     _editandoEtaTipId = null
   }
 
-  async function guardarEtapaTipologia() {
-    const stock = parseInt(document.getElementById('asgn-stock').value) || 0
-    const btn   = document.getElementById('btn-guardar-asgn')
+  async function guardarAsignacionTipologia() {
+    const stock = parseInt(document.getElementById('asgn-tip-stock').value) || 0
+    const btn   = document.getElementById('btn-guardar-asgn-tip')
     btn.disabled = true; btn.textContent = 'Guardando…'
     try {
       if (_editandoEtaTipId) {
         await api('PATCH', `/api/etapa-tipologia/${_editandoEtaTipId}`, { stock })
         toast('Stock actualizado')
       } else {
-        const etapa_id = parseInt(document.getElementById('asgn-etapa-id').value)
-        if (!etapa_id) { toast('Selecciona una etapa', 'error'); return }
-        await api('POST', '/api/etapa-tipologia', { etapa_id, tipologia_id: _asignandoTipId, stock })
-        toast('Etapa asignada')
+        const tipologia_id = parseInt(document.getElementById('asgn-tipologia-id').value)
+        if (!tipologia_id) { toast('Selecciona una tipología', 'error'); return }
+        await api('POST', '/api/etapa-tipologia', { etapa_id: _editandoEtapaId, tipologia_id, stock })
+        toast('Tipología asignada')
       }
-      cerrarModalAsignarEtapa()
-      cargarTipologias()
+      cerrarModalAsignarTipologia()
+      cargarTipologiasDeEtapa(_editandoEtapaId)
     } catch(e) {
       toast(e.message, 'error')
     } finally {
@@ -1021,12 +1044,12 @@
     }
   }
 
-  async function eliminarEtapaTipologia(id) {
-    if (!confirm('¿Quitar esta etapa de la tipología?')) return
+  async function quitarTipologiaDeEtapa(id, etapaId) {
+    if (!confirm('¿Quitar esta tipología de la etapa?')) return
     try {
       await api('DELETE', `/api/etapa-tipologia/${id}`)
-      toast('Etapa removida')
-      cargarTipologias()
+      toast('Tipología removida')
+      cargarTipologiasDeEtapa(etapaId)
     } catch(e) {
       toast(e.message, 'error')
     }

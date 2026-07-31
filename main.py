@@ -3684,7 +3684,7 @@ async def api_eliminar_etapa(etapa_id: int, request: Request):
 
 # ── EtapaTipologia ────────────────────────────────────────────────────────────
 
-_ETAPA_TIP_SELECT = "id,etapa_id,tipologia_id,stock,Etapa(id,nombre,fecha_entrega,estado)"
+_ETAPA_TIP_SELECT = "id,etapa_id,tipologia_id,stock,Etapa(id,nombre,fecha_entrega,estado),Tipologia(id,nombre,dormitorios,banos,valor_uf,tipo_subsidio)"
 
 @app.get("/api/etapa-tipologia")
 async def api_listar_etapa_tipologia(request: Request):
