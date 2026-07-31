@@ -2309,17 +2309,20 @@ function abrirFormTipologia(tip = null) {
   document.getElementById('tf-stock').value          = tip?.stock_disponible    ?? 0
   document.getElementById('tf-estado').value         = tip?.estado              || 'activo'
 
-  // proyecto selector: mostrar solo si no hay proyecto fijo en sesión
+  // proyecto selector: oculto si hay proyecto fijo; filtrado por inmobiliaria si no
+  const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || 'null')
   const wrapProyecto = document.getElementById('wrap-tf-proyecto')
   const sel = document.getElementById('tf-proyecto-id')
   if (proyecto?.id) {
     wrapProyecto.classList.add('hidden')
-    // Necesario: poblar la opción para que .value quede asignado correctamente
     sel.innerHTML = `<option value="${proyecto.id}" selected>${proyecto.nombre || proyecto.id}</option>`
   } else {
+    const lista = inmobiliaria?.id && !inmobiliaria._todos
+      ? proyectos.filter(p => p.inmobiliaria_id === inmobiliaria.id)
+      : proyectos
     wrapProyecto.classList.remove('hidden')
     sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>'
-      + proyectos.map(p => `<option value="${p.id}" ${tip?.proyecto_id===p.id?'selected':''}>${p.nombre}</option>`).join('')
+      + lista.map(p => `<option value="${p.id}" ${tip?.proyecto_id===p.id?'selected':''}>${p.nombre}</option>`).join('')
   }
 
   document.getElementById('modal-tip-form').classList.remove('hidden')
@@ -2458,15 +2461,19 @@ function abrirFormEtapa(etapa = null) {
   document.getElementById('ef-fecha').value  = etapa?.fecha_entrega || ''
   document.getElementById('ef-estado').value = etapa?.estado || 'entrega_futura'
 
+  const inmobiliaria2 = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || 'null')
   const wrapProyecto = document.getElementById('wrap-etapa-proyecto')
   const sel = document.getElementById('ef-proyecto-id')
   if (proyecto?.id) {
     wrapProyecto.classList.add('hidden')
     sel.innerHTML = `<option value="${proyecto.id}" selected>${proyecto.nombre || proyecto.id}</option>`
   } else {
+    const lista2 = inmobiliaria2?.id && !inmobiliaria2._todos
+      ? proyectos.filter(p => p.inmobiliaria_id === inmobiliaria2.id)
+      : proyectos
     wrapProyecto.classList.remove('hidden')
     sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>'
-      + proyectos.map(p => `<option value="${p.id}" ${etapa?.proyecto_id === p.id ? 'selected' : ''}>${p.nombre}</option>`).join('')
+      + lista2.map(p => `<option value="${p.id}" ${etapa?.proyecto_id === p.id ? 'selected' : ''}>${p.nombre}</option>`).join('')
   }
 
   document.getElementById('modal-etapa-form').classList.remove('hidden')
