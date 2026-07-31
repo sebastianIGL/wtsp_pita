@@ -5132,6 +5132,63 @@ async def api_contacto(request: Request):
     return {"ok": True}
 
 
+# ── Formulario de perfilamiento público (sin auth) ───────────────────────────
+_FORMULARIO_CAMPOS = (
+    "nombre", "email", "telefono", "rsh", "cmf", "tipo_ingreso",
+    "antiguedad_meses", "tiene_liquidaciones", "tiene_cotizaciones_afp",
+    "anos_declaracion_renta", "tiene_carpeta_tributaria",
+    "tiene_boletas_honorarios", "tiene_cert_antiguedad",
+    "tiene_propiedad", "numero_integrantes",
+    "resultado", "paso_actual", "completado_at",
+)
+
+@app.post("/api/formulario")
+async def api_crear_formulario(request: Request):
+    body = await request.json()
+    payload = {k: v for k, v in body.items() if k in _FORMULARIO_CAMPOS and v is not None}
+    try:
+        row = await _supabase_request(
+            "POST", "/Formulario",
+            json=payload,
+            extra_headers={"Prefer": "return=representation"},
+        )
+        return row[0] if isinstance(row, list) and row else row
+    except Exception as exc:
+        logger.warning("Error creando Formulario: %s", exc)
+        return Response(content="Error al crear formulario", status_code=500)
+
+@app.get("/api/formulario/{token}")
+async def api_obtener_formulario(token: str):
+    try:
+        rows = await _supabase_request(
+            "GET", "/Formulario",
+            params={"token": f"eq.{token}", "select": "*"},
+        )
+        if not rows:
+            return Response(content="No encontrado", status_code=404)
+        return rows[0]
+    except Exception:
+        return Response(content="Error", status_code=500)
+
+@app.patch("/api/formulario/{token}")
+async def api_actualizar_formulario(token: str, request: Request):
+    body = await request.json()
+    payload = {k: v for k, v in body.items() if k in _FORMULARIO_CAMPOS}
+    if not payload:
+        return Response(content="Nada que actualizar", status_code=400)
+    try:
+        await _supabase_request(
+            "PATCH", "/Formulario",
+            params={"token": f"eq.{token}"},
+            json=payload,
+            extra_headers={"Prefer": "return=minimal"},
+        )
+        return {"ok": True}
+    except Exception as exc:
+        logger.warning("Error actualizando Formulario %s: %s", token, exc)
+        return Response(content="Error al actualizar", status_code=500)
+
+
 @app.post("/api/newsletter")
 async def api_newsletter(request: Request):
     """Guarda suscripción al blog/newsletter en Supabase."""

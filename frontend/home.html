@@ -377,6 +377,48 @@
       -webkit-box-shadow: 0 0 0 30px var(--bg2) inset !important;
       -webkit-text-fill-color: var(--inp-text) !important;
     }
+    /* ── Formulario perfilamiento ─────────────────────────────────────────── */
+    .form-paso { display: none; }
+    .form-paso.activo { display: block; }
+    .prog-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-bottom: 1.25rem; overflow: hidden; }
+    .prog-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.4s ease; }
+    .opt-grid { display: grid; gap: 0.4rem; }
+    .opt-grid-2 { grid-template-columns: 1fr 1fr; }
+    .opt-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .opt-btn {
+      padding: 0.45rem 0.5rem; border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-muted);
+      font-size: 0.75rem; font-weight: 500; cursor: pointer;
+      text-align: center; transition: all 0.15s; line-height: 1.3;
+    }
+    .opt-btn:hover { border-color: var(--primary); color: var(--text); }
+    .opt-btn.sel { border-color: var(--primary); background: rgba(13,148,136,0.12); color: var(--primary); font-weight: 600; }
+    .tipo-btn {
+      width: 100%; padding: 0.75rem 0.875rem; border-radius: 0.625rem;
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text); font-size: 0.8125rem; font-weight: 500;
+      cursor: pointer; text-align: left; transition: all 0.15s;
+      display: flex; align-items: center; gap: 0.625rem; margin-bottom: 0.4rem;
+    }
+    .tipo-btn:hover { border-color: var(--primary); }
+    .tipo-btn.sel { border-color: var(--primary); background: rgba(13,148,136,0.1); }
+    .doc-check { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.45rem 0; }
+    .doc-check input[type="checkbox"] { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--primary); flex-shrink: 0; }
+    .doc-label { font-size: 0.775rem; color: var(--text-muted); line-height: 1.5; }
+    .subpreguntas { display: none; margin-top: 0.875rem; padding-top: 0.875rem; border-top: 1px solid var(--border); }
+    .subpreguntas.visible { display: block; }
+    .res-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--sep); }
+    .res-item:last-child { border-bottom: none; }
+    .res-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 2px; }
+    .res-text { font-size: 0.775rem; color: var(--text-muted); line-height: 1.5; }
+    .res-text strong { color: var(--text); display: block; margin-bottom: 0.1rem; font-size: 0.8rem; }
+    .tip-text-sm { font-size: 0.7rem; color: var(--text-subtle); margin-top: 0.2rem; }
+    .info-pill { font-size: 0.68rem; color: var(--primary-light); text-decoration: none; display: inline-block; margin-top: 2px; }
+    .info-pill:hover { text-decoration: underline; }
+    .paso-label { font-size: 0.68rem; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.2rem; }
+    .paso-titulo { font-size: 1rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .paso-desc { font-size: 0.775rem; color: var(--text-muted); margin-bottom: 1rem; }
   </style>
 </head>
 <body>
@@ -413,39 +455,194 @@
           </div>
         </div>
 
-        <!-- Formulario de registro público -->
+        <!-- Formulario de perfilamiento público (3 pasos) -->
         <div id="registro">
-          <div class="glass" style="border-radius:1.25rem;padding:2rem;">
-            <h2 style="font-size:1.125rem;font-weight:700;margin-bottom:0.25rem;">Crea tu cuenta gratis</h2>
-            <p style="font-size:0.875rem;color:var(--text-muted);margin-bottom:1.5rem;">Descubre si calificas para un subsidio habitacional o crédito hipotecario.</p>
-            <form id="formRegistro" novalidate>
+          <div class="glass" style="border-radius:1.25rem;padding:1.75rem;">
+
+            <!-- PASO 1: RSH + CMF -->
+            <div id="paso1" class="form-paso activo">
+              <div class="prog-bar"><div class="prog-fill" style="width:33%"></div></div>
+              <p class="paso-label">Paso 1 de 2</p>
+              <h2 class="paso-titulo">¿Calificas para un subsidio?</h2>
+              <p class="paso-desc">Dos preguntas clave para orientarte. Sin registro, sin compromiso.</p>
+
               <div style="margin-bottom:0.875rem;">
-                <label class="lbl" for="r-nombre">Nombre <span aria-hidden="true" style="color:var(--primary)">*</span></label>
-                <input id="r-nombre" name="nombre" type="text" class="inp" placeholder="Tu nombre" required autocomplete="given-name" />
+                <label class="lbl" for="p1-nombre">Tu nombre</label>
+                <input id="p1-nombre" type="text" class="inp" placeholder="Ej: María González" autocomplete="given-name" style="margin-top:0.3rem;" />
               </div>
+
               <div style="margin-bottom:0.875rem;">
-                <label class="lbl" for="r-correo">Correo <span aria-hidden="true" style="color:var(--primary)">*</span></label>
-                <input id="r-correo" name="correo" type="email" class="inp" placeholder="tu@correo.cl" required autocomplete="email" />
+                <label class="lbl" style="display:flex;align-items:center;gap:0.375rem;">
+                  ¿Cuál es tu tramo RSH?
+                  <a href="https://registrosocial.gob.cl" target="_blank" rel="noopener" class="info-pill" title="¿Qué es el RSH?">ⓘ ¿qué es?</a>
+                </label>
+                <div class="opt-grid opt-grid-3" style="margin-top:0.4rem;" id="opciones-rsh">
+                  <button type="button" class="opt-btn" data-val="40_menos" onclick="selOpt('rsh',this)">40% o menos</button>
+                  <button type="button" class="opt-btn" data-val="50_60" onclick="selOpt('rsh',this)">50% — 60%</button>
+                  <button type="button" class="opt-btn" data-val="70_80" onclick="selOpt('rsh',this)">70% — 80%</button>
+                  <button type="button" class="opt-btn" data-val="90" onclick="selOpt('rsh',this)">90%</button>
+                  <button type="button" class="opt-btn" data-val="100" onclick="selOpt('rsh',this)">100%</button>
+                  <button type="button" class="opt-btn" data-val="no_sabe" onclick="selOpt('rsh',this)">No sé 🔍</button>
+                </div>
+                <a id="link-rsh" href="https://registrosocial.gob.cl" target="_blank" rel="noopener" class="info-pill" style="display:none;margin-top:0.35rem;">→ Consulta tu RSH aquí</a>
               </div>
-              <div style="margin-bottom:0.875rem;">
-                <label class="lbl" for="r-pwd">Contraseña <span aria-hidden="true" style="color:var(--primary)">*</span></label>
-                <div class="pwd-wrap">
-                  <input id="r-pwd" name="password" type="password" class="inp inp-pw" placeholder="Mínimo 8 caracteres" required minlength="8" autocomplete="new-password" />
-                  <button type="button" class="pwd-toggle" id="r-toggle-pwd" aria-label="Mostrar contraseña">
-                    <svg id="r-eye-open" width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    <svg id="r-eye-closed" width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="hidden"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-                  </button>
+
+              <div style="margin-bottom:1rem;">
+                <label class="lbl" style="display:flex;align-items:center;gap:0.375rem;">
+                  ¿Tienes deudas en la CMF?
+                  <a href="https://www.cmfchile.cl/portal/principal/613/w3-channel.html" target="_blank" rel="noopener" class="info-pill" title="Consulta tu CMF">ⓘ ¿qué es?</a>
+                </label>
+                <div class="opt-grid opt-grid-3" style="margin-top:0.4rem;" id="opciones-cmf">
+                  <button type="button" class="opt-btn" data-val="sin_deuda" onclick="selOpt('cmf',this)">Sin deuda</button>
+                  <button type="button" class="opt-btn" data-val="con_deuda" onclick="selOpt('cmf',this)">Tengo deuda</button>
+                  <button type="button" class="opt-btn" data-val="no_sabe" onclick="selOpt('cmf',this)">No sé 🔍</button>
+                </div>
+                <a id="link-cmf" href="https://www.cmfchile.cl/portal/principal/613/w3-channel.html" target="_blank" rel="noopener" class="info-pill" style="display:none;margin-top:0.35rem;">→ Revisa tu CMF con ClaveÚnica</a>
+              </div>
+
+              <div id="p1-err" style="display:none;font-size:0.775rem;color:#fca5a5;margin-bottom:0.625rem;"></div>
+              <button type="button" onclick="irPaso2()" class="btn btn-primary" style="width:100%;justify-content:center;">
+                Continuar →
+              </button>
+              <p style="text-align:center;font-size:0.75rem;color:var(--text-subtle);margin-top:0.75rem;">
+                ¿Ya tienes cuenta?
+                <button type="button" onclick="abrirLogin()" style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.75rem;padding:0;">Iniciar sesión</button>
+              </p>
+            </div>
+
+            <!-- PASO 2: Tipo de ingreso + documentos -->
+            <div id="paso2" class="form-paso">
+              <div class="prog-bar"><div class="prog-fill" style="width:66%"></div></div>
+              <p class="paso-label">Paso 2 de 2</p>
+              <h2 class="paso-titulo">¿Cómo demuestras tus ingresos?</h2>
+              <p class="paso-desc">El banco pide documentos distintos según tu situación laboral.</p>
+
+              <div id="opciones-tipo" style="margin-bottom:0.25rem;">
+                <button type="button" class="tipo-btn" data-val="dependiente" onclick="selTipo(this)">
+                  <span style="font-size:1.1rem;flex-shrink:0;">👔</span>
+                  <div><strong style="display:block;font-size:0.8125rem;">Empleado(a)</strong><span style="font-size:0.725rem;color:var(--text-subtle);">Con contrato y liquidación de sueldo</span></div>
+                </button>
+                <button type="button" class="tipo-btn" data-val="independiente" onclick="selTipo(this)">
+                  <span style="font-size:1.1rem;flex-shrink:0;">📋</span>
+                  <div><strong style="display:block;font-size:0.8125rem;">Independiente</strong><span style="font-size:0.725rem;color:var(--text-subtle);">Trabajo por cuenta propia o boletas</span></div>
+                </button>
+                <button type="button" class="tipo-btn" data-val="fuerzas_armadas" onclick="selTipo(this)">
+                  <span style="font-size:1.1rem;flex-shrink:0;">🪖</span>
+                  <div><strong style="display:block;font-size:0.8125rem;">Fuerzas Armadas / Policiales</strong><span style="font-size:0.725rem;color:var(--text-subtle);">Carabineros, Ejército, PDI, etc.</span></div>
+                </button>
+              </div>
+
+              <!-- Sub-preguntas Dependiente -->
+              <div id="sub-dependiente" class="subpreguntas">
+                <div style="margin-bottom:0.625rem;">
+                  <label class="lbl">Meses en tu empleo actual</label>
+                  <input id="p2-antiguedad" type="number" min="0" max="600" class="inp" placeholder="Ej: 14" style="margin-top:0.3rem;" />
+                  <p class="tip-text-sm">El banco pide mínimo 12 meses de antigüedad.</p>
+                </div>
+                <div class="doc-check">
+                  <input type="checkbox" id="p2-liquidaciones" />
+                  <label for="p2-liquidaciones" class="doc-label">Tengo mis <strong>últimas 6 liquidaciones de sueldo</strong></label>
+                </div>
+                <div class="doc-check">
+                  <input type="checkbox" id="p2-afp" />
+                  <label for="p2-afp" class="doc-label">Tengo mis <strong>últimas 12 cotizaciones de AFP</strong></label>
                 </div>
               </div>
-              <div id="regMsg"></div>
-              <button type="submit" id="btnRegistro" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.75rem;">
-                Comenzar mi camino →
-              </button>
-              <p style="text-align:center;font-size:0.8rem;color:var(--text-subtle);margin-top:1rem;">
-                ¿Ya tienes cuenta?
-                <button type="button" onclick="abrirLogin()" style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;">Iniciar sesión</button>
-              </p>
-            </form>
+
+              <!-- Sub-preguntas Independiente -->
+              <div id="sub-independiente" class="subpreguntas">
+                <div style="margin-bottom:0.625rem;">
+                  <label class="lbl">Años declarando renta ante el SII</label>
+                  <input id="p2-anos-renta" type="number" min="0" max="50" class="inp" placeholder="Ej: 3" style="margin-top:0.3rem;" />
+                  <p class="tip-text-sm">El banco pide mínimo 2 años de declaraciones.</p>
+                </div>
+                <div class="doc-check">
+                  <input type="checkbox" id="p2-carpeta" />
+                  <label for="p2-carpeta" class="doc-label">Tengo mi <strong>carpeta tributaria del SII</strong></label>
+                </div>
+                <div class="doc-check">
+                  <input type="checkbox" id="p2-boletas" />
+                  <label for="p2-boletas" class="doc-label">Tengo <strong>boletas de honorarios</strong> de los últimos 6 meses</label>
+                </div>
+              </div>
+
+              <!-- Sub-preguntas FF.AA. -->
+              <div id="sub-fuerzas_armadas" class="subpreguntas">
+                <div class="doc-check">
+                  <input type="checkbox" id="p2-liq-ffaa" />
+                  <label for="p2-liq-ffaa" class="doc-label">Tengo mis <strong>últimas 6 liquidaciones de sueldo</strong></label>
+                </div>
+                <div class="doc-check">
+                  <input type="checkbox" id="p2-cert-ant" />
+                  <label for="p2-cert-ant" class="doc-label">Tengo <strong>certificado de antigüedad laboral</strong></label>
+                </div>
+              </div>
+
+              <div id="p2-err" style="display:none;font-size:0.775rem;color:#fca5a5;margin:0.625rem 0;"></div>
+              <div style="display:flex;gap:0.5rem;margin-top:0.875rem;">
+                <button type="button" onclick="irPaso1()" style="flex:0 0 auto;padding:0 0.875rem;background:none;border:1px solid var(--border);border-radius:0.625rem;color:var(--text-muted);cursor:pointer;font-size:0.8125rem;">← Volver</button>
+                <button type="button" onclick="verResultado()" class="btn btn-primary" style="flex:1;justify-content:center;">Ver mi resultado →</button>
+              </div>
+            </div>
+
+            <!-- PASO 3: Resultado + guardar -->
+            <div id="paso3" class="form-paso">
+              <div class="prog-bar"><div class="prog-fill" style="width:100%"></div></div>
+              <h2 class="paso-titulo">Tu perfil de subsidio</h2>
+              <p class="paso-desc">Diagnóstico orientativo. Un ejecutivo puede guiarte con más detalle.</p>
+              <div id="resultado-items" style="margin-bottom:1rem;"></div>
+
+              <div id="guardar-perfil" style="border-top:1px solid var(--sep);padding-top:0.875rem;">
+                <p style="font-size:0.8rem;font-weight:600;color:var(--text);margin-bottom:0.2rem;">Crea tu cuenta para guardar tu perfil</p>
+                <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:0.625rem;">Podrás acceder a tu resultado cuando quieras e ir avanzando con un ejecutivo.</p>
+
+                <!-- Campos comunes -->
+                <div id="p3-form-acc">
+                  <input id="p3-email" type="email" class="inp" placeholder="Tu correo" autocomplete="email" style="margin-bottom:0.4rem;" />
+                  <input id="p3-telefono" type="tel" class="inp" placeholder="Tu teléfono (opcional)" autocomplete="tel" style="margin-bottom:0.4rem;" />
+
+                  <!-- Modo contraseña (por defecto) -->
+                  <div id="p3-pwd-mode">
+                    <div class="pwd-wrap" style="margin-bottom:0.25rem;">
+                      <input id="p3-pwd" type="password" class="inp inp-pw" placeholder="Crea una contraseña" minlength="8" autocomplete="new-password" />
+                      <button type="button" class="pwd-toggle" id="p3-toggle-pwd" aria-label="Mostrar contraseña">
+                        <svg id="p3-eye-open" width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <svg id="p3-eye-closed" width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="hidden"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                      </button>
+                    </div>
+                    <p class="tip-text-sm" style="margin-bottom:0.5rem;">Mínimo 8 caracteres.</p>
+                    <button type="button" onclick="activarModoOtp()" style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.75rem;padding:0;display:block;margin-bottom:0.625rem;">Prefiero recibir un código por correo →</button>
+                  </div>
+
+                  <!-- Modo OTP (oculto por defecto) -->
+                  <div id="p3-otp-mode" style="display:none;margin-bottom:0.625rem;">
+                    <div style="padding:0.625rem 0.75rem;background:rgba(13,148,136,0.08);border:1px solid rgba(13,148,136,0.2);border-radius:0.5rem;margin-bottom:0.5rem;">
+                      <p style="font-size:0.775rem;color:var(--text-muted);line-height:1.5;">Te enviaremos un código de 6 dígitos a tu correo cada vez que quieras ingresar. Sin contraseña.</p>
+                    </div>
+                    <button type="button" onclick="activarModoPwd()" style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.75rem;padding:0;">← Prefiero crear una contraseña</button>
+                  </div>
+
+                  <div id="p3-msg" style="display:none;font-size:0.775rem;margin-bottom:0.5rem;"></div>
+                  <button type="button" onclick="guardarPerfil()" id="btn-guardar-perfil" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:0.4rem;">Crear mi cuenta</button>
+                  <button type="button" onclick="continuarSinGuardar()" style="width:100%;padding:0.5rem;background:none;border:none;cursor:pointer;font-size:0.775rem;color:var(--text-subtle);text-align:center;">Continuar sin guardar →</button>
+                </div>
+
+                <!-- Pantalla verificación OTP (aparece tras enviar código) -->
+                <div id="p3-otp-verify" style="display:none;">
+                  <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.625rem;">Enviamos un código a <strong id="p3-otp-email-show" style="color:var(--text);"></strong>. Ingrésalo aquí:</p>
+                  <input id="p3-otp-code" type="text" inputmode="numeric" maxlength="6" class="inp" placeholder="000000" style="letter-spacing:0.25em;text-align:center;font-size:1.125rem;margin-bottom:0.4rem;" />
+                  <div id="p3-otp-msg" style="display:none;font-size:0.775rem;margin-bottom:0.5rem;"></div>
+                  <button type="button" onclick="verificarOtpPaso3()" id="btn-verificar-otp" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:0.4rem;">Verificar código</button>
+                  <button type="button" onclick="reenviarCodigoPaso3()" id="btn-reenviar-otp" style="width:100%;padding:0.5rem;background:none;border:none;cursor:pointer;font-size:0.775rem;color:var(--primary-light);text-align:center;">¿No llegó? Reenviar código</button>
+                </div>
+              </div>
+              <div id="perfil-guardado" style="display:none;text-align:center;padding:0.875rem 0;">
+                <div style="font-size:1.5rem;margin-bottom:0.4rem;">✅</div>
+                <p style="font-size:0.875rem;font-weight:600;color:var(--text);margin-bottom:0.25rem;">¡Perfil guardado!</p>
+                <p style="font-size:0.775rem;color:var(--text-muted);">Un ejecutivo te contactará pronto para orientarte.</p>
+              </div>
+            </div>
+
           </div>
         </div>
 
@@ -903,10 +1100,61 @@
       <button type="submit" id="ml-btn-login" class="btn btn-primary" style="width:100%;justify-content:center;">
         Ingresar
       </button>
-      <div style="text-align:center;margin-top:0.5rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.5rem;flex-wrap:wrap;gap:0.25rem;">
         <button type="button" onclick="mostrarRecuperarModal()"
           style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;text-decoration:underline;">
           ¿Olvidaste tu contraseña?
+        </button>
+        <button type="button" onclick="mostrarOtpModal()"
+          style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;text-decoration:underline;">
+          Ingresar con código →
+        </button>
+      </div>
+    </form>
+
+    <!-- Formulario ingreso con código OTP -->
+    <form id="modalFormOTP" class="modal-form modal-form-hidden">
+      <div>
+        <p style="font-size:0.9rem;font-weight:600;color:var(--text-heading);margin-bottom:0.25rem;">Ingresar con código</p>
+        <p style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.25rem;">Te enviaremos un código de 6 dígitos a tu correo. Sin contraseña.</p>
+      </div>
+      <div>
+        <label class="lbl" for="ml-correo-otp">Correo electrónico</label>
+        <input id="ml-correo-otp" type="email" class="inp" placeholder="tu@correo.cl" required autocomplete="email" />
+      </div>
+      <button type="submit" id="ml-btn-otp" class="btn btn-primary" style="width:100%;justify-content:center;">
+        Enviar código
+      </button>
+      <div style="text-align:center;margin-top:0.25rem;">
+        <button type="button" onclick="volverALoginModal()"
+          style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;">
+          ← Volver al inicio de sesión
+        </button>
+      </div>
+    </form>
+
+    <!-- Formulario verificación código OTP -->
+    <form id="modalFormOTPCodigo" class="modal-form modal-form-hidden">
+      <div>
+        <p style="font-size:0.9rem;font-weight:600;color:var(--text-heading);margin-bottom:0.25rem;">Ingresa tu código</p>
+        <p id="ml-otp-destino" style="font-size:0.8125rem;color:var(--text-muted);margin-bottom:0.25rem;"></p>
+      </div>
+      <div>
+        <label class="lbl" for="ml-codigo-otp">Código de 6 dígitos</label>
+        <input id="ml-codigo-otp" type="text" inputmode="numeric" maxlength="6" class="inp"
+               placeholder="000000" style="letter-spacing:0.2em;text-align:center;font-size:1.125rem;" required />
+      </div>
+      <button type="submit" id="ml-btn-verificar-otp" class="btn btn-primary" style="width:100%;justify-content:center;">
+        Verificar
+      </button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:0.25rem;">
+        <button type="button" onclick="volverALoginModal()"
+          style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;">
+          ← Volver
+        </button>
+        <button type="button" id="ml-btn-reenviar" onclick="reenviarCodigoModal()"
+          style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.8rem;padding:0;">
+          Reenviar código
         </button>
       </div>
     </form>
@@ -1195,16 +1443,77 @@
   function mostrarRecuperarModal() {
     document.getElementById('modalAlerta').className = 'modal-alert';
     document.getElementById('modalAlerta').textContent = '';
-    document.getElementById('modalFormLogin').classList.add('modal-form-hidden');
+    ['modalFormLogin','modalFormOTP','modalFormOTPCodigo'].forEach(id =>
+      document.getElementById(id).classList.add('modal-form-hidden')
+    );
     document.getElementById('modalFormRecuperar').classList.remove('modal-form-hidden');
     document.getElementById('ml-correo-rec').focus();
   }
 
+  let _otpEmailModal = '';
+
   function volverALoginModal() {
     document.getElementById('modalAlerta').className = 'modal-alert';
     document.getElementById('modalAlerta').textContent = '';
-    document.getElementById('modalFormRecuperar').classList.add('modal-form-hidden');
+    ['modalFormRecuperar','modalFormOTP','modalFormOTPCodigo'].forEach(id =>
+      document.getElementById(id).classList.add('modal-form-hidden')
+    );
     document.getElementById('modalFormLogin').classList.remove('modal-form-hidden');
+  }
+
+  function mostrarOtpModal() {
+    document.getElementById('modalAlerta').className = 'modal-alert';
+    document.getElementById('modalAlerta').textContent = '';
+    document.getElementById('modalFormLogin').classList.add('modal-form-hidden');
+    document.getElementById('modalFormOTP').classList.remove('modal-form-hidden');
+    document.getElementById('ml-correo-otp').focus();
+  }
+
+  document.getElementById('modalFormOTP').addEventListener('submit', async e => {
+    e.preventDefault();
+    const email = document.getElementById('ml-correo-otp').value.trim();
+    const btn   = document.getElementById('ml-btn-otp');
+    if (!email) return;
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+      const { error } = await _sb.auth.signInWithOtp({ email });
+      if (error) throw error;
+      _otpEmailModal = email;
+      document.getElementById('ml-otp-destino').textContent = 'Código enviado a ' + email + '.';
+      document.getElementById('modalFormOTP').classList.add('modal-form-hidden');
+      document.getElementById('modalFormOTPCodigo').classList.remove('modal-form-hidden');
+      document.getElementById('ml-codigo-otp').focus();
+    } catch (err) {
+      mostrarAlertaModal(err.message || 'Error al enviar el código.', 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Enviar código';
+    }
+  });
+
+  document.getElementById('modalFormOTPCodigo').addEventListener('submit', async e => {
+    e.preventDefault();
+    const code = document.getElementById('ml-codigo-otp').value.trim();
+    const btn  = document.getElementById('ml-btn-verificar-otp');
+    if (code.length < 6) { mostrarAlertaModal('Ingresa el código de 6 dígitos.', 'err'); return; }
+    btn.disabled = true; btn.textContent = 'Verificando…';
+    try {
+      const { error } = await _sb.auth.verifyOtp({ email: _otpEmailModal, token: code, type: 'email' });
+      if (error) throw error;
+      mostrarAlertaModal('¡Acceso correcto! Redirigiendo…', 'ok');
+      setTimeout(() => { window.location.href = '/perfil'; }, 800);
+    } catch (err) {
+      mostrarAlertaModal('Código incorrecto o expirado.', 'err');
+      btn.disabled = false; btn.textContent = 'Verificar';
+    }
+  });
+
+  async function reenviarCodigoModal() {
+    const btn = document.getElementById('ml-btn-reenviar');
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    await _sb.auth.signInWithOtp({ email: _otpEmailModal }).catch(() => {});
+    mostrarAlertaModal('Código reenviado.', 'ok');
+    btn.textContent = '¡Enviado!';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Reenviar código'; }, 30000);
   }
 
   function mostrarAlertaModal(msg, tipo) {
@@ -1335,74 +1644,234 @@
     }
   });
 
-  // ── Toggle mostrar contraseña (form registro) ─────────────────────────────
-  document.getElementById('r-toggle-pwd').addEventListener('click', () => {
-    const pwd = document.getElementById('r-pwd');
+  // ── Formulario de perfilamiento ───────────────────────────────────────────
+  const _formData = { rsh: null, cmf: null, tipo_ingreso: null };
+  let _p3ModoOtp = false;
+
+  // Toggle contraseña paso 3
+  document.getElementById('p3-toggle-pwd').addEventListener('click', () => {
+    const pwd = document.getElementById('p3-pwd');
     const show = pwd.type === 'password';
     pwd.type = show ? 'text' : 'password';
-    document.getElementById('r-eye-open').classList.toggle('hidden', show);
-    document.getElementById('r-eye-closed').classList.toggle('hidden', !show);
+    document.getElementById('p3-eye-open').classList.toggle('hidden', show);
+    document.getElementById('p3-eye-closed').classList.toggle('hidden', !show);
   });
 
-  // ── Formulario de registro público ────────────────────────────────────────
-  document.getElementById('formRegistro').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const btn   = document.getElementById('btnRegistro');
-    const msgEl = document.getElementById('regMsg');
-    const fd    = new FormData(this);
+  function selOpt(campo, btn) {
+    btn.closest('.opt-grid').querySelectorAll('.opt-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    _formData[campo] = btn.dataset.val;
+    if (campo === 'rsh') document.getElementById('link-rsh').style.display = btn.dataset.val === 'no_sabe' ? 'inline' : 'none';
+    if (campo === 'cmf') document.getElementById('link-cmf').style.display = btn.dataset.val === 'no_sabe' ? 'inline' : 'none';
+  }
 
-    const nombre = fd.get('nombre')?.trim();
-    const correo = fd.get('correo')?.trim();
-    const pwd    = fd.get('password');
+  function selTipo(btn) {
+    document.querySelectorAll('.tipo-btn').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    _formData.tipo_ingreso = btn.dataset.val;
+    document.querySelectorAll('.subpreguntas').forEach(s => s.classList.remove('visible'));
+    document.getElementById('sub-' + btn.dataset.val).classList.add('visible');
+  }
 
-    if (!nombre || !correo || !pwd) {
-      msgEl.className = 'msg-err';
-      msgEl.textContent = 'Por favor completa todos los campos.';
-      return;
+  function irPaso1() {
+    document.getElementById('paso2').classList.remove('activo');
+    document.getElementById('paso1').classList.add('activo');
+    document.getElementById('registro').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function irPaso2() {
+    const errEl = document.getElementById('p1-err');
+    errEl.style.display = 'none';
+    if (!_formData.rsh) { errEl.textContent = 'Selecciona tu tramo RSH para continuar.'; errEl.style.display = 'block'; return; }
+    if (!_formData.cmf) { errEl.textContent = 'Indica tu situación en la CMF para continuar.'; errEl.style.display = 'block'; return; }
+    _formData.nombre = document.getElementById('p1-nombre').value.trim() || null;
+
+    document.getElementById('paso1').classList.remove('activo');
+    document.getElementById('paso2').classList.add('activo');
+    document.getElementById('registro').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  async function verResultado() {
+    const errEl = document.getElementById('p2-err');
+    errEl.style.display = 'none';
+    if (!_formData.tipo_ingreso) { errEl.textContent = 'Selecciona cómo demuestras tus ingresos.'; errEl.style.display = 'block'; return; }
+
+    if (_formData.tipo_ingreso === 'dependiente') {
+      _formData.antiguedad_meses = parseInt(document.getElementById('p2-antiguedad').value) || null;
+      _formData.tiene_liquidaciones = document.getElementById('p2-liquidaciones').checked;
+      _formData.tiene_cotizaciones_afp = document.getElementById('p2-afp').checked;
+    } else if (_formData.tipo_ingreso === 'independiente') {
+      _formData.anos_declaracion_renta = parseInt(document.getElementById('p2-anos-renta').value) || null;
+      _formData.tiene_carpeta_tributaria = document.getElementById('p2-carpeta').checked;
+      _formData.tiene_boletas_honorarios = document.getElementById('p2-boletas').checked;
+    } else {
+      _formData.tiene_liquidaciones = document.getElementById('p2-liq-ffaa').checked;
+      _formData.tiene_cert_antiguedad = document.getElementById('p2-cert-ant').checked;
     }
-    if (pwd.length < 8) {
-      msgEl.className = 'msg-err';
-      msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.';
-      return;
+
+    _formData.resultado = _calcularResultado(_formData);
+    _renderResultado(_formData.resultado);
+
+    document.getElementById('paso2').classList.remove('activo');
+    document.getElementById('paso3').classList.add('activo');
+    document.getElementById('registro').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function _calcularResultado(d) {
+    const items = [];
+    const rshLabel = { '40_menos': '40% o menos', '50_60': '50%–60%', '70_80': '70%–80%', '90': '90%', '100': '100%', 'no_sabe': 'No consultado' };
+    if (d.rsh === '40_menos') {
+      items.push({ icon: '✅', titulo: 'RSH ' + rshLabel[d.rsh], desc: 'Podrías calificar para DS19 y DS1 Tramo 2 y 3.' });
+    } else if (d.rsh === '50_60') {
+      items.push({ icon: '✅', titulo: 'RSH ' + rshLabel[d.rsh], desc: 'Podrías calificar para DS1 Tramo 2 y 3. Consulta elegibilidad DS19 con un ejecutivo.' });
+    } else if (d.rsh === 'no_sabe') {
+      items.push({ icon: 'ℹ️', titulo: 'RSH no consultado', desc: 'Este dato es clave. Conócelo en registrosocial.gob.cl', link: 'https://registrosocial.gob.cl' });
+    } else {
+      items.push({ icon: '⚠️', titulo: 'RSH ' + rshLabel[d.rsh], desc: 'Tu tramo aplica principalmente al DS1 Tramo 2 y 3. Consulta con un ejecutivo.' });
     }
 
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Creando cuenta…';
-    msgEl.className = '';
-    msgEl.textContent = '';
+    if (d.cmf === 'sin_deuda') {
+      items.push({ icon: '✅', titulo: 'Sin deuda en CMF', desc: 'Facilita la aprobación del crédito hipotecario.' });
+    } else if (d.cmf === 'con_deuda') {
+      items.push({ icon: '⚠️', titulo: 'Deuda registrada en CMF', desc: 'El banco evaluará tus deudas al aprobar el crédito. Un ejecutivo puede orientarte.' });
+    } else {
+      items.push({ icon: 'ℹ️', titulo: 'CMF no verificada', desc: 'Revisa tu historial en cmfchile.cl con ClaveÚnica.', link: 'https://www.cmfchile.cl' });
+    }
 
+    if (d.tipo_ingreso === 'dependiente') {
+      const m = d.antiguedad_meses || 0;
+      if (m >= 12) items.push({ icon: '✅', titulo: 'Antigüedad laboral: ' + m + ' meses', desc: 'Cumples el mínimo de 12 meses.' });
+      else if (m > 0) items.push({ icon: '⚠️', titulo: 'Antigüedad laboral: ' + m + ' meses', desc: 'Te faltan ' + (12 - m) + ' meses para el mínimo exigido.' });
+      else items.push({ icon: '⚠️', titulo: 'Antigüedad no especificada', desc: 'El banco pide mínimo 12 meses en el mismo empleo.' });
+      items.push({ icon: d.tiene_liquidaciones ? '✅' : '❌', titulo: '6 últimas liquidaciones de sueldo', desc: d.tiene_liquidaciones ? 'Las tienes.' : 'Puedes solicitarlas a tu empleador o en previred.com.' });
+      items.push({ icon: d.tiene_cotizaciones_afp ? '✅' : '❌', titulo: '12 cotizaciones de AFP', desc: d.tiene_cotizaciones_afp ? 'Las tienes.' : 'Descárgalas desde el sitio web de tu AFP.' });
+    } else if (d.tipo_ingreso === 'independiente') {
+      const a = d.anos_declaracion_renta || 0;
+      if (a >= 2) items.push({ icon: '✅', titulo: a + ' años de declaración de renta', desc: 'Cumples el mínimo de 2 años.' });
+      else items.push({ icon: '⚠️', titulo: a + ' año(s) de declaración', desc: 'Se piden mínimo 2 años declarados ante el SII.' });
+      items.push({ icon: d.tiene_carpeta_tributaria ? '✅' : '❌', titulo: 'Carpeta tributaria SII', desc: d.tiene_carpeta_tributaria ? 'La tienes.' : 'Obtenla en sii.cl con tu ClaveÚnica.' });
+      items.push({ icon: d.tiene_boletas_honorarios ? '✅' : '❌', titulo: 'Boletas de honorarios (6 meses)', desc: d.tiene_boletas_honorarios ? 'Las tienes.' : 'Puedes emitirlas en sii.cl.' });
+    } else {
+      items.push({ icon: d.tiene_liquidaciones ? '✅' : '❌', titulo: '6 últimas liquidaciones de sueldo', desc: d.tiene_liquidaciones ? 'Las tienes.' : 'Solicítalas en tu unidad o institución.' });
+      items.push({ icon: d.tiene_cert_antiguedad ? '✅' : '❌', titulo: 'Certificado de antigüedad laboral', desc: d.tiene_cert_antiguedad ? 'Lo tienes.' : 'Solicítalo en tu unidad de personal o RRHH.' });
+    }
+    return items;
+  }
+
+  function _renderResultado(items) {
+    document.getElementById('resultado-items').innerHTML = items.map(i =>
+      '<div class="res-item"><span class="res-icon">' + i.icon + '</span><div class="res-text"><strong>' + i.titulo + '</strong>' + i.desc +
+      (i.link ? '<a href="' + i.link + '" target="_blank" rel="noopener" class="info-pill">→ Ver aquí</a>' : '') + '</div></div>'
+    ).join('');
+  }
+
+  function activarModoOtp() {
+    _p3ModoOtp = true;
+    document.getElementById('p3-pwd-mode').style.display = 'none';
+    document.getElementById('p3-otp-mode').style.display = 'block';
+  }
+  function activarModoPwd() {
+    _p3ModoOtp = false;
+    document.getElementById('p3-otp-mode').style.display = 'none';
+    document.getElementById('p3-pwd-mode').style.display = 'block';
+  }
+
+  async function guardarPerfil() {
+    const email = document.getElementById('p3-email').value.trim();
+    const tel   = document.getElementById('p3-telefono').value.trim();
+    const msgEl = document.getElementById('p3-msg');
+    const btn   = document.getElementById('btn-guardar-perfil');
+    msgEl.style.display = 'none';
+
+    if (!email) {
+      msgEl.style.cssText = 'display:block;color:#fca5a5';
+      msgEl.textContent = 'Ingresa tu correo para crear la cuenta.'; return;
+    }
+
+    if (_p3ModoOtp) {
+      btn.disabled = true; btn.textContent = 'Enviando código…';
+      try {
+        const { error } = await _sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+        if (error) throw error;
+        await fetch('/api/formulario', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ..._formData, email, telefono: tel || null })
+        });
+        document.getElementById('p3-otp-email-show').textContent = email;
+        document.getElementById('p3-form-acc').style.display = 'none';
+        document.getElementById('p3-otp-verify').style.display = 'block';
+      } catch (e) {
+        msgEl.style.cssText = 'display:block;color:#fca5a5';
+        msgEl.textContent = e.message || 'Error al enviar el código. Intenta de nuevo.';
+        btn.disabled = false; btn.textContent = 'Crear mi cuenta';
+      }
+    } else {
+      const pwd = document.getElementById('p3-pwd').value;
+      if (!pwd || pwd.length < 8) {
+        msgEl.style.cssText = 'display:block;color:#fca5a5';
+        msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return;
+      }
+      btn.disabled = true; btn.textContent = 'Creando cuenta…';
+      try {
+        const { error } = await _sb.auth.signUp({
+          email, password: pwd,
+          options: { data: { nombre: _formData.nombre || '' } }
+        });
+        if (error) throw error;
+        await fetch('/api/formulario', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ..._formData, email, telefono: tel || null })
+        });
+        document.getElementById('guardar-perfil').style.display = 'none';
+        document.getElementById('perfil-guardado').style.display = 'block';
+      } catch (e) {
+        let msg = e.message || 'Error al crear la cuenta.';
+        if (msg.includes('already registered') || msg.includes('already been registered'))
+          msg = 'Ese correo ya tiene cuenta. Inicia sesión desde el botón de abajo.';
+        msgEl.style.cssText = 'display:block;color:#fca5a5';
+        msgEl.textContent = msg;
+        btn.disabled = false; btn.textContent = 'Crear mi cuenta';
+      }
+    }
+  }
+
+  async function verificarOtpPaso3() {
+    const code  = document.getElementById('p3-otp-code').value.trim();
+    const email = document.getElementById('p3-email').value.trim();
+    const msgEl = document.getElementById('p3-otp-msg');
+    const btn   = document.getElementById('btn-verificar-otp');
+    msgEl.style.display = 'none';
+    if (code.length < 6) {
+      msgEl.style.cssText = 'display:block;color:#fca5a5';
+      msgEl.textContent = 'Ingresa el código completo de 6 dígitos.'; return;
+    }
+    btn.disabled = true; btn.textContent = 'Verificando…';
     try {
-      const { data, error } = await _sb.auth.signUp({
-        email: correo,
-        password: pwd,
-        options: { data: { nombre, tipo: 'publico' } }
-      });
+      const { error } = await _sb.auth.verifyOtp({ email, token: code, type: 'email' });
       if (error) throw error;
-
-      if (data.session) {
-        // Confirmación de email desactivada → ya está logueado
-        msgEl.className = 'msg-ok';
-        msgEl.textContent = '¡Cuenta creada! Redirigiendo…';
-        setTimeout(() => { window.location.href = '/perfil'; }, 800);
-      } else {
-        // Supabase requiere confirmación de email
-        this.reset();
-        btn.disabled = false;
-        btn.textContent = 'Comenzar mi camino →';
-        msgEl.className = 'msg-ok';
-        msgEl.textContent = '¡Listo! Revisa tu correo para confirmar tu cuenta y luego inicia sesión.';
-      }
-    } catch (err) {
-      let msg = err.message || 'Error al crear la cuenta.';
-      if (msg.includes('already registered') || msg.includes('already been registered')) {
-        msg = 'Ese correo ya tiene una cuenta. Intenta iniciar sesión.';
-      }
-      msgEl.className = 'msg-err';
-      msgEl.textContent = msg;
-      btn.disabled = false;
-      btn.textContent = 'Comenzar mi camino →';
+      document.getElementById('guardar-perfil').style.display = 'none';
+      document.getElementById('perfil-guardado').style.display = 'block';
+    } catch (e) {
+      msgEl.style.cssText = 'display:block;color:#fca5a5';
+      msgEl.textContent = 'Código incorrecto o expirado. Solicita uno nuevo.';
+      btn.disabled = false; btn.textContent = 'Verificar código';
     }
-  });
+  }
+
+  async function reenviarCodigoPaso3() {
+    const email = document.getElementById('p3-email').value.trim();
+    const btn   = document.getElementById('btn-reenviar-otp');
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    await _sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } }).catch(() => {});
+    btn.textContent = '¡Código enviado!';
+    setTimeout(() => { btn.disabled = false; btn.textContent = '¿No llegó? Reenviar código'; }, 30000);
+  }
+
+  function continuarSinGuardar() {
+    document.getElementById('guardar-perfil').style.display = 'none';
+    document.getElementById('perfil-guardado').innerHTML = '<p style="text-align:center;font-size:0.8rem;color:var(--text-muted);padding:0.875rem 0;">Tu diagnóstico quedó listo. Puedes volver cuando quieras.</p>';
+    document.getElementById('perfil-guardado').style.display = 'block';
+  }
 
   // ── Formulario para empresas/inmobiliarias ────────────────────────────────
   document.getElementById('formEmpresa').addEventListener('submit', async function (e) {
