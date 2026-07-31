@@ -1181,16 +1181,27 @@
         const tipo  = e.estado === 'entrega_inmediata' ? 'Inmediata' : 'Futura'
         const fecha = e.fecha_entrega ? ` · ${_fmtFecha(e.fecha_entrega)}` : ''
         const eJson = JSON.stringify(e).replace(/'/g,"&#39;")
+        const asigs = (e.EtapaTipologia || [])
+        const pills = asigs.length
+          ? asigs.map(et => {
+              const t = et.Tipologia || {}
+              const lbl = t.nombre || '—'
+              return `<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(124,58,237,0.15);color:#a78bfa">${esc(lbl)} · ${et.stock ?? 0}u</span>`
+            }).join('')
+          : `<span class="text-xs sidebar-text italic">Sin tipologías asignadas — click en Editar</span>`
         return `
-          <div class="glass rounded-lg px-3 py-2 flex items-center justify-between gap-2">
-            <div class="min-w-0 flex-1">
-              <span class="text-xs font-medium val-text">${esc(e.nombre || '—')}</span>
-              <span class="text-xs sidebar-text ml-2">${tipo}${fecha}</span>
+          <div class="glass rounded-lg px-3 py-2.5 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <span class="text-xs font-medium val-text">${esc(e.nombre || '—')}</span>
+                <span class="text-xs sidebar-text ml-2">${tipo}${fecha}</span>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                <button onclick='editarEtapa(${eJson})' class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-slate-300 transition">Editar</button>
+                <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-red-400 transition">✕</button>
+              </div>
             </div>
-            <div class="flex gap-1.5 flex-shrink-0">
-              <button onclick='editarEtapa(${eJson})' class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-slate-300 transition">Editar</button>
-              <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-red-400 transition">✕</button>
-            </div>
+            <div class="flex flex-wrap gap-1.5">${pills}</div>
           </div>`
       }).join('')
     } catch(e) {

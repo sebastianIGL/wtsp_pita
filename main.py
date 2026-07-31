@@ -3589,7 +3589,7 @@ async def api_eliminar_tipologia(tip_id: int, request: Request):
 
 # ── Etapa ─────────────────────────────────────────────────────────────────────
 
-_ETAPA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,descripcion,fecha_entrega,estado"
+_ETAPA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,descripcion,fecha_entrega,estado,EtapaTipologia(id,stock,Tipologia(id,nombre,dormitorios,banos))"
 _CAMPOS_ETAPA = ("nombre", "descripcion", "fecha_entrega", "estado")
 
 
