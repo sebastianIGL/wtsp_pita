@@ -121,12 +121,16 @@
 <!-- MODAL CREAR / EDITAR -->
 <div id="modal" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
   <div class="glass rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:92vh">
-    <div class="px-8 pt-7 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+    <div class="px-8 pt-7 pb-0 flex items-center justify-between">
       <h2 id="modal-titulo" class="text-lg font-bold val-text">Nuevo proyecto</h2>
       <button onclick="cerrarModal()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
     </div>
+    <div class="flex px-8 mt-4 border-b" style="border-color:rgba(255,255,255,0.08)">
+      <button id="tab-btn-1" onclick="irTab(1)" class="py-2.5 px-4 text-sm font-medium border-b-2 border-violet-500 text-violet-400 -mb-px transition">Datos del proyecto</button>
+      <button id="tab-btn-2" onclick="irTab(2)" disabled class="py-2.5 px-4 text-sm font-medium border-b-2 border-transparent sidebar-text -mb-px transition" style="opacity:0.4;cursor:not-allowed">Tipologías y Etapas</button>
+    </div>
 
-    <div class="overflow-y-auto px-8 py-6 space-y-6 flex-1">
+    <div id="tab-1" class="overflow-y-auto px-8 py-6 space-y-6 flex-1">
 
       <!-- Básico -->
       <div>
@@ -221,39 +225,81 @@
         </div>
       </div>
 
-      <!-- Tipologías y Etapas (solo al editar) -->
-      <div id="seccion-tipologias" class="hidden space-y-4">
-        <div>
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías</p>
-            <div class="flex gap-2">
-              <button onclick="abrirModalEtapa()" class="text-xs px-3 py-1 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-medium transition">+ Etapa</button>
-              <button onclick="abrirModalTipologia()" class="text-xs px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Tipología</button>
-            </div>
-          </div>
-          <div id="lista-tipologias" class="space-y-2">
-            <p class="text-xs sidebar-text italic">Cargando…</p>
-          </div>
-        </div>
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-2">Etapas del proyecto</p>
-          <div id="lista-etapas" class="space-y-1.5">
-            <p class="text-xs sidebar-text italic">Cargando…</p>
-          </div>
-        </div>
-      </div>
-
       <!-- Notas -->
       <div>
         <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Notas internas</p>
         <textarea id="f-notas" rows="3" placeholder="Información relevante para el equipo y el bot..." class="w-full rounded-lg px-3 py-2 text-sm resize-none"></textarea>
       </div>
 
-    </div><!-- /scroll -->
+    </div><!-- /tab-1 -->
 
-    <div class="px-8 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
-      <button onclick="cerrarModal()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
-      <button onclick="guardar()" id="btn-guardar" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    <!-- TAB 2 – tipologías y etapas -->
+    <div id="tab-2" class="hidden overflow-y-auto px-8 py-6 flex-1">
+
+      <!-- WIZARD (proyecto recién creado) -->
+      <div id="tab2-wizard" class="hidden space-y-6">
+
+        <!-- A · Tipologías -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">A · Tipologías del proyecto</p>
+            <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+              <input id="wiz-unica" type="checkbox" checked onchange="wizToggleTipUnica()" class="w-3.5 h-3.5 accent-violet-500" />
+              <span class="sidebar-text">Única tipología</span>
+            </label>
+          </div>
+          <div id="wiz-tips" class="space-y-3"></div>
+          <button id="wiz-btn-add-tip" onclick="wizAddTip()"
+            class="hidden mt-2 text-xs px-3 py-1.5 rounded-lg sidebar-text hover:text-violet-400 transition"
+            style="border:1px dashed currentColor">+ Agregar tipología</button>
+        </div>
+
+        <div class="border-t" style="border-color:rgba(255,255,255,0.08)"></div>
+
+        <!-- B · Etapas -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">B · Etapas de entrega</p>
+          <div id="wiz-etapas" class="space-y-4"></div>
+          <button onclick="wizAddEtapa()"
+            class="mt-3 text-xs px-3 py-1.5 rounded-lg sidebar-text hover:text-slate-300 transition"
+            style="border:1px dashed currentColor">+ Nueva etapa</button>
+        </div>
+      </div>
+
+      <!-- MANAGEMENT (proyecto existente) -->
+      <div id="tab2-mgmt" class="hidden space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías</p>
+            <button onclick="abrirModalTipologia()" class="text-xs px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Tipología</button>
+          </div>
+          <div id="lista-tipologias" class="space-y-2">
+            <p class="text-xs sidebar-text italic">Cargando…</p>
+          </div>
+        </div>
+        <div class="border-t pt-4" style="border-color:rgba(255,255,255,0.08)">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Etapas del proyecto</p>
+            <button onclick="abrirModalEtapa()" class="text-xs px-3 py-1 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-medium transition">+ Etapa</button>
+          </div>
+          <div id="lista-etapas" class="space-y-1.5">
+            <p class="text-xs sidebar-text italic">Cargando…</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-2 -->
+
+    <!-- Footer dinámico -->
+    <div class="px-8 py-5 border-t flex gap-3 items-center" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModal()" class="py-2.5 px-5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <!-- Tab 1 crear -->
+      <button id="btn-siguiente" onclick="guardarYIrTab2()" class="hidden flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar y configurar →</button>
+      <!-- Tab 1 editar -->
+      <button id="btn-guardar" onclick="guardar()" class="hidden flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+      <!-- Tab 2 wizard -->
+      <button id="btn-volver-t2" onclick="irTab(1)" class="hidden py-2.5 px-4 rounded-lg border cancel-btn text-sm font-medium transition">← Datos</button>
+      <button id="btn-guardar-wiz" onclick="guardarWizard()" class="hidden flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Finalizar →</button>
     </div>
   </div>
 </div>
@@ -536,18 +582,57 @@
     _imagenUrlActual = null
   }
 
+  // ── Tab navigation ────────────────────────────────────────────────────────────
+  let _tab2Mode = null  // null | 'wizard' | 'mgmt'
+
+  function irTab(n) {
+    const onTab1 = n === 1
+    document.getElementById('tab-1').classList.toggle('hidden', !onTab1)
+    document.getElementById('tab-2').classList.toggle('hidden', onTab1)
+    const btn1 = document.getElementById('tab-btn-1')
+    const btn2 = document.getElementById('tab-btn-2')
+    btn1.className = `py-2.5 px-4 text-sm font-medium border-b-2 -mb-px transition ${onTab1 ? 'border-violet-500 text-violet-400' : 'border-transparent sidebar-text'}`
+    btn2.className = `py-2.5 px-4 text-sm font-medium border-b-2 -mb-px transition ${!onTab1 ? 'border-violet-500 text-violet-400' : 'border-transparent sidebar-text'}`
+    if (!onTab1) {
+      document.getElementById('tab2-wizard').classList.toggle('hidden', _tab2Mode !== 'wizard')
+      document.getElementById('tab2-mgmt').classList.toggle('hidden', _tab2Mode !== 'mgmt')
+    }
+    _actualizarFooter(n)
+  }
+
+  function _actualizarFooter(tab) {
+    const creando = !_editandoId || _tab2Mode === 'wizard'
+    const enTab1  = tab === 1
+    document.getElementById('btn-siguiente').classList.toggle('hidden', !enTab1 || !!_editandoId)
+    document.getElementById('btn-guardar').classList.toggle('hidden', !enTab1 || !_editandoId)
+    document.getElementById('btn-volver-t2').classList.toggle('hidden', enTab1)
+    document.getElementById('btn-guardar-wiz').classList.toggle('hidden', enTab1 || _tab2Mode !== 'wizard')
+  }
+
+  function _habilitarTab2(modo) {
+    _tab2Mode = modo
+    const btn2 = document.getElementById('tab-btn-2')
+    btn2.disabled = false
+    btn2.style.opacity = '1'
+    btn2.style.cursor  = 'pointer'
+  }
+
+  // ── Modal abrir / cerrar ──────────────────────────────────────────────────────
   function abrirModal() {
     _editandoId = null
-    _etapaId    = null
+    _tab2Mode   = null
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Nuevo proyecto'
-    document.getElementById('seccion-tipologias').classList.add('hidden')
+    const btn2 = document.getElementById('tab-btn-2')
+    btn2.disabled = true; btn2.style.opacity = '0.4'; btn2.style.cursor = 'not-allowed'
+    irTab(1)
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
 
   async function editar(row) {
     _editandoId = row.id
+    _tab2Mode   = 'mgmt'
     _resetModal()
     document.getElementById('modal-titulo').textContent = 'Editar proyecto'
     document.getElementById('f-nombre').value          = row.nombre                    || ''
@@ -567,9 +652,10 @@
       document.getElementById('img-preview').src = row.imagen_url
       document.getElementById('img-preview-wrap').classList.remove('hidden')
     }
-    document.getElementById('seccion-tipologias').classList.remove('hidden')
+    _habilitarTab2('mgmt')
     cargarTipologias()
     cargarEtapas()
+    irTab(1)
     document.getElementById('modal').classList.remove('hidden')
     setTimeout(() => document.getElementById('f-nombre').focus(), 50)
   }
@@ -577,6 +663,7 @@
   function cerrarModal() {
     document.getElementById('modal').classList.add('hidden')
     _editandoId = null
+    _tab2Mode   = null
   }
 
   function abrirLightbox(url, nombre) {
@@ -627,50 +714,273 @@
     init()
   })
 
+  function _buildPayload() {
+    return {
+      nombre:                      document.getElementById('f-nombre').value.trim(),
+      codigo:                      document.getElementById('f-codigo').value.trim(),
+      ubicacion:                   document.getElementById('f-ubicacion').value.trim(),
+      imagen_url:                  _imagenUrlActual,
+      ahorro_minimo_uf:            numOrNull('f-ahorro-minimo'),
+      valor_reserva_clp:           numOrNull('f-reserva-clp'),
+      valor_reserva_uf:            numOrNull('f-reserva-uf'),
+      valor_estacionamiento_uf:    numOrNull('f-estac-uf'),
+      tiene_piloto:                document.getElementById('f-tiene-piloto').checked,
+      estacionamiento_obligatorio: document.getElementById('f-estac-obligatorio').checked,
+      acepta_ds19:                 document.getElementById('f-acepta-ds19').checked,
+      acepta_ds1_t23:              document.getElementById('f-acepta-ds1t23').checked,
+      notas:                       document.getElementById('f-notas').value.trim() || null,
+    }
+  }
+
   async function guardar() {
-    const nombre    = document.getElementById('f-nombre').value.trim()
-    const codigo    = document.getElementById('f-codigo').value.trim()
-    const ubicacion = document.getElementById('f-ubicacion').value.trim()
-    if (!nombre || !codigo) { toast('Nombre y código son obligatorios', 'error'); return }
+    const p = _buildPayload()
+    if (!p.nombre || !p.codigo) { toast('Nombre y código son obligatorios', 'error'); return }
     const btn = document.getElementById('btn-guardar')
     btn.disabled = true; btn.textContent = 'Guardando…'
     try {
-      // Subir imagen si hay archivo nuevo
       const fileInput = document.getElementById('f-imagen')
-      let imagen_url  = _imagenUrlActual
       if (fileInput.files[0]) {
         document.getElementById('img-estado').textContent = 'Subiendo imagen…'
-        imagen_url = await _subirImagen(fileInput.files[0])
+        p.imagen_url = await _subirImagen(fileInput.files[0])
         document.getElementById('img-estado').textContent = 'Imagen subida ✓'
       }
-
-      const payload = {
-        nombre, codigo, ubicacion,
-        imagen_url,
-        ahorro_minimo_uf:            numOrNull('f-ahorro-minimo'),
-        valor_reserva_clp:           numOrNull('f-reserva-clp'),
-        valor_reserva_uf:            numOrNull('f-reserva-uf'),
-        valor_estacionamiento_uf:    numOrNull('f-estac-uf'),
-        tiene_piloto:                document.getElementById('f-tiene-piloto').checked,
-        estacionamiento_obligatorio: document.getElementById('f-estac-obligatorio').checked,
-        acepta_ds19:                 document.getElementById('f-acepta-ds19').checked,
-        acepta_ds1_t23:              document.getElementById('f-acepta-ds1t23').checked,
-        notas:                       document.getElementById('f-notas').value.trim() || null,
-      }
-
-      if (_editandoId) {
-        await api('PATCH', `/api/proyectos/${_editandoId}`, payload)
-      } else {
-        await api('POST', '/api/proyectos', { ...payload, inmobiliaria_id: _inmobiliaria.id })
-      }
-
-      toast(_editandoId ? 'Proyecto actualizado' : 'Proyecto creado')
+      await api('PATCH', `/api/proyectos/${_editandoId}`, p)
+      toast('Proyecto actualizado')
       cerrarModal()
       cargarProyectos()
     } catch(e) {
       toast(e.message, 'error')
     } finally {
       btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  async function guardarYIrTab2() {
+    const p = _buildPayload()
+    if (!p.nombre || !p.codigo) { toast('Nombre y código son obligatorios', 'error'); return }
+    const btn = document.getElementById('btn-siguiente')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      const fileInput = document.getElementById('f-imagen')
+      if (fileInput.files[0]) {
+        p.imagen_url = await _subirImagen(fileInput.files[0])
+        document.getElementById('img-estado').textContent = 'Imagen subida ✓'
+      }
+      const row = await api('POST', '/api/proyectos', { ...p, inmobiliaria_id: _inmobiliaria.id })
+      _editandoId = row.id
+      cargarProyectos()
+      _habilitarTab2('wizard')
+      wizInit()
+      irTab(2)
+      toast('Proyecto creado — ahora configura tipologías y etapas')
+    } catch(e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar y configurar →'
+    }
+  }
+
+  // ── Wizard tipologías + etapas ────────────────────────────────────────────────
+  let _wizTips   = []
+  let _wizEtapas = []
+
+  function wizInit() {
+    _wizTips   = [{ nombre: '', dormitorios: null, banos: null, superficie_util_m2: null, valor_uf: null, monto_subsidio: null, tipo_subsidio: 'ninguno', cuotas_ahorro: null }]
+    _wizEtapas = [{ nombre: 'Etapa 1', tipo: 'entrega_futura', fecha: '', periodo: '', stocks: [0] }]
+    document.getElementById('wiz-unica').checked = true
+    _wizRender()
+  }
+
+  function _wizSaveState() {
+    const unica = document.getElementById('wiz-unica').checked
+    _wizTips = _wizTips.map((t, i) => ({
+      ...t,
+      nombre:             unica ? '' : (document.getElementById(`wiz-tip-${i}-nombre`)?.value?.trim() || ''),
+      dormitorios:        _intOrNull(`wiz-tip-${i}-dorms`),
+      banos:              _intOrNull(`wiz-tip-${i}-banos`),
+      superficie_util_m2: _floatOrNull(`wiz-tip-${i}-sup`),
+      valor_uf:           _floatOrNull(`wiz-tip-${i}-valor`),
+      monto_subsidio:     _floatOrNull(`wiz-tip-${i}-sub`),
+      tipo_subsidio:      document.getElementById(`wiz-tip-${i}-tipo-sub`)?.value || 'ninguno',
+      cuotas_ahorro:      _intOrNull(`wiz-tip-${i}-cuotas`),
+    }))
+    _wizEtapas = _wizEtapas.map((e, i) => ({
+      ...e,
+      nombre:  document.getElementById(`wiz-eta-${i}-nombre`)?.value?.trim() || `Etapa ${i+1}`,
+      tipo:    document.getElementById(`wiz-eta-${i}-tipo`)?.value || 'entrega_futura',
+      fecha:   document.getElementById(`wiz-eta-${i}-fecha`)?.value || '',
+      periodo: document.getElementById(`wiz-eta-${i}-periodo`)?.value?.trim() || '',
+      stocks:  _wizTips.map((_, ti) => parseInt(document.getElementById(`wiz-eta-${i}-stock-${ti}`)?.value || '0') || 0),
+    }))
+  }
+
+  function _intOrNull(id)   { const v = document.getElementById(id)?.value; return v !== '' && v != null ? parseInt(v) : null }
+  function _floatOrNull(id) { const v = document.getElementById(id)?.value; return v !== '' && v != null ? parseFloat(v) : null }
+
+  function _wizRender() {
+    const unica = document.getElementById('wiz-unica').checked
+    document.getElementById('wiz-tips').innerHTML = _wizTips.map((t, i) => _wizTipHTML(i, t, unica)).join('')
+    document.getElementById('wiz-btn-add-tip').classList.toggle('hidden', unica)
+    document.getElementById('wiz-etapas').innerHTML = _wizEtapas.map((e, i) => _wizEtapaHTML(i, e, unica)).join('')
+  }
+
+  function _wizTipHTML(i, t, unica) {
+    const sel = s => v => `<option value="${v}" ${t.tipo_subsidio===v?'selected':''}>${s}</option>`
+    return `<div class="glass rounded-xl p-4 space-y-2">
+      ${!unica ? `<div class="flex items-center gap-2">
+        <input id="wiz-tip-${i}-nombre" value="${esc(t.nombre)}" placeholder="Nombre tipología (ej: 2D+1B)" class="flex-1 rounded-lg px-3 py-1.5 text-sm" />
+        ${i>0?`<button onclick="wizRemoveTip(${i})" class="text-xs sidebar-text hover:text-red-400 transition flex-shrink-0">✕</button>`:''}
+      </div>` : (i>0?`<div class="flex justify-end"><button onclick="wizRemoveTip(${i})" class="text-xs sidebar-text hover:text-red-400 transition">✕</button></div>`:'')}
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Dormitorios</label><input id="wiz-tip-${i}-dorms" type="number" min="0" value="${t.dormitorios??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Baños</label><input id="wiz-tip-${i}-banos" type="number" min="0" value="${t.banos??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Sup. útil (m²)</label><input id="wiz-tip-${i}-sup" type="number" step="0.01" min="0" value="${t.superficie_util_m2??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Valor (UF)</label><input id="wiz-tip-${i}-valor" type="number" step="0.1" min="0" value="${t.valor_uf??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Subsidio (UF)</label><input id="wiz-tip-${i}-sub" type="number" step="0.1" min="0" value="${t.monto_subsidio??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Tipo subsidio</label>
+          <select id="wiz-tip-${i}-tipo-sub" class="w-full rounded-lg px-2 py-1.5 text-xs">
+            <option value="ninguno" ${t.tipo_subsidio==='ninguno'?'selected':''}>Sin especificar</option>
+            <option value="ds19" ${t.tipo_subsidio==='ds19'?'selected':''}>DS19</option>
+            <option value="ds1_t23" ${t.tipo_subsidio==='ds1_t23'?'selected':''}>DS1 T23</option>
+            <option value="ambos" ${t.tipo_subsidio==='ambos'?'selected':''}>DS19 + DS1 T23</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Cuotas ahorro</label><input id="wiz-tip-${i}-cuotas" type="number" min="0" value="${t.cuotas_ahorro??''}" placeholder="1" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+      </div>
+    </div>`
+  }
+
+  function _wizEtapaHTML(i, e, unica) {
+    const stockRows = _wizTips.map((t, ti) => {
+      const lbl = unica ? 'Tipología única' : (t.nombre || `Tipología ${ti+1}`)
+      return `<div class="flex items-center justify-between py-1 border-b last:border-0" style="border-color:rgba(255,255,255,0.06)">
+        <span class="text-xs val-text">${esc(lbl)}</span>
+        <input type="number" min="0" value="${e.stocks[ti]??0}" placeholder="0" id="wiz-eta-${i}-stock-${ti}" class="w-20 rounded-lg px-2 py-1 text-xs text-center" />
+      </div>`
+    }).join('')
+    return `<div class="glass rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-semibold val-text">Etapa ${i+1}</p>
+        ${i>0?`<button onclick="wizRemoveEtapa(${i})" class="text-xs sidebar-text hover:text-red-400 transition">✕</button>`:''}
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Nombre</label><input id="wiz-eta-${i}-nombre" value="${esc(e.nombre)}" placeholder="Etapa 1" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Tipo entrega</label>
+          <select id="wiz-eta-${i}-tipo" onchange="wizTogglePeriodo(${i})" class="w-full rounded-lg px-2 py-1.5 text-xs">
+            <option value="entrega_futura" ${e.tipo==='entrega_futura'?'selected':''}>Futura</option>
+            <option value="entrega_inmediata" ${e.tipo==='entrega_inmediata'?'selected':''}>Inmediata</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Fecha entrega</label><input id="wiz-eta-${i}-fecha" type="date" value="${e.fecha||''}" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div id="wiz-eta-${i}-periodo-wrap" class="${e.tipo==='entrega_inmediata'?'hidden':''}">
+          <label class="block text-xs sidebar-text mb-1">Período (opcional)</label>
+          <input id="wiz-eta-${i}-periodo" value="${esc(e.periodo||'')}" placeholder="ej: 2do sem. 2026" class="w-full rounded-lg px-2 py-1.5 text-xs" />
+        </div>
+      </div>
+      <div class="border-t pt-2" style="border-color:rgba(255,255,255,0.08)">
+        <p class="text-xs sidebar-text mb-1.5">Stock por tipología</p>
+        ${stockRows}
+      </div>
+    </div>`
+  }
+
+  function wizToggleTipUnica() {
+    _wizSaveState()
+    if (document.getElementById('wiz-unica').checked && _wizTips.length > 1) {
+      _wizTips = [_wizTips[0]]
+      _wizEtapas.forEach(e => { e.stocks = [e.stocks[0] ?? 0] })
+    }
+    _wizRender()
+  }
+
+  function wizAddTip() {
+    _wizSaveState()
+    _wizTips.push({ nombre: '', dormitorios: null, banos: null, superficie_util_m2: null, valor_uf: null, monto_subsidio: null, tipo_subsidio: 'ninguno', cuotas_ahorro: null })
+    _wizEtapas.forEach(e => e.stocks.push(0))
+    _wizRender()
+  }
+
+  function wizRemoveTip(idx) {
+    if (_wizTips.length <= 1) { toast('Debe haber al menos una tipología', 'error'); return }
+    _wizSaveState()
+    _wizTips.splice(idx, 1)
+    _wizEtapas.forEach(e => e.stocks.splice(idx, 1))
+    _wizRender()
+  }
+
+  function wizAddEtapa() {
+    _wizSaveState()
+    _wizEtapas.push({ nombre: `Etapa ${_wizEtapas.length + 1}`, tipo: 'entrega_futura', fecha: '', periodo: '', stocks: _wizTips.map(() => 0) })
+    _wizRender()
+    setTimeout(() => document.getElementById('wiz-etapas').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+  }
+
+  function wizRemoveEtapa(idx) {
+    if (_wizEtapas.length <= 1) { toast('Debe haber al menos una etapa', 'error'); return }
+    _wizSaveState()
+    _wizEtapas.splice(idx, 1)
+    _wizRender()
+  }
+
+  function wizTogglePeriodo(idx) {
+    const tipo = document.getElementById(`wiz-eta-${idx}-tipo`).value
+    document.getElementById(`wiz-eta-${idx}-periodo-wrap`).classList.toggle('hidden', tipo === 'entrega_inmediata')
+  }
+
+  async function guardarWizard() {
+    _wizSaveState()
+    const btn = document.getElementById('btn-guardar-wiz')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      const unica = document.getElementById('wiz-unica').checked
+      // 1. Crear tipologías y recoger sus IDs
+      const tipIds = []
+      for (let i = 0; i < _wizTips.length; i++) {
+        const t = _wizTips[i]
+        const row = await api('POST', '/api/tipologias', {
+          proyecto_id:        _editandoId,
+          nombre:             unica ? 'Tipología única' : (t.nombre || `Tipología ${i+1}`),
+          dormitorios:        t.dormitorios,
+          banos:              t.banos,
+          superficie_util_m2: t.superficie_util_m2,
+          valor_uf:           t.valor_uf,
+          monto_subsidio:     t.monto_subsidio,
+          tipo_subsidio:      t.tipo_subsidio !== 'ninguno' ? t.tipo_subsidio : null,
+          estado:             'activo',
+          cuotas_ahorro:      t.cuotas_ahorro,
+        })
+        tipIds.push(row.id)
+      }
+      // 2. Crear etapas y EtapaTipologia
+      for (let i = 0; i < _wizEtapas.length; i++) {
+        const e = _wizEtapas[i]
+        const etaRow = await api('POST', '/api/etapas', {
+          proyecto_id:   _editandoId,
+          nombre:        e.nombre,
+          estado:        e.tipo,
+          fecha_entrega: e.fecha || null,
+          descripcion:   e.periodo || null,
+        })
+        for (let ti = 0; ti < tipIds.length; ti++) {
+          await api('POST', '/api/etapa-tipologia', { etapa_id: etaRow.id, tipologia_id: tipIds[ti], stock: e.stocks[ti] || 0 })
+        }
+      }
+      toast('Tipologías y etapas creadas')
+      _habilitarTab2('mgmt')
+      cargarTipologias()
+      cargarEtapas()
+      irTab(2)
+      cargarProyectos()
+    } catch(e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Finalizar →'
     }
   }
 
