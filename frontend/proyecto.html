@@ -1002,13 +1002,14 @@
       // 2. Crear etapas y EtapaTipologia
       for (let i = 0; i < _wizEtapas.length; i++) {
         const e = _wizEtapas[i]
-        const esCuotasWiz = e.tipo !== 'entrega_inmediata' && e.modo === 'cuotas' && e.numCuotas
+        const esCuotasWiz = e.tipo !== 'entrega_inmediata' && e.modo === 'cuotas'
         const etaRow = await api('POST', '/api/etapas', {
           proyecto_id:   _editandoId,
           nombre:        e.nombre,
           estado:        e.tipo,
           fecha_entrega: e.fecha || null,
-          descripcion:   esCuotasWiz ? `cuotas:${e.numCuotas}` : null,
+          tipo_ahorro:   esCuotasWiz ? 'cuotas' : 'unico',
+          num_cuotas:    esCuotasWiz ? (e.numCuotas || null) : null,
         })
         for (let ti = 0; ti < tipIds.length; ti++) {
           await api('POST', '/api/etapa-tipologia', { etapa_id: etaRow.id, tipologia_id: tipIds[ti], stock: e.stocks[ti] || 0 })
@@ -1222,8 +1223,7 @@
       }
       contenedor.innerHTML = _etapasProyecto.map(e => {
         const esFutura = e.estado !== 'entrega_inmediata'
-        const mCuotas  = esFutura ? (e.descripcion || '').match(/^cuotas:(\d+)$/) : null
-        const modoLbl  = esFutura ? (mCuotas ? ` · ${mCuotas[1]} cuotas` : ' · Pago único') : ''
+        const modoLbl  = esFutura ? (e.tipo_ahorro === 'cuotas' && e.num_cuotas ? ` · ${e.num_cuotas} cuotas` : ' · Pago único') : ''
         const tipo  = esFutura ? 'Futura' : 'Inmediata'
         const fecha = e.fecha_entrega ? ` · ${_fmtFecha(e.fecha_entrega)}` : ''
         const eJson = JSON.stringify(e).replace(/'/g,"&#39;")
@@ -1298,13 +1298,10 @@
     _etaResetModo()
     const esFutura = (e.estado || 'entrega_futura') === 'entrega_futura'
     document.getElementById('eta-modo-wrap').classList.toggle('hidden', !esFutura)
-    if (esFutura) {
-      const m = (e.descripcion || '').match(/^cuotas:(\d+)$/)
-      if (m) {
-        document.getElementById('eta-modo-cuotas').checked = true
-        document.getElementById('eta-ncuotas-wrap').classList.remove('hidden')
-        document.getElementById('eta-num-cuotas').value = m[1]
-      }
+    if (esFutura && e.tipo_ahorro === 'cuotas') {
+      document.getElementById('eta-modo-cuotas').checked = true
+      document.getElementById('eta-ncuotas-wrap').classList.remove('hidden')
+      document.getElementById('eta-num-cuotas').value = e.num_cuotas || ''
     }
     document.getElementById('eta-tip-seccion').classList.remove('hidden')
     document.getElementById('modal-etapa').classList.remove('hidden')
@@ -1329,7 +1326,8 @@
       nombre,
       estado,
       fecha_entrega: document.getElementById('eta-fecha').value || null,
-      descripcion:   esCuotas && nCuotas ? `cuotas:${nCuotas}` : null,
+      tipo_ahorro:   esCuotas ? 'cuotas' : 'unico',
+      num_cuotas:    esCuotas ? nCuotas : null,
     }
     try {
       if (_editandoEtapaId) {

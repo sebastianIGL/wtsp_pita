@@ -2485,13 +2485,10 @@ function abrirFormEtapa(etapa = null) {
   _efResetModo()
   const esFutura = estadoVal === 'entrega_futura'
   document.getElementById('ef-modo-wrap').classList.toggle('hidden', !esFutura)
-  if (esFutura && etapa) {
-    const m = (etapa.descripcion || '').match(/^cuotas:(\d+)$/)
-    if (m) {
-      document.getElementById('ef-modo-cuotas').checked = true
-      document.getElementById('ef-ncuotas-wrap').classList.remove('hidden')
-      document.getElementById('ef-num-cuotas').value = m[1]
-    }
+  if (esFutura && etapa?.tipo_ahorro === 'cuotas') {
+    document.getElementById('ef-modo-cuotas').checked = true
+    document.getElementById('ef-ncuotas-wrap').classList.remove('hidden')
+    document.getElementById('ef-num-cuotas').value = etapa.num_cuotas || ''
   }
 
   const inmobiliaria2 = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || 'null')
@@ -2524,7 +2521,7 @@ async function guardarEtapa() {
 
   const esCuotas = estado === 'entrega_futura' && document.getElementById('ef-modo-cuotas').checked
   const nCuotas  = esCuotas ? parseInt(document.getElementById('ef-num-cuotas').value) || null : null
-  const payload = { proyecto_id, fecha_entrega: fecha || null, estado, descripcion: esCuotas && nCuotas ? `cuotas:${nCuotas}` : null }
+  const payload = { proyecto_id, fecha_entrega: fecha || null, estado, tipo_ahorro: esCuotas ? 'cuotas' : 'unico', num_cuotas: esCuotas ? nCuotas : null }
 
   const btn = document.getElementById('btn-guardar-etapa')
   btn.disabled = true; btn.textContent = 'Guardando…'
