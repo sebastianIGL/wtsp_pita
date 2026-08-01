@@ -386,10 +386,28 @@
       </div>
       <div>
         <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
-        <select id="eta-estado" class="w-full rounded-lg px-3 py-2 text-sm">
-          <option value="entrega_futura">Futura (ahorro en cuotas)</option>
-          <option value="entrega_inmediata">Inmediata (ahorro de una vez)</option>
+        <select id="eta-estado" onchange="onEtaEstadoChange()" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="entrega_futura">Futura</option>
+          <option value="entrega_inmediata">Inmediata</option>
         </select>
+      </div>
+      <!-- Modalidad ahorro (solo Futura) -->
+      <div id="eta-modo-wrap" class="hidden">
+        <label class="block text-xs sidebar-text mb-1.5">Modalidad de ahorro</label>
+        <div class="flex gap-5">
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input type="radio" name="eta-modo" value="unico" id="eta-modo-unico" checked onchange="onEtaModoChange()" class="accent-violet-500" />
+            <span class="val-text">Pago único</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input type="radio" name="eta-modo" value="cuotas" id="eta-modo-cuotas" onchange="onEtaModoChange()" class="accent-violet-500" />
+            <span class="val-text">En cuotas</span>
+          </label>
+        </div>
+        <div id="eta-ncuotas-wrap" class="hidden mt-2">
+          <label class="block text-xs sidebar-text mb-1.5">N° de cuotas</label>
+          <input id="eta-num-cuotas" type="number" min="2" placeholder="Ej: 12" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
       </div>
       <div>
         <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
@@ -786,7 +804,7 @@
 
   function wizInit() {
     _wizTips   = [{ nombre: '', dormitorios: null, banos: null, superficie_util_m2: null, valor_uf: null, monto_subsidio: null, tipo_subsidio: 'ninguno', cuotas_ahorro: null }]
-    _wizEtapas = [{ nombre: 'Etapa 1', tipo: 'entrega_futura', fecha: '', periodo: '', stocks: [0] }]
+    _wizEtapas = [{ nombre: 'Etapa 1', tipo: 'entrega_futura', fecha: '', modo: 'unico', numCuotas: null, stocks: [0] }]
     document.getElementById('wiz-unica').checked = true
     _wizRender()
   }
@@ -806,11 +824,12 @@
     }))
     _wizEtapas = _wizEtapas.map((e, i) => ({
       ...e,
-      nombre:  document.getElementById(`wiz-eta-${i}-nombre`)?.value?.trim() || `Etapa ${i+1}`,
-      tipo:    document.getElementById(`wiz-eta-${i}-tipo`)?.value || 'entrega_futura',
-      fecha:   document.getElementById(`wiz-eta-${i}-fecha`)?.value || '',
-      periodo: document.getElementById(`wiz-eta-${i}-periodo`)?.value?.trim() || '',
-      stocks:  _wizTips.map((_, ti) => parseInt(document.getElementById(`wiz-eta-${i}-stock-${ti}`)?.value || '0') || 0),
+      nombre:    document.getElementById(`wiz-eta-${i}-nombre`)?.value?.trim() || `Etapa ${i+1}`,
+      tipo:      document.getElementById(`wiz-eta-${i}-tipo`)?.value || 'entrega_futura',
+      fecha:     document.getElementById(`wiz-eta-${i}-fecha`)?.value || '',
+      modo:      document.getElementById(`wiz-eta-${i}-modo-cuotas`)?.checked ? 'cuotas' : 'unico',
+      numCuotas: parseInt(document.getElementById(`wiz-eta-${i}-ncuotas`)?.value || '') || null,
+      stocks:    _wizTips.map((_, ti) => parseInt(document.getElementById(`wiz-eta-${i}-stock-${ti}`)?.value || '0') || 0),
     }))
   }
 
@@ -876,11 +895,24 @@
           </select>
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div><label class="block text-xs sidebar-text mb-1">Fecha entrega</label><input id="wiz-eta-${i}-fecha" type="date" value="${e.fecha||''}" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
-        <div id="wiz-eta-${i}-periodo-wrap" class="${e.tipo==='entrega_inmediata'?'hidden':''}">
-          <label class="block text-xs sidebar-text mb-1">Período (opcional)</label>
-          <input id="wiz-eta-${i}-periodo" value="${esc(e.periodo||'')}" placeholder="ej: 2do sem. 2026" class="w-full rounded-lg px-2 py-1.5 text-xs" />
+      <div>
+        <label class="block text-xs sidebar-text mb-1">Fecha entrega</label>
+        <input id="wiz-eta-${i}-fecha" type="date" value="${e.fecha||''}" class="w-full rounded-lg px-2 py-1.5 text-xs" />
+      </div>
+      <div id="wiz-eta-${i}-modo-wrap" class="${e.tipo==='entrega_inmediata'?'hidden':''}">
+        <label class="block text-xs sidebar-text mb-1">Modalidad de ahorro</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="radio" name="wiz-eta-${i}-modo" value="unico" ${e.modo!=='cuotas'?'checked':''} onchange="wizToggleModo(${i})" class="accent-violet-500" />
+            <span class="val-text">Pago único</span>
+          </label>
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="radio" name="wiz-eta-${i}-modo" value="cuotas" id="wiz-eta-${i}-modo-cuotas" ${e.modo==='cuotas'?'checked':''} onchange="wizToggleModo(${i})" class="accent-violet-500" />
+            <span class="val-text">En cuotas</span>
+          </label>
+        </div>
+        <div id="wiz-eta-${i}-ncuotas-wrap" class="${e.modo!=='cuotas'?'hidden':''} mt-1.5">
+          <input id="wiz-eta-${i}-ncuotas" type="number" min="2" value="${e.numCuotas||''}" placeholder="N° cuotas" class="w-full rounded-lg px-2 py-1.5 text-xs" />
         </div>
       </div>
       <div class="border-t pt-2" style="border-color:rgba(255,255,255,0.08)">
@@ -916,7 +948,7 @@
 
   function wizAddEtapa() {
     _wizSaveState()
-    _wizEtapas.push({ nombre: `Etapa ${_wizEtapas.length + 1}`, tipo: 'entrega_futura', fecha: '', periodo: '', stocks: _wizTips.map(() => 0) })
+    _wizEtapas.push({ nombre: `Etapa ${_wizEtapas.length + 1}`, tipo: 'entrega_futura', fecha: '', modo: 'unico', numCuotas: null, stocks: _wizTips.map(() => 0) })
     _wizRender()
     setTimeout(() => document.getElementById('wiz-etapas').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
   }
@@ -930,7 +962,17 @@
 
   function wizTogglePeriodo(idx) {
     const tipo = document.getElementById(`wiz-eta-${idx}-tipo`).value
-    document.getElementById(`wiz-eta-${idx}-periodo-wrap`).classList.toggle('hidden', tipo === 'entrega_inmediata')
+    const esFutura = tipo !== 'entrega_inmediata'
+    document.getElementById(`wiz-eta-${idx}-modo-wrap`).classList.toggle('hidden', !esFutura)
+    if (!esFutura) {
+      document.querySelectorAll(`input[name="wiz-eta-${idx}-modo"]`).forEach(r => { if (r.value === 'unico') r.checked = true })
+      document.getElementById(`wiz-eta-${idx}-ncuotas-wrap`)?.classList.add('hidden')
+    }
+  }
+
+  function wizToggleModo(idx) {
+    const esCuotas = document.getElementById(`wiz-eta-${idx}-modo-cuotas`)?.checked
+    document.getElementById(`wiz-eta-${idx}-ncuotas-wrap`)?.classList.toggle('hidden', !esCuotas)
   }
 
   async function guardarWizard() {
@@ -960,12 +1002,13 @@
       // 2. Crear etapas y EtapaTipologia
       for (let i = 0; i < _wizEtapas.length; i++) {
         const e = _wizEtapas[i]
+        const esCuotasWiz = e.tipo !== 'entrega_inmediata' && e.modo === 'cuotas' && e.numCuotas
         const etaRow = await api('POST', '/api/etapas', {
           proyecto_id:   _editandoId,
           nombre:        e.nombre,
           estado:        e.tipo,
           fecha_entrega: e.fecha || null,
-          descripcion:   e.periodo || null,
+          descripcion:   esCuotasWiz ? `cuotas:${e.numCuotas}` : null,
         })
         for (let ti = 0; ti < tipIds.length; ti++) {
           await api('POST', '/api/etapa-tipologia', { etapa_id: etaRow.id, tipologia_id: tipIds[ti], stock: e.stocks[ti] || 0 })
@@ -1178,7 +1221,10 @@
         return
       }
       contenedor.innerHTML = _etapasProyecto.map(e => {
-        const tipo  = e.estado === 'entrega_inmediata' ? 'Inmediata' : 'Futura'
+        const esFutura = e.estado !== 'entrega_inmediata'
+        const mCuotas  = esFutura ? (e.descripcion || '').match(/^cuotas:(\d+)$/) : null
+        const modoLbl  = esFutura ? (mCuotas ? ` · ${mCuotas[1]} cuotas` : ' · Pago único') : ''
+        const tipo  = esFutura ? 'Futura' : 'Inmediata'
         const fecha = e.fecha_entrega ? ` · ${_fmtFecha(e.fecha_entrega)}` : ''
         const eJson = JSON.stringify(e).replace(/'/g,"&#39;")
         const asigs = (e.EtapaTipologia || [])
@@ -1194,7 +1240,7 @@
             <div class="flex items-center justify-between gap-2">
               <div class="min-w-0 flex-1">
                 <span class="text-xs font-medium val-text">${esc(e.nombre || '—')}</span>
-                <span class="text-xs sidebar-text ml-2">${tipo}${fecha}</span>
+                <span class="text-xs sidebar-text ml-2">${tipo}${fecha}${modoLbl}</span>
               </div>
               <div class="flex gap-1.5 flex-shrink-0">
                 <button onclick='editarEtapa(${eJson})' class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-slate-300 transition">Editar</button>
@@ -1209,12 +1255,35 @@
     }
   }
 
+  function _etaResetModo() {
+    document.getElementById('eta-modo-unico').checked = true
+    document.getElementById('eta-modo-wrap').classList.add('hidden')
+    document.getElementById('eta-ncuotas-wrap').classList.add('hidden')
+    document.getElementById('eta-num-cuotas').value = ''
+  }
+
+  function onEtaEstadoChange() {
+    const esFutura = document.getElementById('eta-estado').value === 'entrega_futura'
+    document.getElementById('eta-modo-wrap').classList.toggle('hidden', !esFutura)
+    if (!esFutura) {
+      document.getElementById('eta-modo-unico').checked = true
+      document.getElementById('eta-ncuotas-wrap').classList.add('hidden')
+    }
+  }
+
+  function onEtaModoChange() {
+    const esCuotas = document.getElementById('eta-modo-cuotas').checked
+    document.getElementById('eta-ncuotas-wrap').classList.toggle('hidden', !esCuotas)
+  }
+
   function abrirModalEtapa() {
     _editandoEtapaId = null
     document.getElementById('modal-etapa-titulo').textContent = 'Nueva etapa'
     document.getElementById('eta-nombre').value = ''
     document.getElementById('eta-estado').value = 'entrega_futura'
     document.getElementById('eta-fecha').value  = ''
+    _etaResetModo()
+    document.getElementById('eta-modo-wrap').classList.remove('hidden')
     document.getElementById('eta-tip-seccion').classList.add('hidden')
     document.getElementById('modal-etapa').classList.remove('hidden')
     setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
@@ -1226,6 +1295,17 @@
     document.getElementById('eta-nombre').value = e.nombre        || ''
     document.getElementById('eta-estado').value = e.estado        || 'entrega_futura'
     document.getElementById('eta-fecha').value  = e.fecha_entrega || ''
+    _etaResetModo()
+    const esFutura = (e.estado || 'entrega_futura') === 'entrega_futura'
+    document.getElementById('eta-modo-wrap').classList.toggle('hidden', !esFutura)
+    if (esFutura) {
+      const m = (e.descripcion || '').match(/^cuotas:(\d+)$/)
+      if (m) {
+        document.getElementById('eta-modo-cuotas').checked = true
+        document.getElementById('eta-ncuotas-wrap').classList.remove('hidden')
+        document.getElementById('eta-num-cuotas').value = m[1]
+      }
+    }
     document.getElementById('eta-tip-seccion').classList.remove('hidden')
     document.getElementById('modal-etapa').classList.remove('hidden')
     cargarTipologiasDeEtapa(e.id)
@@ -1242,10 +1322,14 @@
     if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
     const btn = document.getElementById('btn-guardar-eta')
     btn.disabled = true; btn.textContent = 'Guardando…'
+    const estado = document.getElementById('eta-estado').value
+    const esCuotas = estado === 'entrega_futura' && document.getElementById('eta-modo-cuotas').checked
+    const nCuotas  = esCuotas ? parseInt(document.getElementById('eta-num-cuotas').value) || null : null
     const payload = {
       nombre,
-      estado:        document.getElementById('eta-estado').value,
+      estado,
       fecha_entrega: document.getElementById('eta-fecha').value || null,
+      descripcion:   esCuotas && nCuotas ? `cuotas:${nCuotas}` : null,
     }
     try {
       if (_editandoEtapaId) {
