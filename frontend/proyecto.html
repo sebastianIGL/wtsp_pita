@@ -519,6 +519,15 @@
         ? `empresa_id=${_empresa.id}`
         : `inmobiliaria_id=${_inmobiliaria.id}`
       const rows = await api('GET', `/api/proyectos?${qs}`)
+      const esAdmin = ['owner', 'administrador'].includes(_perfil?.rol)
+      // Ejecutivo con 1 solo proyecto → ir directo al CRM sin mostrar la lista
+      if (!esAdmin && rows.length === 1) {
+        ingresar(rows[0])
+        return
+      }
+      if (!esAdmin) {
+        document.getElementById('btn-crear-proyecto').classList.add('hidden')
+      }
       renderTabla(rows)
     } catch(e) {
       document.getElementById('tabla-body').innerHTML =
@@ -533,7 +542,11 @@
     const tbody = document.getElementById('tabla-body')
     const esTodos = !!_inmobiliaria._todos
     const cols = esTodos ? 5 : 4
+    const esAdmin = ['owner', 'administrador'].includes(_perfil?.rol)
     const contexto = esTodos ? _empresa.nombre : _inmobiliaria.nombre
+    const labelTodos = esAdmin
+      ? `— vista completa de ${esc(contexto)}`
+      : '— todos mis clientes'
 
     const filaTodosClientes = `
       <tr class="border-b" style="background:rgba(16,185,129,0.06)">
@@ -543,7 +556,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
             </svg>
             <span class="font-semibold text-emerald-400">Todos los clientes</span>
-            <span class="text-xs sidebar-text">— vista completa de ${esc(contexto)}</span>
+            <span class="text-xs sidebar-text">${labelTodos}</span>
           </div>
         </td>
         <td class="px-6 py-4 text-right">
@@ -573,7 +586,7 @@
         ${esTodos ? `<td class="px-6 py-4 text-xs sidebar-text">${esc(r.Inmobiliaria?.nombre || '—')}</td>` : ''}
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
-            ${!esTodos ? `<button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>` : ''}
+            ${esAdmin && !esTodos ? `<button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>` : ''}
             <button onclick='ingresar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
           </div>
         </td>

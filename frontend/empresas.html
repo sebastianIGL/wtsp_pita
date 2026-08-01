@@ -205,6 +205,15 @@
       if (perfil.rol === 'owner') {
         document.getElementById('btnAdmin').classList.remove('hidden');
       }
+      const esAdmin = ['owner', 'administrador'].includes(perfil.rol);
+      // Ejecutivo con 1 sola empresa → seleccionar y redirigir directamente
+      if (!esAdmin && empresas.length === 1) {
+        sessionStorage.setItem('crm_empresa', JSON.stringify(empresas[0]));
+        sessionStorage.removeItem('crm_inmobiliaria');
+        sessionStorage.removeItem('crm_proyecto');
+        window.location.href = '/inmobiliaria.html';
+        return;
+      }
       renderEmpresas(empresas);
     } catch (e) {
       document.getElementById('error-msg').textContent = 'Error al cargar empresas: ' + e.message;

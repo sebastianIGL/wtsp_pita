@@ -86,13 +86,13 @@
     <div class="px-6 py-4 border-b thead-row flex items-center justify-between">
       <p id="contador" class="text-xs sidebar-text">—</p>
       <div class="flex items-center gap-2">
-        <button onclick="abrirModalImport()" class="text-xs px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5 border border-transparent hover:border-violet-500/30">
+        <button id="btn-cargar-base" onclick="abrirModalImport()" class="text-xs px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5 border border-transparent hover:border-violet-500/30">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
           </svg>
           Cargar base
         </button>
-        <button onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
+        <button id="btn-crear-inm" onclick="abrirModal()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
           </svg>
@@ -215,6 +215,9 @@
   applyTheme(localStorage.getItem('theme') === 'dark')
 
   // ── Auth ─────────────────────────────────────────────────
+  let _perfil = null
+  const _esAdmin = r => ['owner', 'administrador'].includes(r?.rol)
+
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession()
     if (!session) { window.location.href = '/login.html'; return }
@@ -228,6 +231,11 @@
     document.getElementById('sub-empresa').textContent = `Inmobiliarias de ${_empresa.nombre}`
 
     _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
+
+    try {
+      const r = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
+      _perfil = r.ok ? await r.json() : {}
+    } catch(e) { _perfil = {} }
 
     cargarInmobiliarias()
   }
@@ -244,6 +252,17 @@
   async function cargarInmobiliarias() {
     try {
       const rows = await api('GET', `/api/inmobiliarias?empresa_id=${_empresa.id}`)
+      const esAdmin = _esAdmin(_perfil)
+      // Ejecutivo con 1 sola inmobiliaria → ir directo sin mostrar la lista
+      if (!esAdmin && rows.length === 1) {
+        ingresar(rows[0])
+        return
+      }
+      // Ocultar controles de administración para ejecutivos
+      if (!esAdmin) {
+        document.getElementById('btn-cargar-base').classList.add('hidden')
+        document.getElementById('btn-crear-inm').classList.add('hidden')
+      }
       renderTabla(rows)
     } catch(e) {
       document.getElementById('tabla-body').innerHTML =
@@ -256,8 +275,9 @@
   function renderTabla(rows) {
     document.getElementById('contador').textContent = `${rows.length} inmobiliaria${rows.length !== 1 ? 's' : ''}`
     const tbody = document.getElementById('tabla-body')
+    const esAdmin = _esAdmin(_perfil)
 
-    const filasTodos = `
+    const filasTodos = esAdmin ? `
       <tr class="border-b" style="background:rgba(124,58,237,0.06)">
         <td class="px-6 py-4">
           <div class="flex items-center gap-2">
@@ -271,7 +291,7 @@
         <td class="px-6 py-4 text-right">
           <button onclick='ingresarTodos()' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
         </td>
-      </tr>`
+      </tr>` : ''
 
     if (!rows.length) {
       tbody.innerHTML = filasTodos + `<tr><td colspan="2" class="px-6 py-12 text-center empty-text">No hay inmobiliarias. Crea la primera.</td></tr>`
@@ -282,7 +302,7 @@
         <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
         <td class="px-6 py-4 text-right">
           <div class="flex items-center justify-end gap-2">
-            <button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+            ${esAdmin ? `<button onclick='editar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>` : ''}
             <button onclick='ingresar(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
           </div>
         </td>
