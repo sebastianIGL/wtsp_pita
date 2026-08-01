@@ -729,8 +729,10 @@ async function initAuth() {
       document.getElementById('admin-link').classList.remove('hidden')
       _filtroTab = 'mis'
     } else {
-      // No-admin: ocultar "Mis clientes", mostrar Todos | Tímidos
+      // Ejecutivo: ocultar tabs ligados al chatbot
       document.getElementById('btn-mis-clientes').classList.add('hidden')
+      document.getElementById('btn-sin-enviar').classList.add('hidden')
+      document.getElementById('btn-inbox').classList.add('hidden')
       _filtroTab = 'todos'
     }
     _actualizarToggle()
