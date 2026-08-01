@@ -4663,6 +4663,42 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
         return Response(content=str(e), status_code=500, media_type="text/plain")
 
 
+# ── Recordatorio WA al ejecutivo ─────────────────────────────────────────────
+
+TEMPLATE_RECORDATORIO_WA = _get_env("TEMPLATE_RECORDATORIO_WA", "TEMPLATE_RECORDATORIO_WA") or "recordatorio_cliente"
+
+@app.post("/api/clientes/{cliente_id}/recordatorio-wa")
+async def api_recordatorio_wa(cliente_id: int, request: Request):
+    """Envía una plantilla WA al número personal (celular) del ejecutivo
+    recordándole contactar a un cliente específico."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    celular = _normalize_phone(perfil.get("celular") or "")
+    if not celular:
+        return Response(content="Tu perfil no tiene número celular configurado", status_code=400)
+    try:
+        body   = await request.json()
+        motivo = (body.get("motivo") or "Sin motivo especificado").strip()
+        rows   = await _supabase_request("GET", "/Cliente",
+            params={"id": f"eq.{cliente_id}", "select": "Contacto,Telefono", "limit": "1"})
+        if not rows:
+            return Response(content="Cliente no encontrado", status_code=404)
+        c       = rows[0]
+        nombre  = (c.get("Contacto") or "—").strip()
+        telefono_cliente = _normalize_phone(c.get("Telefono") or "") or (c.get("Telefono") or "—")
+        await send_whatsapp_template(
+            to=celular,
+            template_name=TEMPLATE_RECORDATORIO_WA,
+            language_code="es_CL",
+            body_text_params=[nombre, telefono_cliente, motivo],
+        )
+        return {"ok": True}
+    except Exception as e:
+        logger.exception("Error enviando recordatorio WA cliente %s", cliente_id)
+        return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
 # ── Movendo / Zonapropia Integration ─────────────────────────────────────────
 
 def _movendo_webhook_key() -> Optional[str]:

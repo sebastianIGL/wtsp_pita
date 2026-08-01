@@ -1976,7 +1976,18 @@ function abrirRecordatorio(clienteId, nombre, fechaActual) {
   _recId = clienteId
   document.getElementById('rec-titulo').textContent = nombre
   document.getElementById('rec-fecha').value = fechaActual ? fechaActual.slice(0, 10) : ''
+  document.getElementById('rec-motivo').value = ''
+  document.getElementById('rec-wa-check').checked = false
   document.getElementById('rec-error').classList.add('hidden')
+  // Mostrar opción WA solo si el perfil tiene celular configurado
+  const waWrap = document.getElementById('rec-wa-wrap')
+  if (_perfil?.celular) {
+    waWrap.classList.remove('hidden')
+    waWrap.classList.add('flex')
+  } else {
+    waWrap.classList.add('hidden')
+    waWrap.classList.remove('flex')
+  }
   document.getElementById('modal-recordatorio').classList.remove('hidden')
 }
 function cerrarRecordatorio() {
@@ -1984,17 +1995,28 @@ function cerrarRecordatorio() {
   _recId = null
 }
 async function guardarRecordatorio() {
-  const fecha = document.getElementById('rec-fecha').value
-  const btn   = document.getElementById('btn-rec-guardar')
+  const fecha  = document.getElementById('rec-fecha').value
+  const motivo = document.getElementById('rec-motivo').value.trim()
+  const enviarWA = document.getElementById('rec-wa-check').checked && fecha
+  const btn    = document.getElementById('btn-rec-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
   try {
     await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null })
     const c = clientes.find(x => x.id === _recId)
     if (c) c.recordatorio_at = fecha || null
+    if (enviarWA) {
+      try {
+        await api('POST', `/api/clientes/${_recId}/recordatorio-wa`, { motivo: motivo || 'Sin motivo especificado' })
+        toast(`✅ Recordatorio guardado y WA enviado a tu celular`, 'success')
+      } catch(waErr) {
+        toast(`✅ Recordatorio guardado, pero falló el WA: ${waErr.message}`, 'error')
+      }
+    } else {
+      toast(fecha ? `✅ Recordatorio guardado: ${_formatFechaRecordatorio(fecha)}` : '✅ Recordatorio eliminado', 'success')
+    }
     _preservarPagina = true
     aplicarFiltros()
     cerrarRecordatorio()
-    toast(fecha ? `✅ Recordatorio guardado: ${_formatFechaRecordatorio(fecha)}` : '✅ Recordatorio eliminado', 'success')
   } catch(e) {
     const errEl = document.getElementById('rec-error')
     errEl.textContent = e.message; errEl.classList.remove('hidden')
@@ -2738,6 +2760,17 @@ async function guardarRegistrarInbox() {
                  focus:outline-none focus:ring-2 focus:ring-amber-500" />
         <p class="text-xs sidebar-text mt-1">Deja vacío para eliminar el recordatorio.</p>
       </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Motivo</label>
+        <textarea id="rec-motivo" rows="2" placeholder="ej: Llamar para confirmar visita a sala de ventas"
+          class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100
+                 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
+      </div>
+      <!-- Enviar WA (solo si el perfil tiene celular configurado) -->
+      <label id="rec-wa-wrap" class="hidden items-center gap-2.5 cursor-pointer select-none">
+        <input type="checkbox" id="rec-wa-check" class="accent-amber-500 w-4 h-4" />
+        <span class="text-xs val-text">Enviarme recordatorio por WhatsApp</span>
+      </label>
       <div id="rec-error" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
       <div class="flex gap-2 pt-1">
         <button onclick="cerrarRecordatorio()"
