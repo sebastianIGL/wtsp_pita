@@ -123,8 +123,8 @@
     <a id="admin-link" href="/admin.html" class="hidden text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition">
       Panel Admin
     </a>
-    <!-- Cambiar empresa -->
-    <button onclick="cambiarEmpresa()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar empresa">
+    <!-- Cambiar empresa (oculto si solo hay 1) -->
+    <button id="btn-cambiar-empresa" onclick="cambiarEmpresa()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar empresa">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
       </svg>
@@ -711,9 +711,17 @@ async function initAuth() {
   })
 
   try {
-    const res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
-    _perfil = await res.json()
+    const [resPerfil, resEmpresas] = await Promise.all([
+      fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }),
+      fetch('/api/empresas',    { headers: { Authorization: `Bearer ${_token}` } }),
+    ])
+    _perfil = await resPerfil.json()
+    const empresas = resEmpresas.ok ? await resEmpresas.json() : []
     document.getElementById('user-name').textContent = _perfil.nombre || _perfil.correo || ''
+    // Ocultar "Empresa" si el usuario solo tiene 1 (no tiene sentido cambiar)
+    if (empresas.length <= 1) {
+      document.getElementById('btn-cambiar-empresa').classList.add('hidden')
+    }
     const tog = document.getElementById('toggle-filtro-usuario')
     tog.classList.remove('hidden')
     tog.classList.add('flex')
@@ -995,10 +1003,11 @@ function renderTabla(data) {
       : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">Sin enviar</span>`
     const badgeEntrega = _badgeEntrega(c.estado_plantilla)
 
-    const btnWA = `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
+    const esAdmin = _esAdmin(_perfil?.rol)
+    const btnWA = esAdmin ? `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
         class="text-xs px-3 py-1.5 rounded-lg ${estado === 'activo' || estado === 'timido' ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
         ${estado === 'sin_enviar' ? 'Enviar WA' : 'Reenviar WA'}
-      </button>`
+      </button>` : ''
 
     const accion = `<div class="flex items-center gap-2">
       ${btnWA}
@@ -1007,20 +1016,20 @@ function renderTabla(data) {
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Evaluación
       </button>
-      <button onclick="abrirConversacion(${c.id}, '${esc(c.Contacto)}')" title="Ver conversación"
+      ${esAdmin ? `<button onclick="abrirConversacion(${c.id}, '${esc(c.Contacto)}')" title="Ver conversación"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
         </svg>
-      </button>
-      <button onclick="abrirContexto(${c.id}, '${esc(c.Contacto)}')" title="Contexto del bot"
+      </button>` : ''}
+      ${esAdmin ? `<button onclick="abrirContexto(${c.id}, '${esc(c.Contacto)}')" title="Contexto del bot"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
         </svg>
-      </button>
+      </button>` : ''}
       <button onclick="abrirRecordatorio(${c.id}, '${esc(c.Contacto)}', '${esc(c.recordatorio_at || '')}')" title="Recordatorio de contacto"
         class="text-xs p-1.5 rounded-lg glass transition ${c.recordatorio_at ? (_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400 hover:text-red-300' : 'text-amber-400 hover:text-amber-300') : 'sidebar-text hover:text-amber-400'}">
         <svg class="w-4 h-4" fill="${c.recordatorio_at ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
