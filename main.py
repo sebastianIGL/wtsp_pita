@@ -1618,7 +1618,7 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23,tipologias"
+_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23"
 
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
@@ -1646,7 +1646,6 @@ TEMPLATE_VARS_MAP: Dict[str, List[str]] = {
 async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: Optional[int] = None) -> Dict[str, str]:
     """Construye el pool completo de valores disponibles para cualquier plantilla."""
     p    = proyecto or {}
-    tips = p.get("tipologias") or []
 
     tipos: List[str] = []
     if p.get("acepta_ds19"):
@@ -1656,20 +1655,18 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
     subsidio_tipo = " / ".join(tipos) if tipos else "DS19"
 
     # Precio desde UF: usa tipología específica si se indicó, si no busca el mínimo del proyecto
+    tip_rows: List[Dict] = []
     if tipologia_id:
         tip_rows = await _supabase_request(
             "GET", "/Tipologia",
             params={"id": f"eq.{tipologia_id}", "select": "valor_uf,monto_subsidio"},
         ) or []
-        precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
-    else:
-        precios = [t.get("precio_desde_uf") for t in tips if isinstance(t, dict) and t.get("precio_desde_uf")]
-        if not precios and p.get("id"):
-            tip_rows = await _supabase_request(
-                "GET", "/Tipologia",
-                params={"proyecto_id": f"eq.{p['id']}", "select": "valor_uf,monto_subsidio", "order": "id.asc"},
-            ) or []
-            precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
+    elif p.get("id"):
+        tip_rows = await _supabase_request(
+            "GET", "/Tipologia",
+            params={"proyecto_id": f"eq.{p['id']}", "select": "valor_uf,monto_subsidio", "order": "id.asc"},
+        ) or []
+    precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
     precio_min   = min(precios) if precios else None
     precio_desde = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
 
@@ -1833,7 +1830,7 @@ def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
 
 _PROYECTO_SELECT_LIGHT = (
     "id,nombre,ubicacion,acepta_ds19,"
-    "acepta_ds1_t23,tipologias,"
+    "acepta_ds1_t23,"
     "ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
     "tiene_piloto,valor_estacionamiento_uf,notas"
 )
@@ -1851,27 +1848,14 @@ async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional
 
 
 def _resumir_proyecto(p: Dict) -> str:
-    """Genera una línea de resumen de un proyecto para el contexto del bot."""
-    tips = p.get("tipologias") or []
-    tips_con_stock = [t for t in tips if isinstance(t, dict) and (t.get("stock_disponible") or 0) > 0]
-    t_muestra = tips_con_stock[:3] or tips[:3]
-    t_str = ", ".join(
-        f"{t.get('nombre','?')} desde {t.get('precio_desde_uf','?')}UF"
-        + (f" [stock:{t.get('stock_disponible')}]" if t.get("stock_disponible") else "")
-        for t in t_muestra if isinstance(t, dict)
-    ) or "tipologías por consultar"
+    """Genera una línea de resumen de un proyecto para el contexto del bot (otros proyectos disponibles)."""
     subsidios = []
     if p.get("acepta_ds19"):
         subsidios.append("DS19")
     if p.get("acepta_ds1_t23"):
-        subsidios.append(f"DS1T23 {p.get('subsidio_ds1_t23_uf','')}UF")
+        subsidios.append(f"DS1T23 {p.get('subsidio_ds1_t23_uf','')}UF".strip())
     sub_str = " | ".join(subsidios) or "sin subsidio"
-    tiene_stock = bool(tips_con_stock) if tips else True
-    stock_aviso = "" if tiene_stock else " ⚠️ SIN STOCK"
-    return (
-        f"• [{p['id']}] {p.get('nombre','?')} — {p.get('ubicacion','?')} "
-        f"| {sub_str} | {t_str}{stock_aviso}"
-    )
+    return f"• [{p['id']}] {p.get('nombre','?')} — {p.get('ubicacion','?')} | {sub_str}"
 
 
 async def _cambiar_proyecto_prospecto(
@@ -1928,7 +1912,7 @@ async def generar_respuesta_ia(
             params={"proyecto_id": f"eq.{p['id']}", "select": "fecha_entrega,estado", "limit": "1", "order": "id.asc"}) or []
         _etapa_bot = _etapas_bot[0] if _etapas_bot else None
         _tips_bot = await _supabase_request("GET", "/Tipologia",
-            params={"proyecto_id": f"eq.{p['id']}", "select": "monto_subsidio", "limit": "1", "order": "id.asc"}) or []
+            params={"proyecto_id": f"eq.{p['id']}", "select": "id,nombre,valor_uf,dormitorios,banos,superficie_util_m2,tipo_subsidio,monto_subsidio"}) or []
         _raw_monto = _tips_bot[0].get("monto_subsidio") if _tips_bot else None
         try:
             _tip_monto_bot = float(_raw_monto) if _raw_monto is not None else None
@@ -1947,7 +1931,7 @@ async def generar_respuesta_ia(
     proyecto_monto_subsidio    = _tip_monto_bot or 700
     proyecto_acepta_ds1t23     = p.get("acepta_ds1_t23") or False
     proyecto_subsidio_ds1t23   = p.get("subsidio_ds1_t23_uf") or ""
-    proyecto_tipologias        = p.get("tipologias") or []
+    proyecto_tipologias        = _tips_bot if p.get("id") else []
 
     # Construir bloque de subsidio según lo que acepta el proyecto
     subsidios_lineas = []
@@ -1976,7 +1960,7 @@ async def generar_respuesta_ia(
     grupo_ds19_proyecto   = p.get("grupo_ds19") or "A"
     _credito_uf_est: Any = "consultar"
     if proyecto_tipologias:
-        _precios = [t.get("precio_uf") for t in proyecto_tipologias if t.get("precio_uf")]
+        _precios = [t.get("valor_uf") for t in proyecto_tipologias if t.get("valor_uf")]
         if _precios:
             _precio_min = min(_precios)
             _credito_calc = round(_precio_min - proyecto_monto_subsidio - proyecto_ahorro_minimo)
@@ -3757,7 +3741,7 @@ async def api_listar_ejecutivos(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil or not _solo_admin(perfil):
         return Response(content="Unauthorized", status_code=401)
-    rows = await _supabase_request("GET", "/Ejecutivo",
+    rows = await _supabase_request("GET", "/EjecutivoBancario",
         params={"select": "id,ejecutivo,entidad,email,telefono,disponible", "order": "ejecutivo.asc"}) or []
     return rows
 
@@ -3777,7 +3761,7 @@ async def api_crear_ejecutivo(request: Request):
         payload["telefono"] = body["telefono"]
     if not payload["ejecutivo"] or not payload["entidad"] or not payload["email"]:
         return Response(content="Nombre, entidad y email son obligatorios", status_code=400)
-    row = await _supabase_request("POST", "/Ejecutivo", json=payload)
+    row = await _supabase_request("POST", "/EjecutivoBancario", json=payload)
     return row[0] if isinstance(row, list) else row
 
 @app.patch("/api/ejecutivos/{ejecutivo_id}")
@@ -3794,7 +3778,7 @@ async def api_editar_ejecutivo(ejecutivo_id: int, request: Request):
         payload["ejecutivo"] = payload["ejecutivo"].strip()
     if "entidad" in payload:
         payload["entidad"] = payload["entidad"].strip()
-    await _supabase_request("PATCH", f"/Ejecutivo?id=eq.{ejecutivo_id}", json=payload)
+    await _supabase_request("PATCH", f"/EjecutivoBancario?id=eq.{ejecutivo_id}", json=payload)
     return {"ok": True}
 
 @app.delete("/api/ejecutivos/{ejecutivo_id}")
@@ -3802,7 +3786,7 @@ async def api_eliminar_ejecutivo(ejecutivo_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil or not _solo_admin(perfil):
         return Response(content="Unauthorized", status_code=401)
-    await _supabase_request("DELETE", f"/Ejecutivo?id=eq.{ejecutivo_id}")
+    await _supabase_request("DELETE", f"/EjecutivoBancario?id=eq.{ejecutivo_id}")
     return {"ok": True}
 
 # ── ProyectoEjecutivo ─────────────────────────────────────────────────────────
@@ -3813,7 +3797,7 @@ async def api_listar_proyecto_ejecutivos(request: Request):
         return Response(content="Unauthorized", status_code=401)
     proyecto_id = request.query_params.get("proyecto_id")
     params: Dict[str, str] = {
-        "select": "proyecto_id,ejecutivo_id,Ejecutivo(id,ejecutivo,email)",
+        "select": "proyecto_id,ejecutivo_id,EjecutivoBancario(id,ejecutivo,email)",
     }
     if proyecto_id:
         params["proyecto_id"] = f"eq.{proyecto_id}"
@@ -4137,59 +4121,6 @@ async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
         return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
 
 
-@app.post("/api/clientes/{cliente_id}/enviar-plantilla")
-async def api_enviar_plantilla(cliente_id: int, request: Request):
-    if not await _get_usuario_actual(request):
-        return Response(content="Unauthorized", status_code=401)
-    try:
-        rows = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
-        if not rows:
-            return Response(content="Cliente no encontrado", status_code=404)
-        c           = rows[0]
-        telefono    = _normalize_phone(c.get("Telefono") or "")
-        nombre      = (c.get("Contacto") or "").strip()
-        proyecto_id = (c.get("proyecto_id") or "").strip()
-
-        if not telefono:
-            return Response(content="Cliente sin teléfono", status_code=400)
-        if not proyecto_id:
-            return Response(content="Cliente sin proyecto_id — actualiza la BD", status_code=400)
-
-        proyecto = await obtener_proyecto_por_id(proyecto_id)
-        if not proyecto or not proyecto.get("nombre_plantilla"):
-            return Response(content="Proyecto sin plantilla configurada", status_code=400)
-
-        wa = await send_whatsapp_template(
-            to=telefono,
-            template_name=proyecto["nombre_plantilla"],
-            language_code="es_CL",
-            body_text_params=[nombre],
-            image_url=proyecto.get("imagen_url"),
-        )
-        ahora_plt = datetime.now(timezone.utc)
-        wamid_enviado = (wa.get("messages") or [{}])[0].get("id") if isinstance(wa, dict) else None
-        patch_plt: Dict[str, Any] = {
-            "primer mensaje": False,
-            "primer_wtsp_en": ahora_plt.isoformat(),
-            "Fecha Ult. Gestión": ahora_plt.isoformat(),
-            "wamid_plantilla":  wamid_enviado,
-            "estado_plantilla": "enviado",
-        }
-        if not c.get("recordatorio_at"):
-            patch_plt["recordatorio_at"] = (ahora_plt + timedelta(hours=24)).isoformat()
-        await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json=patch_plt)
-        await upsert_prospecto(
-            telefono_e164=telefono, nombre=nombre, rut=c.get("Rut"),
-            rango_sueldo=c.get("Tramo de renta"), proyecto_id=proyecto_id,
-            estado="PLANTILLA_ENVIADA", paso="BIENVENIDA",
-            cliente_id=cliente_id,
-        )
-        return {"ok": True, "wa": wa}
-    except Exception as e:
-        logger.exception("Error en enviar-plantilla")
-        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
-
-
 async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
     """Retorna el prospecto del cliente. Si no existe, lo crea con los datos del Cliente."""
     prospectos = await _supabase_request(
@@ -4454,7 +4385,7 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         raise ValueError(f"Cliente {cliente_id} no encontrado")
     c = clientes[0]
 
-    ejecutivos = await _supabase_request("GET", "/Ejecutivo",
+    ejecutivos = await _supabase_request("GET", "/EjecutivoBancario",
         params={"disponible": "eq.true", "select": "email,ejecutivo"})
     destinatarios = [e["email"] for e in (ejecutivos or []) if e.get("email")]
     if not destinatarios:
@@ -4599,7 +4530,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         return Response(content="Cliente no encontrado", status_code=404)
     c = clientes[0]
 
-    ejecutivos = await _supabase_request("GET", "/Ejecutivo",
+    ejecutivos = await _supabase_request("GET", "/EjecutivoBancario",
         params={"disponible": "eq.true", "select": "email,ejecutivo"}) or []
     destinatarios = [e["email"] for e in ejecutivos if e.get("email")]
 
@@ -5223,6 +5154,85 @@ async def api_actualizar_formulario(token: str, request: Request):
     except Exception as exc:
         logger.warning("Error actualizando Formulario %s: %s", token, exc)
         return Response(content="Error al actualizar", status_code=500)
+
+
+@app.post("/api/formulario/{token}/convertir")
+async def api_convertir_formulario(token: str, request: Request):
+    """Convierte un Formulario completado en un Cliente CRM."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        rows = await _supabase_request(
+            "GET", "/Formulario",
+            params={"token": f"eq.{token}", "select": "*"},
+        )
+        if not rows:
+            return Response(content="Formulario no encontrado", status_code=404)
+        f = rows[0]
+
+        if f.get("resultado") == "convertido":
+            return Response(content="Este formulario ya fue convertido a cliente", status_code=409)
+
+        nombre   = (f.get("nombre") or "").strip()
+        telefono = _normalize_phone(f.get("telefono") or "")
+        if not nombre:
+            return Response(content="El formulario no tiene nombre registrado", status_code=400)
+
+        body: Dict[str, Any] = {}
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+
+        proyecto_id = body.get("proyecto_id") or f.get("proyecto_id")
+        usuario_id  = body.get("usuario_id") or perfil.get("id")
+
+        cliente_payload: Dict[str, Any] = {
+            "Contacto":    nombre,
+            "Telefono":    telefono or f.get("telefono"),
+            "email":       f.get("email"),
+            "rsh":         f.get("rsh"),
+            "tipo_ingreso": f.get("tipo_ingreso"),
+            "proyecto_id": proyecto_id,
+            "usuario_id":  usuario_id,
+            "primer mensaje": True,
+            "wtsp_habilitado": bool(telefono),
+        }
+        cliente_payload = {k: v for k, v in cliente_payload.items() if v is not None}
+
+        nuevo = await _supabase_request(
+            "POST", "/Cliente",
+            json=cliente_payload,
+            extra_headers={"Prefer": "return=representation"},
+        )
+        if not nuevo:
+            return Response(content="Error al crear cliente", status_code=500)
+        cliente    = nuevo[0] if isinstance(nuevo, list) else nuevo
+        cliente_id = cliente.get("id")
+
+        if telefono and proyecto_id:
+            await upsert_prospecto(
+                telefono_e164=telefono,
+                nombre=nombre,
+                proyecto_id=str(proyecto_id),
+                estado="NUEVO",
+                paso="INICIO",
+                cliente_id=cliente_id,
+                numero_integrantes=f.get("numero_integrantes"),
+            )
+
+        await _supabase_request(
+            "PATCH", "/Formulario",
+            params={"token": f"eq.{token}"},
+            json={"resultado": "convertido", "completado_at": _utc_now_iso()},
+            extra_headers={"Prefer": "return=minimal"},
+        )
+
+        return {"ok": True, "cliente_id": cliente_id, "cliente": cliente}
+    except Exception as e:
+        logger.exception("Error en convertir formulario %s", token)
+        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
 
 
 @app.post("/api/newsletter")

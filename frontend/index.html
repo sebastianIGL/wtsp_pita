@@ -2374,7 +2374,6 @@ function renderTablaTipologias() {
       <td class="px-3 py-2 sidebar-text text-right">${t.valor_uf ? t.valor_uf+' UF' : '—'}</td>
       <td class="px-3 py-2 sidebar-text text-right">${t.monto_subsidio ? t.monto_subsidio+' UF' : '—'}</td>
       <td class="px-3 py-2 text-center">${_badgeTipoSubsidio(t.tipo_subsidio)}</td>
-      <td class="px-3 py-2 text-center ${(t.stock_disponible??0)===0?'text-red-400 font-semibold':'val-text'}">${t.stock_disponible??0}</td>
       <td class="px-3 py-2 text-center">${_badgeEstado(t.estado)}</td>
       <td class="px-3 py-2 text-center">
         <div class="flex gap-1.5 justify-center">
@@ -2400,7 +2399,6 @@ function abrirFormTipologia(tip = null) {
   document.getElementById('tf-precio-desde').value   = tip?.valor_uf            ?? ''
   document.getElementById('tf-precio-hasta').value   = tip?.monto_subsidio      ?? ''
   document.getElementById('tf-tipo-subsidio').value  = tip?.tipo_subsidio       || 'ninguno'
-  document.getElementById('tf-stock').value          = tip?.stock_disponible    ?? 0
   document.getElementById('tf-estado').value         = tip?.estado              || 'activo'
 
   // proyecto selector: oculto si hay proyecto fijo; filtrado por inmobiliaria si no
@@ -2443,7 +2441,6 @@ async function guardarTipologia() {
     valor_uf:            numF('tf-precio-desde'),
     monto_subsidio:      numF('tf-precio-hasta'),
     tipo_subsidio:       document.getElementById('tf-tipo-subsidio').value,
-    stock_disponible:    intF('tf-stock') ?? 0,
     estado:              document.getElementById('tf-estado').value,
   }
 
@@ -2931,7 +2928,6 @@ async function guardarRegistrarInbox() {
             <th class="px-3 py-2.5 text-right">Valor (UF)</th>
             <th class="px-3 py-2.5 text-right">Subsidio (UF)</th>
             <th class="px-3 py-2.5">Tipo subsidio</th>
-            <th class="px-3 py-2.5 text-center">Stock</th>
             <th class="px-3 py-2.5">Estado</th>
             <th class="px-3 py-2.5 text-center">Acciones</th>
           </tr>
@@ -3088,10 +3084,6 @@ async function guardarRegistrarInbox() {
             <option value="ds1_t23">DS1 Tramo 2 y 3</option>
             <option value="ambos">Ambos</option>
           </select>
-        </div>
-        <div>
-          <label class="block text-xs sidebar-text mb-1.5">Stock disponible</label>
-          <input id="tf-stock" type="number" min="0" step="1" placeholder="0" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
       <div>
