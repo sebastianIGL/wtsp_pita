@@ -776,12 +776,9 @@ function _actualizarToggle() {
     btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
     btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
   } else {
-    // No-admin: primer botón visible es Todos (sin border-l)
+    // No-admin: solo Todos y Docs visibles (Mis, Tímidos, Sin enviar, Inbox siguen hidden)
     btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'todos' ? activo : inactivo}`
-    btnTim.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'timidos' ? activo : inactivo}`
-    btnSin.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
     btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
-    btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
   }
 }
 
@@ -2275,12 +2272,75 @@ async function cargarTipologias() {
 }
 
 function abrirTipologias() {
-  renderTablaTipologias()
-  renderTablaEtapas()
+  const esAdmin = _esAdmin(_perfil?.rol)
+  document.getElementById('btn-nueva-tipologia').classList.toggle('hidden', !esAdmin)
+  document.getElementById('admin-tipologias-view').classList.toggle('hidden', !esAdmin)
+  document.getElementById('exec-tipologias-view').classList.toggle('hidden', esAdmin)
+  if (esAdmin) {
+    renderTablaTipologias()
+    renderTablaEtapas()
+  } else {
+    renderVistaEjecutivoTipologias()
+  }
   document.getElementById('modal-tipologias').classList.remove('hidden')
 }
 function cerrarTipologias() {
   document.getElementById('modal-tipologias').classList.add('hidden')
+}
+
+function renderVistaEjecutivoTipologias() {
+  const contenedor = document.getElementById('exec-tipologias-view')
+  const tipMap = {}
+  _tipologias.forEach(t => { tipMap[t.id] = t })
+
+  if (!_etapas.length) {
+    contenedor.innerHTML = '<p class="text-sm sidebar-text text-center py-10">Sin etapas registradas.</p>'
+    return
+  }
+
+  contenedor.innerHTML = _etapas.map((e, idx) => {
+    const esFutura    = e.estado !== 'entrega_inmediata'
+    const tipo        = esFutura ? 'Futura' : 'Inmediata'
+    const fecha       = e.fecha_entrega ? ` · ${_formatFecha(e.fecha_entrega)}` : ''
+    const modoLbl     = esFutura ? (e.tipo_ahorro === 'cuotas' && e.num_cuotas ? ` · ${e.num_cuotas} cuotas` : ' · Pago único') : ''
+    const badgeBg     = esFutura ? 'rgba(124,58,237,0.2)' : 'rgba(16,185,129,0.2)'
+    const badgeColor  = esFutura ? '#a78bfa' : '#34d399'
+
+    const asigs = e.EtapaTipologia || []
+    const tipCards = asigs.length
+      ? `<div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">` + asigs.map(et => {
+          const t = tipMap[et.Tipologia?.id] || et.Tipologia || {}
+          const info = [
+            t.dormitorios != null ? `${t.dormitorios}D` : null,
+            t.banos != null ? `${t.banos}B` : null,
+            t.superficie_util_m2 != null ? `${t.superficie_util_m2}m²` : null,
+          ].filter(Boolean).join(' · ')
+          const subsidio = t.tipo_subsidio && t.tipo_subsidio !== 'ninguno' ? t.tipo_subsidio : null
+          const stockColor = (et.stock ?? 0) === 0 ? '#f87171' : '#94a3b8'
+          return `
+            <div class="glass rounded-xl p-3.5 space-y-1.5">
+              <p class="text-sm font-semibold val-text">${esc(t.nombre || '—')}</p>
+              ${info ? `<p class="text-xs sidebar-text">${info}</p>` : ''}
+              ${t.valor_uf ? `<p class="text-sm font-semibold" style="color:#a78bfa">${t.valor_uf} UF</p>` : ''}
+              <div class="flex items-center gap-2 flex-wrap pt-0.5">
+                ${subsidio ? `<span class="text-xs px-1.5 py-0.5 rounded font-semibold" style="background:rgba(99,102,241,0.2);color:#a5b4fc">${esc(subsidio)}</span>` : ''}
+                <span class="text-xs font-medium" style="color:${stockColor}">${et.stock ?? 0} unid.</span>
+              </div>
+            </div>`
+        }).join('') + `</div>`
+      : `<p class="text-xs sidebar-text italic mt-2">Sin tipologías asignadas</p>`
+
+    const sep = idx > 0 ? '<div class="border-t" style="border-color:rgba(255,255,255,0.08)"></div>' : ''
+    return `${sep}
+      <div class="space-y-1">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full" style="background:${badgeBg};color:${badgeColor}">${tipo}</span>
+          <span class="font-semibold val-text">${esc(e.nombre || '—')}</span>
+          <span class="text-xs sidebar-text">${(fecha + modoLbl).replace(/^ · /, '')}</span>
+        </div>
+        ${tipCards}
+      </div>`
+  }).join('')
 }
 
 function _badgeTipoSubsidio(tipo) {
@@ -2848,16 +2908,18 @@ async function guardarRegistrarInbox() {
 <div id="modal-tipologias" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
   <div class="glass rounded-2xl w-full shadow-2xl flex flex-col" style="max-width:1200px;max-height:90vh">
     <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
-      <h2 class="font-bold val-text text-lg">Tipologías</h2>
+      <h2 class="font-bold val-text text-lg">Tipologías y Etapas</h2>
       <div class="flex items-center gap-3">
-        <button onclick="abrirFormTipologia()" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+        <button id="btn-nueva-tipologia" onclick="abrirFormTipologia()" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Nueva tipología
         </button>
         <button onclick="cerrarTipologias()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
       </div>
     </div>
-    <div class="overflow-auto flex-1">
+
+    <!-- Vista administrador: tablas con acciones -->
+    <div id="admin-tipologias-view" class="overflow-auto flex-1">
       <table class="w-full text-sm">
         <thead>
           <tr class="thead-row text-xs uppercase tracking-wider border-b">
@@ -2880,7 +2942,7 @@ async function guardarRegistrarInbox() {
       <!-- ─── Etapas de entrega ─── -->
       <div class="flex items-center justify-between px-6 py-3 border-t" style="border-color:rgba(255,255,255,0.12)">
         <h3 class="font-semibold val-text">Etapas de entrega</h3>
-        <button onclick="abrirFormEtapa()" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+        <button id="btn-nueva-etapa" onclick="abrirFormEtapa()" class="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Nueva etapa
         </button>
@@ -2896,6 +2958,10 @@ async function guardarRegistrarInbox() {
         </thead>
         <tbody id="etapas-tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Vista ejecutivo: cards por etapa (solo lectura) -->
+    <div id="exec-tipologias-view" class="hidden overflow-auto flex-1 p-5 space-y-4">
     </div>
   </div>
 </div>
