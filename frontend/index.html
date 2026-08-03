@@ -326,6 +326,10 @@
             <option value="4">4 o más personas</option>
           </select>
         </div>
+        <div class="col-span-2">
+          <label class="block text-xs sidebar-text mb-1.5">Ahorro (UF)</label>
+          <input id="f-ahorro" type="number" min="0" step="0.01" placeholder="Ej: 100.50" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
       </div>
 
       <div class="toggle-row flex items-center justify-between rounded-xl px-4 py-3 mt-2">
@@ -1445,6 +1449,7 @@ async function crearCliente(e) {
       _guardando = false
       return
     }
+    const _ahorroVal = document.getElementById('f-ahorro').value
     const resp = await api('POST', '/api/clientes', {
       'proyecto_id':        _proyId,
       'Contacto':           document.getElementById('f-contacto').value.trim(),
@@ -1453,6 +1458,7 @@ async function crearCliente(e) {
       'Telefono':           document.getElementById('f-telefono').value.trim(),
       'Tramo de renta':     document.getElementById('f-renta').value || null,
       'numero_integrantes': parseInt(document.getElementById('f-integrantes').value) || null,
+      'ahorro_uf':          _ahorroVal !== '' ? parseFloat(_ahorroVal) : null,
       'primer mensaje':     pm,
       'Fecha Ult. Gestión': new Date().toISOString(),
     })
@@ -2051,6 +2057,7 @@ async function abrirEditarCliente(c) {
   document.getElementById('ec-correo').value         = c.Correo            || ''
   document.getElementById('ec-renta').value          = c['Tramo de renta'] || ''
   document.getElementById('ec-integrantes').value    = c.numero_integrantes ?? ''
+  document.getElementById('ec-ahorro').value         = c.ahorro_uf != null  ? c.ahorro_uf : ''
   const sel = document.getElementById('ec-proyecto')
   sel.innerHTML = '<option value="">— Sin proyecto —</option>'
     + proyectos.map(p =>
@@ -2081,7 +2088,8 @@ async function _cargarTipologiasEdicion(proyectoId, tipologiaActualId) {
 async function guardarEditarCliente() {
   const nombre = document.getElementById('ec-nombre').value.trim()
   if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
-  const intVal   = document.getElementById('ec-integrantes').value
+  const intVal    = document.getElementById('ec-integrantes').value
+  const ahorroVal = document.getElementById('ec-ahorro').value
   const tipRaw   = document.getElementById('ec-tipologia').value
   const proyRaw  = document.getElementById('ec-proyecto').value
   const payload = {
@@ -2089,8 +2097,9 @@ async function guardarEditarCliente() {
     Rut:                document.getElementById('ec-rut').value.trim()    || null,
     Correo:             document.getElementById('ec-correo').value.trim() || null,
     'Tramo de renta':   document.getElementById('ec-renta').value         || null,
-    numero_integrantes: intVal  !== '' ? parseInt(intVal)  : null,
-    proyecto_id:        proyRaw !== '' ? proyRaw           : null,
+    numero_integrantes: intVal    !== '' ? parseInt(intVal)       : null,
+    ahorro_uf:          ahorroVal !== '' ? parseFloat(ahorroVal)  : null,
+    proyecto_id:        proyRaw   !== '' ? proyRaw                : null,
   }
   const btn = document.getElementById('ec-btn-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
@@ -3013,6 +3022,10 @@ async function guardarRegistrarInbox() {
         <div>
           <label class="block text-xs sidebar-text mb-1.5">N° integrantes grupo familiar</label>
           <input id="ec-integrantes" type="number" min="1" step="1" placeholder="4" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs sidebar-text mb-1.5">Ahorro (UF)</label>
+          <input id="ec-ahorro" type="number" min="0" step="0.01" placeholder="Ej: 100.50" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
       </div>
       <div>
