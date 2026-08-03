@@ -136,6 +136,7 @@ CREATE TABLE public."Cliente" (
   wtsp_habilitado      boolean DEFAULT false,
   primer_wtsp_en       timestamptz,
   wamid_plantilla      text,
+  ahorro_uf            numeric,     -- ahorro actual del cliente (en UF)
   recordatorio_at      timestamptz,
   "Fecha Ult. Gestión" timestamptz
 );

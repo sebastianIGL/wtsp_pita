@@ -3999,7 +3999,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id"}
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
     try:
@@ -4375,7 +4375,11 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
     return r.content
 
 
-async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None) -> dict:
+async def _enviar_email_evaluacion(
+    cliente_id: int,
+    usuario: dict | None = None,
+    ejecutivos_emails: list | None = None,
+) -> dict:
     if not os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"):
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON no configurada")
 
@@ -4385,11 +4389,72 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         raise ValueError(f"Cliente {cliente_id} no encontrado")
     c = clientes[0]
 
-    ejecutivos = await _supabase_request("GET", "/EjecutivoBancario",
-        params={"disponible": "eq.true", "select": "email,ejecutivo"})
-    destinatarios = [e["email"] for e in (ejecutivos or []) if e.get("email")]
+    ahorro_uf = c.get("ahorro_uf")
+    if ahorro_uf is None:
+        raise ValueError(
+            "El campo 'Ahorro (UF)' es requerido para enviar la evaluación. "
+            "Por favor agrégalo en los datos del cliente."
+        )
+    ahorro_f = float(ahorro_uf)
+
+    if ejecutivos_emails:
+        destinatarios = ejecutivos_emails
+    else:
+        ejecutivos = await _supabase_request("GET", "/EjecutivoBancario",
+            params={"disponible": "eq.true", "select": "email,ejecutivo"})
+        destinatarios = [e["email"] for e in (ejecutivos or []) if e.get("email")]
     if not destinatarios:
         raise ValueError("No hay ejecutivos disponibles con email configurado")
+
+    nombre   = (c.get("Contacto") or "Sin nombre").strip()
+    rut      = c.get("Rut") or "No registrado"
+    telefono = c.get("Telefono") or "No registrado"
+    renta    = c.get("Tramo de renta") or "No registrado"
+
+    proyecto_nombre     = "No registrado"
+    proyecto_ubicacion  = "No registrada"
+    inmobiliaria_nombre = "No registrada"
+    valor_uf: float | None = None
+    entrega_label = "Futura"
+
+    proyecto_id_raw = c.get("proyecto_id")
+    if proyecto_id_raw:
+        proy_rows = await _supabase_request("GET", "/Proyecto",
+            params={
+                "id": f"eq.{proyecto_id_raw}",
+                "select": "nombre,ubicacion,Inmobiliaria(nombre)",
+                "limit": "1",
+            })
+        if proy_rows:
+            p = proy_rows[0]
+            proyecto_nombre    = p.get("nombre") or "No registrado"
+            proyecto_ubicacion = p.get("ubicacion") or "No registrada"
+            inm = (p.get("Inmobiliaria") or {})
+            inmobiliaria_nombre = inm.get("nombre") or "No registrada"
+
+        tips = await _supabase_request("GET", "/Tipologia",
+            params={
+                "proyecto_id": f"eq.{proyecto_id_raw}",
+                "select": "valor_uf",
+                "order": "valor_uf.asc",
+                "limit": "1",
+            })
+        if tips and tips[0].get("valor_uf"):
+            valor_uf = float(tips[0]["valor_uf"])
+
+        etapas = await _supabase_request("GET", "/Etapa",
+            params={
+                "proyecto_id": f"eq.{proyecto_id_raw}",
+                "select": "estado",
+                "limit": "1",
+            })
+        if etapas:
+            entrega_label = "Inmediata" if etapas[0].get("estado") == "entrega_inmediata" else "Futura"
+
+    monto_credito = round(valor_uf - ahorro_f, 2) if valor_uf is not None else None
+
+    def _fmt_uf(v):
+        return f"UF {float(v):,.2f}".replace(",", ".") if v is not None else "No registrado"
 
     prospectos = await _supabase_request("GET", "/Prospecto",
         params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"})
@@ -4401,34 +4466,6 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
                 "select": "tipo,nombre_archivo,url_storage,mime_type",
             }) or []
 
-    nombre   = (c.get("Contacto") or "Sin nombre").strip()
-    rut      = c.get("Rut") or "No registrado"
-    telefono = c.get("Telefono") or "No registrado"
-    renta    = c.get("Tramo de renta") or "No registrado"
-
-    proyecto_nombre = "No registrado"
-    proyecto_id_raw = c.get("proyecto_id")
-    if proyecto_id_raw:
-        proy_rows = await _supabase_request("GET", "/Proyecto",
-            params={"id": f"eq.{proyecto_id_raw}", "select": "nombre", "limit": "1"})
-        if proy_rows:
-            proyecto_nombre = proy_rows[0].get("nombre") or "No registrado"
-
-    NOMBRES_TIPO = {
-        "liquidacion_sueldo": "Liquidación de sueldo",
-        "certificado_afp": "Certificado AFP",
-        "carnet_identidad": "Cédula de identidad",
-        "libreta_ahorro": "Libreta de ahorro",
-        "informe_deudas": "Informe de deudas",
-        "antiguedad_laboral": "Antigüedad laboral",
-        "otro": "Otro documento",
-    }
-
-    conteo_docs: Dict[str, int] = {}
-    for d in docs:
-        tipo = d.get("tipo") or "otro"
-        conteo_docs[tipo] = conteo_docs.get(tipo, 0) + 1
-
     PLURAL_TIPO = {
         "liquidacion_sueldo": ("liquidación de sueldo", "liquidaciones de sueldo"),
         "certificado_afp": ("certificado AFP", "certificados AFP"),
@@ -4438,11 +4475,14 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         "antiguedad_laboral": ("certificado de antigüedad laboral", "certificados de antigüedad laboral"),
         "otro": ("documento adicional", "documentos adicionales"),
     }
+    conteo_docs: Dict[str, int] = {}
+    for d in docs:
+        tipo = d.get("tipo") or "otro"
+        conteo_docs[tipo] = conteo_docs.get(tipo, 0) + 1
     partes_docs = []
     for tipo, cant in conteo_docs.items():
         sing, plur = PLURAL_TIPO.get(tipo, (tipo, tipo))
         partes_docs.append(f"{cant} {sing if cant == 1 else plur}")
-
     resumen_docs = (
         "Se adjuntan: " + ", ".join(partes_docs) + "."
         if partes_docs else "No se adjuntan documentos."
@@ -4451,11 +4491,11 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     body_html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;">
       <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">
-        Solicitud de Evaluacion de Credito
+        Solicitud de Evaluación de Crédito
       </h2>
       <table style="border-collapse:collapse;font-size:14px;width:100%;">
         <tr style="background:#f5f7fa;">
-          <td style="padding:8px 12px;font-weight:bold;color:#555;width:160px;">Nombre</td>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;width:210px;">Nombre</td>
           <td style="padding:8px 12px;">{nombre}</td>
         </tr>
         <tr>
@@ -4463,16 +4503,40 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
           <td style="padding:8px 12px;">{rut}</td>
         </tr>
         <tr style="background:#f5f7fa;">
-          <td style="padding:8px 12px;font-weight:bold;color:#555;">Telefono</td>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
           <td style="padding:8px 12px;">{telefono}</td>
         </tr>
         <tr>
-          <td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
-          <td style="padding:8px 12px;">{proyecto_nombre}</td>
-        </tr>
-        <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Tramo de renta</td>
           <td style="padding:8px 12px;">{renta}</td>
+        </tr>
+        <tr style="background:#e8eef7;border-top:2px solid #1e3a5f;">
+          <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">Proyecto</td>
+          <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">{proyecto_nombre}</td>
+        </tr>
+        <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Dirección</td>
+          <td style="padding:8px 12px;">{proyecto_ubicacion}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Inmobiliaria</td>
+          <td style="padding:8px 12px;">{inmobiliaria_nombre}</td>
+        </tr>
+        <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Entrega</td>
+          <td style="padding:8px 12px;">{entrega_label}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Valor propiedad</td>
+          <td style="padding:8px 12px;">{_fmt_uf(valor_uf)}</td>
+        </tr>
+        <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Ahorro cliente</td>
+          <td style="padding:8px 12px;">{_fmt_uf(ahorro_f)}</td>
+        </tr>
+        <tr style="background:#e8f0fe;border-top:1px solid #c7d7f7;">
+          <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">Monto crédito solicitado</td>
+          <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">{_fmt_uf(monto_credito)}</td>
         </tr>
       </table>
       <h3 style="color:#1e3a5f;margin-top:24px;">Documentos adjuntos ({len(docs)})</h3>
@@ -4483,12 +4547,10 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
     </div>
     """
 
-    # Alias del usuario que dispara el envío
     alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_ADMIN", "")
     nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
     email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
 
-    # Descargar adjuntos
     adjuntos: List[Dict] = []
     for doc in docs:
         url            = doc.get("url_storage")
@@ -4502,12 +4564,14 @@ async def _enviar_email_evaluacion(cliente_id: int, usuario: dict | None = None)
         except Exception as e:
             logger.warning("No se pudo adjuntar '%s': %s", nombre_archivo, e)
 
+    asunto = f"Evaluación Hipotecaria {rut} – Proyecto {proyecto_nombre} Entrega {entrega_label}"
+
     logger.info("Gmail: enviando evaluación de %s a %d destinatarios (%d adjuntos)", nombre, len(destinatarios), len(adjuntos))
     for destinatario in destinatarios:
         await _gmail_send(
             from_addr=email_from,
             to=[destinatario],
-            subject=f"Evaluacion de credito - {nombre}",
+            subject=asunto,
             html=body_html,
             attachments=adjuntos,
         )
@@ -4530,9 +4594,12 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         return Response(content="Cliente no encontrado", status_code=404)
     c = clientes[0]
 
-    ejecutivos = await _supabase_request("GET", "/EjecutivoBancario",
-        params={"disponible": "eq.true", "select": "email,ejecutivo"}) or []
-    destinatarios = [e["email"] for e in ejecutivos if e.get("email")]
+    ejecutivos_raw = await _supabase_request("GET", "/EjecutivoBancario",
+        params={"disponible": "eq.true", "select": "id,email,ejecutivo"}) or []
+    ejecutivos = [
+        {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
+        for e in ejecutivos_raw if e.get("email")
+    ]
 
     prospectos = await _supabase_request("GET", "/Prospecto",
         params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"}) or []
@@ -4542,12 +4609,46 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
             params={"prospecto_id": f"eq.{prospectos[0]['id']}",
                     "select": "tipo,nombre_archivo"}) or []
 
-    proyecto_nombre = "No registrado"
+    proyecto_nombre     = "No registrado"
+    proyecto_ubicacion  = "No registrada"
+    inmobiliaria_nombre = "No registrada"
+    valor_uf: float | None = None
+    entrega_label = "Futura"
+
     if c.get("proyecto_id"):
         proy = await _supabase_request("GET", "/Proyecto",
-            params={"id": f"eq.{c['proyecto_id']}", "select": "nombre", "limit": "1"})
+            params={"id": f"eq.{c['proyecto_id']}",
+                    "select": "nombre,ubicacion,Inmobiliaria(nombre)",
+                    "limit": "1"})
         if proy:
-            proyecto_nombre = proy[0].get("nombre") or "No registrado"
+            p = proy[0]
+            proyecto_nombre    = p.get("nombre") or "No registrado"
+            proyecto_ubicacion = p.get("ubicacion") or "No registrada"
+            inm = (p.get("Inmobiliaria") or {})
+            inmobiliaria_nombre = inm.get("nombre") or "No registrada"
+
+        tips = await _supabase_request("GET", "/Tipologia",
+            params={
+                "proyecto_id": f"eq.{c['proyecto_id']}",
+                "select": "valor_uf",
+                "order": "valor_uf.asc",
+                "limit": "1",
+            })
+        if tips and tips[0].get("valor_uf"):
+            valor_uf = float(tips[0]["valor_uf"])
+
+        etapas = await _supabase_request("GET", "/Etapa",
+            params={
+                "proyecto_id": f"eq.{c['proyecto_id']}",
+                "select": "estado",
+                "limit": "1",
+            })
+        if etapas:
+            entrega_label = "Inmediata" if etapas[0].get("estado") == "entrega_inmediata" else "Futura"
+
+    ahorro_uf = c.get("ahorro_uf")
+    ahorro_f  = float(ahorro_uf) if ahorro_uf is not None else None
+    monto_credito = round(valor_uf - ahorro_f, 2) if (valor_uf is not None and ahorro_f is not None) else None
 
     NOMBRES_TIPO = {
         "liquidacion_sueldo": "Liquidación de sueldo",
@@ -4566,15 +4667,24 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     ]
 
     alias = perfil.get("email_alias") or os.getenv("EMAIL_ADMIN", "")
+    rut = c.get("Rut") or "—"
     return {
         "remitente": alias,
-        "destinatarios": destinatarios,
+        "ejecutivos": ejecutivos,
+        "asunto": f"Evaluación Hipotecaria {rut} – Proyecto {proyecto_nombre} Entrega {entrega_label}",
+        "ahorro_requerido": ahorro_uf is None,
         "cliente": {
-            "nombre":   (c.get("Contacto") or "Sin nombre").strip(),
-            "rut":      c.get("Rut") or "—",
-            "telefono": c.get("Telefono") or "—",
-            "proyecto": proyecto_nombre,
-            "renta":    c.get("Tramo de renta") or "—",
+            "nombre":        (c.get("Contacto") or "Sin nombre").strip(),
+            "rut":           rut,
+            "telefono":      c.get("Telefono") or "—",
+            "renta":         c.get("Tramo de renta") or "—",
+            "proyecto":      proyecto_nombre,
+            "direccion":     proyecto_ubicacion,
+            "inmobiliaria":  inmobiliaria_nombre,
+            "entrega":       entrega_label,
+            "valor_uf":      valor_uf,
+            "ahorro_uf":     ahorro_f,
+            "monto_credito": monto_credito,
         },
         "documentos": docs_resumen,
         "total_docs": len(docs),
@@ -4587,7 +4697,15 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     try:
-        result = await _enviar_email_evaluacion(cliente_id, usuario=perfil)
+        body: dict = {}
+        try:
+            body = await request.json()
+        except Exception:
+            pass
+        ejecutivos_emails = body.get("ejecutivos") or None
+        result = await _enviar_email_evaluacion(
+            cliente_id, usuario=perfil, ejecutivos_emails=ejecutivos_emails
+        )
         return {"ok": True, **result}
     except Exception as e:
         logger.exception("Error enviando evaluación cliente %s", cliente_id)

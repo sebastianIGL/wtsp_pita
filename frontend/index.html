@@ -1525,6 +1525,7 @@ const SLOT_POR_TIPO = Object.fromEntries(Object.entries(TIPOS_DOC).map(([k,v]) =
 
 let _evalDocsSeleccionados = {}
 let _evalClienteId = null
+let _evalEjecutivosSeleccionados = []
 
 async function abrirEvaluacion(id) {
   const c = clientes.find(x => x.id === id)
@@ -1746,15 +1747,9 @@ async function enviarEvaluacion() {
   const btn = document.getElementById('btn-eval-enviar')
   const esEnvio = btn.textContent.trim() === 'Enviar a evaluar'
 
-  // Si es envío, mostrar preview primero
-  if (esEnvio) {
-    await mostrarPreviewEval()
-    return
-  }
-
   btn.disabled = true
-  btn.innerHTML = '<span class="spinner"></span> Subiendo…'
 
+  // Siempre guardar archivos pendientes antes de cualquier acción
   const slots = [1,2,3,4,5,6,7]
   const errores = []
   let subidos = 0
@@ -1762,14 +1757,11 @@ async function enviarEvaluacion() {
   for (const n of slots) {
     const val = _evalDocsSeleccionados[n]
     if (!val || !(val instanceof File)) continue
-
     const tipo = TIPOS_DOC[n]
     const fd   = new FormData()
     fd.append('file', val)
     fd.append('tipo', tipo)
-
-    btn.innerHTML = `<span class="spinner"></span> Subiendo ${subidos + 1}…`
-
+    btn.innerHTML = `<span class="spinner"></span> Guardando ${subidos + 1}…`
     try {
       const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/upload`, {
         method: 'POST',
@@ -1777,6 +1769,7 @@ async function enviarEvaluacion() {
         body: fd,
       })
       if (!res.ok) { const t = await res.text(); throw new Error(t) }
+      _evalDocsSeleccionados[n] = { tipo: TIPOS_DOC[n] }  // marcar como ya subido
       subidos++
     } catch(e) {
       errores.push(`Doc ${n}: ${e.message}`)
@@ -1787,6 +1780,14 @@ async function enviarEvaluacion() {
     btn.disabled = false
     actualizarBtnEval()
     toast('❌ Error al subir: ' + errores.join(', '), 'error')
+    return
+  }
+
+  if (esEnvio) {
+    if (subidos > 0) toast(`✅ ${subidos} documento${subidos > 1 ? 's guardados' : ' guardado'}`, 'success')
+    await mostrarPreviewEval()
+    btn.disabled = false
+    actualizarBtnEval()
     return
   }
 
@@ -1807,11 +1808,22 @@ async function mostrarPreviewEval() {
   document.getElementById('preview-eval-cuerpo').innerHTML =
     '<div class="flex justify-center py-6"><div class="w-6 h-6 border-2 border-violet-400 border-t-transparent rounded-full animate-spin"></div></div>'
   document.getElementById('btn-confirmar-envio').disabled = true
+  _evalEjecutivosSeleccionados = []
 
   try {
     const data = await api('GET', `/api/clientes/${_evalClienteId}/preview-evaluacion`)
 
-    // Docs nuevos seleccionados (aún no subidos)
+    if (data.ahorro_requerido) {
+      document.getElementById('preview-eval-cuerpo').innerHTML = `
+        <div class="rounded-xl p-5 text-center" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3)">
+          <p class="text-red-400 font-semibold text-sm mb-2">⚠️ Ahorro requerido</p>
+          <p class="text-xs text-slate-300">El campo <strong>Ahorro (UF)</strong> del cliente está vacío.<br>Agrégalo en los datos del cliente antes de enviar la evaluación.</p>
+        </div>`
+      return
+    }
+
+    _evalEjecutivosSeleccionados = (data.ejecutivos || []).map(e => e.email)
+
     const nuevos = Object.entries(_evalDocsSeleccionados)
       .filter(([, v]) => v instanceof File)
       .map(([slot]) => LABEL_TIPO[TIPOS_DOC[slot]] || 'Documento')
@@ -1822,28 +1834,53 @@ async function mostrarPreviewEval() {
         ].join('')
       : '<li class="opacity-50">Sin documentos cargados</li>'
 
-    const destHTML = data.destinatarios.length
-      ? data.destinatarios.map(e => `<span class="inline-block bg-white/10 rounded px-2 py-0.5 text-xs">${e}</span>`).join(' ')
-      : '<span class="opacity-50">Sin ejecutivos disponibles</span>'
+    const ejecutivosHTML = (data.ejecutivos || []).length
+      ? (data.ejecutivos || []).map(e => `
+          <label class="flex items-center gap-2 cursor-pointer py-1 hover:opacity-80 transition">
+            <input type="checkbox" class="accent-violet-500 w-4 h-4 rounded shrink-0"
+              value="${e.email}" checked
+              onchange="
+                if(this.checked) _evalEjecutivosSeleccionados.push(this.value)
+                else _evalEjecutivosSeleccionados = _evalEjecutivosSeleccionados.filter(x => x !== this.value)
+                document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
+              ">
+            <span class="text-xs leading-tight"><span class="font-medium text-white">${e.nombre}</span><br><span class="opacity-40">${e.email}</span></span>
+          </label>`).join('')
+      : '<span class="opacity-50 text-xs">Sin ejecutivos disponibles</span>'
+
+    const cl = data.cliente
+    const fmtUF = v => v != null ? `UF ${Number(v).toLocaleString('es-CL', {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'
 
     document.getElementById('preview-eval-cuerpo').innerHTML = `
       <div class="space-y-3">
-        <div class="rounded-xl p-4 space-y-2" style="background:rgba(255,255,255,0.05)">
+        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
           <p class="text-xs uppercase tracking-wider opacity-50 mb-1">De</p>
           <p class="font-mono text-xs text-violet-300">${data.remitente}</p>
         </div>
-        <div class="rounded-xl p-4 space-y-2" style="background:rgba(255,255,255,0.05)">
-          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Para</p>
-          <div class="flex flex-wrap gap-1">${destHTML}</div>
+        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
+          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Para <span class="normal-case opacity-40 text-xs">(selecciona destinatarios)</span></p>
+          <div class="space-y-0.5">${ejecutivosHTML}</div>
         </div>
-        <div class="rounded-xl p-4 space-y-2" style="background:rgba(255,255,255,0.05)">
+        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
+          <p class="text-xs uppercase tracking-wider opacity-50 mb-1">Asunto</p>
+          <p class="text-xs text-slate-200">${data.asunto}</p>
+        </div>
+        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
           <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Datos del cliente</p>
           <div class="grid grid-cols-2 gap-y-1.5 text-xs">
-            <span class="opacity-60">Nombre</span><span class="font-medium">${data.cliente.nombre}</span>
-            <span class="opacity-60">RUT</span><span>${data.cliente.rut}</span>
-            <span class="opacity-60">Teléfono</span><span>${data.cliente.telefono}</span>
-            <span class="opacity-60">Proyecto</span><span>${data.cliente.proyecto}</span>
-            <span class="opacity-60">Tramo renta</span><span>${data.cliente.renta}</span>
+            <span class="opacity-60">Nombre</span><span class="font-medium">${cl.nombre}</span>
+            <span class="opacity-60">RUT</span><span>${cl.rut}</span>
+            <span class="opacity-60">Teléfono</span><span>${cl.telefono}</span>
+            <span class="opacity-60">Tramo de renta</span><span>${cl.renta}</span>
+            <span class="col-span-2 border-t border-white/10 mt-1 mb-0.5"></span>
+            <span class="opacity-60">Proyecto</span><span class="font-medium text-indigo-300">${cl.proyecto}</span>
+            <span class="opacity-60">Dirección</span><span>${cl.direccion}</span>
+            <span class="opacity-60">Inmobiliaria</span><span>${cl.inmobiliaria}</span>
+            <span class="opacity-60">Entrega</span><span>${cl.entrega}</span>
+            <span class="col-span-2 border-t border-white/10 mt-1 mb-0.5"></span>
+            <span class="opacity-60">Valor propiedad</span><span>${fmtUF(cl.valor_uf)}</span>
+            <span class="opacity-60">Ahorro cliente</span><span>${fmtUF(cl.ahorro_uf)}</span>
+            <span class="opacity-60 font-semibold text-white/80">Monto crédito</span><span class="font-semibold text-violet-300">${fmtUF(cl.monto_credito)}</span>
           </div>
         </div>
         <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
@@ -1851,7 +1888,7 @@ async function mostrarPreviewEval() {
           <ul class="space-y-1 text-xs list-disc list-inside">${docsHTML}</ul>
         </div>
       </div>`
-    document.getElementById('btn-confirmar-envio').disabled = !data.destinatarios.length
+    document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
   } catch(e) {
     document.getElementById('preview-eval-cuerpo').innerHTML =
       `<p class="text-red-400 text-sm text-center py-4">Error al cargar preview: ${e.message}</p>`
@@ -1864,41 +1901,15 @@ function cerrarPreviewEval() {
 
 async function confirmarEnvioEval() {
   cerrarPreviewEval()
-  // Continuar con el flujo original (subir docs + enviar)
+  const ejecutivosParaEnviar = [..._evalEjecutivosSeleccionados]
   const btn = document.getElementById('btn-eval-enviar')
   btn.disabled = true
-  btn.innerHTML = '<span class="spinner"></span> Subiendo…'
-
-  const slots = [1,2,3,4,5,6,7]
-  const errores = []
-  let subidos = 0
-
-  for (const n of slots) {
-    const val = _evalDocsSeleccionados[n]
-    if (!val || !(val instanceof File)) continue
-    const tipo = TIPOS_DOC[n]
-    const fd   = new FormData()
-    fd.append('file', val)
-    fd.append('tipo', tipo)
-    btn.innerHTML = `<span class="spinner"></span> Subiendo ${subidos + 1}…`
-    try {
-      const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/upload`, {
-        method: 'POST', headers: { 'Authorization': `Bearer ${_token}` }, body: fd,
-      })
-      if (!res.ok) { const t = await res.text(); throw new Error(t) }
-      subidos++
-    } catch(e) { errores.push(`Doc ${n}: ${e.message}`) }
-  }
-
-  if (errores.length) {
-    btn.disabled = false; actualizarBtnEval()
-    toast('❌ Error al subir: ' + errores.join(', '), 'error'); return
-  }
-
   btn.innerHTML = '<span class="spinner"></span> Enviando correo…'
   try {
     const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/enviar-evaluacion`, {
-      method: 'POST', headers: { 'Authorization': `Bearer ${_token}` },
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${_token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ejecutivos: ejecutivosParaEnviar }),
     })
     if (!res.ok) { const t = await res.text(); throw new Error(t) }
     const data = await res.json()
@@ -1906,7 +1917,8 @@ async function confirmarEnvioEval() {
   } catch(e) {
     toast(`❌ Error al enviar correo: ${e.message}`, 'error')
   }
-  btn.disabled = false; actualizarBtnEval()
+  btn.disabled = false
+  actualizarBtnEval()
   await abrirEvaluacion(_evalClienteId)
 }
 
