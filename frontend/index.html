@@ -2079,7 +2079,6 @@ async function guardarEditarCliente() {
     'Tramo de renta':   document.getElementById('ec-renta').value         || null,
     numero_integrantes: intVal  !== '' ? parseInt(intVal)  : null,
     proyecto_id:        proyRaw !== '' ? proyRaw           : null,
-    tipologia_id:       tipRaw  !== '' ? parseInt(tipRaw)  : null,
   }
   const btn = document.getElementById('ec-btn-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'

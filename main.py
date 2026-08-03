@@ -3999,7 +3999,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "tipologia_id"}
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
     try:
