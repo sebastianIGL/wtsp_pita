@@ -2094,7 +2094,7 @@ async function _cargarTipologiasEdicion(proyectoId, tipologiaActualId) {
     const tips = await api('GET', `/api/tipologias?proyecto_id=${proyectoId}`)
     tips.forEach(t => {
       const opt = new Option(t.nombre, t.id)
-      if (t.id === tipologiaActualId) opt.selected = true
+      if (Number(t.id) === Number(tipologiaActualId)) opt.selected = true
       sel.appendChild(opt)
     })
   } catch(_) {}
@@ -3026,12 +3026,15 @@ async function guardarRegistrarInbox() {
         <div>
           <label class="block text-xs sidebar-text mb-1.5">Tramo de renta</label>
           <select id="ec-renta" class="w-full rounded-lg px-3 py-2 text-sm">
-            <option value="">— Sin definir —</option>
-            <option value="menos de 400">Menos de $400k</option>
-            <option value="entre 400 y 600">$400k – $600k</option>
-            <option value="entre 600 y 900">$600k – $900k</option>
-            <option value="entre 900 y 1.100">$900k – $1.100k</option>
-            <option value="más de 1.100">Más de $1.100k</option>
+            <option value="">Sin especificar</option>
+            <option>Hasta $500.000</option>
+            <option>$500.000 - $800.000</option>
+            <option>$800.000 - $1.100.000</option>
+            <option>$1.100.000 - $1.500.000</option>
+            <option>$1.500.000 - $2.000.000</option>
+            <option>$2.000.000 - $2.500.000</option>
+            <option>$2.500.000 - $3.000.000</option>
+            <option>Más de $3.000.000</option>
           </select>
         </div>
         <div>
