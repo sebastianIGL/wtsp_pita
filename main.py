@@ -4546,6 +4546,9 @@ async def _enviar_email_evaluacion(
       <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">
         Solicitud de Evaluación de Crédito
       </h2>
+      <p style="font-size:14px;color:#374151;margin:16px 0;">
+        Junto con saludar cordialmente, solicito tu amable colaboración para realizar la evaluación del siguiente cliente, conforme a las condiciones que se adjuntan a este correo.
+      </p>
       <table style="border-collapse:collapse;font-size:14px;width:100%;">
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;width:210px;">Nombre</td>
