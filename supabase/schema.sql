@@ -138,6 +138,7 @@ CREATE TABLE public."Cliente" (
   primer_wtsp_en       timestamptz,
   wamid_plantilla      text,
   ahorro_uf            numeric,     -- ahorro actual del cliente (en UF)
+  estado_gestion       text,        -- estado CRM: primer_wtsp | interesado | no_interesado | enviando_docs | en_evaluacion | descartado
   recordatorio_at      timestamptz,
   "Fecha Ult. Gestión" timestamptz
 );

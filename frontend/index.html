@@ -92,6 +92,23 @@
     html:not(.dark) .badge-sin-enviar{ background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
     .theme-btn { transition: all .2s; }
 
+    /* ── Estado de gestión del cliente ── */
+    .eg-sin-estado  { background:rgba(100,116,139,.15); color:#94a3b8; border:1px solid rgba(100,116,139,.3); }
+    .eg-primer-wtsp { background:rgba(59,130,246,.15);  color:#60a5fa; border:1px solid rgba(59,130,246,.3);  }
+    .eg-interesado  { background:rgba(16,185,129,.15);  color:#34d399; border:1px solid rgba(16,185,129,.3);  }
+    .eg-no-interes  { background:rgba(239,68,68,.15);   color:#f87171; border:1px solid rgba(239,68,68,.3);   }
+    .eg-env-docs    { background:rgba(245,158,11,.15);  color:#fbbf24; border:1px solid rgba(245,158,11,.3);  }
+    .eg-evaluacion  { background:rgba(139,92,246,.15);  color:#a78bfa; border:1px solid rgba(139,92,246,.3);  }
+    .eg-descartado  { background:rgba(71,85,105,.2);    color:#64748b; border:1px solid rgba(71,85,105,.35);  }
+    html:not(.dark) .eg-sin-estado  { background:#f1f5f9; color:#64748b; border-color:#cbd5e1; }
+    html:not(.dark) .eg-primer-wtsp { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+    html:not(.dark) .eg-interesado  { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+    html:not(.dark) .eg-no-interes  { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+    html:not(.dark) .eg-env-docs    { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+    html:not(.dark) .eg-evaluacion  { background:#ede9fe; color:#5b21b6; border-color:#c4b5fd; }
+    html:not(.dark) .eg-descartado  { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+    select.eg-badge { appearance:none; padding:3px 10px; border-radius:9999px; font-size:.7rem; font-weight:500; cursor:pointer; outline:none; text-align:center; }
+
     /* ── Modal Evaluación ── */
     .doc-drop { border:1.5px dashed; border-radius:12px; transition:all .2s; cursor:pointer; }
     .dark .doc-drop { border-color:#334155; background:rgba(255,255,255,0.02); }
@@ -909,6 +926,31 @@ function actualizarStats() {
 // 'sin_enviar' → nunca se envió plantilla
 // 'activo'     → plantilla enviada hace < 24h, O cliente respondió, O sin info de timing
 // 'timido'     → plantilla enviada > 24h y sin respuesta posterior
+const _EG_MAP = {
+  '':              { label: 'Sin estado',     cls: 'eg-sin-estado'  },
+  primer_wtsp:     { label: 'Primer WA',      cls: 'eg-primer-wtsp' },
+  interesado:      { label: 'Interesado',     cls: 'eg-interesado'  },
+  no_interesado:   { label: 'No interesado',  cls: 'eg-no-interes'  },
+  enviando_docs:   { label: 'Enviando docs',  cls: 'eg-env-docs'    },
+  en_evaluacion:   { label: 'En evaluación',  cls: 'eg-evaluacion'  },
+  descartado:      { label: 'Descartado',     cls: 'eg-descartado'  },
+}
+function _egClass(val) { return (_EG_MAP[val || ''] || _EG_MAP['']).cls }
+
+async function actualizarEstadoGestion(id, val, sel) {
+  const prev = sel.dataset.prev
+  try {
+    sel.dataset.prev = val
+    const newCls = _egClass(val)
+    sel.className = `eg-badge ${newCls}`
+    await api('PATCH', `/api/clientes/${id}`, { estado_gestion: val || null })
+  } catch(e) {
+    sel.value = prev
+    sel.className = `eg-badge ${_egClass(prev)}`
+    toast('❌ Error al actualizar estado: ' + e.message, 'error')
+  }
+}
+
 function computeEstado(c) {
   const pm     = c['primer mensaje']
   const wtspMs = _msDate(c.primer_wtsp_en)
@@ -1010,13 +1052,8 @@ function renderTabla(data) {
     const badgeEntrega = _badgeEntrega(c.estado_plantilla)
 
     const esAdmin = _esAdmin(_perfil?.rol)
-    const btnWA = esAdmin ? `<button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.Contacto)}')"
-        class="text-xs px-3 py-1.5 rounded-lg ${estado === 'activo' || estado === 'timido' ? 'bg-slate-600 hover:bg-slate-500' : 'bg-emerald-600 hover:bg-emerald-700'} text-white transition">
-        ${estado === 'sin_enviar' ? 'Enviar WA' : 'Reenviar WA'}
-      </button>` : ''
 
     const accion = `<div class="flex items-center gap-2">
-      ${btnWA}
       <button onclick="abrirEvaluacion(${c.id})"
         class="text-xs px-3 py-1.5 rounded-lg bg-sky-200 hover:bg-sky-300 text-sky-900 border border-sky-900 transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1094,7 +1131,14 @@ function renderTabla(data) {
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Rut || '—')}</td>
       <td class="px-6 py-4 sidebar-text text-xs">${esc(c['Tramo de renta'] || '—')}</td>
       <td class="px-6 py-4">
-        <div class="flex flex-col gap-1">${badge}${badgeEntrega}</div>
+        <div class="flex flex-col gap-1.5">
+          <select data-prev="${esc(c.estado_gestion||'')}"
+            onchange="actualizarEstadoGestion(${c.id}, this.value, this)"
+            class="eg-badge ${_egClass(c.estado_gestion||'')}">
+            ${Object.entries(_EG_MAP).map(([v,d]) => `<option value="${v}"${(c.estado_gestion||'')==v?' selected':''}>${d.label}</option>`).join('')}
+          </select>
+          ${badgeEntrega}
+        </div>
       </td>
       <td class="px-6 py-4">${accion}</td>
     </tr>`
@@ -1131,11 +1175,15 @@ function irPagina(n) {
 // ─── TEMPLATE SELECTOR ────────────────────────────
 let _tmplClienteId = null
 let _tmplClienteNombre = null
+let _bulkWAIds = null  // null = modo individual, array = envío masivo
 
-async function abrirSelectorTemplate(id, nombre) {
+async function abrirSelectorTemplate(id, nombre, bulkIds = null) {
   _tmplClienteId = id
   _tmplClienteNombre = nombre
-  document.getElementById('template-destino').textContent = `Destinatario: ${nombre}`
+  _bulkWAIds = bulkIds
+  document.getElementById('template-destino').textContent = bulkIds
+    ? `Enviar a ${bulkIds.length} clientes importados`
+    : `Destinatario: ${nombre}`
   document.getElementById('btn-enviar-template').disabled = true
   document.getElementById('btn-enviar-template').innerHTML = 'Enviar WhatsApp'
   const lista = document.getElementById('template-lista')
@@ -1181,18 +1229,35 @@ async function enviarConTemplate() {
   if (!sel) return
   const btn = document.getElementById('btn-enviar-template')
   btn.disabled = true
-  btn.innerHTML = '<span class="spinner"></span> Enviando…'
-  try {
-    let components = []
-    try { components = JSON.parse(sel.dataset.components || '[]') } catch(_) {}
-    await api('POST', `/api/clientes/${_tmplClienteId}/enviar-wtsp`, { template_name: sel.value, language_code: sel.dataset.language || 'es_CL', components })
-    toast(`✅ WhatsApp enviado a ${_tmplClienteNombre}`, 'success')
+  let components = []
+  try { components = JSON.parse(sel.dataset.components || '[]') } catch(_) {}
+  const payload = { template_name: sel.value, language_code: sel.dataset.language || 'es_CL', components }
+
+  if (_bulkWAIds && _bulkWAIds.length) {
+    btn.innerHTML = `<span class="spinner"></span> Enviando 0/${_bulkWAIds.length}…`
+    let ok = 0, err = 0
+    for (let i = 0; i < _bulkWAIds.length; i++) {
+      try {
+        await api('POST', `/api/clientes/${_bulkWAIds[i]}/enviar-wtsp`, payload)
+        ok++
+      } catch(_) { err++ }
+      btn.innerHTML = `<span class="spinner"></span> Enviando ${i+1}/${_bulkWAIds.length}…`
+    }
     cerrarSelectorTemplate()
-    await cargarClientes(true)  // preservar página actual
-  } catch(e) {
-    toast('❌ ' + e.message, 'error')
-    btn.disabled = false
-    btn.innerHTML = 'Enviar WhatsApp'
+    toast(`✅ WA enviado a ${ok} clientes${err ? ` (${err} errores)` : ''}`, ok ? 'success' : 'error')
+    await cargarClientes(true)
+  } else {
+    btn.innerHTML = '<span class="spinner"></span> Enviando…'
+    try {
+      await api('POST', `/api/clientes/${_tmplClienteId}/enviar-wtsp`, payload)
+      toast(`✅ WhatsApp enviado a ${_tmplClienteNombre}`, 'success')
+      cerrarSelectorTemplate()
+      await cargarClientes(true)
+    } catch(e) {
+      toast('❌ ' + e.message, 'error')
+      btn.disabled = false
+      btn.innerHTML = 'Enviar WhatsApp'
+    }
   }
 }
 
@@ -1302,17 +1367,14 @@ async function importarCSV(e) {
           </div>` : ''}
         ${(data.ids_creados || []).length ? `
           <div class="glass rounded-xl p-3">
-            <p class="text-xs sidebar-text font-semibold mb-2">Enviar WhatsApp a importados:</p>
-            <div class="space-y-1 max-h-48 overflow-y-auto">
-              ${data.ids_creados.map(c => `
-                <div class="flex items-center justify-between py-1">
-                  <span class="text-xs sidebar-text truncate max-w-[60%]">${esc(c.nombre)}</span>
-                  <button onclick="abrirSelectorTemplate(${c.id}, '${esc(c.nombre).replace(/'/g,"\\'")}') "
-                    class="text-xs bg-green-600 hover:bg-green-500 text-white px-2 py-1 rounded-lg transition shrink-0">
-                    Enviar WA
-                  </button>
-                </div>`).join('')}
+            <p class="text-xs sidebar-text font-semibold mb-2">WhatsApp a importados:</p>
+            <div class="max-h-28 overflow-y-auto space-y-0.5 mb-3">
+              ${data.ids_creados.map(c => `<p class="text-xs sidebar-text truncate">• ${esc(c.nombre)}</p>`).join('')}
             </div>
+            <button onclick="abrirSelectorTemplate(null, null, [${data.ids_creados.map(c => c.id).join(',')}])"
+              class="w-full text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition font-medium">
+              Enviar WA a todos (${data.ids_creados.length})
+            </button>
           </div>` : ''}
         <button onclick="cerrarImport()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
           Cerrar
@@ -1957,10 +2019,17 @@ async function marcarVisto(id, el) {
   }
 }
 
+let _convClienteId = null
+let _convClienteNombre = null
+
 async function abrirConversacion(clienteId, nombre) {
+  _convClienteId = clienteId
+  _convClienteNombre = nombre
   document.getElementById('conv-titulo').textContent = `Conversación — ${nombre}`
   document.getElementById('conv-body').innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`
   document.getElementById('conv-paso').textContent = ''
+  const btnConvWA = document.getElementById('btn-conv-wa')
+  if (btnConvWA) btnConvWA.classList.toggle('hidden', !_esAdmin(_perfil?.rol))
   document.getElementById('modal-conversacion').classList.remove('hidden')
   try {
     const data = await api('GET', `/api/clientes/${clienteId}/conversacion`)
@@ -2828,7 +2897,13 @@ async function guardarRegistrarInbox() {
         <h2 id="conv-titulo" class="font-bold val-text"></h2>
         <span id="conv-paso" class="text-xs sidebar-text"></span>
       </div>
-      <button onclick="cerrarConversacion()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+      <div class="flex items-center gap-2">
+        <button id="btn-conv-wa" onclick="abrirSelectorTemplate(_convClienteId, _convClienteNombre)"
+          class="hidden text-xs px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition font-medium">
+          Reenviar WA
+        </button>
+        <button onclick="cerrarConversacion()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+      </div>
     </div>
     <div id="conv-body" class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style="min-height:200px"></div>
   </div>
