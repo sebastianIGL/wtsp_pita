@@ -1790,7 +1790,10 @@ async def subir_a_storage(
     if not supa_url or not key:
         raise RuntimeError("Falta configuración de Supabase")
 
-    path = f"{prospecto_id}/{nombre_archivo}"
+    nombre_seguro = unicodedata.normalize("NFKD", nombre_archivo)
+    nombre_seguro = nombre_seguro.encode("ascii", "ignore").decode("ascii")
+    nombre_seguro = re.sub(r"[^\w.\-]", "_", nombre_seguro)
+    path = f"{prospecto_id}/{nombre_seguro}"
     upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/documentos-clientes/{path}"
 
     headers = {
@@ -4642,25 +4645,40 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     c = clientes[0]
 
     proyecto_id = c.get("proyecto_id")
+    # Ejecutivos del proyecto específico
+    ejs_proyecto: list = []
     if proyecto_id:
         pe_rows = await _supabase_request("GET", "/ProyectoEjecutivo",
             params={"proyecto_id": f"eq.{proyecto_id}",
                     "select": "EjecutivoBancario(id,ejecutivo,email)",
                     "EjecutivoBancario.disponible": "eq.true"}) or []
-        ejecutivos = [
+        ejs_proyecto = [
             {"id": r["EjecutivoBancario"]["id"],
              "email": r["EjecutivoBancario"]["email"],
              "nombre": r["EjecutivoBancario"].get("ejecutivo") or r["EjecutivoBancario"]["email"]}
             for r in pe_rows
             if r.get("EjecutivoBancario") and r["EjecutivoBancario"].get("email")
         ]
-    else:
-        ejecutivos_raw = await _supabase_request("GET", "/EjecutivoBancario",
-            params={"disponible": "eq.true", "select": "id,email,ejecutivo"}) or []
-        ejecutivos = [
-            {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
-            for e in ejecutivos_raw if e.get("email")
-        ]
+    # Ejecutivos sin proyecto asignado (globales) — aparecen en todos
+    todos_raw = await _supabase_request("GET", "/EjecutivoBancario",
+        params={"disponible": "eq.true", "select": "id,email,ejecutivo"}) or []
+    ids_en_algun_proyecto = {
+        r["ejecutivo_id"]
+        for r in (await _supabase_request("GET", "/ProyectoEjecutivo",
+            params={"select": "ejecutivo_id"}) or [])
+    }
+    ejs_globales = [
+        {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
+        for e in todos_raw
+        if e.get("email") and e["id"] not in ids_en_algun_proyecto
+    ]
+    # Combinar sin duplicados
+    ids_vistos: set = set()
+    ejecutivos = []
+    for e in ejs_proyecto + ejs_globales:
+        if e["id"] not in ids_vistos:
+            ids_vistos.add(e["id"])
+            ejecutivos.append(e)
 
     prospectos = await _supabase_request("GET", "/Prospecto",
         params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"}) or []
