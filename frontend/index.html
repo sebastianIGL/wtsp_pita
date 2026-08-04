@@ -1609,7 +1609,7 @@ async function abrirEvaluacion(id) {
       lbl.classList.add('text-emerald-400')
       _evalDocsSeleccionados[slot] = doc
 
-      // Agregar botón de descarga al slot
+      // Agregar botones de descarga y preview al slot
       let dlBtn = drop.querySelector('.doc-dl-btn')
       if (!dlBtn) {
         dlBtn = document.createElement('button')
@@ -1620,42 +1620,19 @@ async function abrirEvaluacion(id) {
         drop.appendChild(dlBtn)
       }
       dlBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); descargarDocEval(doc.id, doc.nombre_archivo) }
+
+      let pvBtn = drop.querySelector('.doc-pv-btn')
+      if (!pvBtn) {
+        pvBtn = document.createElement('button')
+        pvBtn.type = 'button'
+        pvBtn.className = 'doc-pv-btn ml-1 p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0'
+        pvBtn.title = 'Visualizar'
+        pvBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`
+        drop.appendChild(pvBtn)
+      }
+      pvBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); previsualizarDocEval(doc.id, doc.mime_type) }
     })
 
-    // Sección "enviados por WhatsApp": todos los docs con descarga individual
-    if (docs.length > 0) {
-      seccionRecibidos.classList.remove('hidden')
-      const extras = docs.filter(d => d.tipo === 'otro')
-      if (extras.length > 1) btnExtrasZip.classList.remove('hidden')
-
-      const NOMBRE_TIPO = {
-        liquidacion_sueldo: 'Liquidación de sueldo', certificado_afp: 'AFP',
-        carnet_identidad: 'Cédula', libreta_ahorro: 'Libreta ahorro',
-        informe_deudas: 'Informe deudas', antiguedad_laboral: 'Antigüedad laboral',
-        certificado_rsh: 'Certificado RSH', carpeta_tributaria_sii: 'Carpeta SII',
-        declaracion_anual_impuestos: 'Declaración impuestos',
-        cartola_ahorro: 'Cartola ahorro', cedula_complementador: 'Cédula complementador',
-        liquidaciones_complementador: 'Liquidación complementador', otro: 'Extra',
-      }
-      docs.forEach(doc => {
-        const tipoLabel = NOMBRE_TIPO[doc.tipo] || doc.tipo
-        const fechaStr  = doc.creado_en ? doc.creado_en.slice(0, 10) : ''
-        const row = document.createElement('div')
-        row.className = 'flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition'
-        row.innerHTML = `
-          <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-          <div class="flex-1 min-w-0">
-            <p class="text-xs font-medium val-text truncate">${esc(doc.nombre_archivo || 'Sin nombre')}</p>
-            <p class="text-xs sidebar-text">${tipoLabel}${fechaStr ? ` · ${fechaStr}` : ''}</p>
-          </div>
-          <button type="button" onclick="descargarDocEval('${doc.id}','${esc(doc.nombre_archivo||'documento')}')"
-            class="text-xs px-2.5 py-1 rounded bg-slate-700 hover:bg-sky-700 text-slate-300 hover:text-white transition flex items-center gap-1">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Descargar
-          </button>`
-        listaRecibidos.appendChild(row)
-      })
-    }
     actualizarBtnEval()
   } catch(e) {
     console.warn('No se pudieron cargar documentos:', e)
@@ -1681,6 +1658,21 @@ async function descargarDocEval(docId, nombre) {
     URL.revokeObjectURL(url)
   } catch(e) {
     toast('❌ Error al descargar: ' + e.message, 'error')
+  }
+}
+
+async function previsualizarDocEval(docId, mimeType) {
+  try {
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/${docId}/descargar`, {
+      headers: { 'Authorization': `Bearer ${_token}` }
+    })
+    if (!res.ok) throw new Error(await res.text())
+    const blob    = await res.blob()
+    const blobUrl = URL.createObjectURL(new Blob([blob], { type: mimeType || blob.type }))
+    window.open(blobUrl, '_blank')
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+  } catch(e) {
+    toast('❌ Error al previsualizar: ' + e.message, 'error')
   }
 }
 
