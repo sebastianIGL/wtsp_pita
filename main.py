@@ -4322,13 +4322,24 @@ async def api_upload_documento(
             mime_type=mime_type,
         )
 
-        doc = await insertar_documento(
-            prospecto_id=prospecto_id,
-            tipo=tipo,
-            nombre_archivo=file.filename or nombre_final,
-            url_storage=url_storage,
-            mime_type=mime_type,
-        )
+        # Reemplazar si ya existe un doc del mismo tipo para este prospecto
+        existente = await _supabase_request("GET", "/Documento",
+            params={"prospecto_id": f"eq.{prospecto_id}", "tipo": f"eq.{tipo}", "limit": "1"}) or []
+        if existente:
+            doc_id = existente[0]["id"]
+            doc = await _supabase_request("PATCH", f"/Documento?id=eq.{doc_id}",
+                json={"nombre_archivo": file.filename or nombre_final,
+                      "url_storage": url_storage, "mime_type": mime_type},
+                extra_headers={"Prefer": "return=representation"})
+            doc = doc[0] if isinstance(doc, list) and doc else {}
+        else:
+            doc = await insertar_documento(
+                prospecto_id=prospecto_id,
+                tipo=tipo,
+                nombre_archivo=file.filename or nombre_final,
+                url_storage=url_storage,
+                mime_type=mime_type,
+            )
 
         return {"ok": True, "documento": doc, "prospecto_id": prospecto_id}
 
