@@ -1632,7 +1632,7 @@ async function abrirEvaluacion(id) {
         pvBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`
         drop.appendChild(pvBtn)
       }
-      pvBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); previsualizarDocEval(doc.id, doc.mime_type) }
+      pvBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); previsualizarDocEval(doc.id, doc.mime_type, doc.nombre_archivo) }
     })
 
     actualizarBtnEval()
@@ -1663,19 +1663,34 @@ async function descargarDocEval(docId, nombre) {
   }
 }
 
-async function previsualizarDocEval(docId, mimeType) {
+let _previewBlobUrl = null
+async function previsualizarDocEval(docId, mimeType, nombre) {
   try {
     const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/${docId}/descargar`, {
       headers: { 'Authorization': `Bearer ${_token}` }
     })
     if (!res.ok) throw new Error(await res.text())
-    const blob    = await res.blob()
-    const blobUrl = URL.createObjectURL(new Blob([blob], { type: mimeType || blob.type }))
-    window.open(blobUrl, '_blank')
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000)
+    const blob     = await res.blob()
+    const mime     = mimeType || blob.type || 'application/octet-stream'
+    if (_previewBlobUrl) URL.revokeObjectURL(_previewBlobUrl)
+    _previewBlobUrl = URL.createObjectURL(new Blob([blob], { type: mime }))
+
+    const body = document.getElementById('doc-preview-body')
+    document.getElementById('doc-preview-nombre').textContent = nombre || 'Vista previa'
+    if (mime.startsWith('image/')) {
+      body.innerHTML = `<img src="${_previewBlobUrl}" style="max-width:100%;max-height:80vh;display:block;margin:auto;padding:12px;object-fit:contain">`
+    } else {
+      body.innerHTML = `<iframe src="${_previewBlobUrl}" style="width:100%;height:75vh;border:none;border-radius:0 0 1rem 1rem"></iframe>`
+    }
+    document.getElementById('modal-doc-preview').classList.remove('hidden')
   } catch(e) {
     toast('❌ Error al previsualizar: ' + e.message, 'error')
   }
+}
+function cerrarDocPreview() {
+  document.getElementById('modal-doc-preview').classList.add('hidden')
+  if (_previewBlobUrl) { URL.revokeObjectURL(_previewBlobUrl); _previewBlobUrl = null }
+  document.getElementById('doc-preview-body').innerHTML = ''
 }
 
 async function descargarExtrasZip() {
@@ -3236,6 +3251,19 @@ async function guardarRegistrarInbox() {
       <button onclick="cerrarRegistrarInbox()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button id="btn-guardar-inbox" onclick="guardarRegistrarInbox()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition">Registrar cliente</button>
     </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL PREVIEW DOCUMENTO ═══ -->
+<div id="modal-doc-preview" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[80] p-4">
+  <div class="glass rounded-2xl shadow-2xl flex flex-col" style="width:100%;max-width:780px;max-height:88vh">
+    <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:rgba(255,255,255,0.08)">
+      <span id="doc-preview-nombre" class="text-sm font-semibold val-text truncate"></span>
+      <button onclick="cerrarDocPreview()" class="ml-3 p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="doc-preview-body" class="flex-1 overflow-auto rounded-b-2xl" style="min-height:400px"></div>
   </div>
 </div>
 </body>
