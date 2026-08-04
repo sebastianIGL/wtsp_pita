@@ -2156,6 +2156,16 @@ async def _procesar_webhook(msg: Dict):
             texto_preview = f"[{msg_type}]"
         logger.info("📨 Mensaje entrante | %s | tipo: %s | %s", from_number, msg_type, texto_preview)
 
+        # ── Filtrar números de ejecutivos CRM ────────────────────────────
+        _usr_crm = await _supabase_request("GET", "/Usuario",
+            params={"celular": f"eq.{from_number}", "select": "id", "limit": "1"}) or []
+        if _usr_crm:
+            await send_whatsapp_message(
+                to=from_number,
+                text="Este número es exclusivo para notificaciones del CRM QueSubsidio. Gestiona tus clientes desde la plataforma en línea.",
+            )
+            return
+
         # ── Obtener o crear prospecto de inmediato ─────────────────────────
         prospecto = None
         proyecto  = None
@@ -2280,6 +2290,15 @@ async def _procesar_webhook(msg: Dict):
                     siguiente_paso,
                     paso_origen=paso_origen,
                 )
+
+                # Notificar ejecutivo si el cliente pide contacto humano
+                if datos_extraidos.get("quiere_contacto_ejecutivo") and cliente_id_prospecto:
+                    nombre_p = (prospecto or {}).get("nombre") or from_number
+                    asyncio.create_task(_notificar_ejecutivo_wa(
+                        cliente_id=cliente_id_prospecto,
+                        nombre_cliente=nombre_p,
+                        accion="necesita_ayuda",
+                    ))
 
     except Exception as e:
         logger.exception("Error procesando webhook: %s", _safe_httpx_error(e))
@@ -2431,6 +2450,15 @@ async def _procesar_media(
         docs_recibidos = []
         if prospecto_id:
             docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
+            # Notificar ejecutivo cuando el cliente envía su primer documento
+            cliente_id_media: Optional[int] = (prospecto or {}).get("cliente_id")
+            if len(docs_recibidos) == 1 and cliente_id_media:
+                nombre_p = (prospecto or {}).get("nombre") or from_number
+                asyncio.create_task(_notificar_ejecutivo_wa(
+                    cliente_id=cliente_id_media,
+                    nombre_cliente=nombre_p,
+                    accion="envia_docs",
+                ))
 
         datos_calificacion = {campo: (prospecto or {}).get(campo) for campo in _CAMPOS_CALIFICACION}
         requeridos_dict    = _docs_requeridos(datos_calificacion)
@@ -2801,6 +2829,15 @@ async def api_crear_usuario(request: Request):
             "proyecto_ids": proyecto_ids,
         })
         asyncio.create_task(_log_correo("invitacion", correo, "Invitación al CRM", "enviado", usuario_id=user_id))
+        if celular:
+            cel_norm = _normalize_phone(celular)
+            if cel_norm:
+                asyncio.create_task(send_whatsapp_template(
+                    to=cel_norm,
+                    template_name="recordatorio_wtsp",
+                    language_code="es",
+                    body_text_params=[nombre, "bienvenida", "QueSubsidio CRM"],
+                ))
         return {"ok": True, "usuario_id": user_id}
     except Exception as e:
         logger.exception("Error creando usuario")
@@ -4593,12 +4630,26 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         return Response(content="Cliente no encontrado", status_code=404)
     c = clientes[0]
 
-    ejecutivos_raw = await _supabase_request("GET", "/EjecutivoBancario",
-        params={"disponible": "eq.true", "select": "id,email,ejecutivo"}) or []
-    ejecutivos = [
-        {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
-        for e in ejecutivos_raw if e.get("email")
-    ]
+    proyecto_id = c.get("proyecto_id")
+    if proyecto_id:
+        pe_rows = await _supabase_request("GET", "/ProyectoEjecutivo",
+            params={"proyecto_id": f"eq.{proyecto_id}",
+                    "select": "EjecutivoBancario(id,ejecutivo,email)",
+                    "EjecutivoBancario.disponible": "eq.true"}) or []
+        ejecutivos = [
+            {"id": r["EjecutivoBancario"]["id"],
+             "email": r["EjecutivoBancario"]["email"],
+             "nombre": r["EjecutivoBancario"].get("ejecutivo") or r["EjecutivoBancario"]["email"]}
+            for r in pe_rows
+            if r.get("EjecutivoBancario") and r["EjecutivoBancario"].get("email")
+        ]
+    else:
+        ejecutivos_raw = await _supabase_request("GET", "/EjecutivoBancario",
+            params={"disponible": "eq.true", "select": "id,email,ejecutivo"}) or []
+        ejecutivos = [
+            {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
+            for e in ejecutivos_raw if e.get("email")
+        ]
 
     prospectos = await _supabase_request("GET", "/Prospecto",
         params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"}) or []
@@ -5001,6 +5052,33 @@ async def _get_default_user() -> Optional[Dict]:
     rows = await _supabase_request("GET", "/Usuario", params=params) or []
     return rows[0] if rows else None
 
+
+
+async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> None:
+    """Envía notificación WA al ejecutivo asignado al cliente (template notif_ejecutivo)."""
+    try:
+        clientes = await _supabase_request("GET", "/Cliente",
+            params={"id": f"eq.{cliente_id}", "select": "usuario_id,Proyecto(nombre)", "limit": "1"}) or []
+        if not clientes or not clientes[0].get("usuario_id"):
+            return
+        proyecto_nombre = (clientes[0].get("Proyecto") or {}).get("nombre") or "Sin proyecto"
+        usuarios = await _supabase_request("GET", "/Usuario",
+            params={"id": f"eq.{clientes[0]['usuario_id']}", "select": "celular", "limit": "1"}) or []
+        if not usuarios:
+            return
+        celular = _normalize_phone(usuarios[0].get("celular") or "")
+        if not celular:
+            return
+        await send_whatsapp_template(
+            to=celular,
+            template_name="recordatorio_wtsp",
+            language_code="es",
+            body_text_params=[nombre_cliente, accion, proyecto_nombre],
+        )
+        logger.info("WA notif ejecutivo → %s | cliente=%s | accion=%s | proyecto=%s",
+                    celular, nombre_cliente, accion, proyecto_nombre)
+    except Exception as e:
+        logger.warning("No se pudo notificar ejecutivo WA: %s", e)
 
 
 async def _notificar_interesado(prospecto_id: str) -> None:
