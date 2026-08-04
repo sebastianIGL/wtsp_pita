@@ -1821,9 +1821,9 @@ async function mostrarPreviewEval() {
 
     if (data.ahorro_requerido) {
       document.getElementById('preview-eval-cuerpo').innerHTML = `
-        <div class="rounded-xl p-5 text-center" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3)">
-          <p class="text-red-400 font-semibold text-sm mb-2">⚠️ Ahorro requerido</p>
-          <p class="text-xs text-slate-300">El campo <strong>Ahorro (UF)</strong> del cliente está vacío.<br>Agrégalo en los datos del cliente antes de enviar la evaluación.</p>
+        <div class="rounded-xl p-5 text-center" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25)">
+          <p class="text-red-600 font-semibold text-sm mb-2">⚠️ Ahorro requerido</p>
+          <p class="text-xs text-slate-600">El campo <strong>Ahorro (UF)</strong> del cliente está vacío.<br>Agrégalo en los datos del cliente antes de enviar la evaluación.</p>
         </div>`
       return
     }
@@ -1842,56 +1842,59 @@ async function mostrarPreviewEval() {
 
     const ejecutivosHTML = (data.ejecutivos || []).length
       ? (data.ejecutivos || []).map(e => `
-          <label class="flex items-center gap-2 cursor-pointer py-1 hover:opacity-80 transition">
-            <input type="checkbox" class="accent-violet-500 w-4 h-4 rounded shrink-0"
+          <label class="flex items-center gap-2 cursor-pointer py-1 hover:bg-slate-50 rounded-lg px-1 transition">
+            <input type="checkbox" class="accent-violet-600 w-4 h-4 rounded shrink-0"
               value="${e.email}" checked
               onchange="
                 if(this.checked) _evalEjecutivosSeleccionados.push(this.value)
                 else _evalEjecutivosSeleccionados = _evalEjecutivosSeleccionados.filter(x => x !== this.value)
                 document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
               ">
-            <span class="text-xs leading-tight"><span class="font-medium text-white">${e.nombre}</span><br><span class="opacity-40">${e.email}</span></span>
+            <span class="text-xs leading-tight"><span class="font-semibold text-slate-800">${e.nombre}</span><br><span class="text-slate-400">${e.email}</span></span>
           </label>`).join('')
-      : '<span class="opacity-50 text-xs">Sin ejecutivos disponibles</span>'
+      : '<span class="text-slate-400 text-xs">Sin ejecutivos disponibles</span>'
 
     const cl = data.cliente
     const fmtUF = v => v != null ? `UF ${Number(v).toLocaleString('es-CL', {minimumFractionDigits:2,maximumFractionDigits:2})}` : '—'
 
+    const _sec = 'border border-slate-200 dark:border-white/10 rounded-xl p-4'
+    const _lbl = 'style="font-size:0.65rem;letter-spacing:0.07em;text-transform:uppercase;font-weight:600;color:#64748b;margin-bottom:6px"'
+    const _div = 'class="col-span-2 border-t border-slate-200 mt-1 mb-0.5"'
     document.getElementById('preview-eval-cuerpo').innerHTML = `
       <div class="space-y-3">
-        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
-          <p class="text-xs uppercase tracking-wider opacity-50 mb-1">De</p>
-          <p class="font-mono text-xs text-violet-300">${data.remitente}</p>
+        <div class="${_sec}">
+          <p ${_lbl}>De</p>
+          <p class="font-mono text-xs text-violet-700">${data.remitente}</p>
         </div>
-        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
-          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Para <span class="normal-case opacity-40 text-xs">(selecciona destinatarios)</span></p>
-          <div class="space-y-0.5">${ejecutivosHTML}</div>
+        <div class="${_sec}">
+          <p ${_lbl}>Para <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(selecciona destinatarios)</span></p>
+          <div class="space-y-1">${ejecutivosHTML}</div>
         </div>
-        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
-          <p class="text-xs uppercase tracking-wider opacity-50 mb-1">Asunto</p>
-          <p class="text-xs text-slate-200">${data.asunto}</p>
+        <div class="${_sec}">
+          <p ${_lbl}>Asunto</p>
+          <p class="text-xs text-slate-700">${data.asunto}</p>
         </div>
-        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
-          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Datos del cliente</p>
+        <div class="${_sec}">
+          <p ${_lbl}>Datos del cliente</p>
           <div class="grid grid-cols-2 gap-y-1.5 text-xs">
-            <span class="opacity-60">Nombre</span><span class="font-medium">${cl.nombre}</span>
-            <span class="opacity-60">RUT</span><span>${cl.rut}</span>
-            <span class="opacity-60">Teléfono</span><span>${cl.telefono}</span>
-            <span class="opacity-60">Tramo de renta</span><span>${cl.renta}</span>
-            <span class="col-span-2 border-t border-white/10 mt-1 mb-0.5"></span>
-            <span class="opacity-60">Proyecto</span><span class="font-medium text-indigo-300">${cl.proyecto}</span>
-            <span class="opacity-60">Dirección</span><span>${cl.direccion}</span>
-            <span class="opacity-60">Inmobiliaria</span><span>${cl.inmobiliaria}</span>
-            <span class="opacity-60">Entrega</span><span>${cl.entrega}</span>
-            <span class="col-span-2 border-t border-white/10 mt-1 mb-0.5"></span>
-            <span class="opacity-60">Valor propiedad</span><span>${fmtUF(cl.valor_uf)}</span>
-            <span class="opacity-60">Ahorro cliente</span><span>${fmtUF(cl.ahorro_uf)}</span>
-            <span class="opacity-60 font-semibold text-white/80">Monto crédito</span><span class="font-semibold text-violet-300">${fmtUF(cl.monto_credito)}</span>
+            <span class="text-slate-500">Nombre</span><span class="font-medium text-slate-800">${cl.nombre}</span>
+            <span class="text-slate-500">RUT</span><span class="text-slate-700">${cl.rut}</span>
+            <span class="text-slate-500">Teléfono</span><span class="text-slate-700">${cl.telefono}</span>
+            <span class="text-slate-500">Tramo de renta</span><span class="text-slate-700">${cl.renta}</span>
+            <span ${_div}></span>
+            <span class="text-slate-500">Proyecto</span><span class="font-semibold text-indigo-700">${cl.proyecto}</span>
+            <span class="text-slate-500">Dirección</span><span class="text-slate-700">${cl.direccion}</span>
+            <span class="text-slate-500">Inmobiliaria</span><span class="text-slate-700">${cl.inmobiliaria}</span>
+            <span class="text-slate-500">Entrega</span><span class="text-slate-700">${cl.entrega}</span>
+            <span ${_div}></span>
+            <span class="text-slate-500">Valor propiedad</span><span class="text-slate-700">${fmtUF(cl.valor_uf)}</span>
+            <span class="text-slate-500">Ahorro cliente</span><span class="text-slate-700">${fmtUF(cl.ahorro_uf)}</span>
+            <span class="font-semibold text-slate-700">Monto crédito</span><span class="font-semibold text-violet-700">${fmtUF(cl.monto_credito)}</span>
           </div>
         </div>
-        <div class="rounded-xl p-4" style="background:rgba(255,255,255,0.05)">
-          <p class="text-xs uppercase tracking-wider opacity-50 mb-2">Documentos adjuntos (${data.total_docs + nuevos.length})</p>
-          <ul class="space-y-1 text-xs list-disc list-inside">${docsHTML}</ul>
+        <div class="${_sec}">
+          <p ${_lbl}>Documentos adjuntos (${data.total_docs + nuevos.length})</p>
+          <ul class="space-y-1 text-xs list-disc list-inside text-slate-700">${docsHTML}</ul>
         </div>
       </div>`
     document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
@@ -2100,6 +2103,7 @@ async function guardarEditarCliente() {
     numero_integrantes: intVal    !== '' ? parseInt(intVal)       : null,
     ahorro_uf:          ahorroVal !== '' ? parseFloat(ahorroVal)  : null,
     proyecto_id:        proyRaw   !== '' ? proyRaw                : null,
+    tipologia_id:       tipRaw    !== '' ? parseInt(tipRaw)       : null,
   }
   const btn = document.getElementById('ec-btn-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'

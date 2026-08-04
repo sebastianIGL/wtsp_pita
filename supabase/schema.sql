@@ -126,6 +126,7 @@ CREATE TABLE public."Cliente" (
   email                text,
   rut_conyuge          text,
   proyecto_id          uuid REFERENCES public."Proyecto"(id),
+  tipologia_id         int4 REFERENCES public."Tipologia"(id),
   usuario_id           uuid REFERENCES public."Usuario"(id),
   "Tramo de renta"     text,
   movendo_id           text,  -- ID externo Movendo/Zonapropia

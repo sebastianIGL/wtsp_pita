@@ -3958,6 +3958,8 @@ async def api_crear_cliente(request: Request):
                 "Telefono":           telefono,
                 "Tramo de renta":     rango,
                 "numero_integrantes": num_integrantes,
+                "tipologia_id":       int(body["tipologia_id"]) if body.get("tipologia_id") else None,
+                "ahorro_uf":          float(body["ahorro_uf"]) if body.get("ahorro_uf") is not None else None,
                 "primer mensaje":     primer_msg,
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
                 "usuario_id":         perfil["id"],
@@ -3999,7 +4001,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf"}
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "tipologia_id"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
     try:
@@ -4541,9 +4543,6 @@ async def _enviar_email_evaluacion(
       </table>
       <h3 style="color:#1e3a5f;margin-top:24px;">Documentos adjuntos ({len(docs)})</h3>
       <p style="font-size:13px;color:#444;margin:4px 0 0;">{resumen_docs}</p>
-      <p style="font-size:12px;color:#aaa;margin-top:24px;">
-        Generado automaticamente por CRM QueSubsidio.
-      </p>
     </div>
     """
 
