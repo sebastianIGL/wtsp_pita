@@ -2770,6 +2770,49 @@ def _normalizar_nombre(s: str) -> str:
     nfkd = unicodedata.normalize("NFKD", (s or "").lower().strip())
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
+# ── Normalización de columnas CSV ────────────────────────────────────────────
+# Mapea cualquier variante normalizada al nombre canónico interno.
+_CSV_COL_MAP: Dict[str, str] = {
+    # contacto
+    "contacto": "contacto", "nombre": "contacto", "nombrecompleto": "contacto", "cliente": "contacto",
+    # rut
+    "rut": "rut", "run": "rut",
+    # telefono
+    "telefono": "telefono", "fono": "telefono", "celular": "telefono",
+    "movil": "telefono", "numerodecontacto": "telefono",
+    # proyecto
+    "proyecto": "proyecto", "nombreproyecto": "proyecto",
+    # correo
+    "correo": "correo", "email": "correo", "mail": "correo",
+    "correoelectronico": "correo", "email1": "correo",
+    # tramo_renta
+    "tramoderenta": "tramo_renta", "renta": "tramo_renta", "tramo": "tramo_renta",
+    "tramorenta": "tramo_renta", "ingreso": "tramo_renta",
+    # estado
+    "estado": "estado",
+    # tiene_subsidio
+    "tienesubsidio": "tiene_subsidio", "subsidio": "tiene_subsidio",
+    # tipo_subsidio
+    "tiposubsidio": "tipo_subsidio",
+    # tiene_propiedad
+    "tienepropiedad": "tiene_propiedad", "propiedad": "tiene_propiedad",
+}
+
+def _norm_col(s: str) -> str:
+    """Normaliza un nombre de columna: minúsculas, sin tildes, sin caracteres no-alfanuméricos."""
+    nfkd = unicodedata.normalize("NFKD", (s or "").lower().strip())
+    ascii_s = "".join(c for c in nfkd if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]", "", ascii_s)
+
+def _norm_row(row: dict) -> dict:
+    """Construye un dict con claves canónicas a partir de una fila CSV."""
+    result: Dict[str, str] = {}
+    for k, v in row.items():
+        canonical = _CSV_COL_MAP.get(_norm_col(k))
+        if canonical and canonical not in result:
+            result[canonical] = v or ""
+    return result
+
 
 async def _buscar_id_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[Dict]:
     nombre_norm = _normalizar_nombre(nombre_csv)
@@ -3038,7 +3081,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                     tel_raw = (row.get("Móvil") or row.get("Movil") or
                                row.get("Fono Domicilio") or row.get("Fono Trabajo") or "").strip()
                 else:
-                    tel_raw = (row.get("Teléfono") or row.get("Telefono") or "").strip()
+                    tel_raw = (_norm_row(row).get("telefono") or "").strip()
                 tel = _normalize_phone(tel_raw)
                 if tel:
                     phones_csv.add(tel)
@@ -3052,12 +3095,13 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 ) or []
                 phones_existentes = {r["Telefono"] for r in batch if r.get("Telefono")}
 
-            # Resolver proyecto fijo para SERVIU
-            proyecto_serviu = None
-            if is_serviu:
+            # Resolver proyecto fijo (para SERVIU y para CSVs sin columna Proyecto)
+            proyecto_fijo = None
+            if proyecto_id:
                 _proy_rows = await _supabase_request("GET", "/Proyecto",
                     params={"id": f"eq.{proyecto_id}", "select": "id,nombre", "limit": "1"}) or []
-                proyecto_serviu = _proy_rows[0] if _proy_rows else None
+                proyecto_fijo = _proy_rows[0] if _proy_rows else None
+            proyecto_serviu = proyecto_fijo  # alias para bloque SERVIU
 
             creados, duplicados, errores, ids_creados = 0, [], [], []
             reader = csv.DictReader(io.StringIO(text))
@@ -3112,18 +3156,19 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                 ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
                             creados += 1
                     else:
-                        nombre_proyecto = (row.get("Proyecto") or "").strip()
-                        nombre          = (row.get("Contacto") or "").strip()
-                        rut             = (row.get("Rut") or "").strip()
-                        correo          = (row.get("Correo") or "").strip() or None
-                        tel_raw         = (row.get("Teléfono") or row.get("Telefono") or "").strip()
+                        nr              = _norm_row(row)
+                        nombre_proyecto = nr.get("proyecto", "").strip()
+                        nombre          = nr.get("contacto", "").strip()
+                        rut             = nr.get("rut", "").strip()
+                        correo          = nr.get("correo", "").strip() or None
+                        tel_raw         = nr.get("telefono", "").strip()
                         telefono        = _normalize_phone(tel_raw)
-                        estado_crm      = (row.get("Estado") or "").strip() or None
-                        tramo_renta     = (row.get("Tramo de renta") or "").strip() or None
-                        sub_raw         = (row.get("Tiene subsidio") or "").strip().lower()
+                        estado_crm      = nr.get("estado", "").strip() or None
+                        tramo_renta     = nr.get("tramo_renta", "").strip() or None
+                        sub_raw         = nr.get("tiene_subsidio", "").strip().lower()
                         tiene_subsidio  = True if sub_raw in ("si","sí","yes","1") else (False if sub_raw in ("no","0") else None)
-                        tipo_subsidio   = (row.get("Tipo subsidio") or "").strip() or None
-                        prop_raw        = (row.get("Tiene propiedad") or "").strip().lower()
+                        tipo_subsidio   = nr.get("tipo_subsidio", "").strip() or None
+                        prop_raw        = nr.get("tiene_propiedad", "").strip().lower()
                         tiene_propiedad = True if prop_raw in ("si","sí","yes","1") else (False if prop_raw in ("no","0") else None)
 
                         datos_raw = {"Contacto": nombre, "Rut": rut, "Correo": correo or "",
@@ -3132,25 +3177,29 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                      "Tiene subsidio": sub_raw, "Tipo subsidio": tipo_subsidio or "",
                                      "Tiene propiedad": prop_raw}
 
+                        # Si el CSV no trae Proyecto pero hay uno seleccionado, usarlo
+                        proyecto_resuelto = proyecto_fijo if not nombre_proyecto and proyecto_fijo else None
+
                         if not nombre or not telefono:
                             errores.append({"fila": fila, "motivo": "Contacto o Teléfono vacío", "datos": datos_raw})
                         elif not rut:
                             errores.append({"fila": fila, "nombre": nombre, "motivo": "Rut vacío", "datos": datos_raw})
-                        elif not nombre_proyecto:
-                            errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío", "datos": datos_raw})
+                        elif not nombre_proyecto and not proyecto_fijo:
+                            errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío (agrega columna Proyecto o importa desde dentro de un proyecto)", "datos": datos_raw})
                         elif telefono in phones_existentes:
                             duplicados.append({"fila": fila, "nombre": nombre,
                                                "telefono": telefono, "datos": datos_raw})
                         else:
-                            proyecto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
-                            if not proyecto:
+                            if not proyecto_resuelto:
+                                proyecto_resuelto = await _buscar_id_proyecto(nombre_proyecto, todos_proyectos)
+                            if not proyecto_resuelto:
                                 errores.append({"fila": fila, "nombre": nombre,
                                                 "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
                                                 "datos": datos_raw})
                             else:
                                 _r = await _supabase_request("POST", "/Cliente",
                                     json={
-                                        "proyecto_id": proyecto["id"],
+                                        "proyecto_id": proyecto_resuelto["id"],
                                         "Contacto": nombre, "Rut": rut, "Correo": correo,
                                         "Telefono": telefono, "estado_crm": estado_crm,
                                         "Tramo de renta": tramo_renta,

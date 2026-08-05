@@ -617,11 +617,38 @@
       </button>
     </div>
     <div id="import-form">
-      <div class="text-xs sidebar-text mb-4 space-y-1.5">
-        <p><span class="text-red-400 font-semibold">Obligatorias:</span> <span class="val-text font-mono">Contacto, Rut, Teléfono, Proyecto</span></p>
-        <p><span class="text-slate-400 font-semibold">Opcionales:</span> <span class="font-mono">Correo, Tramo de renta, Estado, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
-        <p class="text-slate-500">El orden de las columnas no importa.</p>
-      </div>
+      <details class="mb-4 group">
+        <summary class="flex items-center gap-1.5 cursor-pointer list-none text-xs sidebar-text select-none w-fit">
+          <span class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-current text-[10px] font-bold shrink-0">i</span>
+          Nombres de columnas aceptados
+        </summary>
+        <div class="mt-2 p-3 glass rounded-xl text-xs space-y-2.5">
+          <div>
+            <p class="text-red-400 font-semibold mb-1">Obligatorias</p>
+            <table class="w-full border-collapse">
+              <tbody class="divide-y divide-slate-700/40">
+                <tr><td class="py-0.5 pr-3 text-slate-400 w-28">Nombre</td><td class="font-mono val-text">Contacto · Nombre · nombre completo · cliente</td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-400">RUT</td><td class="font-mono val-text">Rut · Run</td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-400">Teléfono</td><td class="font-mono val-text">Telefono · Teléfono · Fono · Celular · Movil</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <p class="text-slate-400 font-semibold mb-1">Opcionales</p>
+            <table class="w-full border-collapse">
+              <tbody class="divide-y divide-slate-700/40">
+                <tr><td class="py-0.5 pr-3 text-slate-500 w-28">Proyecto</td><td class="font-mono sidebar-text">Proyecto · nombre proyecto <span class="not-italic">(no necesaria si importas dentro de un proyecto)</span></td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-500">Correo</td><td class="font-mono sidebar-text">Correo · Email · E-mail · Mail</td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-500">Renta</td><td class="font-mono sidebar-text">Tramo de renta · Tramo · Renta · Ingreso</td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-500">Estado</td><td class="font-mono sidebar-text">Estado</td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-500">Subsidio</td><td class="font-mono sidebar-text">Tiene subsidio · Subsidio &nbsp;|&nbsp; Tipo subsidio</td></tr>
+                <tr><td class="py-0.5 pr-3 text-slate-500">Propiedad</td><td class="font-mono sidebar-text">Tiene propiedad · Propiedad</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-slate-500">El orden de las columnas no importa. Mayúsculas, tildes y espacios extra son ignorados.</p>
+        </div>
+      </details>
       <form onsubmit="importarCSV(event)" class="space-y-4">
         <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
           <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
