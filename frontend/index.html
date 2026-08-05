@@ -2228,14 +2228,16 @@ async function _cargarEtapasEdicion(proyectoId, tipologiaId, etapaActualId) {
   const sel  = document.getElementById('ec-etapa')
   const wrap = document.getElementById('ec-wrap-etapa')
   sel.innerHTML = '<option value="">— Sin etapa —</option>'
+  sel.disabled = false
   if (!tipologiaId || !proyectoId) { wrap.classList.add('hidden'); return }
   try {
     const etapas = await api('GET', `/api/etapas?proyecto_id=${proyectoId}`)
     etapas.forEach(e => {
       const opt = new Option(e.nombre, e.id)
-      if (Number(e.id) === Number(etapaActualId)) opt.selected = true
+      if (Number(e.id) === Number(etapaActualId) || etapas.length === 1) opt.selected = true
       sel.appendChild(opt)
     })
+    sel.disabled = etapas.length === 1
     wrap.classList.remove('hidden')
   } catch(_) {}
 }
