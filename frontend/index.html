@@ -617,7 +617,11 @@
       </button>
     </div>
     <div id="import-form">
-      <p class="text-xs sidebar-text mb-4">El archivo debe tener columnas: <span class="val-text font-mono">Proyecto, Contacto, Rut, Correo, Teléfono, Estado, Tramo de renta, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
+      <div class="text-xs sidebar-text mb-4 space-y-1.5">
+        <p><span class="text-red-400 font-semibold">Obligatorias:</span> <span class="val-text font-mono">Contacto, Rut, Teléfono, Proyecto</span></p>
+        <p><span class="text-slate-400 font-semibold">Opcionales:</span> <span class="font-mono">Correo, Tramo de renta, Estado, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
+        <p class="text-slate-500">El orden de las columnas no importa.</p>
+      </div>
       <form onsubmit="importarCSV(event)" class="space-y-4">
         <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
           <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
