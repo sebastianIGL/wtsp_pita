@@ -2186,18 +2186,33 @@ async function abrirEditarCliente(c) {
     + proyectos.map(p =>
       `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${p.nombre}</option>`
     ).join('')
-  await _cargarTipologiasEdicion(c.proyecto_id, c.tipologia_id)
+  // Obtener tipología y etapa actuales desde etapa_tipologia_id
+  let tipologiaId = null, etapaId = null
+  if (c.etapa_tipologia_id) {
+    try {
+      const et = await api('GET', `/api/etapa-tipologia/${c.etapa_tipologia_id}`)
+      tipologiaId = et.tipologia_id
+      etapaId     = et.etapa_id
+    } catch(_) {}
+  }
+  await _cargarTipologiasEdicion(c.proyecto_id, tipologiaId, etapaId)
   document.getElementById('modal-editar-cliente').classList.remove('hidden')
 }
 function cerrarEditarCliente() {
   document.getElementById('modal-editar-cliente').classList.add('hidden')
 }
 async function onEcProyectoChange(proyectoId) {
-  await _cargarTipologiasEdicion(proyectoId ? proyectoId : null, null)
+  await _cargarTipologiasEdicion(proyectoId || null, null, null)
 }
-async function _cargarTipologiasEdicion(proyectoId, tipologiaActualId) {
+async function onEcTipologiaChange(tipologiaId) {
+  const proyectoId = document.getElementById('ec-proyecto').value
+  await _cargarEtapasEdicion(proyectoId, tipologiaId, null)
+}
+async function _cargarTipologiasEdicion(proyectoId, tipologiaActualId, etapaActualId) {
   const sel = document.getElementById('ec-tipologia')
   sel.innerHTML = '<option value="">— Sin tipología —</option>'
+  document.getElementById('ec-etapa').innerHTML = '<option value="">— Sin etapa —</option>'
+  document.getElementById('ec-wrap-etapa').classList.add('hidden')
   if (!proyectoId) return
   try {
     const tips = await api('GET', `/api/tipologias?proyecto_id=${proyectoId}`)
@@ -2206,6 +2221,22 @@ async function _cargarTipologiasEdicion(proyectoId, tipologiaActualId) {
       if (Number(t.id) === Number(tipologiaActualId)) opt.selected = true
       sel.appendChild(opt)
     })
+    if (tipologiaActualId) await _cargarEtapasEdicion(proyectoId, tipologiaActualId, etapaActualId)
+  } catch(_) {}
+}
+async function _cargarEtapasEdicion(proyectoId, tipologiaId, etapaActualId) {
+  const sel  = document.getElementById('ec-etapa')
+  const wrap = document.getElementById('ec-wrap-etapa')
+  sel.innerHTML = '<option value="">— Sin etapa —</option>'
+  if (!tipologiaId || !proyectoId) { wrap.classList.add('hidden'); return }
+  try {
+    const etapas = await api('GET', `/api/etapas?proyecto_id=${proyectoId}`)
+    etapas.forEach(e => {
+      const opt = new Option(e.nombre, e.id)
+      if (Number(e.id) === Number(etapaActualId)) opt.selected = true
+      sel.appendChild(opt)
+    })
+    wrap.classList.remove('hidden')
   } catch(_) {}
 }
 async function guardarEditarCliente() {
@@ -2213,17 +2244,30 @@ async function guardarEditarCliente() {
   if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
   const intVal    = document.getElementById('ec-integrantes').value
   const ahorroVal = document.getElementById('ec-ahorro').value
-  const tipRaw   = document.getElementById('ec-tipologia').value
-  const proyRaw  = document.getElementById('ec-proyecto').value
+  const tipRaw    = document.getElementById('ec-tipologia').value
+  const etapaRaw  = document.getElementById('ec-etapa').value
+  const proyRaw   = document.getElementById('ec-proyecto').value
+  // Resolver etapa_tipologia_id via find-or-create
+  let etapaTipologiaId = null
+  if (tipRaw && etapaRaw) {
+    try {
+      const res = await api('POST', '/api/etapa-tipologia/find-or-create',
+        { tipologia_id: parseInt(tipRaw), etapa_id: parseInt(etapaRaw) })
+      etapaTipologiaId = res.id
+    } catch(e) {
+      toast('Error al vincular tipología y etapa: ' + e.message, 'error')
+      return
+    }
+  }
   const payload = {
     Contacto:           nombre,
     Rut:                document.getElementById('ec-rut').value.trim()    || null,
     Correo:             document.getElementById('ec-correo').value.trim() || null,
     'Tramo de renta':   document.getElementById('ec-renta').value         || null,
-    numero_integrantes: intVal    !== '' ? parseInt(intVal)       : null,
-    ahorro_uf:          ahorroVal !== '' ? parseFloat(ahorroVal)  : null,
-    proyecto_id:        proyRaw   !== '' ? proyRaw                : null,
-    tipologia_id:       tipRaw    !== '' ? parseInt(tipRaw)       : null,
+    numero_integrantes: intVal    !== '' ? parseInt(intVal)    : null,
+    ahorro_uf:          ahorroVal !== '' ? parseFloat(ahorroVal) : null,
+    proyecto_id:        proyRaw   !== '' ? proyRaw             : null,
+    etapa_tipologia_id: etapaTipologiaId,
   }
   const btn = document.getElementById('ec-btn-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
@@ -3167,8 +3211,14 @@ async function guardarRegistrarInbox() {
       </div>
       <div id="ec-wrap-tipologia">
         <label class="block text-xs sidebar-text mb-1.5">Tipología</label>
-        <select id="ec-tipologia" class="w-full rounded-lg px-3 py-2 text-sm">
+        <select id="ec-tipologia" onchange="onEcTipologiaChange(this.value)" class="w-full rounded-lg px-3 py-2 text-sm">
           <option value="">— Sin tipología —</option>
+        </select>
+      </div>
+      <div id="ec-wrap-etapa" class="hidden">
+        <label class="block text-xs sidebar-text mb-1.5">Etapa</label>
+        <select id="ec-etapa" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="">— Sin etapa —</option>
         </select>
       </div>
     </div>

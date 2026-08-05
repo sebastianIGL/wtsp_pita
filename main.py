@@ -3776,6 +3776,38 @@ async def api_listar_etapa_tipologia(request: Request):
     return rows or []
 
 
+@app.get("/api/etapa-tipologia/{et_id}")
+async def api_get_etapa_tipologia(et_id: int, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    rows = await _supabase_request("GET", "/EtapaTipologia",
+        params={"id": f"eq.{et_id}", "select": "id,tipologia_id,etapa_id", "limit": "1"}) or []
+    return rows[0] if rows else {}
+
+
+@app.post("/api/etapa-tipologia/find-or-create")
+async def api_find_or_create_etapa_tipologia(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        tipologia_id = body.get("tipologia_id")
+        etapa_id     = body.get("etapa_id")
+        if not tipologia_id or not etapa_id:
+            return Response(content="Faltan tipologia_id o etapa_id", status_code=400)
+        existing = await _supabase_request("GET", "/EtapaTipologia",
+            params={"tipologia_id": f"eq.{tipologia_id}", "etapa_id": f"eq.{etapa_id}",
+                    "select": "id", "limit": "1"}) or []
+        if existing:
+            return {"id": existing[0]["id"]}
+        row = await _supabase_request("POST", "/EtapaTipologia",
+            json={"etapa_id": int(etapa_id), "tipologia_id": int(tipologia_id), "stock": 1},
+            extra_headers={"Prefer": "return=representation"})
+        return {"id": (row[0]["id"] if isinstance(row, list) and row else row["id"])}
+    except Exception as e:
+        return Response(content=str(e), status_code=500, media_type="text/plain")
+
+
 @app.post("/api/etapa-tipologia")
 async def api_crear_etapa_tipologia(request: Request):
     if not await _get_usuario_actual(request):
@@ -4090,7 +4122,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "tipologia_id", "estado_gestion"}
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "etapa_tipologia_id", "estado_gestion"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
     try:
