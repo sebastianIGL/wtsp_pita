@@ -4079,7 +4079,7 @@ async def api_crear_cliente(request: Request):
                 "Telefono":           telefono,
                 "Tramo de renta":     rango,
                 "numero_integrantes": num_integrantes,
-                "tipologia_id":       int(body["tipologia_id"]) if body.get("tipologia_id") else None,
+                "etapa_tipologia_id":  int(body["etapa_tipologia_id"]) if body.get("etapa_tipologia_id") else None,
                 "ahorro_uf":          float(body["ahorro_uf"]) if body.get("ahorro_uf") is not None else None,
                 "primer mensaje":     primer_msg,
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,

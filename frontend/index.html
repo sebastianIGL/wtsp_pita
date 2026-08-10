@@ -220,10 +220,23 @@
             class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Inbox <span id="badge-inbox" class="ml-1 text-amber-400 font-bold hidden"></span></button>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <input id="search" type="text" placeholder="Nombre, RUT o teléfono…" class="rounded-md px-2.5 py-1 text-xs w-48" oninput="aplicarFiltros()" />
+      <div class="flex items-center gap-2 flex-wrap">
+        <input id="search" type="text" placeholder="Nombre, RUT o teléfono…" class="rounded-md px-2.5 py-1 text-xs w-44" oninput="aplicarFiltros()" />
         <select id="filtro-proyecto" class="rounded-md px-2.5 py-1 text-xs" onchange="aplicarFiltros()">
           <option value="">Todos los proyectos</option>
+        </select>
+        <select id="filtro-usuario" class="hidden rounded-md px-2.5 py-1 text-xs" onchange="aplicarFiltros()">
+          <option value="">Todos los ejecutivos</option>
+        </select>
+        <select id="filtro-estado-conv" class="rounded-md px-2.5 py-1 text-xs" onchange="aplicarFiltros()">
+          <option value="">Todos los estados</option>
+          <option value="sin_enviar">Sin enviar WA</option>
+          <option value="primer_wtsp">1er mensaje enviado</option>
+          <option value="contestado">Contestado</option>
+          <option value="sin_respuesta">Sin respuesta (+24h)</option>
+          <option value="pendiente">Pendiente respuesta</option>
+          <option value="espera_docs">Esperando docs</option>
+          <option value="docs_recibidos">Docs recibidos</option>
         </select>
         <button onclick="abrirImport()" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -858,7 +871,15 @@ function setTab(tab) {
   tablaBody.classList.remove('hidden')
   tablaInbox.classList.add('hidden')
 
+  // Mostrar filtro de usuario solo cuando admin está en tab "todos"
   const isAdmin = _esAdmin(_perfil?.rol)
+  const filtroUsuarioEl = document.getElementById('filtro-usuario')
+  if (filtroUsuarioEl) {
+    const mostrar = isAdmin && tab === 'todos'
+    filtroUsuarioEl.classList.toggle('hidden', !mostrar)
+    if (!mostrar) filtroUsuarioEl.value = ''
+  }
+
   // Admin: recargar del server solo si cambia entre 'mis' y otros (diferente query)
   // No-admin: siempre filtrar client-side (server ya filtra por su usuario)
   const necesitaRecargar = isAdmin && (tab === 'mis' || tabAnterior === 'mis' || tabAnterior === 'inbox')
@@ -920,6 +941,11 @@ async function cargarProyectos() {
 async function cargarUsuarios() {
   try {
     _usuarios = await api('GET', '/api/usuarios')
+    const sel = document.getElementById('filtro-usuario')
+    if (sel) {
+      sel.innerHTML = '<option value="">Todos los ejecutivos</option>'
+        + _usuarios.map(u => `<option value="${u.id}">${u.nombre || u.correo}</option>`).join('')
+    }
   } catch(e) { console.warn('Usuarios:', e) }
 }
 
@@ -988,6 +1014,20 @@ async function actualizarEstadoGestion(id, val, sel) {
   }
 }
 
+function computeEstadoConv(c) {
+  const wtspMs  = _msDate(c.primer_wtsp_en)
+  const ultMs   = _msDate(c.ultimo_entrante_en)
+  const ahora   = Date.now()
+  const paso    = c.prospecto_paso || ''
+  if (paso === 'DOCS_RECIBIDOS')                              return 'docs_recibidos'
+  if (paso === 'ESPERA_DOCS' || paso === 'DOCUMENTACION')     return 'espera_docs'
+  if (c.pendiente_respuesta)                                  return 'pendiente'
+  if (ultMs && (!wtspMs || ultMs > wtspMs))                   return 'contestado'
+  if (wtspMs && ahora - wtspMs > 24 * 60 * 60 * 1000)        return 'sin_respuesta'
+  if (wtspMs)                                                 return 'primer_wtsp'
+  return 'sin_enviar'
+}
+
 function computeEstado(c) {
   const pm     = c['primer mensaje']
   const wtspMs = _msDate(c.primer_wtsp_en)
@@ -1034,7 +1074,11 @@ function clientesFiltrados() {
                         : _filtroTab === 'sin_enviar' ? estado === 'sin_enviar'
                         : _filtroTab === 'docs'       ? (paso === 'ESPERA_DOCS' || paso === 'DOCS_RECIBIDOS')
                         : true
-      return matchQ && matchP && matchEstado
+      const filtroUsuario    = document.getElementById('filtro-usuario')?.value || ''
+      const filtroEstadoConv = document.getElementById('filtro-estado-conv')?.value || ''
+      const matchUsuario    = !filtroUsuario    || c.usuario_id === filtroUsuario
+      const matchEstadoConv = !filtroEstadoConv || computeEstadoConv(c) === filtroEstadoConv
+      return matchQ && matchP && matchEstado && matchUsuario && matchEstadoConv
     })
     .sort((a, b) => {
       // Clientes con conversación reciente primero
@@ -1408,10 +1452,10 @@ async function importarCSV(e) {
             <div class="max-h-28 overflow-y-auto space-y-0.5 mb-3">
               ${data.ids_creados.map(c => `<p class="text-xs sidebar-text truncate">• ${esc(c.nombre)}</p>`).join('')}
             </div>
-            <button onclick="abrirSelectorTemplate(null, null, [${data.ids_creados.map(c => c.id).join(',')}])"
+            ${_esAdmin(_perfil?.rol) ? `<button onclick="abrirSelectorTemplate(null, null, [${data.ids_creados.map(c => c.id).join(',')}])"
               class="w-full text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition font-medium">
               Enviar WA a todos (${data.ids_creados.length})
-            </button>
+            </button>` : ''}
           </div>` : ''}
         <button onclick="cerrarImport()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
           Cerrar
