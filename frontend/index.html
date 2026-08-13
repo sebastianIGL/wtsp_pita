@@ -312,8 +312,14 @@
         </div>
         <div id="wrap-f-tipologia" class="col-span-2 hidden">
           <label class="block text-xs sidebar-text mb-1.5">Tipología</label>
-          <select id="f-tipologia" class="w-full rounded-lg px-3 py-2 text-sm">
+          <select id="f-tipologia" onchange="onFTipologiaChange(this.value)" class="w-full rounded-lg px-3 py-2 text-sm">
             <option value="">Cargando…</option>
+          </select>
+        </div>
+        <div id="wrap-f-etapa" class="col-span-2 hidden">
+          <label class="block text-xs sidebar-text mb-1.5">Etapa</label>
+          <select id="f-etapa" disabled class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="">Selecciona una tipología primero</option>
           </select>
         </div>
         <div class="col-span-2">
@@ -466,8 +472,14 @@
 
       <!-- Documentos -->
       <div>
-        <p class="text-sm font-semibold val-text mb-1">Documentos requeridos</p>
-        <p class="text-xs sidebar-text mb-4">Adjunta los 4 documentos para solicitar la pre-evaluación bancaria.</p>
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <p class="text-sm font-semibold val-text">Documentos requeridos</p>
+          <label class="flex items-center gap-1.5 text-xs sidebar-text cursor-pointer flex-shrink-0">
+            <input type="checkbox" id="eval-fuerza-armada" onchange="onFuerzaArmadaChange(this.checked)" class="rounded" />
+            Fuerza Armada
+          </label>
+        </div>
+        <p class="text-xs sidebar-text mb-4" id="eval-docs-hint">Adjunta los 5 documentos para solicitar la pre-evaluación bancaria.</p>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="eval-docs-grid">
 
@@ -493,7 +505,7 @@
               <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-xs font-medium val-text">Certificado de cotizaciones AFP</p>
+              <p class="text-xs font-medium val-text">Certificado de cotizaciones AFP <span id="doc-badge-2" class="hidden text-[10px] font-normal sidebar-text">(no requerido)</span></p>
               <p class="text-xs sidebar-text mt-0.5" id="doc-label-2">Últimas 12 cotizaciones · PDF</p>
             </div>
             <div id="doc-check-2" class="hidden">
@@ -523,7 +535,7 @@
               <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-xs font-medium val-text">Libreta o cuenta de ahorro</p>
+              <p class="text-xs font-medium val-text">Libreta o cuenta de ahorro <span id="doc-badge-4" class="hidden text-[10px] font-normal sidebar-text">(no requerido)</span></p>
               <p class="text-xs sidebar-text mt-0.5" id="doc-label-4">Saldo actual · PDF o imagen</p>
             </div>
             <div id="doc-check-4" class="hidden">
@@ -538,8 +550,8 @@
               <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-xs font-medium val-text">Informe de deudas</p>
-              <p class="text-xs sidebar-text mt-0.5" id="doc-label-5">DICOM o similar · PDF</p>
+              <p class="text-xs font-medium val-text">Informe de deudas (CMF)</p>
+              <p class="text-xs sidebar-text mt-0.5" id="doc-label-5">CMF, DICOM o similar · PDF</p>
             </div>
             <div id="doc-check-5" class="hidden">
               <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -1503,6 +1515,9 @@ function cerrarModal() {
   document.getElementById('form-cliente').reset()
   document.getElementById('f-primer').checked = true
   document.getElementById('wrap-f-tipologia').classList.add('hidden')
+  document.getElementById('wrap-f-etapa').classList.add('hidden')
+  document.getElementById('f-etapa').disabled = true
+  document.getElementById('f-etapa').innerHTML = '<option value="">Selecciona una tipología primero</option>'
   document.getElementById('wrap-f-template').classList.remove('hidden')
   document.getElementById('wrap-f-proyecto').classList.remove('hidden')
   document.getElementById('f-proyecto').required = true
@@ -1514,10 +1529,15 @@ function toggleTemplateSelector(checked) {
 }
 
 async function onProyectoChange(proyectoId) {
-  const wrap = document.getElementById('wrap-f-tipologia')
-  const sel  = document.getElementById('f-tipologia')
-  if (!proyectoId) { wrap.classList.add('hidden'); return }
+  const wrap      = document.getElementById('wrap-f-tipologia')
+  const sel       = document.getElementById('f-tipologia')
+  const wrapEtapa = document.getElementById('wrap-f-etapa')
+  const selEtapa  = document.getElementById('f-etapa')
+  if (!proyectoId) { wrap.classList.add('hidden'); wrapEtapa.classList.add('hidden'); return }
   wrap.classList.remove('hidden')
+  wrapEtapa.classList.remove('hidden')
+  selEtapa.disabled = true
+  selEtapa.innerHTML = '<option value="">Selecciona una tipología primero</option>'
   sel.innerHTML = '<option value="">Cargando tipologías…</option>'
   try {
     const tips = await api('GET', `/api/tipologias?proyecto_id=${proyectoId}`)
@@ -1528,6 +1548,37 @@ async function onProyectoChange(proyectoId) {
     sel.innerHTML = tips.map((t, i) =>
       `<option value="${t.id}" ${i===0?'selected':''}>${t.nombre || t.tipo || 'Tipología ' + (i+1)}${t.valor_uf ? ' — ' + t.valor_uf + ' UF' : ''}</option>`
     ).join('')
+    if (sel.value) await onFTipologiaChange(sel.value)
+  } catch(e) {
+    sel.innerHTML = '<option value="">Error al cargar</option>'
+  }
+}
+
+async function onFTipologiaChange(tipologiaId) {
+  const proyectoId = document.getElementById('f-proyecto').value
+    || (JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')?.id ?? '')
+  await _cargarEtapasNuevoCliente(proyectoId, tipologiaId)
+}
+
+async function _cargarEtapasNuevoCliente(proyectoId, tipologiaId) {
+  const sel  = document.getElementById('f-etapa')
+  sel.disabled = true
+  sel.innerHTML = '<option value="">Selecciona una tipología primero</option>'
+  if (!tipologiaId || !proyectoId) return
+  sel.innerHTML = '<option value="">Cargando etapas…</option>'
+  try {
+    const etapas = await api('GET', `/api/etapas?proyecto_id=${proyectoId}`)
+    if (!etapas.length) {
+      sel.innerHTML = '<option value="">Sin etapas registradas</option>'
+      return
+    }
+    sel.innerHTML = ''
+    etapas.forEach((e, i) => {
+      const opt = new Option(e.nombre, e.id)
+      if (etapas.length === 1 || i === 0) opt.selected = true
+      sel.appendChild(opt)
+    })
+    sel.disabled = etapas.length === 1
   } catch(e) {
     sel.innerHTML = '<option value="">Error al cargar</option>'
   }
@@ -1576,6 +1627,7 @@ async function crearCliente(e) {
   const tplLang  = tplOpt?.dataset?.language || 'es_CL'
   const tplComps = tplOpt?.dataset?.components ? JSON.parse(decodeURIComponent(tplOpt.dataset.components)) : []
   const tipoId   = document.getElementById('f-tipologia').value || null
+  const etapaId  = document.getElementById('f-etapa').value || null
 
   if (pm && !tplName) {
     toast('❌ Selecciona una plantilla para enviar el mensaje', 'error')
@@ -1595,11 +1647,25 @@ async function crearCliente(e) {
       return
     }
     const _ahorroVal = document.getElementById('f-ahorro').value
+    let etapaTipologiaId = null
+    if (tipoId && etapaId) {
+      try {
+        const res = await api('POST', '/api/etapa-tipologia/find-or-create',
+          { tipologia_id: parseInt(tipoId), etapa_id: parseInt(etapaId) })
+        etapaTipologiaId = res.id
+      } catch(e) {
+        toast('❌ Error al vincular tipología y etapa: ' + e.message, 'error')
+        resetBtn()
+        _guardando = false
+        return
+      }
+    }
     const resp = await api('POST', '/api/clientes', {
       'proyecto_id':        _proyId,
       'Contacto':           document.getElementById('f-contacto').value.trim(),
       'Rut':                document.getElementById('f-rut').value.trim(),
       'Correo':             document.getElementById('f-correo').value.trim() || null,
+      'etapa_tipologia_id': etapaTipologiaId,
       'Telefono':           document.getElementById('f-telefono').value.trim(),
       'Tramo de renta':     document.getElementById('f-renta').value || null,
       'numero_integrantes': parseInt(document.getElementById('f-integrantes').value) || null,
@@ -1677,6 +1743,25 @@ const SLOT_POR_TIPO = Object.fromEntries(Object.entries(TIPOS_DOC).map(([k,v]) =
 let _evalDocsSeleccionados = {}
 let _evalClienteId = null
 let _evalEjecutivosSeleccionados = []
+let _evalFuerzaArmada = false
+// Slots obligatorios normales: 1=liquidación, 2=AFP, 3=cédula, 5=informe deudas/CMF, 6=antigüedad
+// Fuerza Armada: solo 1=liquidación, 3=cédula, 5=informe deudas/CMF, 6=antigüedad (sin AFP ni libreta ahorro)
+const DOCS_OBLIGATORIOS_NORMAL = [1,2,3,5,6]
+const DOCS_OBLIGATORIOS_FFAA   = [1,3,5,6]
+
+function onFuerzaArmadaChange(checked) {
+  _evalFuerzaArmada = checked
+  actualizarDocsRequeridosUI()
+  actualizarBtnEval()
+}
+
+function actualizarDocsRequeridosUI() {
+  const n = _evalFuerzaArmada ? DOCS_OBLIGATORIOS_FFAA.length : DOCS_OBLIGATORIOS_NORMAL.length
+  document.getElementById('eval-docs-hint').textContent =
+    `Adjunta los ${n} documentos para solicitar la pre-evaluación bancaria.`
+  document.getElementById('doc-badge-2').classList.toggle('hidden', !_evalFuerzaArmada)
+  document.getElementById('doc-badge-4').classList.toggle('hidden', !_evalFuerzaArmada)
+}
 
 async function abrirEvaluacion(id) {
   const c = clientes.find(x => x.id === id)
@@ -1684,6 +1769,9 @@ async function abrirEvaluacion(id) {
 
   _evalClienteId = id
   _evalDocsSeleccionados = {}
+  _evalFuerzaArmada = false
+  document.getElementById('eval-fuerza-armada').checked = false
+  actualizarDocsRequeridosUI()
 
   // Reset drops
   ;[1,2,3,4,5,6,7].forEach(n => {
@@ -1876,11 +1964,11 @@ function onDocSelect(input, n) {
 
 function actualizarBtnEval() {
   const btn = document.getElementById('btn-eval-enviar')
-  // Slots obligatorios: 1=liquidacion, 2=afp, 3=cedula, 5=informe_deudas, 6=antiguedad
-  const obligatorios = [1,2,3,5,6].filter(n => _evalDocsSeleccionados[n]).length
+  const slotsObligatorios = _evalFuerzaArmada ? DOCS_OBLIGATORIOS_FFAA : DOCS_OBLIGATORIOS_NORMAL
+  const obligatorios = slotsObligatorios.filter(n => _evalDocsSeleccionados[n]).length
   const tieneNuevos = Object.values(_evalDocsSeleccionados).some(v => v instanceof File)
 
-  if (obligatorios >= 5) {
+  if (obligatorios >= slotsObligatorios.length) {
     btn.textContent = 'Enviar a evaluar'
     btn.classList.remove('bg-indigo-500','hover:bg-indigo-600')
     btn.classList.add('bg-emerald-600','hover:bg-emerald-700')
