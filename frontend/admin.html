@@ -305,13 +305,6 @@
             <option value="administrador">Administrador</option>
           </select>
         </div>
-        <div class="col-span-2">
-          <label class="block text-slate-300 text-xs font-medium mb-1.5">Alias de correo</label>
-          <input id="u-alias" type="email" placeholder="sgatica@quesubsidio.cl"
-            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
-          <p class="text-xs text-slate-500 mt-1">Opcional. El correo que aparecerá como remitente al enviar evaluaciones.</p>
-        </div>
       </div>
 
       <!-- Sección de acceso: solo visible para ejecutivos -->
@@ -388,11 +381,11 @@
         </select>
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Alias de correo</label>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Alias de correo (excepción)</label>
         <input id="e-alias" type="email" placeholder="sgatica@quesubsidio.cl"
           class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
                  focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
-        <p class="text-xs text-slate-500 mt-1">Correo que aparecerá como remitente al enviar evaluaciones.</p>
+        <p class="text-xs text-slate-500 mt-1">Solo para cuentas sin correo @quesubsidio.cl. Los usuarios con correo @quesubsidio.cl no necesitan esto — se envía directo con su correo oficial.</p>
       </div>
 
       <!-- Sección de acceso: solo visible para ejecutivos -->
@@ -746,7 +739,6 @@
         correo:       document.getElementById('u-correo').value.trim(),
         celular:      document.getElementById('u-celular').value.trim() || null,
         rol,
-        email_alias:  document.getElementById('u-alias').value.trim() || null,
       };
       if (rol === 'ejecutivo') {
         body.inmobiliaria_ids = leerCheckboxesInt(document.getElementById('u-inm-lista'));

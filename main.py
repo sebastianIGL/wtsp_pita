@@ -4681,7 +4681,7 @@ async def _enviar_email_evaluacion(
     </div>
     """
 
-    alias = (usuario or {}).get("email_alias") or os.getenv("EMAIL_ADMIN", "")
+    alias = (usuario or {}).get("email_alias") or (usuario or {}).get("correo") or os.getenv("EMAIL_ADMIN", "")
     nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
     email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
 
