@@ -2858,7 +2858,7 @@ async def api_crear_usuario(request: Request):
         correo  = (body.get("correo") or "").strip()
         celular      = (body.get("celular") or "").strip() or None
         rol          = body.get("rol", "usuario")
-        email_alias  = (body.get("email_alias") or "").strip() or None
+        email_alias  = (body.get("email_alias") or "").strip() or correo
         if not nombre or not rut or not correo:
             return Response(content="Faltan campos obligatorios: nombre, rut, correo", status_code=400)
         roles_permitidos = ("ejecutivo", "administrador") if _solo_owner(perfil) else ("ejecutivo",)
@@ -4829,7 +4829,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         for t, n in conteo.items()
     ]
 
-    alias = perfil.get("email_alias") or os.getenv("EMAIL_ADMIN", "")
+    alias = perfil.get("email_alias") or perfil.get("correo") or os.getenv("EMAIL_ADMIN", "")
     rut = c.get("Rut") or "—"
     return {
         "remitente": alias,
