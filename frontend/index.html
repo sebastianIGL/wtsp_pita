@@ -2070,6 +2070,19 @@ async function mostrarPreviewEval() {
       return
     }
 
+    if (data.tipologia_requerida) {
+      document.getElementById('preview-eval-cuerpo').innerHTML = `
+        <div class="rounded-xl p-5 text-center" style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25)">
+          <p class="text-red-600 font-semibold text-sm mb-2">⚠️ Tipología y etapa requeridas</p>
+          <p class="text-xs text-slate-600 mb-3">El cliente no tiene tipología y etapa asignada, así que no se puede calcular el valor de propiedad, subsidio ni el crédito.<br>Edítalo y selecciona ambas antes de enviar la evaluación.</p>
+          <button onclick="abrirEditarClienteDesdeEval()"
+            class="text-xs px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition">
+            Editar cliente
+          </button>
+        </div>`
+      return
+    }
+
     _evalEjecutivosSeleccionados = (data.ejecutivos || []).map(e => e.email)
 
     const nuevos = Object.entries(_evalDocsSeleccionados)
@@ -2133,6 +2146,7 @@ async function mostrarPreviewEval() {
             <span class="text-slate-500">Entrega</span><span class="text-slate-700">${cl.entrega}</span>
             <span ${_div}></span>
             <span class="text-slate-500">Valor propiedad</span><span class="text-slate-700">${fmtUF(cl.valor_uf)}</span>
+            <span class="text-slate-500">Subsidio</span><span class="text-slate-700">${fmtUF(cl.monto_subsidio)}</span>
             <span class="text-slate-500">Ahorro cliente</span><span class="text-slate-700">${fmtUF(cl.ahorro_uf)}</span>
             <span class="font-semibold text-slate-700">Monto crédito</span><span class="font-semibold text-violet-700">${fmtUF(cl.monto_credito)}</span>
           </div>
@@ -2151,6 +2165,14 @@ async function mostrarPreviewEval() {
 
 function cerrarPreviewEval() {
   document.getElementById('modal-preview-eval').classList.add('hidden')
+}
+
+function abrirEditarClienteDesdeEval() {
+  const c = clientes.find(x => x.id === _evalClienteId)
+  if (!c) { toast('❌ No se encontró el cliente', 'error'); return }
+  cerrarPreviewEval()
+  cerrarEvaluacion()
+  abrirEditarCliente(c)
 }
 
 async function confirmarEnvioEval() {

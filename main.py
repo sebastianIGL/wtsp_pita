@@ -4531,6 +4531,12 @@ async def _enviar_email_evaluacion(
         )
     ahorro_f = float(ahorro_uf)
 
+    if not c.get("etapa_tipologia_id"):
+        raise ValueError(
+            "El cliente no tiene tipología y etapa asignada. "
+            "Edítalo y selecciona la tipología y etapa antes de enviar la evaluación."
+        )
+
     if ejecutivos_emails:
         destinatarios = ejecutivos_emails
     else:
@@ -4549,9 +4555,11 @@ async def _enviar_email_evaluacion(
     proyecto_ubicacion  = "No registrada"
     inmobiliaria_nombre = "No registrada"
     valor_uf: float | None = None
+    monto_subsidio: float | None = None
     entrega_label = "Futura"
 
-    proyecto_id_raw = c.get("proyecto_id")
+    proyecto_id_raw        = c.get("proyecto_id")
+    etapa_tipologia_id_raw = c.get("etapa_tipologia_id")
     if proyecto_id_raw:
         proy_rows = await _supabase_request("GET", "/Proyecto",
             params={
@@ -4566,26 +4574,28 @@ async def _enviar_email_evaluacion(
             inm = (p.get("Inmobiliaria") or {})
             inmobiliaria_nombre = inm.get("nombre") or "No registrada"
 
-        tips = await _supabase_request("GET", "/Tipologia",
-            params={
-                "proyecto_id": f"eq.{proyecto_id_raw}",
-                "select": "valor_uf",
-                "order": "valor_uf.asc",
-                "limit": "1",
-            })
-        if tips and tips[0].get("valor_uf"):
-            valor_uf = float(tips[0]["valor_uf"])
+        # Usar la tipología + etapa específica asignada al cliente
+        if etapa_tipologia_id_raw:
+            et_rows = await _supabase_request("GET", "/EtapaTipologia",
+                params={
+                    "id": f"eq.{etapa_tipologia_id_raw}",
+                    "select": "Tipologia(valor_uf,monto_subsidio),Etapa(estado)",
+                    "limit": "1",
+                })
+            if et_rows:
+                tip   = et_rows[0].get("Tipologia") or {}
+                etapa = et_rows[0].get("Etapa") or {}
+                if tip.get("valor_uf") is not None:
+                    valor_uf = float(tip["valor_uf"])
+                if tip.get("monto_subsidio") is not None:
+                    monto_subsidio = float(tip["monto_subsidio"])
+                if etapa.get("estado"):
+                    entrega_label = "Inmediata" if etapa["estado"] == "entrega_inmediata" else "Futura"
 
-        etapas = await _supabase_request("GET", "/Etapa",
-            params={
-                "proyecto_id": f"eq.{proyecto_id_raw}",
-                "select": "estado",
-                "limit": "1",
-            })
-        if etapas:
-            entrega_label = "Inmediata" if etapas[0].get("estado") == "entrega_inmediata" else "Futura"
-
-    monto_credito = round(valor_uf - ahorro_f, 2) if valor_uf is not None else None
+    monto_credito = (
+        round(valor_uf - (monto_subsidio or 0) - ahorro_f, 2)
+        if valor_uf is not None else None
+    )
 
     def _fmt_uf(v):
         return f"UF {float(v):,.2f}".replace(",", ".") if v is not None else "No registrado"
@@ -4668,6 +4678,10 @@ async def _enviar_email_evaluacion(
           <td style="padding:8px 12px;">{_fmt_uf(valor_uf)}</td>
         </tr>
         <tr style="background:#f5f7fa;">
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Subsidio</td>
+          <td style="padding:8px 12px;">{_fmt_uf(monto_subsidio)}</td>
+        </tr>
+        <tr>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Ahorro cliente</td>
           <td style="padding:8px 12px;">{_fmt_uf(ahorro_f)}</td>
         </tr>
@@ -4763,6 +4777,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     proyecto_ubicacion  = "No registrada"
     inmobiliaria_nombre = "No registrada"
     valor_uf: float | None = None
+    monto_subsidio: float | None = None
     entrega_label = "Futura"
 
     if c.get("proyecto_id"):
@@ -4777,28 +4792,30 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
             inm = (p.get("Inmobiliaria") or {})
             inmobiliaria_nombre = inm.get("nombre") or "No registrada"
 
-        tips = await _supabase_request("GET", "/Tipologia",
-            params={
-                "proyecto_id": f"eq.{c['proyecto_id']}",
-                "select": "valor_uf",
-                "order": "valor_uf.asc",
-                "limit": "1",
-            })
-        if tips and tips[0].get("valor_uf"):
-            valor_uf = float(tips[0]["valor_uf"])
-
-        etapas = await _supabase_request("GET", "/Etapa",
-            params={
-                "proyecto_id": f"eq.{c['proyecto_id']}",
-                "select": "estado",
-                "limit": "1",
-            })
-        if etapas:
-            entrega_label = "Inmediata" if etapas[0].get("estado") == "entrega_inmediata" else "Futura"
+        # Usar la tipología + etapa específica asignada al cliente
+        if c.get("etapa_tipologia_id"):
+            et_rows = await _supabase_request("GET", "/EtapaTipologia",
+                params={
+                    "id": f"eq.{c['etapa_tipologia_id']}",
+                    "select": "Tipologia(valor_uf,monto_subsidio),Etapa(estado)",
+                    "limit": "1",
+                })
+            if et_rows:
+                tip   = et_rows[0].get("Tipologia") or {}
+                etapa = et_rows[0].get("Etapa") or {}
+                if tip.get("valor_uf") is not None:
+                    valor_uf = float(tip["valor_uf"])
+                if tip.get("monto_subsidio") is not None:
+                    monto_subsidio = float(tip["monto_subsidio"])
+                if etapa.get("estado"):
+                    entrega_label = "Inmediata" if etapa["estado"] == "entrega_inmediata" else "Futura"
 
     ahorro_uf = c.get("ahorro_uf")
     ahorro_f  = float(ahorro_uf) if ahorro_uf is not None else None
-    monto_credito = round(valor_uf - ahorro_f, 2) if (valor_uf is not None and ahorro_f is not None) else None
+    monto_credito = (
+        round(valor_uf - (monto_subsidio or 0) - ahorro_f, 2)
+        if (valor_uf is not None and ahorro_f is not None) else None
+    )
 
     NOMBRES_TIPO = {
         "liquidacion_sueldo": "Liquidación de sueldo",
@@ -4823,6 +4840,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         "ejecutivos": ejecutivos,
         "asunto": f"Evaluación Hipotecaria {rut} – Proyecto {proyecto_nombre} Entrega {entrega_label}",
         "ahorro_requerido": ahorro_uf is None,
+        "tipologia_requerida": not bool(c.get("etapa_tipologia_id")),
         "cliente": {
             "nombre":        (c.get("Contacto") or "Sin nombre").strip(),
             "rut":           rut,
@@ -4833,6 +4851,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
             "inmobiliaria":  inmobiliaria_nombre,
             "entrega":       entrega_label,
             "valor_uf":      valor_uf,
+            "monto_subsidio": monto_subsidio,
             "ahorro_uf":     ahorro_f,
             "monto_credito": monto_credito,
         },
