@@ -4729,32 +4729,19 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     c = clientes[0]
 
     proyecto_id = c.get("proyecto_id")
-    # Ejecutivos del proyecto específico
-    ejs_proyecto: list = []
-    if proyecto_id:
-        pe_rows = await _supabase_request("GET", "/ProyectoEjecutivo",
-            params={"proyecto_id": f"eq.{proyecto_id}",
-                    "select": "EjecutivoBancario(id,ejecutivo,email)",
-                    "EjecutivoBancario.disponible": "eq.true"}) or []
-        ejs_proyecto = [
-            {"id": r["EjecutivoBancario"]["id"],
-             "email": r["EjecutivoBancario"]["email"],
-             "nombre": r["EjecutivoBancario"].get("ejecutivo") or r["EjecutivoBancario"]["email"]}
-            for r in pe_rows
-            if r.get("EjecutivoBancario") and r["EjecutivoBancario"].get("email")
-        ]
-    # Ejecutivos sin proyecto asignado (globales) — aparecen en todos
+    # EjecutivoBancario.proyecto: si coincide con el proyecto del cliente, se filtra a ese
+    # proyecto; si está vacío, el ejecutivo es global (aparece en todos los proyectos).
     todos_raw = await _supabase_request("GET", "/EjecutivoBancario",
-        params={"disponible": "eq.true", "select": "id,email,ejecutivo"}) or []
-    ids_en_algun_proyecto = {
-        r["ejecutivo_id"]
-        for r in (await _supabase_request("GET", "/ProyectoEjecutivo",
-            params={"select": "ejecutivo_id"}) or [])
-    }
+        params={"disponible": "eq.true", "select": "id,email,ejecutivo,proyecto"}) or []
+    ejs_proyecto = [
+        {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
+        for e in todos_raw
+        if e.get("email") and proyecto_id and str(e.get("proyecto")) == str(proyecto_id)
+    ]
     ejs_globales = [
         {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
         for e in todos_raw
-        if e.get("email") and e["id"] not in ids_en_algun_proyecto
+        if e.get("email") and not e.get("proyecto")
     ]
     # Combinar sin duplicados
     ids_vistos: set = set()
