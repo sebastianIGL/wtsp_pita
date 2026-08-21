@@ -2340,17 +2340,34 @@ async function abrirEditarCliente(c) {
     + proyectos.map(p =>
       `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${p.nombre}</option>`
     ).join('')
-  // Obtener tipología y etapa actuales desde etapa_tipologia_id
-  let tipologiaId = null, etapaId = null
-  if (c.etapa_tipologia_id) {
-    try {
-      const et = await api('GET', `/api/etapa-tipologia/${c.etapa_tipologia_id}`)
-      tipologiaId = et.tipologia_id
-      etapaId     = et.etapa_id
-    } catch(_) {}
-  }
-  await _cargarTipologiasEdicion(c.proyecto_id, tipologiaId, etapaId)
+
+  // Mostrar el modal de inmediato — tipología/etapa se cargan en segundo plano
+  document.getElementById('ec-tipologia').innerHTML = '<option value="">Cargando…</option>'
+  document.getElementById('ec-etapa').innerHTML = '<option value="">— Sin etapa —</option>'
+  document.getElementById('ec-wrap-etapa').classList.add('hidden')
   document.getElementById('modal-editar-cliente').classList.remove('hidden')
+
+  // Resolver tipología/etapa actual y cargar el select de tipologías EN PARALELO
+  // (antes se hacían en serie: 3 requests seguidos antes de mostrar el modal)
+  const [et, tips] = await Promise.all([
+    c.etapa_tipologia_id
+      ? api('GET', `/api/etapa-tipologia/${c.etapa_tipologia_id}`).catch(() => null)
+      : Promise.resolve(null),
+    c.proyecto_id
+      ? api('GET', `/api/tipologias?proyecto_id=${c.proyecto_id}`).catch(() => [])
+      : Promise.resolve([]),
+  ])
+  const tipologiaId = et?.tipologia_id ?? null
+  const etapaId     = et?.etapa_id ?? null
+
+  const selTip = document.getElementById('ec-tipologia')
+  selTip.innerHTML = '<option value="">— Sin tipología —</option>'
+  tips.forEach(t => {
+    const opt = new Option(t.nombre, t.id)
+    if (Number(t.id) === Number(tipologiaId)) opt.selected = true
+    selTip.appendChild(opt)
+  })
+  if (tipologiaId) await _cargarEtapasEdicion(c.proyecto_id, tipologiaId, etapaId)
 }
 function cerrarEditarCliente() {
   document.getElementById('modal-editar-cliente').classList.add('hidden')
