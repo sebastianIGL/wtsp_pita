@@ -2738,6 +2738,7 @@ function renderTablaTipologias() {
       <td class="px-3 py-2 text-center">${_badgeEstado(t.estado)}</td>
       <td class="px-3 py-2 text-center">
         <div class="flex gap-1.5 justify-center">
+          <button onclick="abrirAsignarStock('tipologia', ${t.id}, '${(t.nombre||'').replace(/'/g,"\\'")}')" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Asignar</button>
           <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
           <button onclick="confirmarEliminarTipologia(${t.id},'${(t.nombre||'').replace(/'/g,"\\'")}')' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
         </div>
@@ -2808,16 +2809,22 @@ async function guardarTipologia() {
   const btn = document.getElementById('btn-guardar-tip')
   btn.disabled = true; btn.textContent = 'Guardando…'
   try {
+    let tipCreada = null
     if (_editandoTipId) {
       await api('PATCH', `/api/tipologias/${_editandoTipId}`, payload)
       toast('Tipología actualizada')
     } else {
-      await api('POST', '/api/tipologias', payload)
+      tipCreada = await api('POST', '/api/tipologias', payload)
       toast('Tipología creada')
     }
     cerrarFormTipologia()
     await cargarTipologias()
     renderTablaTipologias()
+    // Recién creada: ofrecer asignar etapas existentes de inmediato
+    if (tipCreada?.id) {
+      await cargarEtapas()
+      abrirAsignarStock('tipologia', tipCreada.id, nombre)
+    }
   } catch(e) {
     toast(e.message, 'error')
   } finally {
@@ -2886,16 +2893,18 @@ function renderTablaEtapas() {
   const esTodos  = !proyecto?.id
   const tbody = document.getElementById('etapas-tbody')
   if (!_etapas.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center empty-text text-sm">No hay etapas registradas.</td></tr>`
+    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center empty-text text-sm">No hay etapas registradas.</td></tr>`
     return
   }
   tbody.innerHTML = _etapas.map(e => `
     <tr class="trow border-b text-sm">
       ${esTodos ? `<td class="col-proyecto-etapa px-3 py-2 sidebar-text text-xs">${e.Proyecto?.nombre || '—'}</td>` : ''}
+      <td class="px-3 py-2 val-text font-medium">${esc(e.nombre || '—')}</td>
       <td class="px-3 py-2 val-text">${_formatFecha(e.fecha_entrega)}</td>
       <td class="px-3 py-2">${_badgeEstadoEntrega(e.estado)}</td>
       <td class="px-3 py-2 text-center">
         <div class="flex gap-1.5 justify-center">
+          <button onclick="abrirAsignarStock('etapa', ${e.id}, '${(e.nombre||'').replace(/'/g,"\\'")}')" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Asignar</button>
           <button onclick='editarEtapa(${JSON.stringify(e).replace(/'/g, "&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Editar</button>
           <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
         </div>
@@ -2903,6 +2912,83 @@ function renderTablaEtapas() {
     </tr>`).join('')
 
   document.querySelectorAll('.col-proyecto-etapa').forEach(th => th.classList.toggle('hidden', !esTodos))
+}
+
+// ─── ASIGNAR STOCK (etapa↔tipología, en ambas direcciones) ────────────
+let _asgnModo = null    // 'etapa' | 'tipologia'
+let _asgnId   = null    // id de la etapa o tipología que se está editando
+
+async function abrirAsignarStock(modo, id, nombreItem) {
+  _asgnModo = modo
+  _asgnId   = id
+  const lista = document.getElementById('asgn-lista')
+  document.getElementById('asgn-titulo').textContent = modo === 'etapa'
+    ? `Tipologías en "${nombreItem || 'esta etapa'}"`
+    : `Etapas para "${nombreItem || 'esta tipología'}"`
+  lista.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+  document.getElementById('modal-asignar-stock').classList.remove('hidden')
+  try {
+    const qs = modo === 'etapa' ? `etapa_id=${id}` : `tipologia_id=${id}`
+    const actuales = await api('GET', `/api/etapa-tipologia?${qs}`)
+    const items = modo === 'etapa' ? _tipologias : _etapas
+    if (!items.length) {
+      lista.innerHTML = `<p class="text-xs sidebar-text italic">${modo === 'etapa' ? 'Sin tipologías registradas — crea una primero' : 'Sin etapas registradas — crea una primero'}</p>`
+      return
+    }
+    lista.innerHTML = items.map(it => {
+      const existing = actuales.find(a => modo === 'etapa' ? a.tipologia_id === it.id : a.etapa_id === it.id)
+      const stock = existing?.stock ?? 0
+      const label = modo === 'etapa' ? (it.nombre || '—') : `${it.nombre || '—'} · ${_formatFecha(it.fecha_entrega)}`
+      return `
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-sm val-text font-medium truncate">${esc(label)}</span>
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <label class="text-xs sidebar-text">Stock</label>
+            <input type="number" min="0" value="${stock}"
+                   data-item-id="${it.id}" data-et-id="${existing?.id ?? ''}"
+                   class="w-20 rounded-lg px-2 py-1.5 text-sm text-center asgn-stock-input" />
+          </div>
+        </div>`
+    }).join('')
+  } catch(e) {
+    lista.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>`
+  }
+}
+
+function cerrarAsignarStock() {
+  document.getElementById('modal-asignar-stock').classList.add('hidden')
+}
+
+async function guardarAsignacionStock() {
+  const btn = document.getElementById('btn-guardar-asgn')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    const inputs = document.querySelectorAll('.asgn-stock-input')
+    for (const inp of inputs) {
+      const itemId = parseInt(inp.dataset.itemId)
+      const etId   = inp.dataset.etId ? parseInt(inp.dataset.etId) : null
+      const stock  = parseInt(inp.value) || 0
+      if (etId) {
+        if (stock === 0) await api('DELETE', `/api/etapa-tipologia/${etId}`)
+        else await api('PATCH', `/api/etapa-tipologia/${etId}`, { stock })
+      } else if (stock > 0) {
+        const body = _asgnModo === 'etapa'
+          ? { etapa_id: _asgnId, tipologia_id: itemId, stock }
+          : { etapa_id: itemId, tipologia_id: _asgnId, stock }
+        await api('POST', '/api/etapa-tipologia', body)
+      }
+    }
+    toast('Stock actualizado')
+    cerrarAsignarStock()
+    await cargarEtapas()
+    await cargarTipologias()
+    renderTablaEtapas()
+    renderTablaTipologias()
+  } catch(e) {
+    toast(e.message, 'error')
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar'
+  }
 }
 
 function _efResetModo() {
@@ -2931,6 +3017,7 @@ function abrirFormEtapa(etapa = null) {
   const proyecto = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
 
   document.getElementById('etapa-form-titulo').textContent = etapa ? 'Editar etapa' : 'Nueva etapa'
+  document.getElementById('ef-nombre').value = etapa?.nombre || ''
   document.getElementById('ef-fecha').value  = etapa?.fecha_entrega || ''
   const estadoVal = etapa?.estado || 'entrega_futura'
   document.getElementById('ef-estado').value = estadoVal
@@ -2966,28 +3053,36 @@ function cerrarFormEtapa() {
 }
 
 async function guardarEtapa() {
+  const nombre      = document.getElementById('ef-nombre').value.trim()
   const proyecto_id = document.getElementById('ef-proyecto-id').value
   const fecha       = document.getElementById('ef-fecha').value
   const estado      = document.getElementById('ef-estado').value
+  if (!nombre)      { toast('El nombre es obligatorio', 'error'); return }
   if (!proyecto_id) { toast('Selecciona un proyecto', 'error'); return }
 
   const esCuotas = estado === 'entrega_futura' && document.getElementById('ef-modo-cuotas').checked
   const nCuotas  = esCuotas ? parseInt(document.getElementById('ef-num-cuotas').value) || null : null
-  const payload = { proyecto_id, fecha_entrega: fecha || null, estado, tipo_ahorro: esCuotas ? 'cuotas' : 'unico', num_cuotas: esCuotas ? nCuotas : null }
+  const payload = { proyecto_id, nombre, fecha_entrega: fecha || null, estado, tipo_ahorro: esCuotas ? 'cuotas' : 'unico', num_cuotas: esCuotas ? nCuotas : null }
 
   const btn = document.getElementById('btn-guardar-etapa')
   btn.disabled = true; btn.textContent = 'Guardando…'
   try {
+    let etapaCreada = null
     if (_editandoEtapaId) {
       await api('PATCH', `/api/etapas/${_editandoEtapaId}`, payload)
       toast('Etapa actualizada')
     } else {
-      await api('POST', '/api/etapas', payload)
+      etapaCreada = await api('POST', '/api/etapas', payload)
       toast('Etapa creada')
     }
     cerrarFormEtapa()
     await cargarEtapas()
     renderTablaEtapas()
+    // Recién creada: ofrecer asignar tipologías existentes de inmediato
+    if (etapaCreada?.id) {
+      await cargarTipologias()
+      abrirAsignarStock('etapa', etapaCreada.id, nombre)
+    }
   } catch(e) {
     toast(e.message, 'error')
   } finally {
@@ -3314,6 +3409,7 @@ async function guardarRegistrarInbox() {
         <thead>
           <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="col-proyecto-etapa hidden px-3 py-2.5 text-left">Proyecto</th>
+            <th class="px-3 py-2.5 text-left">Nombre</th>
             <th class="px-3 py-2.5 text-left">Fecha entrega</th>
             <th class="px-3 py-2.5">Estado</th>
             <th class="px-3 py-2.5 text-center">Acciones</th>
@@ -3495,6 +3591,10 @@ async function guardarRegistrarInbox() {
         <select id="ef-proyecto-id" class="w-full rounded-lg px-3 py-2 text-sm"></select>
       </div>
       <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="ef-nombre" type="text" placeholder="Ej: Etapa 1" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div>
         <label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label>
         <input id="ef-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" />
       </div>
@@ -3527,6 +3627,24 @@ async function guardarRegistrarInbox() {
     <div class="flex gap-3 mt-6">
       <button onclick="cerrarFormEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button id="btn-guardar-etapa" onclick="guardarEtapa()" class="flex-1 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ASIGNAR STOCK (etapa↔tipología, en ambas direcciones) ═══ -->
+<div id="modal-asignar-stock" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
+  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <div>
+        <h3 id="asgn-titulo" class="text-base font-bold val-text">Asignar</h3>
+        <p class="text-xs sidebar-text mt-0.5">Stock 0 = sin asignar</p>
+      </div>
+      <button onclick="cerrarAsignarStock()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div id="asgn-lista" class="overflow-y-auto px-6 py-4 space-y-2.5 flex-1"></div>
+    <div class="px-6 py-4 flex gap-3 border-t flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarAsignarStock()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cerrar</button>
+      <button onclick="guardarAsignacionStock()" id="btn-guardar-asgn" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
     </div>
   </div>
 </div>

@@ -7,7 +7,8 @@
       "Bash(python -m uvicorn main:app --reload --port 8000)",
       "Bash(python3 -m uvicorn main:app --reload --port 8000)",
       "Bash(python3 -m py_compile /Users/sglincovil/wtsp_pita/main.py)",
-      "Bash(python3 -m py_compile main.py)"
+      "Bash(python3 -m py_compile main.py)",
+      "Bash(grep -n \"MODAL ETAPA FORM\\\\|</div>$\" /Users/sglincovil/wtsp_pita/frontend/index.html)"
     ]
   }
 }
