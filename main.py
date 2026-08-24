@@ -4866,11 +4866,23 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     }
 
 
+_evaluaciones_en_curso: Dict[int, float] = {}
+_EVAL_LOCK_TIMEOUT_SEG = 30  # válvula de seguridad si algo deja el lock colgado
+
+
 @app.post("/api/clientes/{cliente_id}/enviar-evaluacion")
 async def api_enviar_evaluacion(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+
+    ahora = time.monotonic()
+    en_curso_desde = _evaluaciones_en_curso.get(cliente_id)
+    if en_curso_desde is not None and (ahora - en_curso_desde) < _EVAL_LOCK_TIMEOUT_SEG:
+        return Response(
+            content="Ya se está enviando una evaluación para este cliente, espera unos segundos.",
+            status_code=409, media_type="text/plain")
+    _evaluaciones_en_curso[cliente_id] = ahora
     try:
         body: dict = {}
         try:
@@ -4885,6 +4897,8 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
     except Exception as e:
         logger.exception("Error enviando evaluación cliente %s", cliente_id)
         return Response(content=str(e), status_code=500, media_type="text/plain")
+    finally:
+        _evaluaciones_en_curso.pop(cliente_id, None)
 
 
 # ── Recordatorio WA al ejecutivo ─────────────────────────────────────────────

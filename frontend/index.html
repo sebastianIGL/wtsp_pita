@@ -1751,6 +1751,7 @@ let _evalDocsSeleccionados = {}
 let _evalClienteId = null
 let _evalEjecutivosSeleccionados = []
 let _evalFuerzaArmada = false
+let _enviandoEvaluacion = false
 // Slots obligatorios normales: 1=liquidación, 2=AFP, 3=cédula, 5=informe deudas/CMF, 6=antigüedad
 // Fuerza Armada: solo 1=liquidación, 3=cédula, 5=informe deudas/CMF, 6=antigüedad (sin AFP ni libreta ahorro)
 const DOCS_OBLIGATORIOS_NORMAL = [1,2,3,5,6]
@@ -2183,6 +2184,11 @@ function abrirEditarClienteDesdeEval() {
 }
 
 async function confirmarEnvioEval() {
+  // Guard contra doble clic / doble disparo — antes nada impedía 2 envíos simultáneos
+  if (_enviandoEvaluacion) return
+  _enviandoEvaluacion = true
+  document.getElementById('btn-confirmar-envio').disabled = true
+
   cerrarPreviewEval()
   const ejecutivosParaEnviar = [..._evalEjecutivosSeleccionados]
   const btn = document.getElementById('btn-eval-enviar')
@@ -2200,6 +2206,7 @@ async function confirmarEnvioEval() {
   } catch(e) {
     toast(`❌ Error al enviar correo: ${e.message}`, 'error')
   }
+  _enviandoEvaluacion = false
   btn.disabled = false
   actualizarBtnEval()
   await abrirEvaluacion(_evalClienteId)
