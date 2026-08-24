@@ -8,7 +8,17 @@
       "Bash(python3 -m uvicorn main:app --reload --port 8000)",
       "Bash(python3 -m py_compile /Users/sglincovil/wtsp_pita/main.py)",
       "Bash(python3 -m py_compile main.py)",
-      "Bash(grep -n \"MODAL ETAPA FORM\\\\|</div>$\" /Users/sglincovil/wtsp_pita/frontend/index.html)"
+      "Bash(grep -n \"MODAL ETAPA FORM\\\\|</div>$\" /Users/sglincovil/wtsp_pita/frontend/index.html)",
+      "Read(//Users/sglincovil/.local/share/uv/python/**)",
+      "Bash(command -v uv)",
+      "Bash(uv python *)",
+      "Bash(/usr/bin/python3 -m venv .venv)",
+      "Bash(.venv/bin/python --version)",
+      "Bash(.venv/bin/python -m pip install --upgrade pip -q)",
+      "Bash(.venv/bin/python -m pip install -r requirements.txt -q)",
+      "Bash(.venv/bin/python -m pip list)",
+      "Bash(git check-ignore *)",
+      "Bash(~/.local/share/uv/python/cpython-3.11-macos-aarch64-none/bin/python3.11 -m venv .venv)"
     ]
   }
 }
