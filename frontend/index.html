@@ -1026,6 +1026,15 @@ async function actualizarEstadoGestion(id, val, sel) {
   }
 }
 
+// Badges de acción visibles en la tabla — deben coincidir con _ESTADOS_RECORDATORIO en main.py
+// (solo los estados que realmente ameritan avisar; pendiente/contestado/primer_wtsp no llevan badge)
+const _BADGES_ESTADO_CONV = {
+  docs_recibidos: { icon: '📞', text: 'Llamar',       bg: 'rgba(99,102,241,.2)',   color: '#a5b4fc', border: 'rgba(99,102,241,.4)'  },
+  espera_docs:    { icon: '📋', text: 'Docs',          bg: 'rgba(245,158,11,.15)',  color: '#fbbf24', border: 'rgba(245,158,11,.3)'  },
+  sin_respuesta:  { icon: '🔕', text: 'Insistir',      bg: 'rgba(248,113,113,.15)', color: '#f87171', border: 'rgba(248,113,113,.35)' },
+  sin_enviar:     { icon: '✉️', text: 'Sin contactar', bg: 'rgba(148,163,184,.15)', color: '#94a3b8', border: 'rgba(148,163,184,.35)' },
+}
+
 function computeEstadoConv(c) {
   const wtspMs  = _msDate(c.primer_wtsp_en)
   const ultMs   = _msDate(c.ultimo_entrante_en)
@@ -1199,13 +1208,11 @@ function renderTabla(data) {
             class="cursor-pointer badge-nuevo text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5">NUEVO</span>`
       : ''
 
-    const _pp = c.prospecto_paso
-    const badgeContacto = (_pp === 'DOCS_RECIBIDOS')
+    const _estadoConv = computeEstadoConv(c)
+    const _bc = _BADGES_ESTADO_CONV[_estadoConv]
+    const badgeContacto = _bc
       ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5"
-              style="background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.4)">📞 Llamar</span>`
-      : (_pp === 'DOCUMENTACION' || _pp === 'ESPERA_DOCS')
-      ? `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ml-1.5"
-              style="background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3)">📋 Docs</span>`
+              style="background:${_bc.bg};color:${_bc.color};border:1px solid ${_bc.border}">${_bc.icon} ${_bc.text}</span>`
       : ''
 
     return `<tr class="trow border-b transition ${recordatorioClass}">

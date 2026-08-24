@@ -2455,12 +2455,12 @@ async def _procesar_media(
             docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
             # Notificar ejecutivo cuando el cliente envía su primer documento
             cliente_id_media: Optional[int] = (prospecto or {}).get("cliente_id")
+            nombre_p = (prospecto or {}).get("nombre") or from_number
             if len(docs_recibidos) == 1 and cliente_id_media:
-                nombre_p = (prospecto or {}).get("nombre") or from_number
-                asyncio.create_task(_notificar_ejecutivo_wa(
+                asyncio.create_task(_notificar_recordatorio_estado(
                     cliente_id=cliente_id_media,
                     nombre_cliente=nombre_p,
-                    accion="envia_docs",
+                    tipo="primer_documento",
                 ))
 
         datos_calificacion = {campo: (prospecto or {}).get(campo) for campo in _CAMPOS_CALIFICACION}
@@ -2476,6 +2476,12 @@ async def _procesar_media(
             )
             if prospecto_id:
                 await actualizar_datos_prospecto(prospecto_id, {}, "DOCS_RECIBIDOS")
+                if cliente_id_media:
+                    asyncio.create_task(_notificar_recordatorio_estado(
+                        cliente_id=cliente_id_media,
+                        nombre_cliente=nombre_p,
+                        tipo="docs_completos",
+                    ))
         else:
             pendientes_texto = "\n".join(
                 f"  ▸ {requeridos_dict[t]['label']} ({falta} archivo{'s' if falta > 1 else ''} más)"
@@ -2881,8 +2887,8 @@ async def api_crear_usuario(request: Request):
                 asyncio.create_task(send_whatsapp_template(
                     to=cel_norm,
                     template_name="recordatorio_wtsp",
-                    language_code="es",
-                    body_text_params=[nombre, "bienvenida", "QueSubsidio CRM"],
+                    language_code="es_CL",
+                    body_text_params=[nombre, "Bienvenida al CRM", "QueSubsidio CRM"],
                 ))
         return {"ok": True, "usuario_id": user_id}
     except Exception as e:
@@ -5173,31 +5179,93 @@ async def _get_default_user() -> Optional[Dict]:
 
 
 
-async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> None:
-    """Envía notificación WA al ejecutivo asignado al cliente (template notif_ejecutivo)."""
+async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> Dict[str, Any]:
+    """Envía notificación WA al ejecutivo asignado al cliente (template recordatorio_wtsp).
+    Retorna {"ok": True} si se envió, o {"ok": False, "motivo": "..."} si no se pudo."""
     try:
         clientes = await _supabase_request("GET", "/Cliente",
             params={"id": f"eq.{cliente_id}", "select": "usuario_id,Proyecto(nombre)", "limit": "1"}) or []
         if not clientes or not clientes[0].get("usuario_id"):
-            return
+            return {"ok": False, "motivo": "sin ejecutivo asignado"}
         proyecto_nombre = (clientes[0].get("Proyecto") or {}).get("nombre") or "Sin proyecto"
         usuarios = await _supabase_request("GET", "/Usuario",
-            params={"id": f"eq.{clientes[0]['usuario_id']}", "select": "celular", "limit": "1"}) or []
+            params={"id": f"eq.{clientes[0]['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
         if not usuarios:
-            return
+            return {"ok": False, "motivo": "ejecutivo no encontrado"}
         celular = _normalize_phone(usuarios[0].get("celular") or "")
         if not celular:
-            return
+            return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}
         await send_whatsapp_template(
             to=celular,
             template_name="recordatorio_wtsp",
-            language_code="es",
+            language_code="es_CL",
             body_text_params=[nombre_cliente, accion, proyecto_nombre],
         )
         logger.info("WA notif ejecutivo → %s | cliente=%s | accion=%s | proyecto=%s",
                     celular, nombre_cliente, accion, proyecto_nombre)
+        return {"ok": True}
     except Exception as e:
         logger.warning("No se pudo notificar ejecutivo WA: %s", e)
+        return {"ok": False, "motivo": str(e)}
+
+
+# ── Recordatorios puntuales por avance del bot (event-driven) ─────────────────
+
+_TEXTOS_RECORDATORIO = {
+    "primer_documento": "Recibió su primer documento",
+    "docs_completos":   "Documentos completos, listo para llamar",
+}
+
+
+async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, tipo: str) -> Dict[str, Any]:
+    """Avisa al ejecutivo asignado cuando el bot mueve al cliente a un estado puntual
+    ('primer_documento' | 'docs_completos'). No vuelve a enviar el mismo tipo de aviso
+    hasta que el ejecutivo cambie estado_gestion (reconociendo que ya actuó)."""
+    texto = _TEXTOS_RECORDATORIO.get(tipo)
+    if not texto:
+        return {"ok": False, "motivo": f"tipo '{tipo}' inválido"}
+    try:
+        clientes = await _supabase_request("GET", "/Cliente",
+            params={"id": f"eq.{cliente_id}",
+                    "select": "usuario_id,estado_gestion,ultimo_recordatorio_tipo,"
+                              "ultimo_recordatorio_estado_gestion,Proyecto(nombre)",
+                    "limit": "1"}) or []
+        if not clientes:
+            return {"ok": False, "motivo": "cliente no encontrado"}
+        c = clientes[0]
+        if not c.get("usuario_id"):
+            return {"ok": False, "motivo": "sin ejecutivo asignado"}
+
+        estado_gestion_actual = c.get("estado_gestion")
+        if (c.get("ultimo_recordatorio_tipo") == tipo
+                and c.get("ultimo_recordatorio_estado_gestion") == estado_gestion_actual):
+            return {"ok": False, "motivo": "ya notificado — pendiente de que el ejecutivo cambie el estado de gestión"}
+
+        proyecto_nombre = (c.get("Proyecto") or {}).get("nombre") or "Sin proyecto"
+        usuarios = await _supabase_request("GET", "/Usuario",
+            params={"id": f"eq.{c['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
+        if not usuarios:
+            return {"ok": False, "motivo": "ejecutivo no encontrado"}
+        celular = _normalize_phone(usuarios[0].get("celular") or "")
+        if not celular:
+            return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}
+
+        await send_whatsapp_template(
+            to=celular,
+            template_name="recordatorio_wtsp",
+            language_code="es_CL",
+            body_text_params=[nombre_cliente, texto, proyecto_nombre],
+        )
+        await _supabase_request("PATCH", "/Cliente",
+            params={"id": f"eq.{cliente_id}"},
+            json={"ultimo_recordatorio_tipo": tipo, "ultimo_recordatorio_estado_gestion": estado_gestion_actual},
+            extra_headers={"Prefer": "return=minimal"})
+        logger.info("WA recordatorio → %s | cliente=%s | tipo=%s | proyecto=%s",
+                    celular, nombre_cliente, tipo, proyecto_nombre)
+        return {"ok": True}
+    except Exception as e:
+        logger.warning("No se pudo enviar recordatorio WA: %s", e)
+        return {"ok": False, "motivo": str(e)}
 
 
 async def _notificar_interesado(prospecto_id: str) -> None:

@@ -940,14 +940,42 @@
       contenedor.innerHTML = '<p class="text-slate-500 text-sm">No hay plantillas aprobadas en Meta.</p>';
       return;
     }
+    // Plantillas cuyo envío está controlado 100% por código (eventos puntuales del bot),
+    // no por este mapeo de variables. Mostrarlas como informativas, no editables.
+    const PLANTILLAS_AUTOMATICAS = {
+      recordatorio_wtsp: 'Se envía automáticamente cuando el bot detecta: <strong>primer documento recibido</strong>, <strong>todos los documentos completos</strong>, o el cliente <strong>pide contacto con un ejecutivo</strong>. No vuelve a avisar por el mismo motivo hasta que el ejecutivo cambie el estado de gestión del cliente. El mapeo de variables de abajo no tiene efecto sobre esta plantilla.',
+    };
+
     contenedor.innerHTML = templates.map(t => {
       const varCount = _contarVariables(t.components);
       const textoPreview = _textoBody(t.components);
       const varsActuales = _configsMap[t.name] || [];
       const hasConfig = varsActuales.length > 0;
-      const sourceTag = hasConfig
+      const esAutomatica = PLANTILLAS_AUTOMATICAS[t.name];
+      const sourceTag = esAutomatica
+        ? '<span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded-full">Automático (por código)</span>'
+        : hasConfig
         ? '<span class="text-xs bg-emerald-900/50 text-emerald-300 px-2 py-0.5 rounded-full">Guardado en DB</span>'
         : '<span class="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">Sin configurar</span>';
+
+      if (esAutomatica) {
+        return `
+          <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5" id="card-tpl-${t.name}">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-semibold text-white">${t.name}</span>
+                  <span class="text-xs text-slate-500">${t.language}</span>
+                  ${sourceTag}
+                </div>
+                ${textoPreview ? `<p class="text-xs text-slate-400 mt-1.5 line-clamp-3">${textoPreview}</p>` : ''}
+              </div>
+            </div>
+            <div class="mt-3 border-t border-slate-700 pt-3">
+              <p class="text-xs text-slate-400 leading-relaxed">${esAutomatica}</p>
+            </div>
+          </div>`;
+      }
 
       const paramNames = _extractParamNames(t.components);
       const dropdowns = varCount > 0 ? Array.from({ length: varCount }, (_, i) => {
