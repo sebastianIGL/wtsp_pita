@@ -2918,6 +2918,17 @@ async def api_actualizar_usuario(usuario_id: str, request: Request):
         update = {k: body[k] for k in ("nombre", "celular", "rol", "estado", "email_alias", "inmobiliaria_ids", "proyecto_ids") if k in body}
         if not update:
             return Response(content="Nada que actualizar", status_code=400)
+
+        # El rol "owner" es intocable: no se puede quitar a un owner ni asignárselo a otro por acá
+        if "rol" in update:
+            actuales = await _supabase_request("GET", "/Usuario",
+                params={"id": f"eq.{usuario_id}", "select": "rol", "limit": "1"}) or []
+            rol_actual = actuales[0].get("rol") if actuales else None
+            if rol_actual == "owner" or update["rol"] == "owner":
+                update.pop("rol")
+                if not update:
+                    return Response(content="El rol Owner no se puede modificar", status_code=400)
+
         await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{usuario_id}"}, json=update)
         return {"ok": True}
     except Exception as e:

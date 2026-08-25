@@ -372,10 +372,12 @@
         <label class="block text-slate-300 text-xs font-medium mb-1.5">Rol</label>
         <select id="e-rol"
           class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed">
           <option value="ejecutivo">Ejecutivo</option>
           <option value="administrador">Administrador</option>
+          <option value="owner" class="hidden">Owner</option>
         </select>
+        <p id="e-rol-hint" class="hidden text-xs text-slate-500 mt-1">El rol Owner no se puede modificar desde aquí.</p>
       </div>
       <div>
         <label class="block text-slate-300 text-xs font-medium mb-1.5">Estado</label>
@@ -772,10 +774,18 @@
     document.getElementById('e-id').value      = u.id;
     document.getElementById('e-nombre').value  = u.nombre;
     document.getElementById('e-celular').value = u.celular || '';
-    document.getElementById('e-rol').value     = u.rol;
     document.getElementById('e-estado').value  = u.estado;
     document.getElementById('e-alias').value   = u.email_alias || '';
     document.getElementById('errorEditar').classList.add('hidden');
+
+    const esOwner  = u.rol === 'owner';
+    const selRol   = document.getElementById('e-rol');
+    const optOwner = selRol.querySelector('option[value="owner"]');
+    optOwner.classList.toggle('hidden', !esOwner);
+    selRol.value    = u.rol;
+    selRol.disabled = esOwner;
+    document.getElementById('e-rol-hint').classList.toggle('hidden', !esOwner);
+
     document.getElementById('modalEditar').classList.remove('hidden');
     await cargarOpcionesAsignacion();
     renderAsignacion(
@@ -797,12 +807,12 @@
     const btn = document.getElementById('btnEditarUsuario');
     btn.disabled = true; btn.textContent = 'Guardando…';
     try {
-      const id  = document.getElementById('e-id').value;
-      const rol = document.getElementById('e-rol').value;
+      const id       = document.getElementById('e-id').value;
+      const rolSelEl = document.getElementById('e-rol');
+      const rol      = rolSelEl.value;
       const body = {
         nombre:       document.getElementById('e-nombre').value.trim(),
         celular:      document.getElementById('e-celular').value.trim() || null,
-        rol,
         estado:       parseInt(document.getElementById('e-estado').value),
         email_alias:  document.getElementById('e-alias').value.trim() || null,
         inmobiliaria_ids: rol === 'ejecutivo'
@@ -812,6 +822,8 @@
           ? leerCheckboxes(document.getElementById('e-proy-lista'))
           : [],
       };
+      // El rol Owner nunca se envía — es inmodificable desde este formulario
+      if (!rolSelEl.disabled) body.rol = rol;
       const res = await fetch(`/api/usuarios/${id}`, {
         method: 'PATCH', headers: authHeaders(),
         body: JSON.stringify(body),
