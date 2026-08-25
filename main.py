@@ -311,6 +311,7 @@ _KEYWORDS_TIPO: List[tuple] = [
     ("certificado_afp",    ["afp", "prevision", "previsión", "pension", "pensión", "retiro"]),
     ("libreta_ahorro",     ["libreta", "ahorro", "cartola", "cuenta_vista", "cuenta_rut", "cuentarut", "saldo"]),
     ("informe_deudas",     ["informe_de_deudas", "informe_deuda", "deudas", "dicom", "clave_unica", "claveunica"]),
+    ("certificado_rsh",    ["rsh", "registro_social", "registro social", "hogares", "cas", "ficha_social", "ficha social"]),
 ]
 
 
