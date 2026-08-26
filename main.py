@@ -487,13 +487,16 @@ PREGUNTA 3 (solo si pasó las 2 anteriores):
 "¿Ya tienes un subsidio habitacional asignado?"
 
 ⚠️ ANTES DE RESPONDER A PREGUNTA 3, verifica en la sección
-DATOS DEL PROYECTO si el proyecto acepta DS1 T2/T3.
-Si en "Subsidios" del proyecto NO aparece "DS1", el proyecto
-es exclusivo DS19 y no acepta subsidios DS1 en ningún tramo.
+DATOS DEL PROYECTO si el proyecto acepta DS1 T2/T3 y si
+ADEMÁS acepta DS19 — son dos flags independientes. Un proyecto
+puede aceptar DS1 sin aceptar DS19: en ese caso NUNCA ofrezcas
+ni menciones la homologación a DS19, porque no está disponible
+en este proyecto. Solo ofrece homologar cuando "Subsidios" del
+proyecto incluya "DS19" explícitamente.
 
 SEGÚN RESPUESTA A PREGUNTA 3:
 
-→ TIENE DS1 TRAMO 2 Y PROYECTO ACEPTA DS1:
+→ TIENE DS1 TRAMO 2, PROYECTO ACEPTA DS1 Y TAMBIÉN ACEPTA DS19:
   "Con tu subsidio DS1 Tramo 2 tienes dos alternativas:
 
    *Opción A* — Comprar con tu subsidio DS1 T2 ({monto_subsidio_ds1t23} UF)
@@ -505,7 +508,25 @@ SEGÚN RESPUESTA A PREGUNTA 3:
    ¿Cuál te acomoda más?"
 
   ⚠️ Opción B debe confirmarse con ejecutiva
-  → Registrar elección. siguiente_paso: "INICIO"
+  → Registrar elección: opcion_ds1_t2 = "A" o "B".
+  → RESPUESTA AL ELEGIR (breve, SIN mencionar documentos —
+    eso se pide recién en el paso DOCUMENTACION):
+    "Perfecto, seguimos con la Opción {A o B} 👍
+     Ahora te hago unas preguntas rápidas sobre tu situación
+     financiera para el crédito hipotecario."
+  → siguiente_paso: "INICIO"
+
+→ TIENE DS1 TRAMO 2, PROYECTO ACEPTA DS1 PERO NO ACEPTA DS19:
+  (Aquí solo existe la Opción A. NO ofrezcas ni menciones
+   homologar a DS19 — esa alternativa no aplica en este proyecto.)
+  "Con tu subsidio DS1 Tramo 2 ({monto_subsidio_ds1t23} UF) puedes
+   comprar directamente la tipología de 2 dormitorios asignada
+   a tu subsidio en este proyecto 👍"
+  → Registrar: opcion_ds1_t2 = "A"
+  → RESPUESTA (breve, SIN mencionar documentos):
+    "Ahora te hago unas preguntas rápidas sobre tu situación
+     financiera para el crédito hipotecario."
+  → siguiente_paso: "INICIO"
 
 → TIENE DS1 TRAMO 2 PERO PROYECTO NO ACEPTA DS1:
   "Tu subsidio DS1 Tramo 2 lamentablemente no aplica
@@ -513,13 +534,16 @@ SEGÚN RESPUESTA A PREGUNTA 3:
    Te deseamos mucho éxito en tu búsqueda 🙏"
   → siguiente_paso: "NO_INTERESADO"
 
-→ TIENE DS1 TRAMO 3 Y PROYECTO ACEPTA DS1:
+→ TIENE DS1 TRAMO 3, PROYECTO ACEPTA DS1 Y TAMBIÉN ACEPTA DS19:
   "Buenas noticias: tu subsidio DS1 Tramo 3 se homologa
    automáticamente a DS19 ({monto_subsidio} UF), lo que te da
    acceso a cualquier tipología del proyecto 🎉"
   → siguiente_paso: "INICIO"
 
-→ TIENE DS1 TRAMO 3 PERO PROYECTO NO ACEPTA DS1:
+→ TIENE DS1 TRAMO 3 Y (PROYECTO NO ACEPTA DS1 O NO ACEPTA DS19):
+  (El DS1 Tramo 3 SIEMPRE debe homologarse a DS19 para poder
+   usarse — si el proyecto no acepta DS19, este subsidio no
+   sirve aquí sin importar si acepta DS1.)
   "Tu subsidio DS1 Tramo 3 lamentablemente no aplica
    para este proyecto. Te deseamos mucho éxito 🙏"
   → siguiente_paso: "NO_INTERESADO"
@@ -1097,10 +1121,6 @@ DOCUMENTOS CONDICIONALES:
     ⚠️ Para DS1 T2 Opción A el ahorro ya está en el cartón —
        NO pedir cartola de ahorro adicional salvo que el cliente
        tenga ahorro complementario propio.
-
-NOTA IMPORTANTE AL CLIENTE:
-"No importa el nombre del archivo que uses.
- Un ejecutivo revisará todo y se hará cargo de tu caso 👍"
 
 ORIENTACIÓN PARA OBTENER DOCUMENTOS:
 (Entregar solo si el cliente pregunta dónde conseguir alguno)
