@@ -594,19 +594,6 @@
 
       </div>
 
-      <!-- Documentos recibidos por WhatsApp -->
-      <div id="eval-docs-recibidos" class="hidden">
-        <hr class="eval-divider border-t mb-4">
-        <div class="flex items-center justify-between mb-3">
-          <p class="text-sm font-semibold val-text">Documentos enviados por el cliente</p>
-          <button id="btn-descargar-extras" onclick="descargarExtrasZip()" class="hidden text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition flex items-center gap-1.5">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-            Descargar extras (ZIP)
-          </button>
-        </div>
-        <div id="eval-docs-lista" class="space-y-1.5"></div>
-      </div>
-
       <!-- Acciones -->
       <div class="flex flex-col gap-2 pt-2">
         <button id="btn-remarketing-docs" onclick="enviarRecordatorioDocs()"
@@ -1886,42 +1873,74 @@ function poblarSlotsDocumentos(docs) {
       drop.appendChild(pvBtn)
     }
     pvBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); previsualizarDocEval(doc.id, doc.mime_type, doc.nombre_archivo) }
+
+    // "Ver todos" — solo en el slot de "Otro documento", donde puede haber varios
+    // sin clasificar ocultos detrás del más reciente
+    if (tipo === 'otro') {
+      let listBtn = drop.querySelector('.doc-list-btn')
+      if (!listBtn) {
+        listBtn = document.createElement('button')
+        listBtn.type = 'button'
+        listBtn.className = 'doc-list-btn ml-1 p-1 rounded text-indigo-400 hover:text-indigo-300 transition flex-shrink-0'
+        listBtn.style.cssText = 'position:relative;z-index:10'
+        listBtn.title = 'Ver todos los documentos sin clasificar'
+        listBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>`
+        drop.appendChild(listBtn)
+      }
+      listBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); abrirDocsOtros() }
+    }
+
+    // Reclasificar — poco usado, se mantiene discreto al final y oculto tras un clic
+    let rcBtn = drop.querySelector('.doc-rc-btn')
+    if (!rcBtn) {
+      rcBtn = document.createElement('button')
+      rcBtn.type = 'button'
+      rcBtn.className = 'doc-rc-btn ml-1 p-1 rounded text-slate-500 hover:text-slate-300 transition flex-shrink-0'
+      rcBtn.style.cssText = 'position:relative;z-index:10'
+      rcBtn.title = 'Reclasificar'
+      rcBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5.586a1 1 0 01.707.293l6.414 6.414a1 1 0 010 1.414l-7.586 7.586a1 1 0 01-1.414 0L4.293 12.293A1 1 0 014 11.586V6a3 3 0 013-3z"/></svg>`
+      drop.appendChild(rcBtn)
+    }
+    rcBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleReclasificarSlot(drop, doc) }
   })
 }
 
-function renderDocsRecibidos(docs) {
-  const seccion = document.getElementById('eval-docs-recibidos')
-  const lista    = document.getElementById('eval-docs-lista')
-  const btnZip   = document.getElementById('btn-descargar-extras')
+// Selector de reclasificación discreto, se abre solo al hacer clic en el icono de la etiqueta
+function toggleReclasificarSlot(drop, doc) {
+  const existente = drop.querySelector('.doc-rc-box')
+  if (existente) { existente.remove(); return }
+  document.querySelectorAll('.doc-rc-box').forEach(el => el.remove())
 
+  const box = document.createElement('div')
+  box.className = 'doc-rc-box'
+  box.style.cssText = 'position:absolute;left:12px;right:12px;bottom:6px;transform:translateY(100%);z-index:20;background:#1e293b;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.4)'
+  box.onclick = (e) => e.stopPropagation()
+  box.onmousedown = (e) => e.stopPropagation()
+  const opciones = Object.entries(TIPOS_DOC_LABELS)
+    .map(([val, lbl]) => `<option value="${val}" ${val === doc.tipo ? 'selected' : ''}>${lbl}</option>`).join('')
+  box.innerHTML = `<select class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] val-text" data-doc-id="${doc.id}" onchange="reclasificarDocumento(this)">${opciones}</select>`
+  drop.appendChild(box)
+}
+
+function renderListaDocs(containerId, docs, esSinClasificar) {
+  const cont = document.getElementById(containerId)
   if (!docs.length) {
-    seccion.classList.add('hidden')
-    lista.innerHTML = ''
-    btnZip.classList.add('hidden')
+    cont.innerHTML = `<p class="text-xs sidebar-text opacity-60">${esSinClasificar ? 'No hay documentos sin clasificar.' : 'Sin documentos clasificados.'}</p>`
     return
   }
-
-  seccion.classList.remove('hidden')
-  btnZip.classList.toggle('hidden', docs.filter(d => d.tipo === 'otro').length < 1)
-
   const opcionesHTML = (tipoActual) => Object.entries(TIPOS_DOC_LABELS)
     .map(([val, lbl]) => `<option value="${val}" ${val === tipoActual ? 'selected' : ''}>${lbl}</option>`).join('')
 
-  lista.innerHTML = docs.map(d => {
-    const sinClasificar = d.tipo === 'otro'
-    const label  = TIPOS_DOC_LABELS[d.tipo] || d.tipo
-    const nombre = (d.nombre_archivo || 'Documento').length > 32
-      ? (d.nombre_archivo || '').slice(0, 29) + '…'
+  cont.innerHTML = docs.map(d => {
+    const nombre = (d.nombre_archivo || 'Documento').length > 30
+      ? (d.nombre_archivo || '').slice(0, 27) + '…'
       : (d.nombre_archivo || 'Documento')
     return `
       <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-800/60 text-xs">
-        <div class="flex-1 min-w-0">
-          <p class="val-text font-medium truncate" title="${(d.nombre_archivo || '').replace(/"/g, '&quot;')}">${nombre}</p>
-          <p class="${sinClasificar ? 'text-amber-400' : 'sidebar-text'} mt-0.5">${sinClasificar ? '⚠️ Sin clasificar' : label}</p>
-        </div>
-        <button type="button" class="p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0" title="Descargar"
-          onclick="descargarDocEval('${d.id}', '${(d.nombre_archivo || '').replace(/'/g, "\\'")}')">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <p class="flex-1 min-w-0 val-text truncate" title="${(d.nombre_archivo || '').replace(/"/g, '&quot;')}">${nombre}</p>
+        <button type="button" class="p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0" title="Visualizar"
+          onclick="previsualizarDocEval('${d.id}', '${(d.mime_type || '').replace(/'/g, "\\'")}', '${(d.nombre_archivo || '').replace(/'/g, "\\'")}')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
         </button>
         <select class="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] val-text flex-shrink-0"
           data-doc-id="${d.id}" onchange="reclasificarDocumento(this)">
@@ -1931,11 +1950,38 @@ function renderDocsRecibidos(docs) {
   }).join('')
 }
 
+function refrescarDocsOtrosPopup() {
+  const box = document.getElementById('docs-clasificados-lista')
+  const estabaAbierto = !box.classList.contains('hidden')
+  renderListaDocs('docs-otros-lista', _docsEvalCache.filter(d => d.tipo === 'otro'), true)
+  renderListaDocs('docs-clasificados-lista', _docsEvalCache.filter(d => d.tipo !== 'otro'), false)
+  box.classList.toggle('hidden', !estabaAbierto)
+}
+
+function abrirDocsOtros() {
+  refrescarDocsOtrosPopup()
+  document.getElementById('modal-docs-otros').classList.remove('hidden')
+}
+
+function cerrarDocsOtros() {
+  document.getElementById('modal-docs-otros').classList.add('hidden')
+}
+
+function toggleDocsClasificados() {
+  const box = document.getElementById('docs-clasificados-lista')
+  const btn = document.getElementById('btn-toggle-clasificados')
+  const seVaAAbrir = box.classList.contains('hidden')
+  box.classList.toggle('hidden')
+  btn.textContent = seVaAAbrir ? 'Ocultar documentos clasificados' : 'Ver documentos ya clasificados'
+}
+
+let _docsEvalCache = []
+
 async function recargarDocumentosEval() {
   try {
     const docs = await api('GET', `/api/clientes/${_evalClienteId}/documentos`)
+    _docsEvalCache = docs
     poblarSlotsDocumentos(docs)
-    renderDocsRecibidos(docs)
     actualizarBtnEval()
   } catch(e) {
     console.warn('No se pudieron cargar documentos:', e)
@@ -1949,7 +1995,11 @@ async function reclasificarDocumento(selectEl) {
   try {
     await api('PATCH', `/api/clientes/${_evalClienteId}/documentos/${docId}/tipo`, { tipo: nuevoTipo })
     toast('✅ Documento reclasificado', 'success')
+    document.querySelectorAll('.doc-rc-box').forEach(el => el.remove())
     await recargarDocumentosEval()
+    if (!document.getElementById('modal-docs-otros').classList.contains('hidden')) {
+      refrescarDocsOtrosPopup()
+    }
   } catch(e) {
     toast('❌ Error al reclasificar: ' + e.message, 'error')
     selectEl.disabled = false
@@ -2006,24 +2056,6 @@ function cerrarDocPreview() {
   document.getElementById('modal-doc-preview').classList.add('hidden')
   if (_previewBlobUrl) { URL.revokeObjectURL(_previewBlobUrl); _previewBlobUrl = null }
   document.getElementById('doc-preview-body').innerHTML = ''
-}
-
-async function descargarExtrasZip() {
-  try {
-    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/documentos/extras/zip`, {
-      headers: { 'Authorization': `Bearer ${_token}` }
-    })
-    if (!res.ok) throw new Error(await res.text())
-    const blob = await res.blob()
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = 'extras.zip'
-    a.click()
-    URL.revokeObjectURL(url)
-  } catch(e) {
-    toast('❌ Error al descargar ZIP: ' + e.message, 'error')
-  }
 }
 
 function onDocSelect(input, n) {
@@ -3799,6 +3831,26 @@ async function guardarRegistrarInbox() {
     <div class="px-7 py-5 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
       <button onclick="cerrarRegistrarInbox()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
       <button id="btn-guardar-inbox" onclick="guardarRegistrarInbox()" class="flex-1 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition">Registrar cliente</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL DOCUMENTOS SIN CLASIFICAR ═══ -->
+<div id="modal-docs-otros" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
+  <div class="glass rounded-2xl shadow-2xl flex flex-col" style="width:100%;max-width:480px;max-height:85vh">
+    <div class="flex items-center justify-between px-5 py-3 border-b" style="border-color:rgba(255,255,255,0.08)">
+      <span class="text-sm font-semibold val-text">Documentos sin clasificar</span>
+      <button onclick="cerrarDocsOtros()" class="ml-3 p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-5 py-4">
+      <div id="docs-otros-lista" class="space-y-1.5"></div>
+      <button type="button" id="btn-toggle-clasificados" onclick="toggleDocsClasificados()"
+        class="text-xs sidebar-text hover:text-indigo-400 transition mt-4">
+        Ver documentos ya clasificados
+      </button>
+      <div id="docs-clasificados-lista" class="hidden space-y-1.5 mt-2"></div>
     </div>
   </div>
 </div>
