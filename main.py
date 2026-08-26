@@ -314,6 +314,10 @@ _KEYWORDS_TIPO: List[tuple] = [
     ("certificado_rsh",    ["rsh", "registro_social", "registro social", "hogares", "cas", "ficha_social", "ficha social"]),
 ]
 
+# El clasificador y la lista de documentos requeridos nacieron por separado y usan
+# nombres distintos para el mismo documento real (cartola/libreta de ahorro).
+_TIPO_ALIAS: Dict[str, str] = {"libreta_ahorro": "cartola_ahorro"}
+
 
 def clasificar_documento(nombre_archivo: str, mime_type: str = "") -> str:
     """Clasifica el tipo de documento según el nombre del archivo."""
@@ -329,7 +333,7 @@ def documentos_pendientes(docs_recibidos: List[Dict], datos: Optional[Dict] = No
     requeridos = _docs_requeridos(datos or {})
     conteo: Dict[str, int] = {t: 0 for t in requeridos}
     for doc in docs_recibidos:
-        tipo = doc.get("tipo", "")
+        tipo = _TIPO_ALIAS.get(doc.get("tipo", ""), doc.get("tipo", ""))
         if tipo in conteo:
             conteo[tipo] += 1
     pendientes = {}
@@ -345,8 +349,9 @@ def resumen_documentos(docs_recibidos: List[Dict], datos: Optional[Dict] = None)
     requeridos = _docs_requeridos(datos or {})
     conteo: Dict[str, int] = {t: 0 for t in requeridos}
     for doc in docs_recibidos:
-        if doc.get("tipo") in conteo:
-            conteo[doc["tipo"]] += 1
+        tipo = _TIPO_ALIAS.get(doc.get("tipo"), doc.get("tipo"))
+        if tipo in conteo:
+            conteo[tipo] += 1
     recibidos_labels  = [cfg["label"] for tipo, cfg in requeridos.items() if conteo.get(tipo, 0) >= cfg["cantidad"]]
     pendientes_labels = [cfg["label"] for tipo, cfg in requeridos.items() if conteo.get(tipo, 0) <  cfg["cantidad"]]
     rec = ", ".join(recibidos_labels)  if recibidos_labels  else "(ninguno)"
@@ -4390,6 +4395,79 @@ TIPOS_VALIDOS = {
     "liquidacion_sueldo", "certificado_afp", "carnet_identidad",
     "antiguedad_laboral", "libreta_ahorro", "informe_deudas", "otro",
 }
+
+# Tipos que un ejecutivo puede asignar manualmente a un documento ya recibido
+# (incluye todos los que el clasificador automático puede requerir, más "otro"
+# para revertir una reclasificación por error).
+TIPOS_DOCUMENTO_RECLASIFICABLES: Dict[str, str] = {
+    "carnet_identidad":             "Cédula de identidad",
+    "certificado_afp":              "Certificado de AFP",
+    "certificado_rsh":              "Certificado RSH",
+    "liquidacion_sueldo":           "Liquidación de sueldo",
+    "antiguedad_laboral":           "Antigüedad laboral",
+    "carpeta_tributaria_sii":       "Carpeta tributaria SII",
+    "declaracion_anual_impuestos":  "Declaración anual de impuestos",
+    "libreta_ahorro":               "Cartola / libreta de ahorro",
+    "cedula_complementador":        "Cédula del complementador",
+    "liquidaciones_complementador": "Liquidaciones del complementador",
+    "informe_deudas":               "Informe de deudas",
+    "otro":                         "Sin clasificar",
+}
+
+
+@app.patch("/api/clientes/{cliente_id}/documentos/{doc_id}/tipo")
+async def api_reclasificar_documento(cliente_id: int, doc_id: str, request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        body = await request.json()
+        nuevo_tipo = (body.get("tipo") or "").strip()
+        if nuevo_tipo not in TIPOS_DOCUMENTO_RECLASIFICABLES:
+            return Response(content=f"Tipo inválido: {nuevo_tipo}", status_code=400)
+
+        prospectos = await _supabase_request(
+            "GET", "/Prospecto",
+            params={
+                "cliente_id": f"eq.{cliente_id}",
+                "select": "id,paso,nombre," + ",".join(_CAMPOS_CALIFICACION),
+                "limit": "1",
+            },
+        ) or []
+        if not prospectos:
+            return Response(content="Cliente sin conversación asociada", status_code=404)
+        prospecto    = prospectos[0]
+        prospecto_id = prospecto["id"]
+
+        doc_existente = await _supabase_request(
+            "GET", "/Documento",
+            params={"id": f"eq.{doc_id}", "prospecto_id": f"eq.{prospecto_id}", "select": "id", "limit": "1"},
+        ) or []
+        if not doc_existente:
+            return Response(content="Documento no encontrado", status_code=404)
+
+        await _supabase_request(
+            "PATCH", f"/Documento?id=eq.{doc_id}",
+            json={"tipo": nuevo_tipo},
+            extra_headers={"Prefer": "return=minimal"},
+        )
+
+        docs_recibidos     = await obtener_documentos_prospecto(prospecto_id)
+        datos_calificacion = {campo: prospecto.get(campo) for campo in _CAMPOS_CALIFICACION}
+        pendientes          = documentos_pendientes(docs_recibidos, datos_calificacion)
+
+        if not pendientes:
+            if prospecto.get("paso") != "DOCS_RECIBIDOS":
+                await actualizar_datos_prospecto(prospecto_id, {}, "DOCS_RECIBIDOS")
+            asyncio.create_task(_notificar_recordatorio_estado(
+                cliente_id=cliente_id,
+                nombre_cliente=prospecto.get("nombre") or "Cliente",
+                tipo="docs_completos",
+            ))
+
+        return {"ok": True, "tipo": nuevo_tipo, "pendientes": pendientes}
+    except Exception as e:
+        logger.exception("Error reclasificando documento %s del cliente %s", doc_id, cliente_id)
+        return Response(content=_safe_httpx_error(e) or "Error al reclasificar documento", status_code=500, media_type="text/plain")
 
 @app.post("/api/clientes/{cliente_id}/documentos/upload")
 async def api_upload_documento(

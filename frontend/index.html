@@ -1750,6 +1750,23 @@ const TIPOS_DOC = {
 }
 const SLOT_POR_TIPO = Object.fromEntries(Object.entries(TIPOS_DOC).map(([k,v]) => [v, +k]))
 
+// Tipos que el ejecutivo puede asignar manualmente a un documento recibido (debe reflejar
+// TIPOS_DOCUMENTO_RECLASIFICABLES en main.py)
+const TIPOS_DOC_LABELS = {
+  carnet_identidad:             'Cédula de identidad',
+  certificado_afp:              'Certificado de AFP',
+  certificado_rsh:              'Certificado RSH',
+  liquidacion_sueldo:           'Liquidación de sueldo',
+  antiguedad_laboral:           'Antigüedad laboral',
+  carpeta_tributaria_sii:       'Carpeta tributaria SII',
+  declaracion_anual_impuestos:  'Declaración anual de impuestos',
+  libreta_ahorro:               'Cartola / libreta de ahorro',
+  cedula_complementador:        'Cédula del complementador',
+  liquidaciones_complementador: 'Liquidaciones del complementador',
+  informe_deudas:               'Informe de deudas',
+  otro:                         'Sin clasificar',
+}
+
 let _evalDocsSeleccionados = {}
 let _evalClienteId = null
 let _evalEjecutivosSeleccionados = []
@@ -1821,65 +1838,121 @@ async function abrirEvaluacion(id) {
   document.getElementById('modal-eval').classList.remove('hidden')
 
   // Cargar documentos existentes desde Supabase
-  const seccionRecibidos = document.getElementById('eval-docs-recibidos')
-  const listaRecibidos   = document.getElementById('eval-docs-lista')
-  const btnExtrasZip     = document.getElementById('btn-descargar-extras')
-  seccionRecibidos.classList.add('hidden')
-  listaRecibidos.innerHTML = ''
-  btnExtrasZip.classList.add('hidden')
+  await recargarDocumentosEval()
+}
 
+function poblarSlotsDocumentos(docs) {
+  // Slots: mostrar el más reciente por tipo + botón de descarga
+  const porTipo = {}
+  docs.forEach(d => { if (!porTipo[d.tipo]) porTipo[d.tipo] = d })
+
+  Object.entries(porTipo).forEach(([tipo, doc]) => {
+    const slot = SLOT_POR_TIPO[tipo]
+    if (!slot) return
+    const drop  = document.getElementById(`drop-${slot}`)
+    const check = document.getElementById(`doc-check-${slot}`)
+    const lbl   = document.getElementById(`doc-label-${slot}`)
+    if (!drop) return
+    drop.classList.add('has-file')
+    check.classList.remove('hidden')
+    const nombre = (doc.nombre_archivo || '').length > 28
+      ? (doc.nombre_archivo || '').slice(0,25) + '…'
+      : (doc.nombre_archivo || 'Archivo subido')
+    lbl.textContent = `📎 ${nombre}`
+    lbl.classList.add('text-emerald-400')
+    _evalDocsSeleccionados[slot] = doc
+
+    // Agregar botones de descarga y preview al slot
+    let dlBtn = drop.querySelector('.doc-dl-btn')
+    if (!dlBtn) {
+      dlBtn = document.createElement('button')
+      dlBtn.type = 'button'
+      dlBtn.className = 'doc-dl-btn ml-1 p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0'
+      dlBtn.style.cssText = 'position:relative;z-index:10'
+      dlBtn.title = 'Descargar'
+      dlBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`
+      drop.appendChild(dlBtn)
+    }
+    dlBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); descargarDocEval(doc.id, doc.nombre_archivo) }
+
+    let pvBtn = drop.querySelector('.doc-pv-btn')
+    if (!pvBtn) {
+      pvBtn = document.createElement('button')
+      pvBtn.type = 'button'
+      pvBtn.className = 'doc-pv-btn ml-1 p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0'
+      pvBtn.style.cssText = 'position:relative;z-index:10'
+      pvBtn.title = 'Visualizar'
+      pvBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`
+      drop.appendChild(pvBtn)
+    }
+    pvBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); previsualizarDocEval(doc.id, doc.mime_type, doc.nombre_archivo) }
+  })
+}
+
+function renderDocsRecibidos(docs) {
+  const seccion = document.getElementById('eval-docs-recibidos')
+  const lista    = document.getElementById('eval-docs-lista')
+  const btnZip   = document.getElementById('btn-descargar-extras')
+
+  if (!docs.length) {
+    seccion.classList.add('hidden')
+    lista.innerHTML = ''
+    btnZip.classList.add('hidden')
+    return
+  }
+
+  seccion.classList.remove('hidden')
+  btnZip.classList.toggle('hidden', docs.filter(d => d.tipo === 'otro').length < 1)
+
+  const opcionesHTML = (tipoActual) => Object.entries(TIPOS_DOC_LABELS)
+    .map(([val, lbl]) => `<option value="${val}" ${val === tipoActual ? 'selected' : ''}>${lbl}</option>`).join('')
+
+  lista.innerHTML = docs.map(d => {
+    const sinClasificar = d.tipo === 'otro'
+    const label  = TIPOS_DOC_LABELS[d.tipo] || d.tipo
+    const nombre = (d.nombre_archivo || 'Documento').length > 32
+      ? (d.nombre_archivo || '').slice(0, 29) + '…'
+      : (d.nombre_archivo || 'Documento')
+    return `
+      <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-800/60 text-xs">
+        <div class="flex-1 min-w-0">
+          <p class="val-text font-medium truncate" title="${(d.nombre_archivo || '').replace(/"/g, '&quot;')}">${nombre}</p>
+          <p class="${sinClasificar ? 'text-amber-400' : 'sidebar-text'} mt-0.5">${sinClasificar ? '⚠️ Sin clasificar' : label}</p>
+        </div>
+        <button type="button" class="p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0" title="Descargar"
+          onclick="descargarDocEval('${d.id}', '${(d.nombre_archivo || '').replace(/'/g, "\\'")}')">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        </button>
+        <select class="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] val-text flex-shrink-0"
+          data-doc-id="${d.id}" onchange="reclasificarDocumento(this)">
+          ${opcionesHTML(d.tipo)}
+        </select>
+      </div>`
+  }).join('')
+}
+
+async function recargarDocumentosEval() {
   try {
-    const docs = await api('GET', `/api/clientes/${id}/documentos`)
-
-    // Slots: mostrar el más reciente por tipo + botón de descarga
-    const porTipo = {}
-    docs.forEach(d => { if (!porTipo[d.tipo]) porTipo[d.tipo] = d })
-
-    Object.entries(porTipo).forEach(([tipo, doc]) => {
-      const slot = SLOT_POR_TIPO[tipo]
-      if (!slot) return
-      const drop  = document.getElementById(`drop-${slot}`)
-      const check = document.getElementById(`doc-check-${slot}`)
-      const lbl   = document.getElementById(`doc-label-${slot}`)
-      if (!drop) return
-      drop.classList.add('has-file')
-      check.classList.remove('hidden')
-      const nombre = (doc.nombre_archivo || '').length > 28
-        ? (doc.nombre_archivo || '').slice(0,25) + '…'
-        : (doc.nombre_archivo || 'Archivo subido')
-      lbl.textContent = `📎 ${nombre}`
-      lbl.classList.add('text-emerald-400')
-      _evalDocsSeleccionados[slot] = doc
-
-      // Agregar botones de descarga y preview al slot
-      let dlBtn = drop.querySelector('.doc-dl-btn')
-      if (!dlBtn) {
-        dlBtn = document.createElement('button')
-        dlBtn.type = 'button'
-        dlBtn.className = 'doc-dl-btn ml-1 p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0'
-        dlBtn.style.cssText = 'position:relative;z-index:10'
-        dlBtn.title = 'Descargar'
-        dlBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>`
-        drop.appendChild(dlBtn)
-      }
-      dlBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); descargarDocEval(doc.id, doc.nombre_archivo) }
-
-      let pvBtn = drop.querySelector('.doc-pv-btn')
-      if (!pvBtn) {
-        pvBtn = document.createElement('button')
-        pvBtn.type = 'button'
-        pvBtn.className = 'doc-pv-btn ml-1 p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0'
-        pvBtn.style.cssText = 'position:relative;z-index:10'
-        pvBtn.title = 'Visualizar'
-        pvBtn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`
-        drop.appendChild(pvBtn)
-      }
-      pvBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); previsualizarDocEval(doc.id, doc.mime_type, doc.nombre_archivo) }
-    })
-
+    const docs = await api('GET', `/api/clientes/${_evalClienteId}/documentos`)
+    poblarSlotsDocumentos(docs)
+    renderDocsRecibidos(docs)
     actualizarBtnEval()
   } catch(e) {
     console.warn('No se pudieron cargar documentos:', e)
+  }
+}
+
+async function reclasificarDocumento(selectEl) {
+  const docId     = selectEl.dataset.docId
+  const nuevoTipo = selectEl.value
+  selectEl.disabled = true
+  try {
+    await api('PATCH', `/api/clientes/${_evalClienteId}/documentos/${docId}/tipo`, { tipo: nuevoTipo })
+    toast('✅ Documento reclasificado', 'success')
+    await recargarDocumentosEval()
+  } catch(e) {
+    toast('❌ Error al reclasificar: ' + e.message, 'error')
+    selectEl.disabled = false
   }
 }
 
