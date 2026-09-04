@@ -18,7 +18,11 @@
       "Bash(.venv/bin/python -m pip install -r requirements.txt -q)",
       "Bash(.venv/bin/python -m pip list)",
       "Bash(git check-ignore *)",
-      "Bash(~/.local/share/uv/python/cpython-3.11-macos-aarch64-none/bin/python3.11 -m venv .venv)"
+      "Bash(~/.local/share/uv/python/cpython-3.11-macos-aarch64-none/bin/python3.11 -m venv .venv)",
+      "Bash(openssl s_client -connect www.quesubsidio.cl:443 -servername www.quesubsidio.cl)",
+      "Bash(openssl x509 *)",
+      "Bash(openssl s_client -connect quesubsidio.cl:443 -servername quesubsidio.cl)",
+      "Bash(openssl s_client -connect hii7ab7b.up.railway.app:443 -servername hii7ab7b.up.railway.app)"
     ]
   }
 }

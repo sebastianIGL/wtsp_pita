@@ -3129,14 +3129,19 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                 if tel:
                     phones_csv.add(tel)
 
-            # Una sola query solo con los teléfonos que vienen en el archivo
+            # Solo los teléfonos que vienen en el archivo, en lotes para no exceder
+            # el largo máximo de URL que acepta el gateway de Supabase
             phones_existentes: set = set()
             if phones_csv:
-                phones_in = ",".join(phones_csv)
-                batch = await _supabase_request("GET", "/Cliente",
-                    params={"Telefono": f"in.({phones_in})", "select": "Telefono"},
-                ) or []
-                phones_existentes = {r["Telefono"] for r in batch if r.get("Telefono")}
+                phones_list = list(phones_csv)
+                LOTE_TELEFONOS = 250
+                for i in range(0, len(phones_list), LOTE_TELEFONOS):
+                    lote = phones_list[i:i + LOTE_TELEFONOS]
+                    phones_in = ",".join(lote)
+                    batch = await _supabase_request("GET", "/Cliente",
+                        params={"Telefono": f"in.({phones_in})", "select": "Telefono"},
+                    ) or []
+                    phones_existentes.update(r["Telefono"] for r in batch if r.get("Telefono"))
 
             # Resolver proyecto fijo (para SERVIU y para CSVs sin columna Proyecto)
             proyecto_fijo = None
@@ -4048,11 +4053,15 @@ async def api_listar_clientes(request: Request):
     # Merge datos de Prospecto para ordenar por actividad WA y mostrar estado
     if rows:
         telefonos = [r["Telefono"] for r in rows if r.get("Telefono")]
-        if telefonos:
-            tel_list = ",".join(telefonos)
-            prospectos = await _supabase_request("GET", "/Prospecto",
-                params={"telefono_e164": f"in.({tel_list})",
-                        "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado,paso"}) or []
+        prospectos: List[Dict] = []
+        LOTE_TELEFONOS = 250
+        for i in range(0, len(telefonos), LOTE_TELEFONOS):
+            tel_list = ",".join(telefonos[i:i + LOTE_TELEFONOS])
+            if tel_list:
+                prospectos += await _supabase_request("GET", "/Prospecto",
+                    params={"telefono_e164": f"in.({tel_list})",
+                            "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado,paso"}) or []
+        if prospectos:
             prosp_map = {p["telefono_e164"]: p for p in prospectos}
             for r in rows:
                 p = prosp_map.get(r.get("Telefono"), {})
