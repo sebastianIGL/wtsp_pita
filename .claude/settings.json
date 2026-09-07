@@ -22,7 +22,8 @@
       "Bash(openssl s_client -connect www.quesubsidio.cl:443 -servername www.quesubsidio.cl)",
       "Bash(openssl x509 *)",
       "Bash(openssl s_client -connect quesubsidio.cl:443 -servername quesubsidio.cl)",
-      "Bash(openssl s_client -connect hii7ab7b.up.railway.app:443 -servername hii7ab7b.up.railway.app)"
+      "Bash(openssl s_client -connect hii7ab7b.up.railway.app:443 -servername hii7ab7b.up.railway.app)",
+      "Bash(node -e ' *)"
     ]
   }
 }

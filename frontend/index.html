@@ -232,13 +232,13 @@
         </select>
         <select id="filtro-estado-conv" class="rounded-md px-2.5 py-1 text-xs" onchange="aplicarFiltros()">
           <option value="">Todos los estados</option>
-          <option value="sin_enviar">Sin enviar WA</option>
-          <option value="primer_wtsp">1er mensaje enviado</option>
-          <option value="contestado">Contestado</option>
-          <option value="sin_respuesta">Sin respuesta (+24h)</option>
-          <option value="pendiente">Pendiente respuesta</option>
-          <option value="espera_docs">Esperando docs</option>
-          <option value="docs_recibidos">Docs recibidos</option>
+          <option value="sin_enviar">✉️ Sin contactar</option>
+          <option value="no_recibieron">🚫 No recibieron</option>
+          <option value="no_respondieron">🔕 No respondieron</option>
+          <option value="respondieron">💬 Respondieron</option>
+          <option value="pendientes">⏳ Pendientes</option>
+          <option value="enviando_docs">📋 Enviando docs</option>
+          <option value="docs_completos">✅ Docs completos</option>
         </select>
         <button onclick="abrirImport()" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
@@ -1039,6 +1039,33 @@ function computeEstadoConv(c) {
   return 'sin_enviar'
 }
 
+// Funnel de seguimiento (más general que computeEstadoConv, que sigue usándose
+// para el badge fino de cada fila). Un cliente cae en un solo grupo:
+// sin_enviar → no_recibieron → no_respondieron → respondieron → pendientes → enviando_docs → docs_completos
+const FUNNEL_GROUPS = [
+  { key: 'sin_enviar',      label: 'Sin contactar',   icon: '✉️' },
+  { key: 'no_recibieron',   label: 'No recibieron',   icon: '🚫' },
+  { key: 'no_respondieron', label: 'No respondieron', icon: '🔕' },
+  { key: 'respondieron',    label: 'Respondieron',    icon: '💬' },
+  { key: 'pendientes',      label: 'Pendientes',      icon: '⏳' },
+  { key: 'enviando_docs',   label: 'Enviando docs',   icon: '📋' },
+  { key: 'docs_completos',  label: 'Docs completos',  icon: '✅' },
+]
+const _FUNNEL_ORDEN = Object.fromEntries(FUNNEL_GROUPS.map((g, i) => [g.key, i]))
+
+function computeFunnelGroup(c) {
+  const paso = c.prospecto_paso || ''
+  if (paso === 'DOCS_RECIBIDOS')                          return 'docs_completos'
+  if (paso === 'ESPERA_DOCS' || paso === 'DOCUMENTACION') return 'enviando_docs'
+  if (c.pendiente_respuesta)                              return 'pendientes'
+  const wtspMs = _msDate(c.primer_wtsp_en)
+  const ultMs  = _msDate(c.ultimo_entrante_en)
+  if (ultMs && (!wtspMs || ultMs > wtspMs))                return 'respondieron'
+  if (c.estado_plantilla === 'fallido')                    return 'no_recibieron'
+  if (!wtspMs)                                             return 'sin_enviar'
+  return 'no_respondieron'
+}
+
 function computeEstado(c) {
   const pm     = c['primer mensaje']
   const wtspMs = _msDate(c.primer_wtsp_en)
@@ -1088,11 +1115,15 @@ function clientesFiltrados() {
       const filtroUsuario    = document.getElementById('filtro-usuario')?.value || ''
       const filtroEstadoConv = document.getElementById('filtro-estado-conv')?.value || ''
       const matchUsuario    = !filtroUsuario    || c.usuario_id === filtroUsuario
-      const matchEstadoConv = !filtroEstadoConv || computeEstadoConv(c) === filtroEstadoConv
+      const matchEstadoConv = !filtroEstadoConv || computeFunnelGroup(c) === filtroEstadoConv
       return matchQ && matchP && matchEstado && matchUsuario && matchEstadoConv
     })
     .sort((a, b) => {
-      // Clientes con conversación reciente primero
+      // Primero por etapa del funnel (sin_enviar → ... → docs_completos)
+      const ga = _FUNNEL_ORDEN[computeFunnelGroup(a)]
+      const gb = _FUNNEL_ORDEN[computeFunnelGroup(b)]
+      if (ga !== gb) return ga - gb
+      // Dentro del mismo grupo: conversación más reciente primero
       const fa = _msDate(a.ultimo_entrante_en)
       const fb = _msDate(b.ultimo_entrante_en)
       if (fa || fb) return fb - fa
@@ -1134,7 +1165,24 @@ function renderTabla(data) {
   const inicio = (paginaActual - 1) * POR_PAGINA
   const pagina = data.slice(inicio, inicio + POR_PAGINA)
 
+  // Conteo por grupo del funnel sobre TODO lo filtrado (no solo la página visible)
+  const conteoGrupo = {}
+  data.forEach(c => { const g = computeFunnelGroup(c); conteoGrupo[g] = (conteoGrupo[g] || 0) + 1 })
+
+  let _ultimoGrupo = null
   tbody.innerHTML = pagina.map(c => {
+    const grupo = computeFunnelGroup(c)
+    let headerHTML = ''
+    if (grupo !== _ultimoGrupo) {
+      _ultimoGrupo = grupo
+      const info = FUNNEL_GROUPS.find(g => g.key === grupo)
+      headerHTML = `<tr class="funnel-header-row">
+        <td colspan="7" class="px-6 py-2 text-xs font-semibold uppercase tracking-wider sidebar-text" style="background:rgba(148,163,184,.08)">
+          ${info.icon} ${info.label} <span class="opacity-60 font-normal normal-case">(${conteoGrupo[grupo]})</span>
+        </td>
+      </tr>`
+    }
+
     const estado = computeEstado(c)
     const badge = estado === 'activo'
       ? `<span class="badge-activo text-xs px-2.5 py-1 rounded-full font-medium">Activo</span>`
@@ -1205,7 +1253,7 @@ function renderTabla(data) {
               style="background:${_bc.bg};color:${_bc.color};border:1px solid ${_bc.border}">${_bc.icon} ${_bc.text}</span>`
       : ''
 
-    return `<tr class="trow border-b transition ${recordatorioClass}">
+    return headerHTML + `<tr class="trow border-b transition ${recordatorioClass}">
       <td class="px-6 py-4 font-medium val-text">
         <span class="inline-flex items-center gap-1 flex-wrap">${esc(c.Contacto)}${badgeNuevo}${badgeContacto}</span>
         ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
