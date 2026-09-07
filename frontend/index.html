@@ -212,12 +212,6 @@
             class="px-2.5 py-1 font-medium transition-colors">Mis clientes</button>
           <button id="btn-todos-clientes" onclick="setTab('todos')"
             class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Todos</button>
-          <button id="btn-timidos" onclick="setTab('timidos')"
-            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Tímidos</button>
-          <button id="btn-sin-enviar" onclick="setTab('sin_enviar')"
-            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Sin enviar</button>
-          <button id="btn-docs" onclick="setTab('docs')"
-            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Docs</button>
           <button id="btn-inbox" onclick="setTab('inbox')"
             class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Inbox <span id="badge-inbox" class="ml-1 text-amber-400 font-bold hidden"></span></button>
         </div>
@@ -727,7 +721,7 @@ const CONFIG = {
 
 let _token    = null
 let _perfil   = null
-let _filtroTab = 'mis'  // 'mis' | 'todos' | 'timidos' | 'sin_enviar' | 'docs'
+let _filtroTab = 'mis'  // 'mis' | 'todos' | 'inbox'
 let _preservarPagina = false
 let clientes  = []
 let proyectos = []
@@ -795,17 +789,14 @@ async function initAuth() {
       document.getElementById('btn-cambiar-empresa').classList.add('hidden')
     }
     const tog = document.getElementById('toggle-filtro-usuario')
-    tog.classList.remove('hidden')
-    tog.classList.add('flex')
     if (_esAdmin(_perfil.rol)) {
+      tog.classList.remove('hidden')
+      tog.classList.add('flex')
       document.getElementById('admin-link').classList.remove('hidden')
       _filtroTab = 'mis'
     } else {
-      // Ejecutivo: ocultar tabs ligados al chatbot
-      document.getElementById('btn-mis-clientes').classList.add('hidden')
-      document.getElementById('btn-timidos').classList.add('hidden')
-      document.getElementById('btn-sin-enviar').classList.add('hidden')
-      document.getElementById('btn-inbox').classList.add('hidden')
+      // Ejecutivo: sin "Docs" ya no queda más de una pestaña útil, se oculta el selector
+      tog.classList.add('hidden')
       _filtroTab = 'todos'
     }
     _actualizarToggle()
@@ -831,27 +822,18 @@ async function initAuth() {
 function _actualizarToggle() {
   const btnMis    = document.getElementById('btn-mis-clientes')
   const btnTodos  = document.getElementById('btn-todos-clientes')
-  const btnTim    = document.getElementById('btn-timidos')
-  const btnSin    = document.getElementById('btn-sin-enviar')
-  const btnDocs   = document.getElementById('btn-docs')
   const btnInbox  = document.getElementById('btn-inbox')
   const activo    = 'bg-brand-600 text-white'
   const inactivo  = 'text-slate-400 hover:text-slate-200'
   const isAdmin   = _esAdmin(_perfil?.rol)
   const sep       = 'border-l border-slate-600'
 
-  if (isAdmin) {
-    btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
-    btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'todos' ? activo : inactivo}`
-    btnTim.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'timidos' ? activo : inactivo}`
-    btnSin.className   = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'sin_enviar' ? activo : inactivo}`
-    btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
-    btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
-  } else {
-    // No-admin: solo Todos y Docs visibles (Mis, Tímidos, Sin enviar, Inbox siguen hidden)
-    btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'todos' ? activo : inactivo}`
-    btnDocs.className  = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'docs' ? activo : inactivo}`
-  }
+  // No-admin: el selector completo queda oculto (solo tiene la vista "todos"), nada que estilar
+  if (!isAdmin) return
+
+  btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
+  btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'todos' ? activo : inactivo}`
+  btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
 }
 
 function setTab(tab) {
@@ -1106,17 +1088,11 @@ function clientesFiltrados() {
         (qDigits && telDigits && telDigits.includes(qDigits)) ||
         (c.Rut||'').toLowerCase().includes(q)
       const matchP = !proyecto || c.proyecto_id === proyecto
-      const estado = computeEstado(c)
-      const paso   = c.prospecto_paso || ''
-      const matchEstado = _filtroTab === 'timidos'    ? estado === 'timido'
-                        : _filtroTab === 'sin_enviar' ? estado === 'sin_enviar'
-                        : _filtroTab === 'docs'       ? (paso === 'ESPERA_DOCS' || paso === 'DOCS_RECIBIDOS')
-                        : true
       const filtroUsuario    = document.getElementById('filtro-usuario')?.value || ''
       const filtroEstadoConv = document.getElementById('filtro-estado-conv')?.value || ''
       const matchUsuario    = !filtroUsuario    || c.usuario_id === filtroUsuario
       const matchEstadoConv = !filtroEstadoConv || computeFunnelGroup(c) === filtroEstadoConv
-      return matchQ && matchP && matchEstado && matchUsuario && matchEstadoConv
+      return matchQ && matchP && matchUsuario && matchEstadoConv
     })
     .sort((a, b) => {
       // Primero por etapa del funnel (sin_enviar → ... → docs_completos)
