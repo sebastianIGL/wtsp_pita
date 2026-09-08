@@ -722,6 +722,7 @@ const CONFIG = {
 let _token    = null
 let _perfil   = null
 let _filtroTab = 'mis'  // 'mis' | 'todos' | 'inbox'
+let _idsPorGrupoFunnel = {}  // ids de clientes filtrados, agrupados por etapa del funnel (para remarketing masivo)
 let _preservarPagina = false
 let clientes  = []
 let proyectos = []
@@ -1141,9 +1142,14 @@ function renderTabla(data) {
   const inicio = (paginaActual - 1) * POR_PAGINA
   const pagina = data.slice(inicio, inicio + POR_PAGINA)
 
-  // Conteo por grupo del funnel sobre TODO lo filtrado (no solo la página visible)
+  // Conteo e IDs por grupo del funnel sobre TODO lo filtrado (no solo la página visible)
   const conteoGrupo = {}
-  data.forEach(c => { const g = computeFunnelGroup(c); conteoGrupo[g] = (conteoGrupo[g] || 0) + 1 })
+  _idsPorGrupoFunnel = {}
+  data.forEach(c => {
+    const g = computeFunnelGroup(c)
+    conteoGrupo[g] = (conteoGrupo[g] || 0) + 1
+    ;(_idsPorGrupoFunnel[g] ||= []).push(c.id)
+  })
 
   let _ultimoGrupo = null
   tbody.innerHTML = pagina.map(c => {
@@ -1152,9 +1158,18 @@ function renderTabla(data) {
     if (grupo !== _ultimoGrupo) {
       _ultimoGrupo = grupo
       const info = FUNNEL_GROUPS.find(g => g.key === grupo)
+      const btnRemarketing = (grupo === 'sin_enviar' && _esAdmin(_perfil?.rol))
+        ? `<button onclick="abrirSelectorTemplate(null, null, _idsPorGrupoFunnel.sin_enviar)"
+             class="text-xs px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium normal-case tracking-normal flex items-center gap-1.5">
+             📤 Enviar plantilla a estos ${conteoGrupo[grupo]}
+           </button>`
+        : ''
       headerHTML = `<tr class="funnel-header-row">
         <td colspan="7" class="px-6 py-2 text-xs font-semibold uppercase tracking-wider sidebar-text" style="background:rgba(148,163,184,.08)">
-          ${info.icon} ${info.label} <span class="opacity-60 font-normal normal-case">(${conteoGrupo[grupo]})</span>
+          <div class="flex items-center justify-between gap-3">
+            <span>${info.icon} ${info.label} <span class="opacity-60 font-normal normal-case">(${conteoGrupo[grupo]})</span></span>
+            ${btnRemarketing}
+          </div>
         </td>
       </tr>`
     }
@@ -1296,7 +1311,7 @@ async function abrirSelectorTemplate(id, nombre, bulkIds = null) {
   _tmplClienteNombre = nombre
   _bulkWAIds = bulkIds
   document.getElementById('template-destino').textContent = bulkIds
-    ? `Enviar a ${bulkIds.length} clientes importados`
+    ? `Enviar a ${bulkIds.length} clientes seleccionados`
     : `Destinatario: ${nombre}`
   document.getElementById('btn-enviar-template').disabled = true
   document.getElementById('btn-enviar-template').innerHTML = 'Enviar WhatsApp'
