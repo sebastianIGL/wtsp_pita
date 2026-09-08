@@ -211,15 +211,15 @@
         <h2 class="font-semibold val-text text-sm">Clientes</h2>
         <span id="badge-count" class="badge-count-bg text-xs px-2 py-0.5 rounded-full">0</span>
         <!-- Toggle de pestañas (siempre visible, contenido ajustado por rol) -->
-        <div id="toggle-filtro-usuario" class="hidden items-center rounded-md overflow-hidden border border-slate-600" style="font-size:0.7rem">
+        <div id="toggle-filtro-usuario" class="hidden items-center rounded-md overflow-hidden border border-slate-600 flex-shrink-0" style="font-size:0.7rem">
           <button id="btn-mis-clientes" onclick="setTab('mis')"
-            class="px-2.5 py-1 font-medium transition-colors">Mis clientes</button>
+            class="px-2.5 py-1 font-medium transition-colors whitespace-nowrap">Mis clientes</button>
           <button id="btn-todos-clientes" onclick="setTab('todos')"
-            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Todos</button>
+            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600 whitespace-nowrap">Todos</button>
           <button id="btn-inbox" onclick="setTab('inbox')"
-            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Inbox <span id="badge-inbox" class="ml-1 text-amber-400 font-bold hidden"></span></button>
+            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600 whitespace-nowrap">Inbox <span id="badge-inbox" class="ml-1 text-amber-400 font-bold hidden"></span></button>
           <button id="btn-descartados" onclick="setTab('descartados')"
-            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Descartados</button>
+            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600 whitespace-nowrap">Descartados</button>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -304,15 +304,15 @@
 <!-- ═══════════════════ MODAL ═══════════════════ -->
 <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
   <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarModal()"></div>
-  <div class="glass relative rounded-2xl w-full max-w-lg p-6 z-10 shadow-2xl">
-    <div class="flex items-center justify-between mb-6">
+  <div class="glass relative rounded-2xl w-full max-w-lg z-10 shadow-2xl overflow-hidden flex flex-col" style="max-height:90vh">
+    <div class="flex items-center justify-between px-6 py-4 border-b eval-divider flex-shrink-0">
       <h3 class="text-lg font-semibold val-text">Nuevo cliente</h3>
       <button onclick="cerrarModal()" class="sidebar-text hover:text-brand-500 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
 
-    <form id="form-cliente" onsubmit="crearCliente(event)" class="space-y-4">
+    <form id="form-cliente" onsubmit="crearCliente(event)" class="space-y-4 p-6 overflow-y-auto">
       <div class="grid grid-cols-2 gap-4">
         <div id="wrap-f-proyecto" class="col-span-2">
           <label class="block text-xs sidebar-text mb-1.5">Proyecto *</label>
@@ -847,10 +847,10 @@ function _actualizarToggle() {
   // No-admin: el selector completo queda oculto (solo tiene la vista "todos"), nada que estilar
   if (!isAdmin) return
 
-  btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
-  btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'todos' ? activo : inactivo}`
-  btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
-  btnDescartados.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'descartados' ? activo : inactivo}`
+  btnMis.className   = `px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${_filtroTab === 'mis' ? activo : inactivo}`
+  btnTodos.className = `px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${sep} ${_filtroTab === 'todos' ? activo : inactivo}`
+  btnInbox.className = `px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
+  btnDescartados.className = `px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${sep} ${_filtroTab === 'descartados' ? activo : inactivo}`
 }
 
 function setTab(tab) {
