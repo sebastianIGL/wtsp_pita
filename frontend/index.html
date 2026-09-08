@@ -214,6 +214,8 @@
             class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Todos</button>
           <button id="btn-inbox" onclick="setTab('inbox')"
             class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Inbox <span id="badge-inbox" class="ml-1 text-amber-400 font-bold hidden"></span></button>
+          <button id="btn-descartados" onclick="setTab('descartados')"
+            class="px-2.5 py-1 font-medium transition-colors border-l border-slate-600">Descartados</button>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
@@ -821,9 +823,10 @@ async function initAuth() {
 }
 
 function _actualizarToggle() {
-  const btnMis    = document.getElementById('btn-mis-clientes')
-  const btnTodos  = document.getElementById('btn-todos-clientes')
-  const btnInbox  = document.getElementById('btn-inbox')
+  const btnMis        = document.getElementById('btn-mis-clientes')
+  const btnTodos      = document.getElementById('btn-todos-clientes')
+  const btnInbox      = document.getElementById('btn-inbox')
+  const btnDescartados = document.getElementById('btn-descartados')
   const activo    = 'bg-brand-600 text-white'
   const inactivo  = 'text-slate-400 hover:text-slate-200'
   const isAdmin   = _esAdmin(_perfil?.rol)
@@ -835,6 +838,7 @@ function _actualizarToggle() {
   btnMis.className   = `px-3 py-1.5 font-medium transition-colors ${_filtroTab === 'mis' ? activo : inactivo}`
   btnTodos.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'todos' ? activo : inactivo}`
   btnInbox.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'inbox' ? activo : inactivo}`
+  btnDescartados.className = `px-3 py-1.5 font-medium transition-colors ${sep} ${_filtroTab === 'descartados' ? activo : inactivo}`
 }
 
 function setTab(tab) {
@@ -864,9 +868,13 @@ function setTab(tab) {
     if (!mostrar) filtroUsuarioEl.value = ''
   }
 
-  // Admin: recargar del server solo si cambia entre 'mis' y otros (diferente query)
+  // Admin: recargar del server si cambia entre 'mis'/'descartados' y otros (query distinta)
   // No-admin: siempre filtrar client-side (server ya filtra por su usuario)
-  const necesitaRecargar = isAdmin && (tab === 'mis' || tabAnterior === 'mis' || tabAnterior === 'inbox')
+  const necesitaRecargar = isAdmin && (
+    tab === 'mis' || tabAnterior === 'mis' ||
+    tab === 'descartados' || tabAnterior === 'descartados' ||
+    tabAnterior === 'inbox'
+  )
   if (necesitaRecargar) {
     cargarClientes()
   } else {
@@ -946,14 +954,14 @@ async function cargarClientes(preservar = false) {
     const proyecto     = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
     const inmobiliaria = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
     const empresa      = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
-    const qs = proyecto?.id
-      ? `?proyecto_id=${proyecto.id}`
-      : inmobiliaria?._todos && empresa?.id ? `?empresa_id=${empresa.id}`
-      : inmobiliaria?.id ? `?inmobiliaria_id=${inmobiliaria.id}` : ''
-    const sep = qs ? '&' : '?'
-    const usuarioQs = (_esAdmin(_perfil?.rol) && _filtroTab === 'mis')
-      ? `${sep}usuario_id=${_perfil.id}` : ''
-    clientes = await api('GET', `/api/clientes${qs}${usuarioQs}`)
+    const partes = []
+    if (proyecto?.id) partes.push(`proyecto_id=${proyecto.id}`)
+    else if (inmobiliaria?._todos && empresa?.id) partes.push(`empresa_id=${empresa.id}`)
+    else if (inmobiliaria?.id) partes.push(`inmobiliaria_id=${inmobiliaria.id}`)
+    if (_esAdmin(_perfil?.rol) && _filtroTab === 'mis') partes.push(`usuario_id=${_perfil.id}`)
+    if (_filtroTab === 'descartados') partes.push('archivado=true')
+    const qs = partes.length ? `?${partes.join('&')}` : ''
+    clientes = await api('GET', `/api/clientes${qs}`)
     actualizarStats()
     aplicarFiltros()
   } catch(e) {
@@ -996,6 +1004,27 @@ async function actualizarEstadoGestion(id, val, sel) {
     sel.value = prev
     sel.className = `eg-badge ${_egClass(prev)}`
     toast('❌ Error al actualizar estado: ' + e.message, 'error')
+  }
+}
+
+async function descartarCliente(id, nombre) {
+  if (!confirm(`¿Descartar a "${nombre}"? Dejará de verse en las listas normales, pero puedes restaurarlo desde la pestaña "Descartados".`)) return
+  try {
+    await api('PATCH', `/api/clientes/${id}`, { archivado: true })
+    toast(`🗄️ ${nombre} descartado`, 'success')
+    await cargarClientes(true)
+  } catch(e) {
+    toast('❌ Error al descartar: ' + e.message, 'error')
+  }
+}
+
+async function restaurarCliente(id, nombre) {
+  try {
+    await api('PATCH', `/api/clientes/${id}`, { archivado: false })
+    toast(`↩️ ${nombre} restaurado`, 'success')
+    await cargarClientes(true)
+  } catch(e) {
+    toast('❌ Error al restaurar: ' + e.message, 'error')
   }
 }
 
@@ -1226,6 +1255,20 @@ function renderTabla(data) {
             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
         </svg>
       </button>
+      ${esAdmin ? (_filtroTab === 'descartados'
+        ? `<button onclick="restaurarCliente(${c.id}, '${esc(c.Contacto)}')" title="Restaurar cliente"
+            class="text-xs p-1.5 rounded-lg glass text-emerald-400 hover:text-emerald-300 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
+            </svg>
+          </button>`
+        : `<button onclick="descartarCliente(${c.id}, '${esc(c.Contacto)}')" title="Descartar cliente"
+            class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 01-2-2V4a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 01-2 2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
+            </svg>
+          </button>`
+      ) : ''}
     </div>`
 
     const recordatorioClass = c.recordatorio_at

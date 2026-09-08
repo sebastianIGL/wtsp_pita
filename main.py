@@ -4014,7 +4014,11 @@ async def api_listar_clientes(request: Request):
     proyecto_id     = request.query_params.get("proyecto_id")
     inmobiliaria_id = request.query_params.get("inmobiliaria_id")
     empresa_id      = request.query_params.get("empresa_id")
-    params: Dict[str, str] = {"select": "*", "order": "id.desc"}
+    ver_archivados  = request.query_params.get("archivado") == "true"
+    params: Dict[str, str] = {
+        "select": "*", "order": "id.desc",
+        "archivado": "is.true" if ver_archivados else "not.is.true",
+    }
 
     if proyecto_id:
         params["proyecto_id"] = f"eq.{proyecto_id}"
@@ -4176,7 +4180,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
         return Response(content="Unauthorized", status_code=401)
     _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "etapa_tipologia_id", "estado_gestion"}
     if _solo_admin(perfil):
-        _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id"}
+        _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id", "archivado"}
     try:
         body = await request.json()
         payload = {k: v for k, v in body.items() if k in _CAMPOS_PERMITIDOS}
