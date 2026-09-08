@@ -248,10 +248,6 @@
           </button>
           <div id="panel-filtro-estado-gestion" class="filtro-panel hidden absolute mt-1 rounded-lg shadow-xl z-30 p-2" style="min-width:190px"></div>
         </div>
-        <button onclick="abrirImport()" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-          Importar CSV
-        </button>
         <button onclick="abrirModal()" class="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Nuevo cliente
@@ -306,10 +302,17 @@
   <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarModal()"></div>
   <div class="glass relative rounded-2xl w-full max-w-lg z-10 shadow-2xl overflow-hidden flex flex-col" style="max-height:90vh">
     <div class="flex items-center justify-between px-6 py-4 border-b eval-divider flex-shrink-0">
-      <h3 class="text-lg font-semibold val-text">Nuevo cliente</h3>
+      <h3 class="text-lg font-semibold val-text">Agregar clientes</h3>
       <button onclick="cerrarModal()" class="sidebar-text hover:text-brand-500 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
+    </div>
+
+    <div class="flex gap-1 px-6 pt-3 border-b eval-divider flex-shrink-0">
+      <button type="button" id="tab-nuevo-btn" onclick="cambiarTabModalCliente('nuevo')"
+        class="px-3 py-2 text-sm font-medium border-b-2 transition">Nuevo</button>
+      <button type="button" id="tab-masivo-btn" onclick="cambiarTabModalCliente('masivo')"
+        class="px-3 py-2 text-sm font-medium border-b-2 transition">Masivo</button>
     </div>
 
     <form id="form-cliente" onsubmit="crearCliente(event)" class="space-y-4 p-6 overflow-y-auto">
@@ -405,6 +408,63 @@
         </button>
       </div>
     </form>
+
+    <div id="tab-masivo-content" class="hidden p-6 overflow-y-auto">
+      <div id="import-form">
+        <div class="text-xs sidebar-text mb-4 space-y-1.5">
+          <div class="flex items-start gap-1.5">
+            <div class="space-y-1">
+              <p><span class="text-red-400 font-semibold">Obligatorias:</span> <span class="val-text font-mono">Contacto, Rut, Teléfono</span></p>
+              <p><span class="text-slate-400 font-semibold">Opcionales:</span> <span class="font-mono">Proyecto, Correo, Tramo de renta, Estado, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
+              <p class="text-slate-500">El orden no importa. Si importas dentro de un proyecto, <span class="font-mono">Proyecto</span> no es necesaria.</p>
+            </div>
+            <details class="relative shrink-0 mt-0.5">
+              <summary class="list-none cursor-pointer inline-flex items-center justify-center w-4 h-4 rounded-full border border-slate-500 text-slate-400 hover:border-brand-400 hover:text-brand-400 transition text-[10px] font-bold select-none">i</summary>
+              <div class="absolute left-0 top-6 z-20 w-80 p-3 glass rounded-xl shadow-xl text-xs space-y-2.5 border border-slate-700/50">
+                <div>
+                  <p class="text-red-400 font-semibold mb-1">Obligatorias</p>
+                  <table class="w-full border-collapse">
+                    <tbody class="divide-y divide-slate-700/40">
+                      <tr><td class="py-0.5 pr-3 text-slate-400 w-20">Nombre</td><td class="font-mono val-text">Contacto · Nombre · cliente</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-400">RUT</td><td class="font-mono val-text">Rut · Run</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-400">Teléfono</td><td class="font-mono val-text">Telefono · Teléfono · Fono · Celular · Movil</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <p class="text-slate-400 font-semibold mb-1">Opcionales</p>
+                  <table class="w-full border-collapse">
+                    <tbody class="divide-y divide-slate-700/40">
+                      <tr><td class="py-0.5 pr-3 text-slate-500 w-20">Proyecto</td><td class="font-mono sidebar-text">Proyecto · nombre proyecto</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-500">Correo</td><td class="font-mono sidebar-text">Correo · Email · E-mail · Mail</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-500">Renta</td><td class="font-mono sidebar-text">Tramo de renta · Tramo · Renta</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-500">Estado</td><td class="font-mono sidebar-text">Estado</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-500">Subsidio</td><td class="font-mono sidebar-text">Tiene subsidio · Subsidio · Tipo subsidio</td></tr>
+                      <tr><td class="py-0.5 pr-3 text-slate-500">Propiedad</td><td class="font-mono sidebar-text">Tiene propiedad · Propiedad</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="text-slate-500">Mayúsculas, tildes y guiones son ignorados al comparar.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+        <form onsubmit="importarCSV(event)" class="space-y-4">
+          <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
+            <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
+            <svg class="w-8 h-8 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p id="csv-file-label" class="text-sm sidebar-text">Arrastra tu CSV aquí o haz clic para seleccionar</p>
+          </div>
+          <div class="flex gap-3">
+            <button type="button" onclick="cerrarModal()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">Cancelar</button>
+            <button type="submit" id="btn-importar" class="flex-1 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition flex items-center justify-center gap-2">
+              Importar
+            </button>
+          </div>
+        </form>
+      </div>
+      <div id="import-results" class="hidden"></div>
+    </div>
   </div>
 </div>
 
@@ -622,76 +682,6 @@
       </div>
 
     </div>
-  </div>
-</div>
-
-<!-- ═══════════════════ MODAL IMPORTAR CSV ═══════════════════ -->
-<div id="modal-import" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
-  <div class="modal-bg absolute inset-0 backdrop-blur-sm" onclick="cerrarImport()"></div>
-  <div class="glass relative rounded-2xl w-full max-w-md p-6 z-10 shadow-2xl">
-    <div class="flex items-center justify-between mb-5">
-      <div class="flex items-center gap-2">
-        <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        <h3 class="text-lg font-semibold val-text">Importar clientes desde CSV</h3>
-      </div>
-      <button onclick="cerrarImport()" class="sidebar-text hover:text-brand-500 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
-    </div>
-    <div id="import-form">
-      <div class="text-xs sidebar-text mb-4 space-y-1.5">
-        <div class="flex items-start gap-1.5">
-          <div class="space-y-1">
-            <p><span class="text-red-400 font-semibold">Obligatorias:</span> <span class="val-text font-mono">Contacto, Rut, Teléfono</span></p>
-            <p><span class="text-slate-400 font-semibold">Opcionales:</span> <span class="font-mono">Proyecto, Correo, Tramo de renta, Estado, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
-            <p class="text-slate-500">El orden no importa. Si importas dentro de un proyecto, <span class="font-mono">Proyecto</span> no es necesaria.</p>
-          </div>
-          <details class="relative shrink-0 mt-0.5">
-            <summary class="list-none cursor-pointer inline-flex items-center justify-center w-4 h-4 rounded-full border border-slate-500 text-slate-400 hover:border-brand-400 hover:text-brand-400 transition text-[10px] font-bold select-none">i</summary>
-            <div class="absolute left-0 top-6 z-20 w-80 p-3 glass rounded-xl shadow-xl text-xs space-y-2.5 border border-slate-700/50">
-              <div>
-                <p class="text-red-400 font-semibold mb-1">Obligatorias</p>
-                <table class="w-full border-collapse">
-                  <tbody class="divide-y divide-slate-700/40">
-                    <tr><td class="py-0.5 pr-3 text-slate-400 w-20">Nombre</td><td class="font-mono val-text">Contacto · Nombre · cliente</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-400">RUT</td><td class="font-mono val-text">Rut · Run</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-400">Teléfono</td><td class="font-mono val-text">Telefono · Teléfono · Fono · Celular · Movil</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <div>
-                <p class="text-slate-400 font-semibold mb-1">Opcionales</p>
-                <table class="w-full border-collapse">
-                  <tbody class="divide-y divide-slate-700/40">
-                    <tr><td class="py-0.5 pr-3 text-slate-500 w-20">Proyecto</td><td class="font-mono sidebar-text">Proyecto · nombre proyecto</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-500">Correo</td><td class="font-mono sidebar-text">Correo · Email · E-mail · Mail</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-500">Renta</td><td class="font-mono sidebar-text">Tramo de renta · Tramo · Renta</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-500">Estado</td><td class="font-mono sidebar-text">Estado</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-500">Subsidio</td><td class="font-mono sidebar-text">Tiene subsidio · Subsidio · Tipo subsidio</td></tr>
-                    <tr><td class="py-0.5 pr-3 text-slate-500">Propiedad</td><td class="font-mono sidebar-text">Tiene propiedad · Propiedad</td></tr>
-                  </tbody>
-                </table>
-              </div>
-              <p class="text-slate-500">Mayúsculas, tildes y guiones son ignorados al comparar.</p>
-            </div>
-          </details>
-        </div>
-      </div>
-      <form onsubmit="importarCSV(event)" class="space-y-4">
-        <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
-          <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
-          <svg class="w-8 h-8 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-          <p id="csv-file-label" class="text-sm sidebar-text">Arrastra tu CSV aquí o haz clic para seleccionar</p>
-        </div>
-        <div class="flex gap-3">
-          <button type="button" onclick="cerrarImport()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">Cancelar</button>
-          <button type="submit" id="btn-importar" class="flex-1 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition flex items-center justify-center gap-2">
-            Importar
-          </button>
-        </div>
-      </form>
-    </div>
-    <div id="import-results" class="hidden"></div>
   </div>
 </div>
 
@@ -1494,9 +1484,8 @@ async function enviarConTemplate() {
   }
 }
 
-// ─── CSV IMPORT ───────────────────────────────────
-function abrirImport() {
-  document.getElementById('modal-import').classList.remove('hidden')
+// ─── CSV IMPORT (pestaña "Masivo" del modal de clientes) ──
+function prepararImportCSV() {
   document.getElementById('import-form').classList.remove('hidden')
   document.getElementById('import-results').classList.add('hidden')
   document.getElementById('csv-file').value = ''
@@ -1504,10 +1493,6 @@ function abrirImport() {
   document.getElementById('csv-drop').classList.remove('has-file')
   const btn = document.getElementById('btn-importar')
   btn.disabled = false; btn.innerHTML = 'Importar'
-}
-
-function cerrarImport() {
-  document.getElementById('modal-import').classList.add('hidden')
 }
 
 function onCsvSelect(input) {
@@ -1609,7 +1594,7 @@ async function importarCSV(e) {
               Enviar WA a todos (${data.ids_creados.length})
             </button>` : ''}
           </div>` : ''}
-        <button onclick="cerrarImport()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
+        <button onclick="cerrarModal()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
           Cerrar
         </button>
       </div>`
@@ -1623,8 +1608,19 @@ async function importarCSV(e) {
 // ─── MODAL ────────────────────────────────────────
 let _cachedTemplatesList = null
 
+function cambiarTabModalCliente(tab) {
+  const activo   = 'border-brand-500 val-text'
+  const inactivo = 'border-transparent sidebar-text hover:text-brand-400'
+  document.getElementById('form-cliente').classList.toggle('hidden', tab !== 'nuevo')
+  document.getElementById('tab-masivo-content').classList.toggle('hidden', tab !== 'masivo')
+  document.getElementById('tab-nuevo-btn').className  = `px-3 py-2 text-sm font-medium border-b-2 transition ${tab === 'nuevo'  ? activo : inactivo}`
+  document.getElementById('tab-masivo-btn').className = `px-3 py-2 text-sm font-medium border-b-2 transition ${tab === 'masivo' ? activo : inactivo}`
+  if (tab === 'masivo') prepararImportCSV()
+}
+
 async function abrirModal() {
   document.getElementById('modal').classList.remove('hidden')
+  cambiarTabModalCliente('nuevo')
   document.getElementById('f-contacto').focus()
   const proyAct = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
   const wrapProy = document.getElementById('wrap-f-proyecto')
@@ -1865,7 +1861,7 @@ function esc(str) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
-  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarImport(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio()
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio()
 })
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
