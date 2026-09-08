@@ -236,6 +236,24 @@
           <option value="enviando_docs">📋 Enviando docs</option>
           <option value="docs_completos">✅ Docs completos</option>
         </select>
+        <select id="filtro-estado-gestion" class="rounded-md px-2.5 py-1 text-xs" onchange="aplicarFiltros()">
+          <option value="">Estado gestión: todos</option>
+          <option value="__sin_estado__">Sin estado</option>
+          <option value="primer_wtsp">Primer WA</option>
+          <option value="interesado">Interesado</option>
+          <option value="no_interesado">No interesado</option>
+          <option value="enviando_docs">Enviando docs</option>
+          <option value="en_evaluacion">En evaluación</option>
+          <option value="aprobado">Aprobado</option>
+          <option value="descartado">Rechazado</option>
+        </select>
+        <select id="filtro-estado-plantilla" class="rounded-md px-2.5 py-1 text-xs" onchange="aplicarFiltros()">
+          <option value="">Estado plantilla: todos</option>
+          <option value="enviado">Enviado</option>
+          <option value="entregado">Entregado</option>
+          <option value="leido">Leído</option>
+          <option value="fallido">Fallido</option>
+        </select>
         <button onclick="abrirImport()" class="flex items-center gap-1.5 bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
           Importar CSV
@@ -1118,11 +1136,17 @@ function clientesFiltrados() {
         (qDigits && telDigits && telDigits.includes(qDigits)) ||
         (c.Rut||'').toLowerCase().includes(q)
       const matchP = !proyecto || c.proyecto_id === proyecto
-      const filtroUsuario    = document.getElementById('filtro-usuario')?.value || ''
-      const filtroEstadoConv = document.getElementById('filtro-estado-conv')?.value || ''
+      const filtroUsuario         = document.getElementById('filtro-usuario')?.value || ''
+      const filtroEstadoConv      = document.getElementById('filtro-estado-conv')?.value || ''
+      const filtroEstadoGestion   = document.getElementById('filtro-estado-gestion')?.value || ''
+      const filtroEstadoPlantilla = document.getElementById('filtro-estado-plantilla')?.value || ''
       const matchUsuario    = !filtroUsuario    || c.usuario_id === filtroUsuario
       const matchEstadoConv = !filtroEstadoConv || computeFunnelGroup(c) === filtroEstadoConv
-      return matchQ && matchP && matchUsuario && matchEstadoConv
+      const matchEstadoGestion   = !filtroEstadoGestion ? true
+        : filtroEstadoGestion === '__sin_estado__' ? !c.estado_gestion
+        : c.estado_gestion === filtroEstadoGestion
+      const matchEstadoPlantilla = !filtroEstadoPlantilla || c.estado_plantilla === filtroEstadoPlantilla
+      return matchQ && matchP && matchUsuario && matchEstadoConv && matchEstadoGestion && matchEstadoPlantilla
     })
     .sort((a, b) => {
       // Primero por etapa del funnel (sin_enviar → ... → docs_completos)
@@ -1156,7 +1180,7 @@ function _badgeEntrega(estado_plantilla) {
   }
   const c = cfg[estado_plantilla]
   if (!c) return ''
-  return `<span class="text-xs font-medium ${c.cls}">${c.txt}</span>`
+  return `<span class="text-[10px] uppercase tracking-wide opacity-50 mr-1">Estado wtsp:</span><span class="text-xs font-medium ${c.cls}">${c.txt}</span>`
 }
 
 function renderTabla(data) {
