@@ -239,7 +239,12 @@ def _get_env(*names: str, default: Optional[str] = None) -> Optional[str]:
 
 
 def _normalize_phone(phone: str) -> str:
-    return "".join(ch for ch in (phone or "").strip() if ch.isdigit())
+    digits = "".join(ch for ch in (phone or "").strip() if ch.isdigit())
+    # Celular chileno sin código de país (9 dígitos, empieza con 9) — anteponer 56
+    # para que calce con el formato que siempre manda WhatsApp (telefono_e164).
+    if len(digits) == 9 and digits.startswith("9"):
+        digits = "56" + digits
+    return digits
 
 
 def _utc_now_iso() -> str:
