@@ -1190,6 +1190,7 @@ function clientesFiltrados() {
 }
 
 function aplicarFiltros() {
+  if (_filtroTab === 'inbox') { renderTablaInbox(); return }
   if (!_preservarPagina) paginaActual = 1
   _preservarPagina = false
   const filtrados = clientesFiltrados()
@@ -3384,11 +3385,18 @@ async function cargarInbox() {
 
 function renderTablaInbox() {
   const tbody = document.getElementById('inbox-tbody')
-  if (!_inboxData.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center empty-text">No hay mensajes sin cliente vinculado</td></tr>`
+  const q       = (document.getElementById('search')?.value || '').trim().toLowerCase()
+  const qDigits = q.replace(/\D/g, '')
+  const datos = !q ? _inboxData : _inboxData.filter(p => {
+    const telDigits = (p.telefono_e164 || '').replace(/\D/g, '')
+    return (p.nombre || '').toLowerCase().includes(q) ||
+      (qDigits && telDigits.includes(qDigits))
+  })
+  if (!datos.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-12 text-center empty-text">${_inboxData.length ? 'No hay resultados con estos filtros.' : 'No hay mensajes sin cliente vinculado'}</td></tr>`
     return
   }
-  tbody.innerHTML = _inboxData.map(p => {
+  tbody.innerHTML = datos.map(p => {
     const fecha = p.ultimo_entrante_en
       ? new Date(p.ultimo_entrante_en).toLocaleDateString('es-CL', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})
       : '—'
