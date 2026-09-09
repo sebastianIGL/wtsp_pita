@@ -450,6 +450,12 @@
           </div>
         </div>
         <form onsubmit="importarCSV(event)" class="space-y-4">
+          <div id="wrap-import-usuario" class="hidden">
+            <label class="block text-xs sidebar-text mb-1.5">Asignar a ejecutivo</label>
+            <select id="import-usuario" class="w-full rounded-lg px-3 py-2 text-sm">
+              <option value="">Yo mismo</option>
+            </select>
+          </div>
           <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
             <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
             <svg class="w-8 h-8 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
@@ -938,6 +944,11 @@ async function cargarUsuarios() {
     const sel = document.getElementById('filtro-usuario')
     if (sel) {
       sel.innerHTML = '<option value="">Todos los ejecutivos</option>'
+        + _usuarios.map(u => `<option value="${u.id}">${u.nombre || u.correo}</option>`).join('')
+    }
+    const selImport = document.getElementById('import-usuario')
+    if (selImport) {
+      selImport.innerHTML = '<option value="">Yo mismo</option>'
         + _usuarios.map(u => `<option value="${u.id}">${u.nombre || u.correo}</option>`).join('')
     }
   } catch(e) { console.warn('Usuarios:', e) }
@@ -1492,6 +1503,8 @@ function prepararImportCSV() {
   document.getElementById('csv-file').value = ''
   document.getElementById('csv-file-label').textContent = 'Arrastra tu CSV aquí o haz clic para seleccionar'
   document.getElementById('csv-drop').classList.remove('has-file')
+  document.getElementById('wrap-import-usuario').classList.toggle('hidden', !_esAdmin(_perfil?.rol))
+  document.getElementById('import-usuario').value = ''
   const btn = document.getElementById('btn-importar')
   btn.disabled = false; btn.innerHTML = 'Importar'
 }
@@ -1521,10 +1534,13 @@ async function importarCSV(e) {
   const _proy    = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
   const _inm     = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
   const _emp     = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
-  const importQs = _proy?.id
-    ? `?proyecto_id=${_proy.id}`
-    : _inm?._todos && _emp?.id ? `?empresa_id=${_emp.id}`
-    : _inm?.id ? `?inmobiliaria_id=${_inm.id}` : ''
+  const _importPartes = []
+  if (_proy?.id) _importPartes.push(`proyecto_id=${_proy.id}`)
+  else if (_inm?._todos && _emp?.id) _importPartes.push(`empresa_id=${_emp.id}`)
+  else if (_inm?.id) _importPartes.push(`inmobiliaria_id=${_inm.id}`)
+  const _asignarA = document.getElementById('import-usuario')?.value
+  if (_asignarA) _importPartes.push(`asignar_usuario_id=${_asignarA}`)
+  const importQs = _importPartes.length ? `?${_importPartes.join('&')}` : ''
   try {
     const res = await fetch(`/api/clientes/importar${importQs}`, {
       method: 'POST',

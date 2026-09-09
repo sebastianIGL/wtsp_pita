@@ -3087,6 +3087,9 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     usuario_id = perfil["id"]
     empresa_id  = request.query_params.get("empresa_id")
     proyecto_id = request.query_params.get("proyecto_id")
+    asignar_usuario_id = request.query_params.get("asignar_usuario_id")
+    if asignar_usuario_id and _solo_admin(perfil):
+        usuario_id = asignar_usuario_id
 
     content = await file.read()
     try:
