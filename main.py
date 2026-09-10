@@ -4609,6 +4609,51 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
     return r.content
 
 
+async def _eliminar_documento_storage(url_storage: str) -> None:
+    key = _supabase_service_role_key()
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.delete(url_storage, headers={"Authorization": f"Bearer {key}"})
+        if r.status_code not in (200, 204, 404):
+            r.raise_for_status()
+
+
+@app.delete("/api/clientes/{cliente_id}/documentos/{doc_id}")
+async def api_eliminar_documento(cliente_id: int, doc_id: str, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    try:
+        prospectos = await _supabase_request("GET", "/Prospecto",
+            params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"}) or []
+        prospecto_id = prospectos[0]["id"] if prospectos else None
+
+        docs = await _supabase_request("GET", "/Documento",
+            params={
+                "id": f"eq.{doc_id}",
+                **({"prospecto_id": f"eq.{prospecto_id}"} if prospecto_id else {}),
+                "select": "id,url_storage",
+                "limit": "1",
+            }) or []
+        if not docs:
+            return Response(content="Documento no encontrado", status_code=404)
+        doc = docs[0]
+
+        if doc.get("url_storage"):
+            try:
+                await _eliminar_documento_storage(doc["url_storage"])
+            except Exception:
+                logger.warning("No se pudo eliminar archivo de storage para documento %s", doc_id)
+
+        await _supabase_request("DELETE", "/Documento",
+            params={"id": f"eq.{doc_id}"}, extra_headers={"Prefer": "return=minimal"})
+        return {"ok": True}
+    except Exception as e:
+        logger.exception("Error eliminando documento %s del cliente %s", doc_id, cliente_id)
+        return Response(content=_safe_httpx_error(e) or "Error al eliminar documento", status_code=500, media_type="text/plain")
+
+
 async def _enviar_email_evaluacion(
     cliente_id: int,
     usuario: dict | None = None,
@@ -4845,6 +4890,8 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     proyecto_id = c.get("proyecto_id")
     # EjecutivoBancario.proyecto: si coincide con el proyecto del cliente, se filtra a ese
     # proyecto; si está vacío, el ejecutivo es global (aparece en todos los proyectos).
+    # ProyectoEjecutivo: proyectos ADICIONALES para un ejecutivo que ya tiene su
+    # proyecto principal en EjecutivoBancario.proyecto (o es global).
     todos_raw = await _supabase_request("GET", "/EjecutivoBancario",
         params={"disponible": "eq.true", "select": "id,email,ejecutivo,proyecto"}) or []
     ejs_proyecto = [
@@ -4857,10 +4904,20 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         for e in todos_raw
         if e.get("email") and not e.get("proyecto")
     ]
+    ejs_adicionales = []
+    if proyecto_id:
+        pe_rows = await _supabase_request("GET", "/ProyectoEjecutivo",
+            params={"proyecto_id": f"eq.{proyecto_id}", "select": "ejecutivo_id"}) or []
+        ids_adicionales = {r["ejecutivo_id"] for r in pe_rows}
+        ejs_adicionales = [
+            {"id": e["id"], "email": e["email"], "nombre": e.get("ejecutivo") or e["email"]}
+            for e in todos_raw
+            if e.get("email") and e["id"] in ids_adicionales
+        ]
     # Combinar sin duplicados
     ids_vistos: set = set()
     ejecutivos = []
-    for e in ejs_proyecto + ejs_globales:
+    for e in ejs_proyecto + ejs_globales + ejs_adicionales:
         if e["id"] not in ids_vistos:
             ids_vistos.add(e["id"])
             ejecutivos.append(e)
