@@ -3919,7 +3919,21 @@ async def api_listar_ejecutivos(request: Request):
     if not perfil or not _solo_admin(perfil):
         return Response(content="Unauthorized", status_code=401)
     rows = await _supabase_request("GET", "/EjecutivoBancario",
-        params={"select": "id,ejecutivo,entidad,email,telefono,disponible", "order": "ejecutivo.asc"}) or []
+        params={"select": "id,ejecutivo,entidad,email,telefono,disponible,proyecto", "order": "ejecutivo.asc"}) or []
+
+    pe_rows = await _supabase_request("GET", "/ProyectoEjecutivo",
+        params={"select": "ejecutivo_id,proyecto_id"}) or []
+    adicionales_por_ejec: Dict[Any, List[str]] = {}
+    for r in pe_rows:
+        adicionales_por_ejec.setdefault(r["ejecutivo_id"], []).append(r["proyecto_id"])
+
+    for e in rows:
+        proyecto_ids = list(adicionales_por_ejec.get(e["id"], []))
+        # El campo legado "proyecto" (proyecto único) se funde en la misma lista
+        # para que el front muestre siempre una sola vista unificada.
+        if e.get("proyecto") and e["proyecto"] not in proyecto_ids:
+            proyecto_ids.append(e["proyecto"])
+        e["proyecto_ids"] = proyecto_ids
     return rows
 
 @app.post("/api/ejecutivos")
@@ -3939,7 +3953,14 @@ async def api_crear_ejecutivo(request: Request):
     if not payload["ejecutivo"] or not payload["entidad"] or not payload["email"]:
         return Response(content="Nombre, entidad y email son obligatorios", status_code=400)
     row = await _supabase_request("POST", "/EjecutivoBancario", json=payload)
-    return row[0] if isinstance(row, list) else row
+    creado = row[0] if isinstance(row, list) else row
+
+    proyecto_ids = body.get("proyecto_ids") or []
+    if proyecto_ids and creado and creado.get("id"):
+        await _supabase_request("POST", "/ProyectoEjecutivo",
+            json=[{"ejecutivo_id": creado["id"], "proyecto_id": pid} for pid in proyecto_ids],
+            extra_headers={"Prefer": "return=minimal"})
+    return creado
 
 @app.patch("/api/ejecutivos/{ejecutivo_id}")
 async def api_editar_ejecutivo(ejecutivo_id: int, request: Request):
@@ -3955,7 +3976,21 @@ async def api_editar_ejecutivo(ejecutivo_id: int, request: Request):
         payload["ejecutivo"] = payload["ejecutivo"].strip()
     if "entidad" in payload:
         payload["entidad"] = payload["entidad"].strip()
-    await _supabase_request("PATCH", f"/EjecutivoBancario?id=eq.{ejecutivo_id}", json=payload)
+
+    proyecto_ids = body.get("proyecto_ids")
+    if proyecto_ids is not None:
+        # La lista de proyectos permitidos ahora vive completa en ProyectoEjecutivo;
+        # el campo legado "proyecto" se limpia para no duplicar la fuente de verdad.
+        payload["proyecto"] = None
+        await _supabase_request("DELETE", "/ProyectoEjecutivo",
+            params={"ejecutivo_id": f"eq.{ejecutivo_id}"}, extra_headers={"Prefer": "return=minimal"})
+        if proyecto_ids:
+            await _supabase_request("POST", "/ProyectoEjecutivo",
+                json=[{"ejecutivo_id": ejecutivo_id, "proyecto_id": pid} for pid in proyecto_ids],
+                extra_headers={"Prefer": "return=minimal"})
+
+    if payload:
+        await _supabase_request("PATCH", f"/EjecutivoBancario?id=eq.{ejecutivo_id}", json=payload)
     return {"ok": True}
 
 @app.delete("/api/ejecutivos/{ejecutivo_id}")

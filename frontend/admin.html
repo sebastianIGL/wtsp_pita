@@ -246,6 +246,13 @@
         <input id="ejec-telefono" type="tel" placeholder="Ej: 56912345678"
           class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
+      <div>
+        <label class="block text-slate-300 text-xs font-medium mb-1.5">Proyectos permitidos</label>
+        <p class="text-xs text-slate-500 mb-2">Si no marcas ninguno, el ejecutivo aparece disponible en todos los proyectos.</p>
+        <div id="ejec-proyectos-lista" class="space-y-1.5 max-h-40 overflow-y-auto border border-slate-600 rounded-lg p-3">
+          <p class="text-xs text-slate-500">Cargando…</p>
+        </div>
+      </div>
       <div class="flex items-center gap-3">
         <input id="ejec-disponible" type="checkbox" checked class="w-4 h-4 accent-blue-500 cursor-pointer" />
         <label for="ejec-disponible" class="text-slate-300 text-sm cursor-pointer">Disponible para recibir evaluaciones</label>
@@ -500,6 +507,25 @@
       </tr>`).join('')
   }
 
+  function checkboxItemStr(id, label, checked = false) {
+    return `<label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+      <input type="checkbox" value="${id}" ${checked ? 'checked' : ''}
+        class="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800"/>
+      ${label}
+    </label>`
+  }
+
+  async function renderProyectosEjecutivo(selectedIds = []) {
+    const cont = document.getElementById('ejec-proyectos-lista')
+    await cargarOpcionesAsignacion()
+    if (!_allProyectos.length) {
+      cont.innerHTML = '<p class="text-xs text-slate-500 italic">Sin proyectos registrados</p>'
+      return
+    }
+    const selSet = new Set(selectedIds)
+    cont.innerHTML = _allProyectos.map(p => checkboxItemStr(p.id, p.nombre, selSet.has(p.id))).join('')
+  }
+
   function abrirModalEjecutivo() {
     _editandoEjecId = null
     document.getElementById('ejec-id').value = ''
@@ -511,6 +537,7 @@
     document.getElementById('ejec-error').classList.add('hidden')
     document.getElementById('modal-ejec-titulo').textContent = 'Nuevo ejecutivo'
     document.getElementById('modalEjecutivo').classList.remove('hidden')
+    renderProyectosEjecutivo([])
     setTimeout(() => document.getElementById('ejec-nombre').focus(), 50)
   }
 
@@ -525,6 +552,7 @@
     document.getElementById('ejec-error').classList.add('hidden')
     document.getElementById('modal-ejec-titulo').textContent = 'Editar ejecutivo'
     document.getElementById('modalEjecutivo').classList.remove('hidden')
+    renderProyectosEjecutivo(e.proyecto_ids || [])
     setTimeout(() => document.getElementById('ejec-nombre').focus(), 50)
   }
 
@@ -542,7 +570,8 @@
     if (!nombre || !entidad || !email) { errEl.textContent = 'Nombre, entidad y email son obligatorios'; errEl.classList.remove('hidden'); return }
     const btn = document.getElementById('btn-guardar-ejec')
     btn.disabled = true; btn.textContent = 'Guardando…'
-    const payload = { ejecutivo: nombre, entidad, email, telefono: telefono || null, disponible: document.getElementById('ejec-disponible').checked }
+    const proyecto_ids = [...document.querySelectorAll('#ejec-proyectos-lista input:checked')].map(c => c.value)
+    const payload = { ejecutivo: nombre, entidad, email, telefono: telefono || null, disponible: document.getElementById('ejec-disponible').checked, proyecto_ids }
     try {
       const url = _editandoEjecId ? `/api/ejecutivos/${_editandoEjecId}` : '/api/ejecutivos'
       const method = _editandoEjecId ? 'PATCH' : 'POST'
