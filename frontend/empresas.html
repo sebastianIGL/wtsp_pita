@@ -164,6 +164,54 @@
 
   <p class="fixed bottom-4 text-xs" style="color: var(--footer)">CRM QueSubsidio &copy; 2026 — Powered by QueSubsidio</p>
 
+  <!-- Modal: Nueva empresa -->
+  <div id="modal-empresa" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="background:rgba(0,0,0,0.6); backdrop-filter:blur(4px)">
+    <div class="glass rounded-2xl w-full max-w-md p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-bold heading">Nueva empresa</h3>
+        <button onclick="cerrarModalEmpresa()" class="muted hover:opacity-70 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium muted mb-1.5">Nombre *</label>
+          <input id="emp-nombre" type="text" oninput="autoSlug()" placeholder="Ej: Inmobiliaria Los Andes"
+            class="w-full rounded-lg px-3 py-2.5 text-sm" style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--heading)" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium muted mb-1.5">Slug (identificador único)</label>
+          <input id="emp-slug" type="text" oninput="this.dataset.tocado='true'" placeholder="inmobiliaria-los-andes"
+            class="w-full rounded-lg px-3 py-2.5 text-sm" style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--heading)" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium muted mb-1.5">Industria</label>
+          <select id="emp-industria"
+            class="w-full rounded-lg px-3 py-2.5 text-sm" style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--heading)">
+            <option value="">Sin especificar</option>
+          </select>
+        </div>
+        <div class="flex gap-3">
+          <div>
+            <label class="block text-xs font-medium muted mb-1.5">Color</label>
+            <input id="emp-color" type="color" value="#7c3aed"
+              class="w-14 h-10 rounded-lg cursor-pointer" style="background:transparent; border:1px solid var(--glass-border)" />
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs font-medium muted mb-1.5">Logo (URL, opcional)</label>
+            <input id="emp-logo" type="text" placeholder="https://…"
+              class="w-full rounded-lg px-3 py-2.5 text-sm" style="background:rgba(255,255,255,0.06); border:1px solid var(--glass-border); color:var(--heading)" />
+          </div>
+        </div>
+        <p id="emp-error" class="hidden text-sm text-red-400 rounded-lg px-3 py-2" style="background:rgba(248,113,113,0.1); border:1px solid rgba(248,113,113,0.3)"></p>
+        <div class="flex gap-3 pt-1">
+          <button onclick="cerrarModalEmpresa()" class="flex-1 py-2.5 rounded-lg text-sm font-medium transition heading" style="background:rgba(255,255,255,0.06)">Cancelar</button>
+          <button id="btn-guardar-empresa" onclick="guardarEmpresa()" class="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white transition" style="background:#7c3aed">Crear empresa</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
   // ── Tema ─────────────────────────────────────────────────
   const html = document.documentElement;
@@ -185,6 +233,12 @@
   const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc';
   const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  let _token = null;
+  let _esAdmin = false;
+
+  function authHeaders() {
+    return { Authorization: `Bearer ${_token}`, 'Content-Type': 'application/json' };
+  }
 
   // ── Auth guard ────────────────────────────────────────────
   async function init() {
@@ -192,12 +246,12 @@
     if (!user || error) { window.location.href = '/login.html'; return; }
 
     const { data: { session } } = await _supabase.auth.getSession();
-    const token = session?.access_token;
+    _token = session?.access_token;
 
     try {
       const [resEmpresas, resPerfil] = await Promise.all([
-        fetch('/api/empresas',      { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/usuarios/me',   { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/empresas',      { headers: authHeaders() }),
+        fetch('/api/usuarios/me',   { headers: authHeaders() }),
       ]);
       if (resEmpresas.status === 401) { await _supabase.auth.signOut(); window.location.href = '/login.html'; return; }
       const empresas = await resEmpresas.json();
@@ -205,9 +259,9 @@
       if (perfil.rol === 'owner') {
         document.getElementById('btnAdmin').classList.remove('hidden');
       }
-      const esAdmin = ['owner', 'administrador'].includes(perfil.rol);
+      _esAdmin = ['owner', 'administrador'].includes(perfil.rol);
       // Ejecutivo con 1 sola empresa → seleccionar y redirigir directamente
-      if (!esAdmin && empresas.length === 1) {
+      if (!_esAdmin && empresas.length === 1) {
         sessionStorage.setItem('crm_empresa', JSON.stringify(empresas[0]));
         sessionStorage.removeItem('crm_inmobiliaria');
         sessionStorage.removeItem('crm_proyecto');
@@ -226,20 +280,32 @@
     return nombre.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
   }
 
+  const NUEVA_EMPRESA_CARD = `
+    <button class="empresa-card" id="btn-nueva-empresa" style="--accent:#7c3aed; border-style:dashed">
+      <div class="empresa-avatar" style="background:transparent; border:2px dashed var(--muted); box-shadow:none">
+        <svg class="w-6 h-6" style="color:var(--muted)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+      </div>
+      <div>
+        <p class="empresa-nombre">Nueva empresa</p>
+      </div>
+    </button>`;
+
   function renderEmpresas(empresas) {
     const grid = document.getElementById('empresas-grid');
-    if (!empresas.length) {
+    if (!empresas.length && !_esAdmin) {
       grid.className = 'flex justify-center';
       grid.innerHTML = '<p class="text-center muted text-sm py-10">No hay empresas activas.</p>';
       return;
     }
     const n = empresas.length;
-    grid.className = n === 1
-      ? 'flex justify-center'
-      : n === 2
-        ? 'grid grid-cols-1 sm:grid-cols-2 gap-5 justify-items-center'
-        : 'grid grid-cols-1 sm:grid-cols-3 gap-5';
-    const extraClass = n === 1 ? ' w-full max-w-xs' : '';
+    grid.className = (_esAdmin || n > 2)
+      ? 'grid grid-cols-1 sm:grid-cols-3 gap-5'
+      : n === 1
+        ? 'flex justify-center'
+        : 'grid grid-cols-1 sm:grid-cols-2 gap-5 justify-items-center';
+    const extraClass = (n === 1 && !_esAdmin) ? ' w-full max-w-xs' : '';
     grid.innerHTML = empresas.map((e, idx) => {
       const color = e.color_marca || '#7c3aed';
       const shadow = color + '40';
@@ -260,9 +326,12 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </button>`;
-    }).join('');
+    }).join('') + (_esAdmin ? NUEVA_EMPRESA_CARD : '');
 
-    grid.querySelectorAll('.empresa-card').forEach((btn, idx) => {
+    if (_esAdmin) {
+      document.getElementById('btn-nueva-empresa').addEventListener('click', abrirModalEmpresa);
+    }
+    grid.querySelectorAll('.empresa-card[data-idx]').forEach((btn, idx) => {
       btn.addEventListener('click', () => {
         sessionStorage.setItem('crm_empresa', JSON.stringify(empresas[idx]));
         sessionStorage.removeItem('crm_inmobiliaria');
@@ -277,6 +346,67 @@
     sessionStorage.removeItem('crm_empresa');
     window.location.href = '/login.html';
   });
+
+  // ── Nueva empresa (solo admin/owner) ───────────────────────
+  let _industrias = [];
+
+  async function abrirModalEmpresa() {
+    document.getElementById('emp-nombre').value = '';
+    document.getElementById('emp-slug').value = '';
+    document.getElementById('emp-slug').dataset.tocado = 'false';
+    document.getElementById('emp-color').value = '#7c3aed';
+    document.getElementById('emp-logo').value = '';
+    document.getElementById('emp-error').classList.add('hidden');
+    document.getElementById('modal-empresa').classList.remove('hidden');
+    document.getElementById('modal-empresa').classList.add('flex');
+    if (!_industrias.length) {
+      try {
+        const res = await fetch('/api/industrias', { headers: authHeaders() });
+        _industrias = res.ok ? await res.json() : [];
+      } catch (_) { _industrias = []; }
+    }
+    const sel = document.getElementById('emp-industria');
+    sel.innerHTML = '<option value="">Sin especificar</option>'
+      + _industrias.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('');
+  }
+
+  function cerrarModalEmpresa() {
+    document.getElementById('modal-empresa').classList.add('hidden');
+    document.getElementById('modal-empresa').classList.remove('flex');
+  }
+
+  function autoSlug() {
+    const slugEl = document.getElementById('emp-slug');
+    if (slugEl.dataset.tocado === 'true') return;
+    const nombre = document.getElementById('emp-nombre').value;
+    slugEl.value = nombre.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  }
+
+  async function guardarEmpresa() {
+    const nombre = document.getElementById('emp-nombre').value.trim();
+    const errEl  = document.getElementById('emp-error');
+    if (!nombre) { errEl.textContent = 'El nombre es obligatorio'; errEl.classList.remove('hidden'); return; }
+    const btn = document.getElementById('btn-guardar-empresa');
+    btn.disabled = true; btn.textContent = 'Creando…';
+    const payload = {
+      nombre,
+      slug: document.getElementById('emp-slug').value.trim(),
+      industria_id: document.getElementById('emp-industria').value || null,
+      color_marca: document.getElementById('emp-color').value,
+      logo_url: document.getElementById('emp-logo').value.trim(),
+    };
+    try {
+      const res = await fetch('/api/empresas', { method: 'POST', headers: authHeaders(), body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error(await res.text());
+      cerrarModalEmpresa();
+      init();
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Crear empresa';
+    }
+  }
 
   init();
 </script>

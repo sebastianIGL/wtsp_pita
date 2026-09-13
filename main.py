@@ -3445,6 +3445,81 @@ async def api_listar_empresas(request: Request):
     return rows or []
 
 
+def _slugify(texto: str) -> str:
+    t = unicodedata.normalize("NFKD", texto or "")
+    t = t.encode("ascii", "ignore").decode("ascii")
+    t = re.sub(r"[^a-zA-Z0-9]+", "-", t).strip("-").lower()
+    return t
+
+
+@app.get("/api/industrias")
+async def api_listar_industrias(request: Request):
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    rows = await _supabase_request("GET", "/Industria",
+        params={"select": "id,nombre", "order": "nombre.asc"})
+    return rows or []
+
+
+@app.post("/api/empresas")
+async def api_crear_empresa(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    body = await request.json()
+    nombre = (body.get("nombre") or "").strip()
+    if not nombre:
+        return Response(content="Falta el nombre", status_code=400)
+    slug = (body.get("slug") or "").strip() or _slugify(nombre)
+    payload: Dict[str, Any] = {
+        "nombre": nombre, "slug": slug, "estado": "activa",
+        "logo_url": (body.get("logo_url") or "").strip() or None,
+        "color_marca": (body.get("color_marca") or "").strip() or None,
+    }
+    if body.get("industria_id"):
+        payload["industria_id"] = body["industria_id"]
+    try:
+        row = await _supabase_request("POST", "/Empresa", json=payload,
+            extra_headers={"Prefer": "return=representation"})
+        return row[0] if isinstance(row, list) and row else row
+    except Exception as e:
+        return Response(content=_safe_httpx_error(e) or "Error al crear empresa", status_code=500, media_type="text/plain")
+
+
+@app.patch("/api/empresas/{empresa_id}")
+async def api_editar_empresa(empresa_id: str, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    body = await request.json()
+    payload: Dict[str, Any] = {}
+    if "nombre" in body:
+        payload["nombre"] = (body["nombre"] or "").strip()
+    if "slug" in body:
+        payload["slug"] = (body["slug"] or "").strip()
+    if "logo_url" in body:
+        payload["logo_url"] = (body["logo_url"] or "").strip() or None
+    if "color_marca" in body:
+        payload["color_marca"] = (body["color_marca"] or "").strip() or None
+    if "industria_id" in body:
+        payload["industria_id"] = body["industria_id"] or None
+    if "estado" in body:
+        payload["estado"] = body["estado"]
+    if not payload:
+        return Response(content="Nada que actualizar", status_code=400)
+    try:
+        await _supabase_request("PATCH", "/Empresa",
+            params={"id": f"eq.{empresa_id}"}, json=payload,
+            extra_headers={"Prefer": "return=minimal"})
+        return {"ok": True}
+    except Exception as e:
+        return Response(content=_safe_httpx_error(e) or "Error al editar empresa", status_code=500, media_type="text/plain")
+
+
 @app.get("/api/inmobiliarias")
 async def api_listar_inmobiliarias(request: Request):
     perfil = await _get_usuario_actual(request)
@@ -3465,8 +3540,11 @@ async def api_listar_inmobiliarias(request: Request):
 
 @app.post("/api/inmobiliarias")
 async def api_crear_inmobiliaria(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     body = await request.json()
     nombre     = (body.get("nombre") or "").strip()
     empresa_id = body.get("empresa_id")
@@ -3480,8 +3558,11 @@ async def api_crear_inmobiliaria(request: Request):
 
 @app.patch("/api/inmobiliarias/{inm_id}")
 async def api_editar_inmobiliaria(inm_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     body = await request.json()
     nombre = (body.get("nombre") or "").strip()
     if not nombre:
@@ -3536,6 +3617,8 @@ async def api_crear_proyecto(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     body = await request.json()
     nombre          = (body.get("nombre") or "").strip()
     codigo          = (body.get("codigo") or "").strip()
