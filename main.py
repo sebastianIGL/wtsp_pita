@@ -1877,7 +1877,7 @@ async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional
         return []
     inm_ids = ",".join(str(i["id"]) for i in inms)
     rows = await _supabase_request("GET", "/Proyecto",
-        params={"inmobiliaria_id": f"in.({inm_ids})", "select": _PROYECTO_SELECT_LIGHT}) or []
+        params={"inmobiliaria_id": f"in.({inm_ids})", "activo": "eq.true", "select": _PROYECTO_SELECT_LIGHT}) or []
     return [p for p in rows if str(p.get("id")) != str(proyecto_id_actual)]
 
 
@@ -3706,7 +3706,7 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
 
 # ── Tipologia ─────────────────────────────────────────────────────────────────
 
-_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,valor_uf,monto_subsidio,tipo_subsidio,estado,cuotas_ahorro,EtapaTipologia(id,stock,Etapa(id,nombre,fecha_entrega,estado))"
+_TIPOLOGIA_SELECT = "id,proyecto_id,Proyecto(nombre),nombre,dormitorios,banos,superficie_util_m2,terreno_m2,valor_uf,monto_subsidio,tipo_subsidio,estado,cuotas_ahorro,estacionamientos,bodegas,EtapaTipologia(id,stock,Etapa(id,nombre,fecha_entrega,estado))"
 
 @app.get("/api/tipologias")
 async def api_listar_tipologias(request: Request):
@@ -3742,7 +3742,8 @@ async def api_listar_tipologias(request: Request):
 
 _CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2", "terreno_m2",
                      "valor_uf", "monto_subsidio",
-                     "tipo_subsidio", "estado", "cuotas_ahorro")
+                     "tipo_subsidio", "estado", "cuotas_ahorro",
+                     "estacionamientos", "bodegas")
 
 @app.post("/api/tipologias")
 async def api_crear_tipologia(request: Request):
@@ -3992,6 +3993,191 @@ async def api_eliminar_etapa_tipologia(et_id: int, request: Request):
         params={"id": f"eq.{et_id}"},
         extra_headers={"Prefer": "return=minimal"})
     return {"ok": True}
+
+
+# ── Scraping: buydepa ───────────────────────────────────────────────────────
+
+BUYDEPA_API_URL = (
+    "https://sales.core.buydepa.com/api/_web/apartments"
+    "?page=1&pageSize=1000"
+    "&north=-33.344582824537326&south=-33.55284011095616"
+    "&east=-70.61119079589845&west=-70.72723388671876"
+)
+BUYDEPA_INMOBILIARIA_ID = 13
+
+
+async def _actualizar_stock_proyecto(proyecto_id: Any, disponible: bool) -> None:
+    """Refleja la disponibilidad en el stock de la (única) EtapaTipologia del proyecto."""
+    etapas = await _supabase_request("GET", "/Etapa",
+        params={"proyecto_id": f"eq.{proyecto_id}", "select": "id"}) or []
+    for etapa_row in etapas:
+        et_rows = await _supabase_request("GET", "/EtapaTipologia",
+            params={"etapa_id": f"eq.{etapa_row['id']}", "select": "id"}) or []
+        for et in et_rows:
+            await _supabase_request("PATCH", "/EtapaTipologia",
+                params={"id": f"eq.{et['id']}"},
+                json={"stock": 1 if disponible else 0},
+                extra_headers={"Prefer": "return=minimal"})
+
+
+async def _registrar_log_scraping(fuente: str, usuario_id: Optional[str], creados: int,
+                                   actualizados: int, desactivados: int, errores: int,
+                                   detalle_errores: Optional[list], estado: str) -> None:
+    try:
+        await _supabase_request("POST", "/ScrapingLog", json={
+            "fuente": fuente,
+            "ejecutado_por": usuario_id,
+            "creados": creados, "actualizados": actualizados,
+            "desactivados": desactivados, "errores": errores,
+            "detalle_errores": detalle_errores or [],
+            "estado": estado,
+        }, extra_headers={"Prefer": "return=minimal"})
+    except Exception:
+        logger.exception("No se pudo registrar el log de scraping")
+
+
+async def _sincronizar_buydepa(usuario_id: Optional[str] = None) -> Dict[str, Any]:
+    """Trae los departamentos publicados por buydepa y los sincroniza como Proyecto/Etapa/Tipologia."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.get(BUYDEPA_API_URL)
+            r.raise_for_status()
+            data = r.json()
+    except Exception as e:
+        motivo = f"Error al consultar la API de buydepa: {e}"
+        await _registrar_log_scraping("buydepa", usuario_id, 0, 0, 0, 1, [{"motivo": motivo}], "error")
+        return {"ok": False, "motivo": motivo}
+
+    items = data if isinstance(data, list) else (
+        data.get("data") or data.get("items") or data.get("results") or data.get("apartments") or []
+    )
+
+    existentes = await _supabase_request("GET", "/Proyecto",
+        params={"inmobiliaria_id": f"eq.{BUYDEPA_INMOBILIARIA_ID}",
+                "fuente_externo_id": "not.is.null",
+                "select": "id,fuente_externo_id,activo"}) or []
+    existentes_por_id = {e["fuente_externo_id"]: e for e in existentes}
+
+    creados = actualizados = desactivados = 0
+    errores: List[Dict[str, Any]] = []
+    ids_vistos_hoy: set = set()
+
+    for item in items:
+        fuente_id = str(item.get("id") or "").strip()
+        if not fuente_id:
+            continue
+        ids_vistos_hoy.add(fuente_id)
+        try:
+            disponible = item.get("state") == "available"
+            existente = existentes_por_id.get(fuente_id)
+
+            if existente:
+                if bool(existente.get("activo")) != disponible:
+                    await _supabase_request("PATCH", "/Proyecto",
+                        params={"id": f"eq.{existente['id']}"},
+                        json={"activo": disponible},
+                        extra_headers={"Prefer": "return=minimal"})
+                    await _actualizar_stock_proyecto(existente["id"], disponible)
+                    actualizados += 1
+                    if not disponible:
+                        desactivados += 1
+                continue
+
+            # Nuevo departamento → crear Proyecto + Etapa + Tipologia + EtapaTipologia
+            direccion  = (item.get("address") or "").strip() or f"Depto buydepa {fuente_id}"
+            precio     = item.get("listPrice")
+            ahorro_min = round(precio * 0.10, 2) if precio else None
+            imagenes   = ((item.get("images") or {}).get("legacy") or [])
+            imagen_url = imagenes[0] if imagenes else None
+            codigo     = _slugify(f"{direccion}-{precio}") or f"buydepa-{fuente_id}"
+
+            proyecto = await _supabase_request("POST", "/Proyecto", json={
+                "nombre": direccion, "codigo": codigo, "ubicacion": direccion,
+                "inmobiliaria_id": BUYDEPA_INMOBILIARIA_ID,
+                "imagen_url": imagen_url,
+                "ahorro_minimo_uf": ahorro_min,
+                "valor_reserva_clp": None, "valor_reserva_uf": None,
+                "tiene_piloto": True,
+                "acepta_ds19": False, "acepta_ds1_t23": False,
+                "activo": disponible,
+                "fuente_externo_id": fuente_id,
+            }, extra_headers={"Prefer": "return=representation"})
+            proyecto = proyecto[0] if isinstance(proyecto, list) and proyecto else proyecto
+            if not proyecto or not proyecto.get("id"):
+                raise RuntimeError("No se pudo crear el proyecto")
+
+            etapa = await _supabase_request("POST", "/Etapa", json={
+                "proyecto_id": proyecto["id"],
+                "nombre": "Entrega inmediata",
+                "estado": "entrega_inmediata",
+            }, extra_headers={"Prefer": "return=representation"})
+            etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
+
+            tipologia = await _supabase_request("POST", "/Tipologia", json={
+                "proyecto_id": proyecto["id"],
+                "nombre": direccion,
+                "dormitorios": item.get("bedrooms"),
+                "banos": item.get("bathrooms"),
+                "superficie_util_m2": item.get("totalArea"),
+                "valor_uf": precio,
+                "estacionamientos": item.get("parkings"),
+                "bodegas": item.get("storages"),
+            }, extra_headers={"Prefer": "return=representation"})
+            tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
+
+            if etapa and etapa.get("id") and tipologia and tipologia.get("id"):
+                await _supabase_request("POST", "/EtapaTipologia", json={
+                    "etapa_id": etapa["id"], "tipologia_id": tipologia["id"],
+                    "stock": 1 if disponible else 0,
+                }, extra_headers={"Prefer": "return=minimal"})
+
+            creados += 1
+        except Exception as ex:
+            errores.append({"fuente_externo_id": fuente_id, "motivo": str(ex)})
+
+    # Departamentos que ya no aparecen en la respuesta de hoy → se dan de baja
+    for fuente_id, existente in existentes_por_id.items():
+        if fuente_id not in ids_vistos_hoy and existente.get("activo"):
+            try:
+                await _supabase_request("PATCH", "/Proyecto",
+                    params={"id": f"eq.{existente['id']}"},
+                    json={"activo": False},
+                    extra_headers={"Prefer": "return=minimal"})
+                await _actualizar_stock_proyecto(existente["id"], False)
+                desactivados += 1
+                actualizados += 1
+            except Exception as ex:
+                errores.append({"fuente_externo_id": fuente_id, "motivo": str(ex)})
+
+    estado_log = "ok" if not errores else "parcial"
+    await _registrar_log_scraping("buydepa", usuario_id, creados, actualizados, desactivados, len(errores), errores, estado_log)
+    return {"ok": True, "creados": creados, "actualizados": actualizados,
+            "desactivados": desactivados, "errores": len(errores), "detalle_errores": errores}
+
+
+@app.post("/api/scraping/buydepa/ejecutar")
+async def api_ejecutar_scraping_buydepa(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    resultado = await _sincronizar_buydepa(usuario_id=perfil.get("id"))
+    if not resultado.get("ok"):
+        return Response(content=resultado.get("motivo") or "Error al sincronizar", status_code=500, media_type="text/plain")
+    return resultado
+
+
+@app.get("/api/scraping/logs")
+async def api_listar_logs_scraping(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    rows = await _supabase_request("GET", "/ScrapingLog",
+        params={"select": "*,Usuario(nombre)", "order": "ejecutado_en.desc", "limit": "100"})
+    return rows or []
 
 
 # ── Ejecutivos bancarios ──────────────────────────────────────────────────────
