@@ -12,6 +12,7 @@ import io
 import unicodedata
 from typing import Any, Dict, List, Optional, Union
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from collections import defaultdict
 import logging
 import time
@@ -173,12 +174,40 @@ if not logger.handlers:
 # Debounce: una tarea pendiente por número — la nueva cancela la anterior
 _pending_tasks: Dict[str, asyncio.Task] = {}
 
+# ── Horario de atención del bot y de recordatorios ─────────────────────────
+_TZ_CHILE = ZoneInfo("America/Santiago")
+HORARIO_BOT_INICIO = 9   # 09:00 hora Chile
+HORARIO_BOT_FIN    = 19  # 19:00 hora Chile (no incluido)
+
+
+def _dentro_horario_bot(ahora: Optional[datetime] = None) -> bool:
+    """True si estamos dentro del horario permitido (9:00–19:00, hora Chile)."""
+    hora_local = (ahora or datetime.now(timezone.utc)).astimezone(_TZ_CHILE)
+    return HORARIO_BOT_INICIO <= hora_local.hour < HORARIO_BOT_FIN
+
+
+def _segundos_hasta_horario_bot() -> float:
+    """Segundos que faltan hasta que se abra el próximo horario hábil (9:00 hora Chile)."""
+    ahora_cl = datetime.now(timezone.utc).astimezone(_TZ_CHILE)
+    objetivo = ahora_cl.replace(hour=HORARIO_BOT_INICIO, minute=0, second=0, microsecond=0)
+    if ahora_cl.hour >= HORARIO_BOT_FIN:
+        objetivo += timedelta(days=1)
+    elif ahora_cl.hour >= HORARIO_BOT_INICIO:
+        # Ya pasó el inicio de hoy pero seguimos dentro del horario — no debería llamarse en este caso.
+        objetivo += timedelta(days=1)
+    return max(0.0, (objetivo - ahora_cl).total_seconds())
+
 
 async def _recovery_loop():
     """Cada 3 min reintenta conversaciones donde el cliente escribió y el bot no respondió."""
     await asyncio.sleep(60)  # 1 min de gracia al arrancar
     while True:
         try:
+            if not _dentro_horario_bot():
+                # Fuera de horario: no reintentar (evita reprocesar/duplicar el mismo
+                # mensaje cada 3 min toda la noche). Se retoma solo al abrir el horario.
+                await asyncio.sleep(_segundos_hasta_horario_bot())
+                continue
             hace_3_min = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
             pendientes = await _supabase_request("GET", "/Prospecto",
                 params={
@@ -516,7 +545,7 @@ SEGÚN RESPUESTA A PREGUNTA 3:
   → Registrar elección: opcion_ds1_t2 = "A" o "B".
   → RESPUESTA AL ELEGIR (breve, SIN mencionar documentos —
     eso se pide recién en el paso DOCUMENTACION):
-    "Perfecto, seguimos con la Opción {A o B} 👍
+    "Perfecto, seguimos con la opción que elegiste 👍
      Ahora te hago unas preguntas rápidas sobre tu situación
      financiera para el crédito hipotecario."
   → siguiente_paso: "INICIO"
@@ -2238,6 +2267,14 @@ async def _procesar_webhook(msg: Dict):
                 telefono_e164=from_number,
                 ultimo_texto_entrante=text,
             )
+
+        # Fuera del horario de atención (9:00–19:00 hora Chile): no responder ahora.
+        # El mensaje ya quedó guardado con pendiente_respuesta=true; _recovery_loop
+        # lo reintenta solo cada 3 min y aquí mismo se vuelve a frenar hasta
+        # que se abra el horario, momento en que por fin se genera la respuesta.
+        if not _dentro_horario_bot():
+            logger.info("Fuera de horario hábil, respuesta pospuesta para %s", from_number)
+            return
 
         # Debounce: esperar a que el cliente termine de escribir
         await asyncio.sleep(DELAY_RESPUESTA_SEGUNDOS)
@@ -4036,8 +4073,8 @@ async def _registrar_log_scraping(fuente: str, usuario_id: Optional[str], creado
         logger.exception("No se pudo registrar el log de scraping")
 
 
-async def _sincronizar_buydepa(usuario_id: Optional[str] = None) -> Dict[str, Any]:
-    """Trae los departamentos publicados por buydepa y los sincroniza como Proyecto/Etapa/Tipologia."""
+async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
+    """Generador SSE: trae los departamentos de buydepa y reporta avance ítem por ítem."""
     try:
         async with httpx.AsyncClient(timeout=30) as client:
             r = await client.get(BUYDEPA_API_URL)
@@ -4046,11 +4083,13 @@ async def _sincronizar_buydepa(usuario_id: Optional[str] = None) -> Dict[str, An
     except Exception as e:
         motivo = f"Error al consultar la API de buydepa: {e}"
         await _registrar_log_scraping("buydepa", usuario_id, 0, 0, 0, 1, [{"motivo": motivo}], "error")
-        return {"ok": False, "motivo": motivo}
+        yield f"data: {json.dumps({'t': 'error', 'msg': motivo})}\n\n"
+        return
 
     items = data if isinstance(data, list) else (
         data.get("data") or data.get("items") or data.get("results") or data.get("apartments") or []
     )
+    total = len(items)
 
     existentes = await _supabase_request("GET", "/Proyecto",
         params={"inmobiliaria_id": f"eq.{BUYDEPA_INMOBILIARIA_ID}",
@@ -4062,78 +4101,85 @@ async def _sincronizar_buydepa(usuario_id: Optional[str] = None) -> Dict[str, An
     errores: List[Dict[str, Any]] = []
     ids_vistos_hoy: set = set()
 
-    for item in items:
+    for idx, item in enumerate(items, start=1):
         fuente_id = str(item.get("id") or "").strip()
+        direccion_log = (item.get("address") or "").strip() or (fuente_id or "?")
+        accion = "sin_cambios"
         if not fuente_id:
-            continue
-        ids_vistos_hoy.add(fuente_id)
-        try:
-            disponible = item.get("state") == "available"
-            existente = existentes_por_id.get(fuente_id)
+            accion = "omitido"
+        else:
+            ids_vistos_hoy.add(fuente_id)
+            try:
+                disponible = item.get("state") == "available"
+                existente = existentes_por_id.get(fuente_id)
 
-            if existente:
-                if bool(existente.get("activo")) != disponible:
-                    await _supabase_request("PATCH", "/Proyecto",
-                        params={"id": f"eq.{existente['id']}"},
-                        json={"activo": disponible},
-                        extra_headers={"Prefer": "return=minimal"})
-                    await _actualizar_stock_proyecto(existente["id"], disponible)
-                    actualizados += 1
-                    if not disponible:
-                        desactivados += 1
-                continue
+                if existente:
+                    if bool(existente.get("activo")) != disponible:
+                        await _supabase_request("PATCH", "/Proyecto",
+                            params={"id": f"eq.{existente['id']}"},
+                            json={"activo": disponible},
+                            extra_headers={"Prefer": "return=minimal"})
+                        await _actualizar_stock_proyecto(existente["id"], disponible)
+                        actualizados += 1
+                        accion = "actualizado"
+                        if not disponible:
+                            desactivados += 1
+                else:
+                    # Nuevo departamento → crear Proyecto + Etapa + Tipologia + EtapaTipologia
+                    direccion  = direccion_log or f"Depto buydepa {fuente_id}"
+                    precio     = item.get("listPrice")
+                    ahorro_min = round(precio * 0.10, 2) if precio else None
+                    imagenes   = ((item.get("images") or {}).get("legacy") or [])
+                    imagen_url = imagenes[0] if imagenes else None
+                    codigo     = _slugify(f"{direccion}-{precio}") or f"buydepa-{fuente_id}"
 
-            # Nuevo departamento → crear Proyecto + Etapa + Tipologia + EtapaTipologia
-            direccion  = (item.get("address") or "").strip() or f"Depto buydepa {fuente_id}"
-            precio     = item.get("listPrice")
-            ahorro_min = round(precio * 0.10, 2) if precio else None
-            imagenes   = ((item.get("images") or {}).get("legacy") or [])
-            imagen_url = imagenes[0] if imagenes else None
-            codigo     = _slugify(f"{direccion}-{precio}") or f"buydepa-{fuente_id}"
+                    proyecto = await _supabase_request("POST", "/Proyecto", json={
+                        "nombre": direccion, "codigo": codigo, "ubicacion": direccion,
+                        "inmobiliaria_id": BUYDEPA_INMOBILIARIA_ID,
+                        "imagen_url": imagen_url,
+                        "ahorro_minimo_uf": ahorro_min,
+                        "valor_reserva_clp": None, "valor_reserva_uf": None,
+                        "tiene_piloto": True,
+                        "acepta_ds19": False, "acepta_ds1_t23": False,
+                        "activo": disponible,
+                        "fuente_externo_id": fuente_id,
+                    }, extra_headers={"Prefer": "return=representation"})
+                    proyecto = proyecto[0] if isinstance(proyecto, list) and proyecto else proyecto
+                    if not proyecto or not proyecto.get("id"):
+                        raise RuntimeError("No se pudo crear el proyecto")
 
-            proyecto = await _supabase_request("POST", "/Proyecto", json={
-                "nombre": direccion, "codigo": codigo, "ubicacion": direccion,
-                "inmobiliaria_id": BUYDEPA_INMOBILIARIA_ID,
-                "imagen_url": imagen_url,
-                "ahorro_minimo_uf": ahorro_min,
-                "valor_reserva_clp": None, "valor_reserva_uf": None,
-                "tiene_piloto": True,
-                "acepta_ds19": False, "acepta_ds1_t23": False,
-                "activo": disponible,
-                "fuente_externo_id": fuente_id,
-            }, extra_headers={"Prefer": "return=representation"})
-            proyecto = proyecto[0] if isinstance(proyecto, list) and proyecto else proyecto
-            if not proyecto or not proyecto.get("id"):
-                raise RuntimeError("No se pudo crear el proyecto")
+                    etapa = await _supabase_request("POST", "/Etapa", json={
+                        "proyecto_id": proyecto["id"],
+                        "nombre": "Entrega inmediata",
+                        "estado": "entrega_inmediata",
+                    }, extra_headers={"Prefer": "return=representation"})
+                    etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
 
-            etapa = await _supabase_request("POST", "/Etapa", json={
-                "proyecto_id": proyecto["id"],
-                "nombre": "Entrega inmediata",
-                "estado": "entrega_inmediata",
-            }, extra_headers={"Prefer": "return=representation"})
-            etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
+                    tipologia = await _supabase_request("POST", "/Tipologia", json={
+                        "proyecto_id": proyecto["id"],
+                        "nombre": direccion,
+                        "dormitorios": item.get("bedrooms"),
+                        "banos": item.get("bathrooms"),
+                        "superficie_util_m2": item.get("totalArea"),
+                        "valor_uf": precio,
+                        "estacionamientos": item.get("parkings"),
+                        "bodegas": item.get("storages"),
+                    }, extra_headers={"Prefer": "return=representation"})
+                    tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
 
-            tipologia = await _supabase_request("POST", "/Tipologia", json={
-                "proyecto_id": proyecto["id"],
-                "nombre": direccion,
-                "dormitorios": item.get("bedrooms"),
-                "banos": item.get("bathrooms"),
-                "superficie_util_m2": item.get("totalArea"),
-                "valor_uf": precio,
-                "estacionamientos": item.get("parkings"),
-                "bodegas": item.get("storages"),
-            }, extra_headers={"Prefer": "return=representation"})
-            tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
+                    if etapa and etapa.get("id") and tipologia and tipologia.get("id"):
+                        await _supabase_request("POST", "/EtapaTipologia", json={
+                            "etapa_id": etapa["id"], "tipologia_id": tipologia["id"],
+                            "stock": 1 if disponible else 0,
+                        }, extra_headers={"Prefer": "return=minimal"})
 
-            if etapa and etapa.get("id") and tipologia and tipologia.get("id"):
-                await _supabase_request("POST", "/EtapaTipologia", json={
-                    "etapa_id": etapa["id"], "tipologia_id": tipologia["id"],
-                    "stock": 1 if disponible else 0,
-                }, extra_headers={"Prefer": "return=minimal"})
+                    creados += 1
+                    accion = "creado"
+            except Exception as ex:
+                errores.append({"fuente_externo_id": fuente_id, "direccion": direccion_log, "motivo": str(ex)})
+                accion = "error"
 
-            creados += 1
-        except Exception as ex:
-            errores.append({"fuente_externo_id": fuente_id, "motivo": str(ex)})
+        yield f"data: {json.dumps({'t':'prog','n':idx,'total':total,'accion':accion,'direccion':direccion_log,'creados':creados,'actualizados':actualizados,'desactivados':desactivados,'errores':len(errores)})}\n\n"
 
     # Departamentos que ya no aparecen en la respuesta de hoy → se dan de baja
     for fuente_id, existente in existentes_por_id.items():
@@ -4151,21 +4197,22 @@ async def _sincronizar_buydepa(usuario_id: Optional[str] = None) -> Dict[str, An
 
     estado_log = "ok" if not errores else "parcial"
     await _registrar_log_scraping("buydepa", usuario_id, creados, actualizados, desactivados, len(errores), errores, estado_log)
-    return {"ok": True, "creados": creados, "actualizados": actualizados,
-            "desactivados": desactivados, "errores": len(errores), "detalle_errores": errores}
+    yield f"data: {json.dumps({'t':'done','creados':creados,'actualizados':actualizados,'desactivados':desactivados,'errores':len(errores),'detalle_errores':errores})}\n\n"
 
 
 @app.post("/api/scraping/buydepa/ejecutar")
 async def api_ejecutar_scraping_buydepa(request: Request):
+    from fastapi.responses import StreamingResponse as _SR
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     if not _solo_admin(perfil):
         return Response(content="Solo administradores", status_code=403)
-    resultado = await _sincronizar_buydepa(usuario_id=perfil.get("id"))
-    if not resultado.get("ok"):
-        return Response(content=resultado.get("motivo") or "Error al sincronizar", status_code=500, media_type="text/plain")
-    return resultado
+    return _SR(
+        _sincronizar_buydepa_stream(usuario_id=perfil.get("id")),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/scraping/logs")
@@ -5690,6 +5737,9 @@ async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, t
     """Avisa al ejecutivo asignado cuando el bot mueve al cliente a un estado puntual
     ('primer_documento' | 'docs_completos'). No vuelve a enviar el mismo tipo de aviso
     hasta que el ejecutivo cambie estado_gestion (reconociendo que ya actuó)."""
+    if not _dentro_horario_bot():
+        # No despertar al ejecutivo fuera de horario — esperar a que abra 9:00 hora Chile.
+        await asyncio.sleep(_segundos_hasta_horario_bot())
     texto = _TEXTOS_RECORDATORIO.get(tipo)
     if not texto:
         return {"ok": False, "motivo": f"tipo '{tipo}' inválido"}

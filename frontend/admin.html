@@ -679,32 +679,92 @@
         : r.estado === 'parcial'
           ? '<span class="px-2 py-0.5 rounded-full text-xs bg-amber-900/50 text-amber-300">⚠ Con errores</span>'
           : '<span class="px-2 py-0.5 rounded-full text-xs bg-red-900/50 text-red-300">✗ Error</span>';
+      const detalle = r.detalle_errores || [];
+      const errCell = detalle.length
+        ? `<button onclick="document.getElementById('scraping-detalle-${r.id}').classList.toggle('hidden')"
+             class="text-red-400 underline decoration-dotted hover:text-red-300 transition">${r.errores} ▾</button>`
+        : `<span class="text-red-400">${r.errores}</span>`;
+      const filaDetalle = detalle.length
+        ? `<tr id="scraping-detalle-${r.id}" class="hidden border-t border-slate-700 bg-slate-900/40">
+             <td colspan="7" class="px-5 py-3 text-xs text-red-300 space-y-1 max-h-48 overflow-y-auto">
+               ${detalle.map(e => `<p>• ${e.direccion || e.fuente_externo_id || '?'}: ${e.motivo}</p>`).join('')}
+             </td>
+           </tr>`
+        : '';
       return `<tr class="border-t border-slate-700 hover:bg-slate-750 transition">
         <td class="px-5 py-3 text-slate-400 text-xs font-mono">${fecha}</td>
         <td class="px-5 py-3 text-slate-300">${r.Usuario?.nombre || '—'}</td>
         <td class="px-5 py-3 text-emerald-400">${r.creados}</td>
         <td class="px-5 py-3 text-sky-400">${r.actualizados}</td>
         <td class="px-5 py-3 text-amber-400">${r.desactivados}</td>
-        <td class="px-5 py-3 text-red-400">${r.errores}</td>
+        <td class="px-5 py-3">${errCell}</td>
         <td class="px-5 py-3">${badge}</td>
-      </tr>`;
+      </tr>${filaDetalle}`;
     }).join('');
+  }
+
+  const SCRAPING_ICONOS = { creado: '🟢', actualizado: '🔵', sin_cambios: '⚪', error: '🔴', omitido: '⚪' };
+
+  function _renderScrapingProgreso(evt) {
+    const resultadoEl = document.getElementById('scraping-resultado');
+    resultadoEl.className = 'mb-5 rounded-xl border px-4 py-3 text-sm bg-slate-900/40 border-slate-700 text-slate-300';
+    resultadoEl.innerHTML = `
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+        <span class="font-medium">Procesando ${evt.n}/${evt.total}…</span>
+      </div>
+      <div class="text-xs text-slate-400 font-mono truncate">${SCRAPING_ICONOS[evt.accion] || '⚪'} ${evt.direccion}</div>
+      <div class="text-xs text-slate-500 mt-1.5">🟢 ${evt.creados} creados · 🔵 ${evt.actualizados} actualizados · ⚪ ${evt.desactivados} desactivados · 🔴 ${evt.errores} errores</div>`;
+    resultadoEl.classList.remove('hidden');
+  }
+
+  function _renderScrapingResultado(data) {
+    const resultadoEl = document.getElementById('scraping-resultado');
+    resultadoEl.className = 'mb-5 rounded-xl border px-4 py-3 text-sm ' +
+      (data.errores > 0 ? 'bg-amber-900/20 border-amber-800 text-amber-300' : 'bg-emerald-900/20 border-emerald-800 text-emerald-300');
+    let html = `<p class="font-medium">Listo — ${data.creados||0} creados, ${data.actualizados||0} actualizados, ${data.desactivados||0} desactivados${data.errores ? `, ${data.errores} errores` : ''}.</p>`;
+    if ((data.detalle_errores || []).length) {
+      html += `<div class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs text-red-300">` +
+        data.detalle_errores.map(e => `<p>• ${e.direccion || e.fuente_externo_id || '?'}: ${e.motivo}</p>`).join('') +
+        `</div>`;
+    }
+    resultadoEl.innerHTML = html;
+    resultadoEl.classList.remove('hidden');
   }
 
   async function ejecutarScraping() {
     const btn = document.getElementById('btn-ejecutar-scraping');
     const resultadoEl = document.getElementById('scraping-resultado');
     btn.disabled = true; btn.textContent = 'Ejecutando…';
-    resultadoEl.classList.add('hidden');
+    resultadoEl.className = 'mb-5 rounded-xl border px-4 py-3 text-sm bg-slate-900/40 border-slate-700 text-slate-300';
+    resultadoEl.textContent = 'Iniciando…';
+    resultadoEl.classList.remove('hidden');
     try {
       const res = await fetch('/api/scraping/buydepa/ejecutar', { method: 'POST', headers: authHeaders() });
-      const texto = await res.text();
-      if (!res.ok) throw new Error(texto);
-      const data = JSON.parse(texto);
-      resultadoEl.className = 'mb-5 rounded-xl border px-4 py-3 text-sm ' +
-        (data.errores > 0 ? 'bg-amber-900/20 border-amber-800 text-amber-300' : 'bg-emerald-900/20 border-emerald-800 text-emerald-300');
-      resultadoEl.textContent = `Listo — ${data.creados} creados, ${data.actualizados} actualizados, ${data.desactivados} desactivados${data.errores ? `, ${data.errores} errores` : ''}.`;
-      resultadoEl.classList.remove('hidden');
+      if (!res.ok) throw new Error(await res.text());
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let done_data = null;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop();
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith('data:')) continue;
+          const evt = JSON.parse(line.slice(5).trim());
+          if (evt.t === 'prog') _renderScrapingProgreso(evt);
+          else if (evt.t === 'done') done_data = evt;
+          else if (evt.t === 'error') throw new Error(evt.msg);
+        }
+      }
+
+      _renderScrapingResultado(done_data || {});
       toast('Scraping ejecutado');
       cargarLogsScraping();
     } catch (e) {
