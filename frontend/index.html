@@ -668,6 +668,78 @@
 
       </div>
 
+      <!-- Codeudor / complementador de renta -->
+      <div class="mt-4">
+        <button type="button" id="btn-toggle-codeudor" onclick="onToggleCodeudor()"
+          class="flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Agregar codeudor
+        </button>
+        <div id="eval-codeudor-slots" class="hidden mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+          <!-- Doc 8 — Cédula codeudor -->
+          <label class="doc-drop relative p-4 flex items-center gap-3" id="drop-8">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="onDocSelect(this,8)">
+            <div class="doc-icon-wrap">
+              <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium val-text truncate">Cédula del codeudor</p>
+              <p class="text-xs sidebar-text mt-0.5" id="doc-label-8">Ambos lados · PDF o imagen</p>
+            </div>
+            <div id="doc-check-8" class="hidden">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </label>
+
+          <!-- Doc 9 — AFP codeudor -->
+          <label class="doc-drop relative p-4 flex items-center gap-3" id="drop-9">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="onDocSelect(this,9)">
+            <div class="doc-icon-wrap">
+              <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium val-text truncate">Certificado de AFP del codeudor</p>
+              <p class="text-xs sidebar-text mt-0.5" id="doc-label-9">Últimas 12 cotizaciones · PDF</p>
+            </div>
+            <div id="doc-check-9" class="hidden">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </label>
+
+          <!-- Doc 10 — Liquidaciones codeudor -->
+          <label class="doc-drop relative p-4 flex items-center gap-3" id="drop-10">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="onDocSelect(this,10)">
+            <div class="doc-icon-wrap">
+              <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium val-text truncate">Liquidaciones del codeudor</p>
+              <p class="text-xs sidebar-text mt-0.5" id="doc-label-10">Últimas 6 liquidaciones · PDF o imagen</p>
+            </div>
+            <div id="doc-check-10" class="hidden">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </label>
+
+          <!-- Doc 11 — Antigüedad codeudor -->
+          <label class="doc-drop relative p-4 flex items-center gap-3" id="drop-11">
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="onDocSelect(this,11)">
+            <div class="doc-icon-wrap">
+              <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-xs font-medium val-text truncate">Antigüedad laboral del codeudor</p>
+              <p class="text-xs sidebar-text mt-0.5" id="doc-label-11">Contrato o certificado · PDF o imagen</p>
+            </div>
+            <div id="doc-check-11" class="hidden">
+              <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+          </label>
+
+        </div>
+      </div>
+
       <!-- Acciones -->
       <div class="flex flex-col gap-2 pt-2">
         <button id="btn-remarketing-docs" onclick="enviarRecordatorioDocs()"
@@ -1890,6 +1962,10 @@ const TIPOS_DOC = {
   5: 'informe_deudas',
   6: 'antiguedad_laboral',
   7: 'otro',
+  8: 'cedula_complementador',
+  9: 'certificado_afp_complementador',
+  10: 'liquidaciones_complementador',
+  11: 'antiguedad_laboral_complementador',
 }
 const SLOT_POR_TIPO = Object.fromEntries(Object.entries(TIPOS_DOC).map(([k,v]) => [v, +k]))
 
@@ -1904,8 +1980,10 @@ const TIPOS_DOC_LABELS = {
   carpeta_tributaria_sii:       'Carpeta tributaria SII',
   declaracion_anual_impuestos:  'Declaración anual de impuestos',
   libreta_ahorro:               'Cartola / libreta de ahorro',
-  cedula_complementador:        'Cédula del complementador',
-  liquidaciones_complementador: 'Liquidaciones del complementador',
+  cedula_complementador:               'Cédula del complementador',
+  liquidaciones_complementador:        'Liquidaciones del complementador',
+  certificado_afp_complementador:      'AFP del complementador',
+  antiguedad_laboral_complementador:   'Antigüedad del complementador',
   informe_deudas:               'Informe de deudas',
   otro:                         'Sin clasificar',
 }
@@ -1914,11 +1992,14 @@ let _evalDocsSeleccionados = {}
 let _evalClienteId = null
 let _evalEjecutivosSeleccionados = []
 let _evalFuerzaArmada = false
+let _evalConCodeudor = false
 let _enviandoEvaluacion = false
 // Slots obligatorios normales: 1=liquidación, 2=AFP, 3=cédula, 5=informe deudas/CMF (6=antigüedad no es requerido)
 // Fuerza Armada: solo 1=liquidación, 3=cédula, 5=informe deudas/CMF (sin AFP, libreta ahorro ni antigüedad)
-const DOCS_OBLIGATORIOS_NORMAL = [1,2,3,5]
-const DOCS_OBLIGATORIOS_FFAA   = [1,3,5]
+const DOCS_OBLIGATORIOS_NORMAL   = [1,2,3,5]
+const DOCS_OBLIGATORIOS_FFAA     = [1,3,5]
+// Codeudor: cédula, AFP, liquidaciones y antigüedad — obligatorios solo si se activó el bloque
+const DOCS_OBLIGATORIOS_CODEUDOR = [8,9,10,11]
 
 function onFuerzaArmadaChange(checked) {
   _evalFuerzaArmada = checked
@@ -1926,8 +2007,19 @@ function onFuerzaArmadaChange(checked) {
   actualizarBtnEval()
 }
 
+function onToggleCodeudor() {
+  _evalConCodeudor = !_evalConCodeudor
+  document.getElementById('eval-codeudor-slots').classList.toggle('hidden', !_evalConCodeudor)
+  document.getElementById('btn-toggle-codeudor').innerHTML = _evalConCodeudor
+    ? `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg> Quitar codeudor`
+    : `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Agregar codeudor`
+  actualizarDocsRequeridosUI()
+  actualizarBtnEval()
+}
+
 function actualizarDocsRequeridosUI() {
-  const n = _evalFuerzaArmada ? DOCS_OBLIGATORIOS_FFAA.length : DOCS_OBLIGATORIOS_NORMAL.length
+  let n = _evalFuerzaArmada ? DOCS_OBLIGATORIOS_FFAA.length : DOCS_OBLIGATORIOS_NORMAL.length
+  if (_evalConCodeudor) n += DOCS_OBLIGATORIOS_CODEUDOR.length
   document.getElementById('eval-docs-hint').textContent =
     `Adjunta los ${n} documentos para solicitar la pre-evaluación bancaria.`
   document.getElementById('doc-badge-2').classList.toggle('hidden', !_evalFuerzaArmada)
@@ -1941,11 +2033,15 @@ async function abrirEvaluacion(id) {
   _evalClienteId = id
   _evalDocsSeleccionados = {}
   _evalFuerzaArmada = false
+  _evalConCodeudor = false
   document.getElementById('eval-fuerza-armada').checked = false
+  document.getElementById('eval-codeudor-slots').classList.add('hidden')
+  document.getElementById('btn-toggle-codeudor').innerHTML =
+    `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg> Agregar codeudor`
   actualizarDocsRequeridosUI()
 
   // Reset drops
-  ;[1,2,3,4,5,6,7].forEach(n => {
+  ;[1,2,3,4,5,6,7,8,9,10,11].forEach(n => {
     const drop  = document.getElementById(`drop-${n}`)
     const check = document.getElementById(`doc-check-${n}`)
     const input = drop.querySelector('input')
@@ -1963,7 +2059,9 @@ async function abrirEvaluacion(id) {
       1:'Últimas 6 liquidaciones · PDF o imagen', 2:'Últimas 12 cotizaciones · PDF',
       3:'Ambos lados · PDF o imagen',     4:'Saldo actual · PDF o imagen',
       5:'DICOM o similar · PDF',          6:'Contrato o certificado · PDF o imagen',
-      7:'Cualquier documento adicional · PDF o imagen'
+      7:'Cualquier documento adicional · PDF o imagen',
+      8:'Ambos lados · PDF o imagen',     9:'Últimas 12 cotizaciones · PDF',
+      10:'Últimas 6 liquidaciones · PDF o imagen', 11:'Contrato o certificado · PDF o imagen'
     }
     lbl.textContent = placeholders[n]
     lbl.classList.remove('text-emerald-400')
@@ -2250,7 +2348,8 @@ function onDocSelect(input, n) {
 
 function actualizarBtnEval() {
   const btn = document.getElementById('btn-eval-enviar')
-  const slotsObligatorios = _evalFuerzaArmada ? DOCS_OBLIGATORIOS_FFAA : DOCS_OBLIGATORIOS_NORMAL
+  let slotsObligatorios = _evalFuerzaArmada ? DOCS_OBLIGATORIOS_FFAA : DOCS_OBLIGATORIOS_NORMAL
+  if (_evalConCodeudor) slotsObligatorios = slotsObligatorios.concat(DOCS_OBLIGATORIOS_CODEUDOR)
   const obligatorios = slotsObligatorios.filter(n => _evalDocsSeleccionados[n]).length
   const tieneNuevos = Object.values(_evalDocsSeleccionados).some(v => v instanceof File)
 
@@ -2284,7 +2383,7 @@ async function enviarEvaluacion() {
   btn.disabled = true
 
   // Siempre guardar archivos pendientes antes de cualquier acción
-  const slots = [1,2,3,4,5,6,7]
+  const slots = [1,2,3,4,5,6,7,8,9,10,11]
   const errores = []
   let subidos = 0
 

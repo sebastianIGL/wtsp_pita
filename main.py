@@ -326,6 +326,8 @@ _DOCS_CONDICIONALES: List[tuple] = [
     ("cartola_ahorro",               {"label": "Cartola de ahorro",                "cantidad": 1}, lambda d: d.get("ahorro_ok") is True),
     ("cedula_complementador",        {"label": "Cédula del complementador",        "cantidad": 2}, lambda d: d.get("complemento_renta") is True),
     ("liquidaciones_complementador", {"label": "Liquidaciones del complementador", "cantidad": 6}, lambda d: d.get("complemento_renta") is True),
+    ("certificado_afp_complementador",    {"label": "Certificado de AFP del complementador",        "cantidad": 1}, lambda d: d.get("complemento_renta") is True),
+    ("antiguedad_laboral_complementador", {"label": "Certificado de antigüedad del complementador", "cantidad": 1}, lambda d: d.get("complemento_renta") is True),
 ]
 
 
@@ -4786,6 +4788,8 @@ async def api_documentos_cliente(cliente_id: int, request: Request):
 TIPOS_VALIDOS = {
     "liquidacion_sueldo", "certificado_afp", "carnet_identidad",
     "antiguedad_laboral", "libreta_ahorro", "informe_deudas", "otro",
+    "cedula_complementador", "liquidaciones_complementador",
+    "certificado_afp_complementador", "antiguedad_laboral_complementador",
 }
 
 # Tipos que un ejecutivo puede asignar manualmente a un documento ya recibido
@@ -4800,8 +4804,10 @@ TIPOS_DOCUMENTO_RECLASIFICABLES: Dict[str, str] = {
     "carpeta_tributaria_sii":       "Carpeta tributaria SII",
     "declaracion_anual_impuestos":  "Declaración anual de impuestos",
     "libreta_ahorro":               "Cartola / libreta de ahorro",
-    "cedula_complementador":        "Cédula del complementador",
-    "liquidaciones_complementador": "Liquidaciones del complementador",
+    "cedula_complementador":               "Cédula del complementador",
+    "liquidaciones_complementador":        "Liquidaciones del complementador",
+    "certificado_afp_complementador":      "Certificado de AFP del complementador",
+    "antiguedad_laboral_complementador":   "Antigüedad laboral del complementador",
     "informe_deudas":               "Informe de deudas",
     "otro":                         "Sin clasificar",
 }
