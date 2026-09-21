@@ -102,6 +102,29 @@ def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
 _cache_proyectos: Dict = {"data": None, "ts": 0.0}
 _CACHE_TTL = 300  # 5 minutos
 
+# ── Valor UF (Chile) para poblar plantillas WhatsApp ──────────────────────────
+_cache_uf: Dict = {"valor": None, "ts": 0.0}
+_CACHE_UF_TTL = 86400  # 24 horas
+_UF_VALOR_RESPALDO = 39000  # fallback si mindicador.cl no responde (ajustar periódicamente)
+
+async def _obtener_valor_uf() -> float:
+    """Valor de la UF en CLP, cacheado 24h. Usa mindicador.cl; ante cualquier falla retorna un respaldo fijo."""
+    now = time.time()
+    if _cache_uf["valor"] and now - _cache_uf["ts"] < _CACHE_UF_TTL:
+        return _cache_uf["valor"]
+    try:
+        async with httpx.AsyncClient(timeout=8) as client:
+            resp = await client.get("https://mindicador.cl/api/uf")
+            resp.raise_for_status()
+            data = resp.json()
+            valor = float(data["serie"][0]["valor"])
+    except Exception as exc:
+        logger.warning("No se pudo obtener valor UF de mindicador.cl, usando respaldo: %s", exc)
+        valor = _UF_VALOR_RESPALDO
+    _cache_uf["valor"] = valor
+    _cache_uf["ts"]    = now
+    return valor
+
 # ── Gmail API (email transaccional via Service Account) ──────────────────────
 def _gmail_get_token_sync(impersonate_email: str) -> str:
     """Obtiene access token de Gmail API via Service Account. Síncrono — usar en executor."""
@@ -1698,9 +1721,11 @@ TEMPLATE_VARS_MAP: Dict[str, List[str]] = {
         "monto_subsidio_uf", "valor_reserva_clp", "precio_desde_uf", "fecha_entrega",
     ],
     "cercana__consultiva": [
+        # Esta plantilla ya trae "UF" y "$" escritos literalmente junto a las variables
+        # en el texto aprobado en Meta, por eso usa las versiones _num (solo el número).
         "cliente_nombre", "proyecto_nombre", "proyecto_ubicacion",
-        "subsidio_tipo", "monto_subsidio_uf",
-        "valor_reserva_clp", "precio_desde_uf", "fecha_entrega",
+        "subsidio_tipo", "monto_subsidio_uf_num",
+        "monto_subsidio_clp_num", "precio_desde_uf_num", "fecha_entrega",
     ],
 }
 
@@ -1729,8 +1754,9 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
             params={"proyecto_id": f"eq.{p['id']}", "select": "valor_uf,monto_subsidio", "order": "id.asc"},
         ) or []
     precios = [t.get("valor_uf") for t in tip_rows if t.get("valor_uf")]
-    precio_min   = min(precios) if precios else None
-    precio_desde = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
+    precio_min       = min(precios) if precios else None
+    precio_desde     = f"{int(precio_min):,} UF".replace(",", ".") if precio_min else "a consultar"
+    precio_desde_num = f"{int(precio_min):,}".replace(",", ".") if precio_min else "a consultar"
 
     # Monto subsidio desde tipología
     tip_monto = None
@@ -1762,15 +1788,25 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
     else:
         reserva_fmt = "a consultar"
 
+    # Monto del subsidio en pesos: UF del subsidio × valor UF del día (cacheado 24h)
+    monto_subsidio_uf_val = tip_monto or 700
+    uf_valor              = await _obtener_valor_uf()
+    monto_subsidio_clp    = round(monto_subsidio_uf_val * uf_valor)
+
     return {
         "cliente_nombre":     nombre                      or "cliente",
         "proyecto_nombre":    p.get("nombre")             or "nuestro proyecto",
         "proyecto_ubicacion": p.get("ubicacion")          or "Santiago",
         "subsidio_tipo":      subsidio_tipo,
-        "monto_subsidio_uf":  f"{tip_monto or 700} UF",
+        "monto_subsidio_uf":  f"{monto_subsidio_uf_val} UF",
         "valor_reserva_clp":  reserva_fmt,
         "precio_desde_uf":    precio_desde,
         "fecha_entrega":      fecha_entrega_pool,
+        # Versiones "_num" sin símbolo de unidad: para plantillas que ya traen
+        # "UF"/"$" escritos literalmente en el texto aprobado en Meta (evita duplicarlos).
+        "monto_subsidio_uf_num": f"{monto_subsidio_uf_val:,.0f}".replace(",", "."),
+        "monto_subsidio_clp_num": f"{monto_subsidio_clp:,}".replace(",", "."),
+        "precio_desde_uf_num": precio_desde_num,
     }
 
 
