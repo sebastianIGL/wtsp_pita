@@ -1075,10 +1075,13 @@
     { key: 'proyecto_nombre',    label: 'Nombre del proyecto' },
     { key: 'proyecto_ubicacion', label: 'Ubicación del proyecto' },
     { key: 'subsidio_tipo',      label: 'Tipo de subsidio' },
-    { key: 'monto_subsidio_uf',  label: 'Monto subsidio (UF)' },
-    { key: 'valor_reserva_clp',  label: 'Valor reserva (CLP)' },
-    { key: 'precio_desde_uf',    label: 'Precio desde (UF)' },
+    { key: 'monto_subsidio_uf',  label: 'Monto subsidio (UF) — con "UF" incluido' },
+    { key: 'valor_reserva_clp',  label: 'Valor reserva (CLP) — con "$" incluido' },
+    { key: 'precio_desde_uf',    label: 'Precio desde (UF) — con "UF" incluido' },
     { key: 'fecha_entrega',      label: 'Fecha de entrega' },
+    { key: 'monto_subsidio_uf_num',  label: 'Monto subsidio — solo número, sin "UF" (usar si la plantilla ya trae "UF" escrito)' },
+    { key: 'monto_subsidio_clp_num', label: 'Monto subsidio en pesos — UF × valor UF del día, solo número sin "$" (usar si la plantilla ya trae "$" escrito)' },
+    { key: 'precio_desde_uf_num',    label: 'Precio desde — solo número, sin "UF" (usar si la plantilla ya trae "UF" escrito)' },
   ];
 
   let _templatesMeta = [];
