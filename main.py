@@ -3167,6 +3167,8 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     usuario_id = perfil["id"]
     empresa_id  = request.query_params.get("empresa_id")
     proyecto_id = request.query_params.get("proyecto_id")
+    # Identificador del lote de carga: permite luego filtrar/borrar solo lo importado en esta corrida
+    lote_carga = f"{(file.filename or 'import').strip()} · {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
     asignar_usuario_id = request.query_params.get("asignar_usuario_id")
     if asignar_usuario_id and _solo_admin(perfil):
         usuario_id = asignar_usuario_id
@@ -3300,6 +3302,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                     "primer mensaje": True, "wtsp_habilitado": True,
                                     "usuario_id": usuario_id,
                                     "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                                    "origen_carga": lote_carga,
                                 },
                                 extra_headers={"Prefer": "return=representation"})
                             phones_existentes.add(telefono)
@@ -3360,6 +3363,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                         "primer mensaje": True, "wtsp_habilitado": True,
                                         "usuario_id": usuario_id,
                                         "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                                        "origen_carga": lote_carga,
                                     },
                                     extra_headers={"Prefer": "return=representation"})
                                 phones_existentes.add(telefono)
