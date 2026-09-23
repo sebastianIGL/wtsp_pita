@@ -250,7 +250,7 @@ async def _recovery_loop():
                     "type": "text",
                     "text": {"body": ultimo_txt},
                     "id":   f"recovery_{p['id']}",
-                }))
+                }, es_reintento=True))
         except Exception:
             logger.exception("Error en _recovery_loop")
         await asyncio.sleep(180)  # revisar cada 3 minutos
@@ -2287,8 +2287,12 @@ async def verify_webhook(request: Request):
 DELAY_RESPUESTA_SEGUNDOS = int(os.getenv("BOT_REPLY_DELAY", "30"))
 
 
-async def _procesar_webhook(msg: Dict):
-    """Procesa un mensaje de WhatsApp en background (después de devolver 200 a Meta)."""
+async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
+    """Procesa un mensaje de WhatsApp en background (después de devolver 200 a Meta).
+
+    es_reintento=True cuando lo invoca _recovery_loop: el mensaje entrante ya
+    quedó guardado en el primer intento, así que NO debe volver a insertarse
+    (evita duplicar el mensaje del cliente en el historial en cada reintento)."""
     try:
         from_number = _normalize_phone(msg["from"])
         msg_type    = msg.get("type", "text")
@@ -2336,7 +2340,8 @@ async def _procesar_webhook(msg: Dict):
             return
 
         # Guardar mensaje entrante ANTES del debounce (queda en historial aunque llegue otro)
-        if prospecto_id:
+        # — se omite en reintentos del recovery loop: el mensaje ya se guardó la primera vez.
+        if prospecto_id and not es_reintento:
             await insertar_mensaje(
                 prospecto_id=prospecto_id,
                 direccion="entrante",
