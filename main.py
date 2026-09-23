@@ -2925,6 +2925,11 @@ def _norm_row(row: dict) -> dict:
             result[canonical] = v or ""
     return result
 
+def _norm_row_keys(row: dict) -> Dict[str, str]:
+    """Dict indexado por nombre de columna normalizado (sin tildes/mayúsculas/espacios),
+    sin mapeo semántico — para formatos con columnas fijas (ej. SERVIU) tolerantes a variantes."""
+    return {_norm_col(k): (v or "") for k, v in row.items() if k}
+
 
 async def _buscar_id_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[Dict]:
     nombre_norm = _normalizar_nombre(nombre_csv)
@@ -3172,10 +3177,18 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     except UnicodeDecodeError:
         text = content.decode("latin-1")
 
-    # Detectar formato: SERVIU tiene columna "Dv" o "Primer Apellido"
-    _peek = csv.DictReader(io.StringIO(text, newline=""))
+    # Detectar delimitador: exportaciones desde Excel en configuración regional
+    # es-CL suelen usar ";" (porque la coma se usa como separador decimal).
+    try:
+        delimiter = csv.Sniffer().sniff(text[:4096], delimiters=",;\t").delimiter
+    except csv.Error:
+        delimiter = ","
+
+    # Detectar formato: SERVIU tiene columna "Dv" o "Primer Apellido" (case/tilde-insensible)
+    _peek = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter)
     _headers = _peek.fieldnames or []
-    is_serviu = "Dv" in _headers or "Primer Apellido" in _headers
+    _headers_norm = {_norm_col(h) for h in _headers}
+    is_serviu = "dv" in _headers_norm or "primerapellido" in _headers_norm
 
     if is_serviu and not proyecto_id:
         return Response(
@@ -3202,10 +3215,11 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
 
             # Extraer teléfonos del CSV (primera pasada, sin I/O)
             phones_csv: set = set()
-            for row in csv.DictReader(io.StringIO(text, newline="")):
+            for row in csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter):
                 if is_serviu:
-                    tel_raw = (row.get("Móvil") or row.get("Movil") or
-                               row.get("Fono Domicilio") or row.get("Fono Trabajo") or "").strip()
+                    nrow = _norm_row_keys(row)
+                    tel_raw = (nrow.get("movil") or nrow.get("fonodomicilio") or
+                               nrow.get("fonotrabajo") or "").strip()
                 else:
                     tel_raw = (_norm_row(row).get("telefono") or "").strip()
                 tel = _normalize_phone(tel_raw)
@@ -3235,26 +3249,32 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
             proyecto_serviu = proyecto_fijo  # alias para bloque SERVIU
 
             creados, duplicados, errores, ids_creados = 0, [], [], []
-            reader = csv.DictReader(io.StringIO(text, newline=""))
+            reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter)
 
             for i, row in enumerate(reader):
                 fila = i + 2
                 try:
                     if is_serviu:
-                        rut_num = (row.get("rut") or "").strip()
-                        dv      = (row.get("Dv") or "").strip()
-                        rut     = f"{rut_num}-{dv}" if rut_num and dv else None
+                        nrow    = _norm_row_keys(row)
+                        rut_num = (nrow.get("rut") or "").strip()
+                        dv      = (nrow.get("dv") or "").strip()
+                        if rut_num and dv:
+                            rut = f"{rut_num}-{dv}"
+                        elif rut_num:
+                            rut = rut_num  # ya viene combinado, ej "17511100-K"
+                        else:
+                            rut = None
                         nombre  = " ".join(filter(None, [
-                            (row.get("Nombre") or "").strip(),
-                            (row.get("Primer Apellido") or "").strip(),
-                            (row.get("Segundo Apellido") or "").strip(),
+                            (nrow.get("nombre") or "").strip(),
+                            (nrow.get("primerapellido") or "").strip(),
+                            (nrow.get("segundoapellido") or "").strip(),
                         ]))
-                        tel_raw  = (row.get("Móvil") or row.get("Movil") or
-                                    row.get("Fono Domicilio") or row.get("Fono Trabajo") or "").strip()
-                        correo   = (row.get("E-mail") or "").strip() or None
+                        tel_raw  = (nrow.get("movil") or nrow.get("fonodomicilio") or
+                                    nrow.get("fonotrabajo") or "").strip()
+                        correo   = (nrow.get("email") or "").strip() or None
                         telefono = _normalize_phone(tel_raw)
 
-                        datos_raw = {"Nombre": nombre, "Rut": f"{rut_num}-{dv}",
+                        datos_raw = {"Nombre": nombre, "Rut": rut or "",
                                      "Teléfono": tel_raw, "E-mail": correo or ""}
 
                         if not nombre or not telefono:
