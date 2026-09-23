@@ -2506,6 +2506,14 @@ async def _procesar_status(status: Dict) -> None:
             extra_headers={"Prefer": "return=minimal"})
         logger.info("estado_plantilla %s → %s (cliente=%s wamid=%s)", actual or "—", estado_crm, c["id"], wamid)
 
+    if estado_crm == "fallido":
+        await _supabase_request("POST", "/LogWhatsapp", json={
+            "cliente_id":    c["id"],
+            "wamid":         wamid,
+            "error_code":    str(errors[0].get("code")) if errors else None,
+            "error_message": errors[0].get("message") if errors else None,
+        })
+
 
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -3063,6 +3071,18 @@ async def api_log_correos(request: Request):
     rows = await _supabase_request(
         "GET", "/log_correos",
         params={"select": "*", "order": "created_at.desc", "limit": "100"},
+    )
+    return rows or []
+
+
+@app.get("/api/log-whatsapp")
+async def api_log_whatsapp(request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    rows = await _supabase_request(
+        "GET", "/LogWhatsapp",
+        params={"select": "*,Cliente(Contacto,Telefono)", "order": "created_at.desc", "limit": "100"},
     )
     return rows or []
 
@@ -3673,7 +3693,7 @@ async def api_listar_inmobiliarias(request: Request):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     empresa_id = request.query_params.get("empresa_id")
-    params: Dict[str, str] = {"select": "id,nombre,empresa_id", "order": "nombre.asc"}
+    params: Dict[str, str] = {"select": "id,nombre,empresa_id,Empresa(nombre)", "order": "nombre.asc"}
     if empresa_id:
         params["empresa_id"] = f"eq.{empresa_id}"
     if not _solo_admin(perfil):

@@ -1404,7 +1404,7 @@
     const esAdmin = res && res.ok;
     document.querySelectorAll('[onclick="abrirLogin()"]').forEach(el => {
       el.textContent = esAdmin ? 'Ir al panel' : 'Mi Camino';
-      el.onclick = () => { window.location.href = esAdmin ? '/empresas' : '/perfil'; };
+      el.onclick = () => { window.location.href = esAdmin ? '/index.html' : '/perfil'; };
     });
   });
 

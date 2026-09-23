@@ -13,7 +13,7 @@
 <!-- Header -->
 <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
   <div class="flex items-center gap-3">
-    <a href="/" class="text-slate-400 hover:text-slate-200 transition">
+    <a href="/index.html" class="text-slate-400 hover:text-slate-200 transition">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
       </svg>
@@ -36,6 +36,26 @@
   <!-- Toast -->
   <div id="toast" class="fixed top-5 right-5 z-50 hidden max-w-xs px-4 py-3 rounded-xl shadow-xl text-sm font-medium"></div>
 
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+    <button onclick="mostrarTab('usuarios')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
+      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total usuarios</p>
+      <p id="kpi-usuarios" class="text-3xl font-bold text-white">—</p>
+    </button>
+    <button onclick="mostrarTab('ejecutivos')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
+      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total ejecutivos</p>
+      <p id="kpi-ejecutivos" class="text-3xl font-bold text-white">—</p>
+    </button>
+    <button onclick="mostrarTab('inmobiliarias')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
+      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total inmobiliarias</p>
+      <p id="kpi-inmobiliarias" class="text-3xl font-bold text-white">—</p>
+    </button>
+    <button onclick="mostrarTab('plantillas')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
+      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Plantillas WTSP</p>
+      <p id="kpi-plantillas" class="text-3xl font-bold text-white">—</p>
+    </button>
+  </div>
+
   <!-- Tabs -->
   <div class="flex gap-1 mb-8 bg-slate-800 p-1 rounded-xl w-fit">
     <button onclick="mostrarTab('usuarios')" id="tab-usuarios"
@@ -45,6 +65,10 @@
     <button onclick="mostrarTab('ejecutivos')" id="tab-ejecutivos"
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
       Ejecutivos
+    </button>
+    <button onclick="mostrarTab('inmobiliarias')" id="tab-inmobiliarias"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      Inmobiliarias
     </button>
     <button onclick="mostrarTab('proyectos')" id="tab-proyectos"
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
@@ -57,6 +81,10 @@
     <button onclick="mostrarTab('plantillas')" id="tab-plantillas"
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
       Plantillas WA
+    </button>
+    <button onclick="mostrarTab('logswa')" id="tab-logswa"
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      Logs WTSP
     </button>
     <button onclick="mostrarTab('scraping')" id="tab-scraping"
       class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
@@ -91,6 +119,32 @@
         </thead>
         <tbody id="tablaUsuarios">
           <tr><td colspan="6" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: INMOBILIARIAS -->
+  <div id="panel-inmobiliarias" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-xl font-semibold">Inmobiliarias</h2>
+      <button onclick="cargarInmobiliariasTab()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Nombre</th>
+            <th class="text-left px-5 py-3">Empresa</th>
+            <th class="text-left px-5 py-3">Proyectos</th>
+            <th class="text-left px-5 py-3">Gestionar</th>
+          </tr>
+        </thead>
+        <tbody id="tablaInmobiliarias">
+          <tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -173,6 +227,36 @@
     </div>
     <div id="lista-plantillas" class="space-y-4">
       <p class="text-slate-500 text-sm">Cargando plantillas…</p>
+    </div>
+  </div>
+
+  <!-- TAB: LOGS WHATSAPP -->
+  <div id="panel-logswa" class="hidden">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <h2 class="text-xl font-semibold">Logs de envíos fallidos por WhatsApp</h2>
+        <p class="text-slate-400 text-sm mt-1">Motivo exacto (código y mensaje de Meta) de cada envío que falló.</p>
+      </div>
+      <button onclick="cargarLogsWhatsapp()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+            <th class="text-left px-5 py-3">Fecha</th>
+            <th class="text-left px-5 py-3">Cliente</th>
+            <th class="text-left px-5 py-3">Teléfono</th>
+            <th class="text-left px-5 py-3">Código</th>
+            <th class="text-left px-5 py-3">Motivo (Meta)</th>
+          </tr>
+        </thead>
+        <tbody id="tablaLogsWhatsapp">
+          <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -490,6 +574,27 @@
     document.getElementById('adminNombre').textContent = _perfil.nombre || '';
     cargarUsuarios();
     cargarProyectos();
+    cargarKPIs();
+  }
+
+  // ── KPIs ─────────────────────────────────────────────────────────────────
+  async function cargarKPIs() {
+    try {
+      const [rUsuarios, rInmobiliarias, rTemplates] = await Promise.all([
+        fetch('/api/usuarios', { headers: authHeaders() }),
+        fetch('/api/inmobiliarias', { headers: authHeaders() }),
+        fetch('/api/templates', { headers: authHeaders() }),
+      ]);
+      const usuarios = rUsuarios.ok ? await rUsuarios.json() : [];
+      const inmobiliarias = rInmobiliarias.ok ? await rInmobiliarias.json() : [];
+      const templatesData = rTemplates.ok ? await rTemplates.json() : { templates: [] };
+      document.getElementById('kpi-usuarios').textContent = usuarios.length;
+      document.getElementById('kpi-ejecutivos').textContent = usuarios.filter(u => u.rol === 'ejecutivo').length;
+      document.getElementById('kpi-inmobiliarias').textContent = inmobiliarias.length;
+      document.getElementById('kpi-plantillas').textContent = (templatesData.templates || []).length;
+    } catch (e) {
+      console.error('Error cargando KPIs', e);
+    }
   }
 
   function authHeaders() {
@@ -503,7 +608,7 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'proyectos', 'logs', 'plantillas', 'ejecutivos', 'scraping'].forEach(t => {
+    ['usuarios', 'inmobiliarias', 'proyectos', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-blue-600', t === tab);
@@ -511,8 +616,10 @@
       btn.classList.toggle('text-slate-400', t !== tab);
       btn.classList.toggle('hover:text-white', t !== tab);
     });
+    if (tab === 'inmobiliarias') cargarInmobiliariasTab();
     if (tab === 'logs') cargarLogs();
     if (tab === 'plantillas') cargarPlantillas();
+    if (tab === 'logswa') cargarLogsWhatsapp();
     if (tab === 'ejecutivos') cargarEjecutivos();
     if (tab === 'scraping') cargarLogsScraping();
   }
@@ -657,6 +764,68 @@
         <td class="px-5 py-3 text-slate-300">${r.destinatario}</td>
         <td class="px-5 py-3">${badge}</td>
         <td class="px-5 py-3 text-red-400 text-xs">${r.detalle_error || '—'}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // ── Inmobiliarias ─────────────────────────────────────────────────────────
+  async function cargarInmobiliariasTab() {
+    const tbody = document.getElementById('tablaInmobiliarias');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    const [rInm, rProy] = await Promise.all([
+      fetch('/api/inmobiliarias', { headers: authHeaders() }),
+      fetch('/api/proyectos', { headers: authHeaders() }),
+    ]);
+    if (!rInm.ok) { toast('Error al cargar inmobiliarias: ' + await rInm.text(), 'error'); return; }
+    const inmobiliarias = await rInm.json();
+    const proyectos = rProy.ok ? await rProy.json() : [];
+    if (!inmobiliarias.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Sin inmobiliarias registradas</td></tr>';
+      return;
+    }
+    const conteoProyectos = {};
+    proyectos.forEach(p => { if (p.inmobiliaria_id) conteoProyectos[p.inmobiliaria_id] = (conteoProyectos[p.inmobiliaria_id] || 0) + 1; });
+    _ultimasInmobiliarias = inmobiliarias;
+    tbody.innerHTML = inmobiliarias.map(i => `
+      <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+        <td class="px-5 py-3 font-medium">${i.nombre}</td>
+        <td class="px-5 py-3 text-slate-400">${(i.Empresa || {}).nombre || '—'}</td>
+        <td class="px-5 py-3 text-slate-300">${conteoProyectos[i.id] || 0}</td>
+        <td class="px-5 py-3">
+          <button onclick="irAGestionarInmobiliaria(${i.empresa_id})"
+            class="text-blue-400 hover:text-blue-300 text-xs font-medium transition">Gestionar →</button>
+        </td>
+      </tr>`).join('');
+  }
+  let _ultimasInmobiliarias = [];
+  function irAGestionarInmobiliaria(empresaId) {
+    const match = _ultimasInmobiliarias.find(i => i.empresa_id === empresaId);
+    const nombre = (match && (match.Empresa || {}).nombre) || '';
+    sessionStorage.setItem('crm_empresa', JSON.stringify({ id: empresaId, nombre }));
+    window.location.href = '/inmobiliaria';
+  }
+
+  // ── Logs WhatsApp (envíos fallidos) ─────────────────────────────────────────
+  async function cargarLogsWhatsapp() {
+    const tbody = document.getElementById('tablaLogsWhatsapp');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    const res = await fetch('/api/log-whatsapp', { headers: authHeaders() });
+    if (!res.ok) { toast('Error al cargar logs: ' + await res.text(), 'error'); return; }
+    const rows = await res.json();
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Sin envíos fallidos registrados</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const fecha = new Date(r.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+      const cliente = (r.Cliente || {}).Contacto || '—';
+      const telefono = (r.Cliente || {}).Telefono || '—';
+      return `<tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${fecha}</td>
+        <td class="px-5 py-3 text-slate-300">${cliente}</td>
+        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${telefono}</td>
+        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${r.error_code || '—'}</td>
+        <td class="px-5 py-3 text-red-400 text-xs">${r.error_message || '—'}</td>
       </tr>`;
     }).join('');
   }
