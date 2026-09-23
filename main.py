@@ -3173,7 +3173,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
         text = content.decode("latin-1")
 
     # Detectar formato: SERVIU tiene columna "Dv" o "Primer Apellido"
-    _peek = csv.DictReader(io.StringIO(text))
+    _peek = csv.DictReader(io.StringIO(text, newline=""))
     _headers = _peek.fieldnames or []
     is_serviu = "Dv" in _headers or "Primer Apellido" in _headers
 
@@ -3202,7 +3202,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
 
             # Extraer teléfonos del CSV (primera pasada, sin I/O)
             phones_csv: set = set()
-            for row in csv.DictReader(io.StringIO(text)):
+            for row in csv.DictReader(io.StringIO(text, newline="")):
                 if is_serviu:
                     tel_raw = (row.get("Móvil") or row.get("Movil") or
                                row.get("Fono Domicilio") or row.get("Fono Trabajo") or "").strip()
@@ -3235,7 +3235,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
             proyecto_serviu = proyecto_fijo  # alias para bloque SERVIU
 
             creados, duplicados, errores, ids_creados = 0, [], [], []
-            reader = csv.DictReader(io.StringIO(text))
+            reader = csv.DictReader(io.StringIO(text, newline=""))
 
             for i, row in enumerate(reader):
                 fila = i + 2
