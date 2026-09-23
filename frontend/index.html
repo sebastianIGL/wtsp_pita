@@ -1322,8 +1322,8 @@ function renderTabla(data) {
     if (grupo !== _ultimoGrupo) {
       _ultimoGrupo = grupo
       const info = FUNNEL_GROUPS.find(g => g.key === grupo)
-      const btnRemarketing = (grupo === 'sin_enviar' && _esAdmin(_perfil?.rol))
-        ? `<button onclick="abrirSelectorTemplate(null, null, _idsPorGrupoFunnel.sin_enviar)"
+      const btnRemarketing = (['sin_enviar', 'no_recibieron', 'no_respondieron'].includes(grupo) && _esAdmin(_perfil?.rol))
+        ? `<button onclick="abrirSelectorTemplate(null, null, _idsPorGrupoFunnel.${grupo})"
              class="text-xs px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium normal-case tracking-normal flex items-center gap-1.5">
              📤 Enviar plantilla a estos ${conteoGrupo[grupo]}
            </button>`

@@ -335,8 +335,9 @@ _CAMPOS_COLUMNA_PROPIA: set = {
 
 # Documentos base (siempre requeridos)
 _DOCS_BASE: Dict[str, Dict] = {
-    "carnet_identidad": {"label": "Cédula de identidad",  "cantidad": 2},
-    "certificado_afp":  {"label": "Certificado de AFP",   "cantidad": 1},
+    "carnet_identidad": {"label": "Cédula de identidad",     "cantidad": 2},
+    "certificado_afp":  {"label": "Certificado de AFP",      "cantidad": 1},
+    "informe_deudas":   {"label": "Informe de deudas CMF",   "cantidad": 1},
 }
 
 # Documentos condicionales: (tipo, config, función_condición)
@@ -403,6 +404,19 @@ def documentos_pendientes(docs_recibidos: List[Dict], datos: Optional[Dict] = No
     return pendientes
 
 
+def _lista_documentos_requeridos_texto(datos: Optional[Dict] = None) -> str:
+    """Lista fija de documentos (nombre y cantidad exactos según _DOCS_BASE/_DOCS_CONDICIONALES,
+    la misma fuente de verdad que valida los uploads) para que el bot la inserte tal cual —
+    sin parafrasear, inventar cantidades ni agregar documentos que no se piden realmente."""
+    requeridos = _docs_requeridos(datos or {})
+    lineas = []
+    for cfg in requeridos.values():
+        n = cfg["cantidad"]
+        sufijo = f"{n} archivos" if n > 1 else "1 archivo"
+        lineas.append(f"▸ {cfg['label']} ({sufijo})")
+    return "\n".join(lineas)
+
+
 def resumen_documentos(docs_recibidos: List[Dict], datos: Optional[Dict] = None) -> str:
     """Genera 'Recibidos: .../Pendientes: ...' para inyectar en el prompt ESPERA_DOCS."""
     requeridos = _docs_requeridos(datos or {})
@@ -450,9 +464,9 @@ Listar cada tipología disponible con:
   → Monto del subsidio disponible
   → Ahorro mínimo requerido
   → Crédito hipotecario a solicitar
-  → Condición de pago del ahorro:
-    - Entrega futura: en cuotas sin interés
-    - Entrega inmediata: de una sola vez
+  → Condición de pago del ahorro: usa EXACTAMENTE el texto de
+    "Cómo se paga el ahorro" en DATOS DEL PROYECTO — no la
+    parafrasees ni asumas "en cuotas" por defecto.
 
 📅 ENTREGA: fecha estimada
 
@@ -700,19 +714,20 @@ a) tiene_rsh + integrantes_rsh:
      Continuar flujo normalmente.
 
 b) ahorro_ok:
-   Verificar tipo de entrega del proyecto: {tipo_entrega}
+   Condición real de pago del ahorro para ESTE proyecto (fuente única,
+   no la reinterpretes ni asumas "en cuotas" por defecto):
+   {condicion_pago_ahorro}
 
-   SI ENTREGA FUTURA:
+   SI el texto anterior dice que se paga en cuotas:
    "¿Puedes comprometerte a ahorrar en cuotas mensuales?
-    El mínimo es {ahorro_minimo} UF y se paga sin interés
-    durante la construcción."
+    El mínimo es {ahorro_minimo} UF — [usa la condición exacta de arriba]."
    → Positivo: ahorro_ok = true, continuar.
    → No puede comprometerse:
      "¿Tienes ya algún ahorro disponible actualmente?"
      → Sí tiene algo: ahorro_ok = true, continuar.
      → No tiene: ahorro_ok = false, continuar (no descalifica).
 
-   SI ENTREGA INMEDIATA:
+   SI el texto anterior dice que se paga de una sola vez:
    "Para este proyecto el ahorro de {ahorro_minimo} UF se
     paga de una sola vez. ¿Cuentas con ese monto disponible?"
    → Sí: ahorro_ok = true, continuar.
@@ -1121,29 +1136,29 @@ CONTEXTO:
 - Nombre: {nombre}
 - Datos recopilados: {datos}
 
-MENSAJE DE APERTURA:
+MENSAJE DE APERTURA — usa EXACTAMENTE este formato, sin modificarlo:
 "Perfecto {nombre}, ya casi terminamos 💪
  Para avanzar con tu postulación necesito
  que me envíes estos documentos por este chat
- (foto o PDF, como te quede más fácil):"
+ (foto o PDF, como te quede más fácil):
 
-LISTA BASE (siempre se piden):
-  ▸ Foto de tu carnet de identidad por ambos lados
-    (clarito, sin cortes ni dedos tapando)
-  ▸ Certificado de AFP con las 12 últimas cotizaciones
-    (debe incluir el RUT del empleador pagador)
-  ▸ Informe de deudas CMF
-    → Gratis en: informedeudas.cmfchile.cl
+<<LISTA_DOCUMENTOS>>"
 
-DOCUMENTOS CONDICIONALES:
+IMPORTANTE — LISTA DE DOCUMENTOS:
+En el mensaje de apertura (y cualquier otra vez que debas listar los
+documentos pedidos), escribe el marcador literal <<LISTA_DOCUMENTOS>>
+en el lugar exacto donde iría la lista. El sistema lo reemplaza
+automáticamente por la lista real y exacta de documentos requeridos
+para este cliente (según su calificación). NO escribas tú los nombres
+de los documentos, NI las cantidades, NI inventes documentos
+adicionales que no estén en esa lista — el marcador ya cubre:
+cédula de identidad, certificado de AFP, informe de deudas CMF,
+certificado RSH (si aplica), liquidaciones y antigüedad laboral
+(si aplica), carpeta tributaria / declaración anual (si aplica),
+cartola de ahorro (si aplica) y documentos del complementador (si aplica).
 
-  Si tiene_rsh = true:
-    ▸ Certificado RSH
-      → registrosocial.gob.cl
-
-  Si tipo_trabajo = dependiente_indefinido:
-    ▸ Últimas 6 liquidaciones de sueldo
-    ▸ Certificado de antigüedad laboral
+DOCUMENTOS ADICIONALES SEGÚN CASOS ESPECIALES (no cubiertos por el
+marcador — solo agrégalos aparte, después de la lista, si aplican):
 
   Si tipo_trabajo = independiente:
     ▸ Carpeta tributaria SII últimos 12 meses
@@ -1156,20 +1171,12 @@ DOCUMENTOS CONDICIONALES:
     ▸ Última declaración anual de impuestos (DAI)
     ▸ Carpeta tributaria SII
 
-  Si ahorro_ok = true:
-    ▸ Cartola de ahorro últimos 12 meses
-
-  Si complemento_renta = true:
-    ▸ Carnet del complementador por ambos lados
-    ▸ Certificado de AFP del complementador con las
-      12 últimas cotizaciones (con RUT del empleador)
-    Si complementador dependiente:
-      ▸ Últimas 6 liquidaciones del complementador
-      ▸ Certificado de antigüedad laboral
-    Si complementador independiente:
-      ▸ Carpeta tributaria SII
-      ▸ Última declaración anual de impuestos (DAI)
-      ▸ Boletas de honorarios últimos 6 meses
+  Si complemento_renta = true Y complementador independiente
+  (el marcador ya cubre cédula, AFP, liquidaciones y antigüedad
+  del complementador para el caso dependiente):
+      ▸ Carpeta tributaria SII (del complementador)
+      ▸ Última declaración anual de impuestos (DAI, del complementador)
+      ▸ Boletas de honorarios últimos 6 meses (del complementador)
 
   Si tipo_subsidio = DS1_T2 y opcion_ds1_t2 = A:
   (leer tipo_subsidio y opcion_ds1_t2 desde los datos recopilados en {datos})
@@ -2010,7 +2017,7 @@ async def generar_respuesta_ia(
     _tip_monto_bot = None
     if p.get("id"):
         _etapas_bot = await _supabase_request("GET", "/Etapa",
-            params={"proyecto_id": f"eq.{p['id']}", "select": "fecha_entrega,estado", "limit": "1", "order": "id.asc"}) or []
+            params={"proyecto_id": f"eq.{p['id']}", "select": "fecha_entrega,estado,num_cuotas", "limit": "1", "order": "id.asc"}) or []
         _etapa_bot = _etapas_bot[0] if _etapas_bot else None
         _tips_bot = await _supabase_request("GET", "/Tipologia",
             params={"proyecto_id": f"eq.{p['id']}", "select": "id,nombre,valor_uf,dormitorios,banos,superficie_util_m2,tipo_subsidio,monto_subsidio"}) or []
@@ -2049,6 +2056,9 @@ async def generar_respuesta_ia(
     else:
         estac_texto = "no disponible"
 
+    # Lista estática de documentos requeridos (mismos nombres/cantidades que valida el backend)
+    lista_documentos_requeridos = _lista_documentos_requeridos_texto(datos)
+
     # Estado de documentos para el paso ESPERA_DOCS (condicional según calificación)
     estado_documentos = resumen_documentos(docs_recibidos or [], datos)
     _estado_lineas = estado_documentos.split("\n")
@@ -2059,6 +2069,23 @@ async def generar_respuesta_ia(
     tipo_subsidio_datos   = datos.get("tipo_subsidio") or "no_determinado"
     tipo_entrega_proyecto = (_etapa_bot.get("estado") if _etapa_bot else None) or "entrega_futura"
     grupo_ds19_proyecto   = p.get("grupo_ds19") or "A"
+
+    # Condición de pago del ahorro: calculada en código a partir de Etapa.estado/num_cuotas
+    # (única fuente de verdad) — se inyecta como frase fija en DATOS DEL PROYECTO para que el
+    # bot no tenga que inferir/inventar si es "al contado" o "en cuotas durante la construcción".
+    if tipo_entrega_proyecto == "entrega_inmediata":
+        condicion_pago_ahorro = (
+            f"El ahorro de {proyecto_ahorro_minimo} UF se paga DE UNA SOLA VEZ "
+            f"(proyecto de entrega inmediata — NO se paga en cuotas ni durante construcción)."
+        )
+    else:
+        _num_cuotas_bot = _etapa_bot.get("num_cuotas") if _etapa_bot else None
+        _cuotas_txt = f"en {_num_cuotas_bot} cuotas mensuales" if _num_cuotas_bot else "en cuotas mensuales"
+        condicion_pago_ahorro = (
+            f"El ahorro de {proyecto_ahorro_minimo} UF se paga {_cuotas_txt} SIN INTERÉS "
+            f"durante la construcción, hasta la fecha de entrega estimada "
+            f"({(_etapa_bot.get('fecha_entrega') if _etapa_bot else None) or 'por confirmar'})."
+        )
     _credito_uf_est: Any = "consultar"
     if proyecto_tipologias:
         _precios = [t.get("valor_uf") for t in proyecto_tipologias if t.get("valor_uf")]
@@ -2078,6 +2105,7 @@ async def generar_respuesta_ia(
         f"Tipo de entrega: {tipo_entrega_proyecto}\n"
         f"Monto subsidio: {proyecto_monto_subsidio} UF\n"
         f"Ahorro mínimo: {proyecto_ahorro_minimo} UF\n"
+        f"Condición de pago del ahorro: {condicion_pago_ahorro}\n"
         f"Crédito estimado: {_credito_uf_est} UF\n"
         f"Sala piloto: {'Sí' if proyecto_tiene_piloto else 'No disponible'}\n"
         f"Estacionamiento: {estac_texto}\n"
@@ -2105,6 +2133,8 @@ async def generar_respuesta_ia(
         docs_pendientes=docs_pendientes_txt,
         grupo_ds19=grupo_ds19_proyecto,
         numero_integrantes=numero_integrantes,
+        lista_documentos_requeridos=lista_documentos_requeridos,
+        condicion_pago_ahorro=condicion_pago_ahorro,
     )
 
     sistema_identidad = f"Eres un asistente de ventas de la industria {mind['industria']}"
@@ -2138,6 +2168,7 @@ Ubicación:           {proyecto_ubicacion}
 Fecha entrega:       {proyecto_fecha_entrega}
 Subsidios:           {subsidios_texto}
 Ahorro mínimo:       {proyecto_ahorro_minimo} UF
+Cómo se paga el ahorro: {condicion_pago_ahorro}
 Estacionamiento:     {estac_texto}
 Sala piloto:         {'Sí' if proyecto_tiene_piloto else 'No disponible'}
 Valor reserva:       {f'{proyecto_reserva_uf} UF / ${proyecto_reserva_clp:,.0f}' if proyecto_reserva_clp else proyecto_reserva_uf or 'consultar'}
@@ -2156,6 +2187,10 @@ Notas del proyecto:  {proyecto_notas}
 - Usa emojis con moderación.
 - Usa los datos del proyecto para responder preguntas específicas del cliente
   (precio, fecha, estacionamiento, etc.) sin inventar información.
+- Sobre cómo se paga el ahorro (al contado vs en cuotas durante construcción):
+  usa EXCLUSIVAMENTE lo que dice "Cómo se paga el ahorro" arriba. NUNCA asumas
+  que es "en cuotas durante la construcción" por defecto — varios proyectos son
+  de entrega inmediata y el ahorro se paga de una sola vez. No contradigas ese dato.
 - NUNCA menciones nombres de empresas, constructoras o inmobiliarias que no estén
   explícitamente en los datos del sistema. Si no tienes la información, di que la
   coordinarás con el equipo a cargo, sin inventar nombres.
@@ -2213,13 +2248,21 @@ En datos_extraidos puedes incluir además: "nuevo_proyecto_id": "<uuid>" cuando 
 
     try:
         result = json.loads(raw)
+        respuesta_final = str(result.get("respuesta") or raw)
+        # Reemplazo estático: garantiza que la lista de documentos que llega al
+        # cliente sea exactamente la que valida el backend, sin que el modelo
+        # pueda parafrasear nombres, cambiar cantidades o inventar documentos.
+        if "<<LISTA_DOCUMENTOS>>" in respuesta_final:
+            respuesta_final = respuesta_final.replace("<<LISTA_DOCUMENTOS>>", lista_documentos_requeridos)
         return {
-            "respuesta":       str(result.get("respuesta") or raw),
+            "respuesta":       respuesta_final,
             "siguiente_paso":  result.get("siguiente_paso") or None,
             "datos_extraidos": result.get("datos_extraidos") or {},
         }
     except Exception:
         logger.warning("Claude no devolvió JSON válido, usando texto crudo")
+        if "<<LISTA_DOCUMENTOS>>" in raw:
+            raw = raw.replace("<<LISTA_DOCUMENTOS>>", lista_documentos_requeridos)
         return {"respuesta": raw, "siguiente_paso": None, "datos_extraidos": {}}
 
 
