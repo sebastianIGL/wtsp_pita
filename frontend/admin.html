@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
   <meta charset="UTF-8" />
   <link rel="icon" type="image/png" href="/img/favicon.png">
@@ -7,25 +7,70 @@
   <title>Admin — CRM Subsidios</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    .dark body  { background:#0f172a; color:#e2e8f0; }
+    .dark .glass { background:rgba(255,255,255,0.04); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); }
+    .dark input, .dark textarea, .dark select { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
+    .dark input::placeholder, .dark textarea::placeholder { color:#64748b; }
+    .dark select option { background:#1e293b; color:#e2e8f0; }
+    .dark .val-text   { color:#e2e8f0; }
+    .dark .sub-text   { color:#64748b; }
+    .dark .sidebar-text { color:#94a3b8; }
+    .dark .header-border { border-color:#1e293b; }
+    .dark .trow { border-color:rgba(51,65,85,0.5); }
+    .dark tr:hover td { background:rgba(255,255,255,0.03); }
+    .dark .thead-row th { color:#94a3b8; border-color:#1e293b; }
+    .dark .modal-bg { background:rgba(0,0,0,0.6); }
+    .dark .cancel-btn { border-color:#475569; color:#cbd5e1; }
+    .dark .cancel-btn:hover { background:#1e293b; }
+    .dark .empty-text { color:#64748b; }
+
+    html:not(.dark) body  { background:#f1f5f9; color:#1e293b; }
+    html:not(.dark) .glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); border:1px solid rgba(0,0,0,0.07); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+    html:not(.dark) input, html:not(.dark) textarea, html:not(.dark) select { background:#fff; color:#1e293b; border:1px solid #cbd5e1; }
+    html:not(.dark) input::placeholder, html:not(.dark) textarea::placeholder { color:#94a3b8; }
+    html:not(.dark) select option { background:#fff; color:#1e293b; }
+    html:not(.dark) .val-text   { color:#1e293b; }
+    html:not(.dark) .sub-text   { color:#94a3b8; }
+    html:not(.dark) .sidebar-text { color:#64748b; }
+    html:not(.dark) .header-border { border-color:#e2e8f0; }
+    html:not(.dark) .trow { border-color:rgba(226,232,240,0.8); }
+    html:not(.dark) tr:hover td { background:rgba(0,0,0,0.02); }
+    html:not(.dark) .thead-row th { color:#64748b; border-color:#e2e8f0; }
+    html:not(.dark) .modal-bg { background:rgba(0,0,0,0.35); }
+    html:not(.dark) .cancel-btn { border-color:#cbd5e1; color:#475569; }
+    html:not(.dark) .cancel-btn:hover { background:#f1f5f9; }
+    html:not(.dark) .empty-text { color:#94a3b8; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-thumb { border-radius:3px; background:#334155; }
+    input:focus, textarea:focus, select:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
+<body class="min-h-screen font-sans">
 
 <!-- Header -->
-<header class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+<header class="header-border border-b px-6 py-4 flex items-center justify-between">
   <div class="flex items-center gap-3">
-    <a href="/index.html" class="text-slate-400 hover:text-slate-200 transition">
+    <a href="/index.html" class="sidebar-text hover:text-violet-400 transition">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
       </svg>
     </a>
     <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-8 w-auto object-contain" />
-    <h1 class="text-lg font-bold text-white">Panel de Administración</h1>
+    <h1 class="text-lg font-bold val-text">Panel de Administración</h1>
   </div>
   <div class="flex items-center gap-3">
-    <span id="adminNombre" class="text-sm text-slate-400"></span>
+    <span id="adminNombre" class="text-sm sidebar-text"></span>
     <button onclick="cerrarSesion()"
-      class="text-sm text-slate-400 hover:text-red-400 transition px-3 py-1.5 rounded-lg hover:bg-slate-700">
+      class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">
       Cerrar sesión
+    </button>
+    <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center glass hover:scale-110 transition" title="Cambiar tema">
+      <span id="theme-icon" class="text-lg">🌙</span>
     </button>
   </div>
 </header>
@@ -38,56 +83,56 @@
 
   <!-- KPIs -->
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-    <button onclick="mostrarTab('usuarios')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
-      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total usuarios</p>
-      <p id="kpi-usuarios" class="text-3xl font-bold text-white">—</p>
+    <button onclick="mostrarTab('usuarios')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Total usuarios</p>
+      <p id="kpi-usuarios" class="text-3xl font-bold val-text">—</p>
     </button>
-    <button onclick="mostrarTab('ejecutivos')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
-      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total ejecutivos</p>
-      <p id="kpi-ejecutivos" class="text-3xl font-bold text-white">—</p>
+    <button onclick="mostrarTab('ejecutivos')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Total ejecutivos</p>
+      <p id="kpi-ejecutivos" class="text-3xl font-bold val-text">—</p>
     </button>
-    <button onclick="mostrarTab('inmobiliarias')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
-      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Total inmobiliarias</p>
-      <p id="kpi-inmobiliarias" class="text-3xl font-bold text-white">—</p>
+    <button onclick="mostrarTab('inmobiliarias')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Total inmobiliarias</p>
+      <p id="kpi-inmobiliarias" class="text-3xl font-bold val-text">—</p>
     </button>
-    <button onclick="mostrarTab('plantillas')" class="text-left bg-slate-800 rounded-2xl border border-slate-700 p-5 hover:border-blue-600 transition">
-      <p class="text-xs uppercase tracking-wider text-slate-400 mb-1">Plantillas WTSP</p>
-      <p id="kpi-plantillas" class="text-3xl font-bold text-white">—</p>
+    <button onclick="mostrarTab('plantillas')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Plantillas WTSP</p>
+      <p id="kpi-plantillas" class="text-3xl font-bold val-text">—</p>
     </button>
   </div>
 
   <!-- Tabs -->
-  <div class="flex gap-1 mb-8 bg-slate-800 p-1 rounded-xl w-fit">
+  <div class="flex gap-1 mb-8 glass p-1 rounded-xl w-fit">
     <button onclick="mostrarTab('usuarios')" id="tab-usuarios"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition bg-blue-600 text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition bg-violet-600 text-white">
       Usuarios
     </button>
     <button onclick="mostrarTab('ejecutivos')" id="tab-ejecutivos"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Ejecutivos
     </button>
     <button onclick="mostrarTab('inmobiliarias')" id="tab-inmobiliarias"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Inmobiliarias
     </button>
     <button onclick="mostrarTab('proyectos')" id="tab-proyectos"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Proyectos
     </button>
     <button onclick="mostrarTab('logs')" id="tab-logs"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Log correos
     </button>
     <button onclick="mostrarTab('plantillas')" id="tab-plantillas"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Plantillas WA
     </button>
     <button onclick="mostrarTab('logswa')" id="tab-logswa"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Logs WTSP
     </button>
     <button onclick="mostrarTab('scraping')" id="tab-scraping"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition text-slate-400 hover:text-white">
+      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
       Scraping
     </button>
   </div>
@@ -95,9 +140,9 @@
   <!-- TAB: USUARIOS -->
   <div id="panel-usuarios">
     <div class="flex items-center justify-between mb-5">
-      <h2 class="text-xl font-semibold">Usuarios del sistema</h2>
+      <h2 class="text-xl font-semibold val-text">Usuarios del sistema</h2>
       <button onclick="abrirModalCrear()"
-        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
@@ -105,10 +150,10 @@
       </button>
     </div>
 
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Nombre</th>
             <th class="text-left px-5 py-3">RUT</th>
             <th class="text-left px-5 py-3">Correo</th>
@@ -118,7 +163,7 @@
           </tr>
         </thead>
         <tbody id="tablaUsuarios">
-          <tr><td colspan="6" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="6" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -127,16 +172,16 @@
   <!-- TAB: INMOBILIARIAS -->
   <div id="panel-inmobiliarias" class="hidden">
     <div class="flex items-center justify-between mb-5">
-      <h2 class="text-xl font-semibold">Inmobiliarias</h2>
-      <button onclick="cargarInmobiliariasTab()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+      <h2 class="text-xl font-semibold val-text">Inmobiliarias</h2>
+      <button onclick="cargarInmobiliariasTab()" class="text-sm sidebar-text hover:text-violet-400 transition flex items-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         Actualizar
       </button>
     </div>
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Nombre</th>
             <th class="text-left px-5 py-3">Empresa</th>
             <th class="text-left px-5 py-3">Proyectos</th>
@@ -144,7 +189,7 @@
           </tr>
         </thead>
         <tbody id="tablaInmobiliarias">
-          <tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="4" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -153,16 +198,16 @@
   <!-- TAB: LOGS CORREOS -->
   <div id="panel-logs" class="hidden">
     <div class="flex items-center justify-between mb-5">
-      <h2 class="text-xl font-semibold">Log de correos enviados</h2>
-      <button onclick="cargarLogs()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+      <h2 class="text-xl font-semibold val-text">Log de correos enviados</h2>
+      <button onclick="cargarLogs()" class="text-sm sidebar-text hover:text-violet-400 transition flex items-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         Actualizar
       </button>
     </div>
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Fecha</th>
             <th class="text-left px-5 py-3">Tipo</th>
             <th class="text-left px-5 py-3">Destinatario</th>
@@ -171,7 +216,7 @@
           </tr>
         </thead>
         <tbody id="tablaLogs">
-          <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -181,11 +226,11 @@
   <div id="panel-scraping" class="hidden">
     <div class="flex items-center justify-between mb-5">
       <div>
-        <h2 class="text-xl font-semibold">Scraping de proyectos</h2>
-        <p class="text-slate-400 text-sm mt-1">Sincroniza los departamentos publicados por buydepa como proyectos nuevos.</p>
+        <h2 class="text-xl font-semibold val-text">Scraping de proyectos</h2>
+        <p class="sidebar-text text-sm mt-1">Sincroniza los departamentos publicados por buydepa como proyectos nuevos.</p>
       </div>
       <button id="btn-ejecutar-scraping" onclick="ejecutarScraping()"
-        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition disabled:opacity-50">
+        class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition disabled:opacity-50">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
@@ -193,10 +238,10 @@
       </button>
     </div>
     <div id="scraping-resultado" class="hidden mb-5 rounded-xl border px-4 py-3 text-sm"></div>
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Fecha</th>
             <th class="text-left px-5 py-3">Ejecutado por</th>
             <th class="text-left px-5 py-3">Creados</th>
@@ -207,7 +252,7 @@
           </tr>
         </thead>
         <tbody id="tablaScraping">
-          <tr><td colspan="7" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="7" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -217,16 +262,16 @@
   <div id="panel-plantillas" class="hidden">
     <div class="flex items-center justify-between mb-5">
       <div>
-        <h2 class="text-xl font-semibold">Plantillas de WhatsApp</h2>
-        <p class="text-slate-400 text-sm mt-1">Configura qué dato de cada cliente se envía en cada variable de la plantilla.</p>
+        <h2 class="text-xl font-semibold val-text">Plantillas de WhatsApp</h2>
+        <p class="sidebar-text text-sm mt-1">Configura qué dato de cada cliente se envía en cada variable de la plantilla.</p>
       </div>
-      <button onclick="cargarPlantillas()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+      <button onclick="cargarPlantillas()" class="text-sm sidebar-text hover:text-violet-400 transition flex items-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         Actualizar
       </button>
     </div>
     <div id="lista-plantillas" class="space-y-4">
-      <p class="text-slate-500 text-sm">Cargando plantillas…</p>
+      <p class="sub-text text-sm">Cargando plantillas…</p>
     </div>
   </div>
 
@@ -234,18 +279,18 @@
   <div id="panel-logswa" class="hidden">
     <div class="flex items-center justify-between mb-5">
       <div>
-        <h2 class="text-xl font-semibold">Logs de envíos fallidos por WhatsApp</h2>
-        <p class="text-slate-400 text-sm mt-1">Motivo exacto (código y mensaje de Meta) de cada envío que falló.</p>
+        <h2 class="text-xl font-semibold val-text">Logs de envíos fallidos por WhatsApp</h2>
+        <p class="sidebar-text text-sm mt-1">Motivo exacto (código y mensaje de Meta) de cada envío que falló.</p>
       </div>
-      <button onclick="cargarLogsWhatsapp()" class="text-sm text-slate-400 hover:text-white transition flex items-center gap-1.5">
+      <button onclick="cargarLogsWhatsapp()" class="text-sm sidebar-text hover:text-violet-400 transition flex items-center gap-1.5">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         Actualizar
       </button>
     </div>
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Fecha</th>
             <th class="text-left px-5 py-3">Cliente</th>
             <th class="text-left px-5 py-3">Teléfono</th>
@@ -254,7 +299,7 @@
           </tr>
         </thead>
         <tbody id="tablaLogsWhatsapp">
-          <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -263,13 +308,13 @@
   <!-- TAB: PROYECTOS -->
   <div id="panel-proyectos" class="hidden">
     <div class="flex items-center justify-between mb-5">
-      <h2 class="text-xl font-semibold">Proyectos y mapeos CSV</h2>
-      <p class="text-slate-400 text-sm">Los aliases CSV permiten importar clientes con nombres alternativos.</p>
+      <h2 class="text-xl font-semibold val-text">Proyectos y mapeos CSV</h2>
+      <p class="sidebar-text text-sm">Los aliases CSV permiten importar clientes con nombres alternativos.</p>
     </div>
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Imagen</th>
             <th class="text-left px-5 py-3">Código</th>
             <th class="text-left px-5 py-3">Nombre en DB</th>
@@ -277,7 +322,7 @@
           </tr>
         </thead>
         <tbody id="tablaProyectos">
-          <tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="4" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -286,19 +331,19 @@
   <!-- TAB: EJECUTIVOS BANCARIOS -->
   <div id="panel-ejecutivos" class="hidden">
     <div class="flex items-center justify-between mb-5">
-      <h2 class="text-xl font-semibold">Ejecutivos bancarios</h2>
+      <h2 class="text-xl font-semibold val-text">Ejecutivos bancarios</h2>
       <button onclick="abrirModalEjecutivo()"
-        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
         </svg>
         Nuevo ejecutivo
       </button>
     </div>
-    <div class="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden">
+    <div class="glass rounded-2xl overflow-hidden">
       <table class="w-full text-sm">
         <thead>
-          <tr class="text-slate-400 text-xs uppercase tracking-wider border-b border-slate-700">
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
             <th class="text-left px-5 py-3">Nombre</th>
             <th class="text-left px-5 py-3">Entidad</th>
             <th class="text-left px-5 py-3">Email</th>
@@ -307,7 +352,7 @@
           </tr>
         </thead>
         <tbody id="tablaEjecutivos">
-          <tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>
+          <tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
     </div>
@@ -315,11 +360,11 @@
 </main>
 
 <!-- Modal: Ejecutivo bancario -->
-<div id="modalEjecutivo" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-      <h3 id="modal-ejec-titulo" class="font-semibold text-lg">Nuevo ejecutivo</h3>
-      <button onclick="cerrarModalEjecutivo()" class="text-slate-400 hover:text-white transition">
+<div id="modalEjecutivo" class="fixed inset-0 z-50 hidden modal-bg backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between px-6 py-4 border-b header-border">
+      <h3 id="modal-ejec-titulo" class="font-semibold text-lg val-text">Nuevo ejecutivo</h3>
+      <button onclick="cerrarModalEjecutivo()" class="sidebar-text hover:text-violet-400 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -328,14 +373,14 @@
     <div class="px-6 py-5 space-y-4">
       <input type="hidden" id="ejec-id" />
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Nombre *</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Nombre *</label>
         <input id="ejec-nombre" type="text" placeholder="Ej: Juan Pérez"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          class="w-full rounded-lg px-3 py-2.5 text-sm" />
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Entidad bancaria *</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Entidad bancaria *</label>
         <select id="ejec-entidad"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          class="w-full rounded-lg px-3 py-2.5 text-sm">
           <option value="">Seleccionar entidad…</option>
           <optgroup label="Bancos">
             <option value="Banco Estado">Banco Estado</option>
@@ -361,34 +406,34 @@
         </select>
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Email *</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Email *</label>
         <input id="ejec-email" type="email" placeholder="ejecutivo@banco.cl"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          class="w-full rounded-lg px-3 py-2.5 text-sm" />
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Teléfono</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Teléfono</label>
         <input id="ejec-telefono" type="tel" placeholder="Ej: 56912345678"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          class="w-full rounded-lg px-3 py-2.5 text-sm" />
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Proyectos permitidos</label>
-        <p class="text-xs text-slate-500 mb-2">Si no marcas ninguno, el ejecutivo aparece disponible en todos los proyectos.</p>
-        <div id="ejec-proyectos-lista" class="space-y-1.5 max-h-40 overflow-y-auto border border-slate-600 rounded-lg p-3">
-          <p class="text-xs text-slate-500">Cargando…</p>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Proyectos permitidos</label>
+        <p class="text-xs sub-text mb-2">Si no marcas ninguno, el ejecutivo aparece disponible en todos los proyectos.</p>
+        <div id="ejec-proyectos-lista" class="space-y-1.5 max-h-40 overflow-y-auto border header-border rounded-lg p-3">
+          <p class="text-xs sub-text">Cargando…</p>
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <input id="ejec-disponible" type="checkbox" checked class="w-4 h-4 accent-blue-500 cursor-pointer" />
-        <label for="ejec-disponible" class="text-slate-300 text-sm cursor-pointer">Disponible para recibir evaluaciones</label>
+        <input id="ejec-disponible" type="checkbox" checked class="w-4 h-4 accent-violet-500 cursor-pointer" />
+        <label for="ejec-disponible" class="sidebar-text text-sm cursor-pointer">Disponible para recibir evaluaciones</label>
       </div>
       <div id="ejec-error" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
       <div class="flex gap-3 pt-1">
         <button onclick="cerrarModalEjecutivo()"
-          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-lg text-sm transition">
+          class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">
           Cancelar
         </button>
         <button onclick="guardarEjecutivo()" id="btn-guardar-ejec"
-          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
+          class="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
           Guardar
         </button>
       </div>
@@ -397,11 +442,11 @@
 </div>
 
 <!-- Modal: Crear usuario -->
-<div id="modalCrear" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-      <h3 class="font-semibold text-lg">Crear nuevo usuario</h3>
-      <button onclick="cerrarModalCrear()" class="text-slate-400 hover:text-white transition">
+<div id="modalCrear" class="fixed inset-0 z-50 hidden modal-bg backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="flex items-center justify-between px-6 py-4 border-b header-border flex-shrink-0">
+      <h3 class="font-semibold text-lg val-text">Crear nuevo usuario</h3>
+      <button onclick="cerrarModalCrear()" class="sidebar-text hover:text-violet-400 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -410,34 +455,29 @@
     <form id="formCrearUsuario" class="px-6 py-5 space-y-4 overflow-y-auto">
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2">
-          <label class="block text-slate-300 text-xs font-medium mb-1.5">Nombre completo *</label>
+          <label class="block sidebar-text text-xs font-medium mb-1.5">Nombre completo *</label>
           <input id="u-nombre" type="text" required placeholder="Nombre Apellido"
-            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+            class="w-full rounded-lg px-3 py-2.5 text-sm" />
         </div>
         <div>
-          <label class="block text-slate-300 text-xs font-medium mb-1.5">RUT *</label>
+          <label class="block sidebar-text text-xs font-medium mb-1.5">RUT *</label>
           <input id="u-rut" type="text" required placeholder="12345678-9"
-            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+            class="w-full rounded-lg px-3 py-2.5 text-sm" />
         </div>
         <div>
-          <label class="block text-slate-300 text-xs font-medium mb-1.5">Celular *</label>
+          <label class="block sidebar-text text-xs font-medium mb-1.5">Celular *</label>
           <input id="u-celular" type="text" required placeholder="+569..."
-            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+            class="w-full rounded-lg px-3 py-2.5 text-sm" />
         </div>
         <div class="col-span-2">
-          <label class="block text-slate-300 text-xs font-medium mb-1.5">Correo electrónico *</label>
+          <label class="block sidebar-text text-xs font-medium mb-1.5">Correo electrónico *</label>
           <input id="u-correo" type="email" required placeholder="usuario@empresa.cl"
-            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
+            class="w-full rounded-lg px-3 py-2.5 text-sm" />
         </div>
         <div class="col-span-2">
-          <label class="block text-slate-300 text-xs font-medium mb-1.5">Rol *</label>
+          <label class="block sidebar-text text-xs font-medium mb-1.5">Rol *</label>
           <select id="u-rol"
-            class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                   focus:outline-none focus:ring-2 focus:ring-blue-500">
+            class="w-full rounded-lg px-3 py-2.5 text-sm">
             <option value="ejecutivo">Ejecutivo</option>
             <option value="administrador">Administrador</option>
           </select>
@@ -445,28 +485,28 @@
       </div>
 
       <!-- Sección de acceso: solo visible para ejecutivos -->
-      <div id="u-acceso" class="hidden space-y-3 border border-slate-600 rounded-xl p-4">
-        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide">Acceso a inmobiliarias</p>
+      <div id="u-acceso" class="hidden space-y-3 border header-border rounded-xl p-4">
+        <p class="text-xs font-semibold sidebar-text uppercase tracking-wide">Acceso a inmobiliarias</p>
         <div id="u-inm-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
-          <p class="text-xs text-slate-500">Cargando…</p>
+          <p class="text-xs sub-text">Cargando…</p>
         </div>
-        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide pt-2 border-t border-slate-700">Proyectos</p>
+        <p class="text-xs font-semibold sidebar-text uppercase tracking-wide pt-2 border-t header-border">Proyectos</p>
         <div id="u-proy-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
-          <p class="text-xs text-slate-500">Cargando…</p>
+          <p class="text-xs sub-text">Cargando…</p>
         </div>
       </div>
 
-      <p class="text-xs text-slate-400 bg-slate-700/50 rounded-lg px-3 py-2">
+      <p class="text-xs sidebar-text glass rounded-lg px-3 py-2">
         Se enviará un correo de invitación a Supabase para que el usuario cree su contraseña.
       </p>
       <div id="errorCrear" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
       <div class="flex gap-3 pt-1">
         <button type="button" onclick="cerrarModalCrear()"
-          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-lg text-sm transition">
+          class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">
           Cancelar
         </button>
         <button type="submit" id="btnCrearUsuario"
-          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
+          class="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2.5 rounded-lg text-sm transition disabled:opacity-50">
           Crear usuario
         </button>
       </div>
@@ -475,11 +515,11 @@
 </div>
 
 <!-- Modal: Editar usuario -->
-<div id="modalEditar" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-  <div class="bg-slate-800 rounded-2xl border border-slate-700 w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-      <h3 class="font-semibold text-lg">Editar usuario</h3>
-      <button onclick="cerrarModalEditar()" class="text-slate-400 hover:text-white transition">
+<div id="modalEditar" class="fixed inset-0 z-50 hidden modal-bg backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
+    <div class="flex items-center justify-between px-6 py-4 border-b header-border flex-shrink-0">
+      <h3 class="font-semibold text-lg val-text">Editar usuario</h3>
+      <button onclick="cerrarModalEditar()" class="sidebar-text hover:text-violet-400 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -488,65 +528,60 @@
     <form id="formEditarUsuario" class="px-6 py-5 space-y-4 overflow-y-auto">
       <input type="hidden" id="e-id" />
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Nombre</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Nombre</label>
         <input id="e-nombre" type="text"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          class="w-full rounded-lg px-3 py-2.5 text-sm" />
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Celular</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Celular</label>
         <input id="e-celular" type="text"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          class="w-full rounded-lg px-3 py-2.5 text-sm" />
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Rol</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Rol</label>
         <select id="e-rol"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed">
+          class="w-full rounded-lg px-3 py-2.5 text-sm disabled:opacity-60 disabled:cursor-not-allowed">
           <option value="ejecutivo">Ejecutivo</option>
           <option value="administrador">Administrador</option>
           <option value="owner" class="hidden">Owner</option>
         </select>
-        <p id="e-rol-hint" class="hidden text-xs text-slate-500 mt-1">El rol Owner no se puede modificar desde aquí.</p>
+        <p id="e-rol-hint" class="hidden text-xs sub-text mt-1">El rol Owner no se puede modificar desde aquí.</p>
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Estado</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Estado</label>
         <select id="e-estado"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          class="w-full rounded-lg px-3 py-2.5 text-sm">
           <option value="1">Activo</option>
           <option value="0">Inactivo</option>
         </select>
       </div>
       <div>
-        <label class="block text-slate-300 text-xs font-medium mb-1.5">Alias de correo (excepción)</label>
+        <label class="block sidebar-text text-xs font-medium mb-1.5">Alias de correo (excepción)</label>
         <input id="e-alias" type="email" placeholder="sgatica@quesubsidio.cl"
-          class="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2.5 text-sm
-                 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-500" />
-        <p class="text-xs text-slate-500 mt-1">Solo para cuentas sin correo @quesubsidio.cl. Los usuarios con correo @quesubsidio.cl no necesitan esto — se envía directo con su correo oficial.</p>
+          class="w-full rounded-lg px-3 py-2.5 text-sm" />
+        <p class="text-xs sub-text mt-1">Solo para cuentas sin correo @quesubsidio.cl. Los usuarios con correo @quesubsidio.cl no necesitan esto — se envía directo con su correo oficial.</p>
       </div>
 
       <!-- Sección de acceso: solo visible para ejecutivos -->
-      <div id="e-acceso" class="hidden space-y-3 border border-slate-600 rounded-xl p-4">
-        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide">Acceso a inmobiliarias</p>
+      <div id="e-acceso" class="hidden space-y-3 border header-border rounded-xl p-4">
+        <p class="text-xs font-semibold sidebar-text uppercase tracking-wide">Acceso a inmobiliarias</p>
         <div id="e-inm-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
-          <p class="text-xs text-slate-500">Cargando…</p>
+          <p class="text-xs sub-text">Cargando…</p>
         </div>
-        <p class="text-xs font-semibold text-slate-200 uppercase tracking-wide pt-2 border-t border-slate-700">Proyectos</p>
+        <p class="text-xs font-semibold sidebar-text uppercase tracking-wide pt-2 border-t header-border">Proyectos</p>
         <div id="e-proy-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
-          <p class="text-xs text-slate-500">Cargando…</p>
+          <p class="text-xs sub-text">Cargando…</p>
         </div>
       </div>
 
       <div id="errorEditar" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
       <div class="flex gap-3 pt-1">
         <button type="button" onclick="cerrarModalEditar()"
-          class="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-200 font-medium py-2.5 rounded-lg text-sm transition">
+          class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">
           Cancelar
         </button>
         <button type="submit" id="btnEditarUsuario"
-          class="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-lg text-sm transition">
+          class="flex-1 bg-violet-600 hover:bg-violet-700 text-white font-medium py-2.5 rounded-lg text-sm transition">
           Guardar
         </button>
       </div>
@@ -561,6 +596,15 @@
 
   let _token = null;
   let _perfil = null;
+
+  // ── Tema ────────────────────────────────────────────────────────────────
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark)
+    document.getElementById('theme-icon').textContent = dark ? '🌙' : '☀️'
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }
+  function toggleTheme() { applyTheme(!document.documentElement.classList.contains('dark')) }
+  applyTheme(localStorage.getItem('theme') !== 'light')
 
   // ── Auth check ──────────────────────────────────────────────────────────
   async function init() {
@@ -611,10 +655,10 @@
     ['usuarios', 'inmobiliarias', 'proyectos', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
-      btn.classList.toggle('bg-blue-600', t === tab);
+      btn.classList.toggle('bg-violet-600', t === tab);
       btn.classList.toggle('text-white', t === tab);
-      btn.classList.toggle('text-slate-400', t !== tab);
-      btn.classList.toggle('hover:text-white', t !== tab);
+      btn.classList.toggle('sidebar-text', t !== tab);
+      btn.classList.toggle('hover:text-violet-400', t !== tab);
     });
     if (tab === 'inmobiliarias') cargarInmobiliariasTab();
     if (tab === 'logs') cargarLogs();
@@ -629,16 +673,16 @@
 
   async function cargarEjecutivos() {
     const tbody = document.getElementById('tablaEjecutivos')
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>'
     const res = await fetch('/api/ejecutivos', { headers: authHeaders() })
     if (!res.ok) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; return }
     const rows = await res.json()
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Sin ejecutivos registrados</td></tr>'; return }
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Sin ejecutivos registrados</td></tr>'; return }
     tbody.innerHTML = rows.map(e => `
-      <tr class="border-t border-slate-700 hover:bg-slate-700/40 transition">
-        <td class="px-5 py-3 font-medium text-slate-100">${e.ejecutivo || '—'}</td>
-        <td class="px-5 py-3 text-slate-300">${e.entidad || '—'}</td>
-        <td class="px-5 py-3 text-slate-300">${e.email || '—'}</td>
+      <tr class="trow border-b transition">
+        <td class="px-5 py-3 font-medium val-text">${e.ejecutivo || '—'}</td>
+        <td class="px-5 py-3 val-text">${e.entidad || '—'}</td>
+        <td class="px-5 py-3 val-text">${e.email || '—'}</td>
         <td class="px-5 py-3">
           <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${e.disponible ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'}">
             ${e.disponible ? 'Disponible' : 'Inactivo'}
@@ -647,7 +691,7 @@
         <td class="px-5 py-3">
           <div class="flex gap-2">
             <button onclick='editarEjecutivo(${JSON.stringify(e)})'
-              class="text-xs px-3 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition">Editar</button>
+              class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
             <button onclick="eliminarEjecutivo(${e.id})"
               class="text-xs px-3 py-1 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Eliminar</button>
           </div>
@@ -656,9 +700,9 @@
   }
 
   function checkboxItemStr(id, label, checked = false) {
-    return `<label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+    return `<label class="flex items-center gap-2 text-sm val-text cursor-pointer select-none">
       <input type="checkbox" value="${id}" ${checked ? 'checked' : ''}
-        class="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800"/>
+        class="w-4 h-4 rounded accent-violet-500"/>
       ${label}
     </label>`
   }
@@ -667,7 +711,7 @@
     const cont = document.getElementById('ejec-proyectos-lista')
     await cargarOpcionesAsignacion()
     if (!_allProyectos.length) {
-      cont.innerHTML = '<p class="text-xs text-slate-500 italic">Sin proyectos registrados</p>'
+      cont.innerHTML = '<p class="text-xs sub-text italic">Sin proyectos registrados</p>'
       return
     }
     const selSet = new Set(selectedIds)
@@ -745,12 +789,12 @@
 
   async function cargarLogs() {
     const tbody = document.getElementById('tablaLogs');
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>';
     const res = await fetch('/api/log-correos', { headers: authHeaders() });
     if (!res.ok) { toast('Error al cargar logs: ' + await res.text(), 'error'); return; }
     const rows = await res.json();
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Sin registros todavía</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Sin registros todavía</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(r => {
@@ -758,10 +802,10 @@
       const badge = r.estado === 'enviado'
         ? '<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-900/50 text-emerald-300">✓ Enviado</span>'
         : '<span class="px-2 py-0.5 rounded-full text-xs bg-red-900/50 text-red-300">✗ Error</span>';
-      return `<tr class="border-t border-slate-700 hover:bg-slate-750 transition">
-        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${fecha}</td>
-        <td class="px-5 py-3 text-slate-300 text-xs capitalize">${r.tipo}</td>
-        <td class="px-5 py-3 text-slate-300">${r.destinatario}</td>
+      return `<tr class="trow border-b transition">
+        <td class="px-5 py-3 sidebar-text text-xs font-mono">${fecha}</td>
+        <td class="px-5 py-3 val-text text-xs capitalize">${r.tipo}</td>
+        <td class="px-5 py-3 val-text">${r.destinatario}</td>
         <td class="px-5 py-3">${badge}</td>
         <td class="px-5 py-3 text-red-400 text-xs">${r.detalle_error || '—'}</td>
       </tr>`;
@@ -771,7 +815,7 @@
   // ── Inmobiliarias ─────────────────────────────────────────────────────────
   async function cargarInmobiliariasTab() {
     const tbody = document.getElementById('tablaInmobiliarias');
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center empty-text py-10">Cargando…</td></tr>';
     const [rInm, rProy] = await Promise.all([
       fetch('/api/inmobiliarias', { headers: authHeaders() }),
       fetch('/api/proyectos', { headers: authHeaders() }),
@@ -780,20 +824,20 @@
     const inmobiliarias = await rInm.json();
     const proyectos = rProy.ok ? await rProy.json() : [];
     if (!inmobiliarias.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Sin inmobiliarias registradas</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center empty-text py-10">Sin inmobiliarias registradas</td></tr>';
       return;
     }
     const conteoProyectos = {};
     proyectos.forEach(p => { if (p.inmobiliaria_id) conteoProyectos[p.inmobiliaria_id] = (conteoProyectos[p.inmobiliaria_id] || 0) + 1; });
     _ultimasInmobiliarias = inmobiliarias;
     tbody.innerHTML = inmobiliarias.map(i => `
-      <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
-        <td class="px-5 py-3 font-medium">${i.nombre}</td>
-        <td class="px-5 py-3 text-slate-400">${(i.Empresa || {}).nombre || '—'}</td>
-        <td class="px-5 py-3 text-slate-300">${conteoProyectos[i.id] || 0}</td>
+      <tr class="trow border-b transition">
+        <td class="px-5 py-3 font-medium val-text">${i.nombre}</td>
+        <td class="px-5 py-3 sidebar-text">${(i.Empresa || {}).nombre || '—'}</td>
+        <td class="px-5 py-3 val-text">${conteoProyectos[i.id] || 0}</td>
         <td class="px-5 py-3">
           <button onclick="irAGestionarInmobiliaria(${i.empresa_id})"
-            class="text-blue-400 hover:text-blue-300 text-xs font-medium transition">Gestionar →</button>
+            class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">Gestionar →</button>
         </td>
       </tr>`).join('');
   }
@@ -808,23 +852,23 @@
   // ── Logs WhatsApp (envíos fallidos) ─────────────────────────────────────────
   async function cargarLogsWhatsapp() {
     const tbody = document.getElementById('tablaLogsWhatsapp');
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>';
     const res = await fetch('/api/log-whatsapp', { headers: authHeaders() });
     if (!res.ok) { toast('Error al cargar logs: ' + await res.text(), 'error'); return; }
     const rows = await res.json();
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-10">Sin envíos fallidos registrados</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Sin envíos fallidos registrados</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(r => {
       const fecha = new Date(r.created_at).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
       const cliente = (r.Cliente || {}).Contacto || '—';
       const telefono = (r.Cliente || {}).Telefono || '—';
-      return `<tr class="border-t border-slate-700 hover:bg-slate-750 transition">
-        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${fecha}</td>
-        <td class="px-5 py-3 text-slate-300">${cliente}</td>
-        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${telefono}</td>
-        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${r.error_code || '—'}</td>
+      return `<tr class="trow border-b transition">
+        <td class="px-5 py-3 sidebar-text text-xs font-mono">${fecha}</td>
+        <td class="px-5 py-3 val-text">${cliente}</td>
+        <td class="px-5 py-3 sidebar-text text-xs font-mono">${telefono}</td>
+        <td class="px-5 py-3 sidebar-text text-xs font-mono">${r.error_code || '—'}</td>
         <td class="px-5 py-3 text-red-400 text-xs">${r.error_message || '—'}</td>
       </tr>`;
     }).join('');
@@ -833,12 +877,12 @@
   // ── Scraping ──────────────────────────────────────────────────────────
   async function cargarLogsScraping() {
     const tbody = document.getElementById('tablaScraping');
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-500 py-10">Cargando…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-text py-10">Cargando…</td></tr>';
     const res = await fetch('/api/scraping/logs', { headers: authHeaders() });
     if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-400 py-10">${await res.text()}</td></tr>`; return; }
     const rows = await res.json();
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-500 py-10">Nunca se ha ejecutado</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-text py-10">Nunca se ha ejecutado</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(r => {
@@ -854,15 +898,15 @@
              class="text-red-400 underline decoration-dotted hover:text-red-300 transition">${r.errores} ▾</button>`
         : `<span class="text-red-400">${r.errores}</span>`;
       const filaDetalle = detalle.length
-        ? `<tr id="scraping-detalle-${r.id}" class="hidden border-t border-slate-700 bg-slate-900/40">
+        ? `<tr id="scraping-detalle-${r.id}" class="hidden trow border-b">
              <td colspan="7" class="px-5 py-3 text-xs text-red-300 space-y-1 max-h-48 overflow-y-auto">
                ${detalle.map(e => `<p>• ${e.direccion || e.fuente_externo_id || '?'}: ${e.motivo}</p>`).join('')}
              </td>
            </tr>`
         : '';
-      return `<tr class="border-t border-slate-700 hover:bg-slate-750 transition">
-        <td class="px-5 py-3 text-slate-400 text-xs font-mono">${fecha}</td>
-        <td class="px-5 py-3 text-slate-300">${r.Usuario?.nombre || '—'}</td>
+      return `<tr class="trow border-b transition">
+        <td class="px-5 py-3 sidebar-text text-xs font-mono">${fecha}</td>
+        <td class="px-5 py-3 val-text">${r.Usuario?.nombre || '—'}</td>
         <td class="px-5 py-3 text-emerald-400">${r.creados}</td>
         <td class="px-5 py-3 text-sky-400">${r.actualizados}</td>
         <td class="px-5 py-3 text-amber-400">${r.desactivados}</td>
@@ -876,14 +920,14 @@
 
   function _renderScrapingProgreso(evt) {
     const resultadoEl = document.getElementById('scraping-resultado');
-    resultadoEl.className = 'mb-5 rounded-xl border px-4 py-3 text-sm bg-slate-900/40 border-slate-700 text-slate-300';
+    resultadoEl.className = 'glass mb-5 rounded-xl border px-4 py-3 text-sm val-text';
     resultadoEl.innerHTML = `
       <div class="flex items-center gap-2 mb-1.5">
-        <span class="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+        <span class="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse"></span>
         <span class="font-medium">Procesando ${evt.n}/${evt.total}…</span>
       </div>
-      <div class="text-xs text-slate-400 font-mono truncate">${SCRAPING_ICONOS[evt.accion] || '⚪'} ${evt.direccion}</div>
-      <div class="text-xs text-slate-500 mt-1.5">🟢 ${evt.creados} creados · 🔵 ${evt.actualizados} actualizados · ⚪ ${evt.desactivados} desactivados · 🔴 ${evt.errores} errores</div>`;
+      <div class="text-xs sidebar-text font-mono truncate">${SCRAPING_ICONOS[evt.accion] || '⚪'} ${evt.direccion}</div>
+      <div class="text-xs sub-text mt-1.5">🟢 ${evt.creados} creados · 🔵 ${evt.actualizados} actualizados · ⚪ ${evt.desactivados} desactivados · 🔴 ${evt.errores} errores</div>`;
     resultadoEl.classList.remove('hidden');
   }
 
@@ -905,7 +949,7 @@
     const btn = document.getElementById('btn-ejecutar-scraping');
     const resultadoEl = document.getElementById('scraping-resultado');
     btn.disabled = true; btn.textContent = 'Ejecutando…';
-    resultadoEl.className = 'mb-5 rounded-xl border px-4 py-3 text-sm bg-slate-900/40 border-slate-700 text-slate-300';
+    resultadoEl.className = 'glass mb-5 rounded-xl border px-4 py-3 text-sm val-text';
     resultadoEl.textContent = 'Iniciando…';
     resultadoEl.classList.remove('hidden');
     try {
@@ -963,14 +1007,14 @@
     const rows = await res.json();
     const tbody = document.getElementById('tablaUsuarios');
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-slate-500 py-10">Sin usuarios registrados</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Sin usuarios registrados</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(u => `
-      <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
-        <td class="px-5 py-3 font-medium">${u.nombre}</td>
-        <td class="px-5 py-3 text-slate-400 font-mono text-xs">${u.rut}</td>
-        <td class="px-5 py-3 text-slate-300">${u.correo}</td>
+      <tr class="trow border-b transition">
+        <td class="px-5 py-3 font-medium val-text">${u.nombre}</td>
+        <td class="px-5 py-3 sidebar-text font-mono text-xs">${u.rut}</td>
+        <td class="px-5 py-3 val-text">${u.correo}</td>
         <td class="px-5 py-3">
           <span class="px-2.5 py-1 rounded-full text-xs font-medium
             ${u.rol === 'owner' ? 'bg-amber-900/50 text-amber-300' : u.rol === 'administrador' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-700 text-slate-300'}">
@@ -978,14 +1022,14 @@
           </span>
         </td>
         <td class="px-5 py-3">
-          <span class="flex items-center gap-1.5 text-xs">
+          <span class="flex items-center gap-1.5 text-xs val-text">
             <span class="w-2 h-2 rounded-full ${u.estado == 1 ? 'bg-emerald-400' : 'bg-red-400'}"></span>
             ${u.estado == 1 ? 'Activo' : 'Inactivo'}
           </span>
         </td>
         <td class="px-5 py-3">
           <button onclick='abrirModalEditar(${JSON.stringify(u)})'
-            class="text-blue-400 hover:text-blue-300 text-xs font-medium transition">
+            class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">
             Editar
           </button>
         </td>
@@ -1008,9 +1052,9 @@
   }
 
   function checkboxItem(id, label, checked = false) {
-    return `<label class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+    return `<label class="flex items-center gap-2 text-sm val-text cursor-pointer select-none">
       <input type="checkbox" value="${id}" ${checked ? 'checked' : ''}
-        class="w-4 h-4 rounded border-slate-500 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-800"/>
+        class="w-4 h-4 rounded accent-violet-500"/>
       ${label}
     </label>`;
   }
@@ -1022,8 +1066,8 @@
     const filtrados     = _allProyectos.filter(p => p.inmobiliaria_id && selInmIds.has(Number(p.inmobiliaria_id)));
     if (!filtrados.length) {
       contProy.innerHTML = selInmIds.size
-        ? '<p class="text-xs text-slate-500 italic">Sin proyectos en las inmobiliarias seleccionadas</p>'
-        : '<p class="text-xs text-slate-500 italic">Selecciona una inmobiliaria para ver sus proyectos</p>';
+        ? '<p class="text-xs sub-text italic">Sin proyectos en las inmobiliarias seleccionadas</p>'
+        : '<p class="text-xs sub-text italic">Selecciona una inmobiliaria para ver sus proyectos</p>';
       return;
     }
     contProy.innerHTML = filtrados.map(p => {
@@ -1038,7 +1082,7 @@
     const proySet = new Set(proyIds.map(Number));
     contInm.innerHTML = _allInmobiliarias.length
       ? _allInmobiliarias.map(i => checkboxItem(i.id, i.nombre, inmSet.has(i.id))).join('')
-      : '<p class="text-xs text-slate-500">Sin inmobiliarias registradas</p>';
+      : '<p class="text-xs sub-text">Sin inmobiliarias registradas</p>';
     contInm.querySelectorAll('input[type=checkbox]').forEach(cb =>
       cb.addEventListener('change', () => actualizarProyectos(contInm, contProy))
     );
@@ -1047,8 +1091,8 @@
     const filtrados = _allProyectos.filter(p => p.inmobiliaria_id && selInmIds.has(Number(p.inmobiliaria_id)));
     if (!filtrados.length) {
       contProy.innerHTML = selInmIds.size
-        ? '<p class="text-xs text-slate-500 italic">Sin proyectos en las inmobiliarias seleccionadas</p>'
-        : '<p class="text-xs text-slate-500 italic">Selecciona una inmobiliaria para ver sus proyectos</p>';
+        ? '<p class="text-xs sub-text italic">Sin proyectos en las inmobiliarias seleccionadas</p>'
+        : '<p class="text-xs sub-text italic">Selecciona una inmobiliaria para ver sus proyectos</p>';
       return;
     }
     contProy.innerHTML = filtrados.map(p => {
@@ -1203,15 +1247,15 @@
     const rows = await res.json();
     const tbody = document.getElementById('tablaProyectos');
     if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-10">Sin proyectos</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center empty-text py-10">Sin proyectos</td></tr>';
       return;
     }
     tbody.innerHTML = rows.map(p => {
       const thumb = p.imagen_url
-        ? `<img src="${p.imagen_url}" alt="${p.nombre}" class="w-14 h-10 object-cover rounded-lg border border-slate-600" />`
-        : `<div class="w-14 h-10 rounded-lg border border-slate-700 bg-slate-700 flex items-center justify-center text-slate-500 text-xs">—</div>`;
+        ? `<img src="${p.imagen_url}" alt="${p.nombre}" class="w-14 h-10 object-cover rounded-lg header-border border" />`
+        : `<div class="w-14 h-10 rounded-lg header-border border glass flex items-center justify-center sub-text text-xs">—</div>`;
       return `
-        <tr class="border-t border-slate-700 hover:bg-slate-750 transition">
+        <tr class="trow border-b transition">
           <td class="px-5 py-2">
             <button onclick="editarImagenProyecto('${p.id}','${(p.nombre||'').replace(/'/g,"\\'")}','${(p.imagen_url||'').replace(/'/g,"\\'")}')"
               class="group relative" title="Editar imagen">
@@ -1219,9 +1263,9 @@
               <span class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition text-white text-xs">✏️</span>
             </button>
           </td>
-          <td class="px-5 py-3 font-mono text-xs text-blue-400">${p.codigo}</td>
-          <td class="px-5 py-3 font-medium">${p.nombre}</td>
-          <td class="px-5 py-3 text-slate-400 text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
+          <td class="px-5 py-3 font-mono text-xs text-violet-400">${p.codigo}</td>
+          <td class="px-5 py-3 font-medium val-text">${p.nombre}</td>
+          <td class="px-5 py-3 sidebar-text text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
         </tr>`;
     }).join('');
   }
@@ -1258,7 +1302,7 @@
 
   async function cargarPlantillas() {
     const contenedor = document.getElementById('lista-plantillas');
-    contenedor.innerHTML = '<p class="text-slate-500 text-sm">Cargando plantillas…</p>';
+    contenedor.innerHTML = '<p class="sub-text text-sm">Cargando plantillas…</p>';
     try {
       const [resTemplates, resConfigs] = await Promise.all([
         fetch('/api/templates', { headers: authHeaders() }),
@@ -1307,7 +1351,7 @@
   function renderPlantillas(templates) {
     const contenedor = document.getElementById('lista-plantillas');
     if (!templates.length) {
-      contenedor.innerHTML = '<p class="text-slate-500 text-sm">No hay plantillas aprobadas en Meta.</p>';
+      contenedor.innerHTML = '<p class="sub-text text-sm">No hay plantillas aprobadas en Meta.</p>';
       return;
     }
     // Plantillas cuyo envío está controlado 100% por código (eventos puntuales del bot),
@@ -1330,19 +1374,19 @@
 
       if (esAutomatica) {
         return `
-          <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5" id="card-tpl-${t.name}">
+          <div class="glass rounded-2xl p-5" id="card-tpl-${t.name}">
             <div class="flex items-start justify-between mb-3">
               <div>
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-semibold text-white">${t.name}</span>
-                  <span class="text-xs text-slate-500">${t.language}</span>
+                  <span class="font-semibold val-text">${t.name}</span>
+                  <span class="text-xs sub-text">${t.language}</span>
                   ${sourceTag}
                 </div>
-                ${textoPreview ? `<p class="text-xs text-slate-400 mt-1.5 line-clamp-3">${textoPreview}</p>` : ''}
+                ${textoPreview ? `<p class="text-xs sidebar-text mt-1.5 line-clamp-3">${textoPreview}</p>` : ''}
               </div>
             </div>
-            <div class="mt-3 border-t border-slate-700 pt-3">
-              <p class="text-xs text-slate-400 leading-relaxed">${esAutomatica}</p>
+            <div class="mt-3 border-t header-border pt-3">
+              <p class="text-xs sidebar-text leading-relaxed">${esAutomatica}</p>
             </div>
           </div>`;
       }
@@ -1356,37 +1400,36 @@
         ).join('');
         return `
           <div class="flex items-center gap-3">
-            <span class="text-xs text-slate-400 font-mono shrink-0 min-w-[6rem]">${label}</span>
+            <span class="text-xs sidebar-text font-mono shrink-0 min-w-[6rem]">${label}</span>
             <select data-tpl="${t.name}" data-idx="${i}"
               onchange="actualizarVarLocal(this)"
-              class="flex-1 bg-slate-700 border border-slate-600 text-slate-100 rounded-lg px-3 py-2 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-violet-500">
+              class="flex-1 rounded-lg px-3 py-2 text-sm">
               <option value="">— Seleccionar campo —</option>
               ${opts}
             </select>
           </div>`;
-      }).join('') : '<p class="text-slate-500 text-xs">Esta plantilla no tiene variables en el cuerpo.</p>';
+      }).join('') : '<p class="sub-text text-xs">Esta plantilla no tiene variables en el cuerpo.</p>';
 
       return `
-        <div class="bg-slate-800 rounded-2xl border border-slate-700 p-5" id="card-tpl-${t.name}">
+        <div class="glass rounded-2xl p-5" id="card-tpl-${t.name}">
           <div class="flex items-start justify-between mb-3">
             <div>
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-semibold text-white">${t.name}</span>
-                <span class="text-xs text-slate-500">${t.language}</span>
+                <span class="font-semibold val-text">${t.name}</span>
+                <span class="text-xs sub-text">${t.language}</span>
                 ${sourceTag}
               </div>
-              ${textoPreview ? `<p class="text-xs text-slate-400 mt-1.5 line-clamp-3">${textoPreview}</p>` : ''}
+              ${textoPreview ? `<p class="text-xs sidebar-text mt-1.5 line-clamp-3">${textoPreview}</p>` : ''}
             </div>
-            <span class="text-xs text-slate-500 ml-4 shrink-0">${varCount} var${varCount !== 1 ? 's' : ''}.</span>
+            <span class="text-xs sub-text ml-4 shrink-0">${varCount} var${varCount !== 1 ? 's' : ''}.</span>
           </div>
           ${varCount > 0 ? `
-          <div class="space-y-2 mt-3 border-t border-slate-700 pt-3">
-            <p class="text-xs text-slate-400 font-medium mb-2">Mapeo de variables</p>
+          <div class="space-y-2 mt-3 border-t header-border pt-3">
+            <p class="text-xs sidebar-text font-medium mb-2">Mapeo de variables</p>
             ${dropdowns}
             <div class="flex justify-end mt-3">
               <button onclick="guardarConfigPlantilla('${t.name}', ${varCount})"
-                class="bg-violet-600 hover:bg-violet-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+                class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
                 Guardar
               </button>
             </div>

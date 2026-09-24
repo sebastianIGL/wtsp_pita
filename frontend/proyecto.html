@@ -66,6 +66,19 @@
     <span class="text-violet-400 font-semibold">Proyectos</span>
   </div>
   <div class="flex items-center gap-3">
+    <div class="relative">
+      <button id="btn-cambiar-inmobiliaria" onclick="toggleMenuInmobiliarias()" class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar inmobiliaria">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+        </svg>
+        Inmobiliaria
+      </button>
+      <div id="menu-inmobiliarias" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl glass shadow-xl overflow-hidden z-50">
+        <div id="menu-inmobiliarias-lista" class="max-h-72 overflow-y-auto py-1">
+          <div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>
+        </div>
+      </div>
+    </div>
     <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center glass hover:scale-110 transition" title="Cambiar tema">
       <span id="theme-icon" class="text-lg">🌙</span>
     </button>
@@ -512,6 +525,62 @@
     if (!res.ok) { const t = await res.text(); throw new Error(t || `Error ${res.status}`) }
     return res.json()
   }
+
+  // ── Cambiar inmobiliaria (menú rápido) ──────────────────────────────────
+  let _inmobiliariasMenu = []
+  async function toggleMenuInmobiliarias() {
+    const menu = document.getElementById('menu-inmobiliarias')
+    const abrir = menu.classList.contains('hidden')
+    menu.classList.toggle('hidden', !abrir)
+    if (!abrir) return
+
+    const lista = document.getElementById('menu-inmobiliarias-lista')
+    lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>'
+    try {
+      const inmobiliarias = await api('GET', `/api/inmobiliarias?empresa_id=${_empresa.id}`)
+      _inmobiliariasMenu = inmobiliarias
+      const esAdmin = ['owner', 'administrador'].includes(_perfil?.rol)
+      const actualId = _inmobiliaria._todos ? null : _inmobiliaria.id
+      const opcionTodos = esAdmin ? `
+        <button onclick="seleccionarInmobiliaria(null)"
+          class="w-full text-left px-4 py-2.5 text-sm transition hover:bg-violet-500/10 flex items-center justify-between gap-2 border-b ${_inmobiliaria._todos ? 'text-violet-400 font-medium' : 'val-text'}" style="border-color:rgba(148,163,184,0.15)">
+          Todos los proyectos
+          ${_inmobiliaria._todos ? '<span class="text-violet-400">✓</span>' : ''}
+        </button>` : ''
+      if (!inmobiliarias.length) {
+        lista.innerHTML = opcionTodos || '<div class="px-4 py-3 text-xs sidebar-text text-center">Sin inmobiliarias disponibles</div>'
+        return
+      }
+      lista.innerHTML = opcionTodos + inmobiliarias.map(i => `
+        <button onclick="seleccionarInmobiliaria('${i.id}')"
+          class="w-full text-left px-4 py-2.5 text-sm transition hover:bg-violet-500/10 flex items-center justify-between gap-2 ${i.id === actualId ? 'text-violet-400 font-medium' : 'val-text'}">
+          ${esc(i.nombre)}
+          ${i.id === actualId ? '<span class="text-violet-400">✓</span>' : ''}
+        </button>`).join('')
+    } catch (err) {
+      lista.innerHTML = `<div class="px-4 py-3 text-xs text-red-400 text-center">Error: ${esc(err.message)}</div>`
+    }
+  }
+
+  function seleccionarInmobiliaria(inmobiliariaId) {
+    if (inmobiliariaId === null) {
+      sessionStorage.setItem('crm_inmobiliaria', JSON.stringify({ _todos: true, nombre: 'Todos los proyectos' }))
+    } else {
+      const inm = _inmobiliariasMenu.find(i => String(i.id) === String(inmobiliariaId))
+      if (!inm) return
+      sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(inm))
+    }
+    sessionStorage.removeItem('crm_proyecto')
+    window.location.reload()
+  }
+
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('menu-inmobiliarias')
+    const btn  = document.getElementById('btn-cambiar-inmobiliaria')
+    if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      menu.classList.add('hidden')
+    }
+  })
 
   async function cargarProyectos() {
     try {
