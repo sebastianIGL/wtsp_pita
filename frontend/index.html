@@ -147,12 +147,19 @@
       Panel Admin
     </a>
     <!-- Cambiar empresa (oculto si solo hay 1) -->
-    <button id="btn-cambiar-empresa" onclick="cambiarEmpresa()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar empresa">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-      </svg>
-      Empresa
-    </button>
+    <div class="relative">
+      <button id="btn-cambiar-empresa" onclick="toggleMenuEmpresas()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar empresa">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+        </svg>
+        Empresa
+      </button>
+      <div id="menu-empresas" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl glass shadow-xl overflow-hidden z-50">
+        <div id="menu-empresas-lista" class="max-h-72 overflow-y-auto py-1">
+          <div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>
+        </div>
+      </div>
+    </div>
     <!-- User info -->
     <div class="flex items-center gap-2 text-xs sidebar-text">
       <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
@@ -968,12 +975,50 @@ async function cerrarSesion() {
   window.location.href = '/login.html'
 }
 
-function cambiarEmpresa() {
-  sessionStorage.removeItem('crm_empresa')
+async function toggleMenuEmpresas() {
+  const menu = document.getElementById('menu-empresas')
+  const abrir = menu.classList.contains('hidden')
+  menu.classList.toggle('hidden', !abrir)
+  if (!abrir) return
+
+  const lista = document.getElementById('menu-empresas-lista')
+  lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>'
+  try {
+    const empresas = await api('GET', '/api/empresas')
+    if (!empresas.length) {
+      lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Sin empresas disponibles</div>'
+      return
+    }
+    _empresasMenu = empresas
+    const actualId = JSON.parse(sessionStorage.getItem('crm_empresa') || 'null')?.id
+    lista.innerHTML = empresas.map(e => `
+      <button onclick="seleccionarEmpresa('${e.id}')"
+        class="w-full text-left px-4 py-2.5 text-sm transition hover:bg-violet-500/10 flex items-center justify-between gap-2 ${e.id === actualId ? 'text-violet-400 font-medium' : 'val-text'}">
+        ${esc(e.nombre)}
+        ${e.id === actualId ? '<span class="text-violet-400">✓</span>' : ''}
+      </button>`).join('')
+  } catch (err) {
+    lista.innerHTML = `<div class="px-4 py-3 text-xs err-text text-center">Error: ${esc(err.message)}</div>`
+  }
+}
+
+let _empresasMenu = []
+function seleccionarEmpresa(empresaId) {
+  const empresa = _empresasMenu.find(e => String(e.id) === String(empresaId))
+  if (!empresa) return
+  sessionStorage.setItem('crm_empresa', JSON.stringify(empresa))
   sessionStorage.removeItem('crm_inmobiliaria')
   sessionStorage.removeItem('crm_proyecto')
-  window.location.href = '/empresas'
+  window.location.href = '/inmobiliaria.html'
 }
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('menu-empresas')
+  const btn  = document.getElementById('btn-cambiar-empresa')
+  if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+    menu.classList.add('hidden')
+  }
+})
 
 // ─── INIT ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
