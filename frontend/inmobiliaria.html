@@ -68,6 +68,19 @@
     <span class="text-violet-400 font-semibold">Inmobiliarias</span>
   </div>
   <div class="flex items-center gap-3">
+    <div class="relative">
+      <button id="btn-cambiar-empresa" onclick="toggleMenuEmpresas()" class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar empresa">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+        </svg>
+        Empresa
+      </button>
+      <div id="menu-empresas" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl glass shadow-xl overflow-hidden z-50">
+        <div id="menu-empresas-lista" class="max-h-72 overflow-y-auto py-1">
+          <div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>
+        </div>
+      </div>
+    </div>
     <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center glass hover:scale-110 transition" title="Cambiar tema">
       <span id="theme-icon" class="text-lg">🌙</span>
     </button>
@@ -233,8 +246,13 @@
     _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
 
     try {
-      const r = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } })
-      _perfil = r.ok ? await r.json() : {}
+      const [rPerfil, rEmpresas] = await Promise.all([
+        fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }),
+        fetch('/api/empresas',    { headers: { Authorization: `Bearer ${_token}` } }),
+      ])
+      _perfil = rPerfil.ok ? await rPerfil.json() : {}
+      const empresas = rEmpresas.ok ? await rEmpresas.json() : []
+      if (empresas.length <= 1) document.getElementById('btn-cambiar-empresa').classList.add('hidden')
     } catch(e) { _perfil = {} }
 
     cargarInmobiliarias()
@@ -247,6 +265,51 @@
     if (!res.ok) { const t = await res.text(); throw new Error(t || `Error ${res.status}`) }
     return res.json()
   }
+
+  // ── Cambiar empresa (menú rápido) ──────────────────────────
+  let _empresasMenu = []
+  async function toggleMenuEmpresas() {
+    const menu = document.getElementById('menu-empresas')
+    const abrir = menu.classList.contains('hidden')
+    menu.classList.toggle('hidden', !abrir)
+    if (!abrir) return
+
+    const lista = document.getElementById('menu-empresas-lista')
+    lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>'
+    try {
+      const empresas = await api('GET', '/api/empresas')
+      _empresasMenu = empresas
+      if (!empresas.length) {
+        lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Sin empresas disponibles</div>'
+        return
+      }
+      lista.innerHTML = empresas.map(e => `
+        <button onclick="seleccionarEmpresa('${e.id}')"
+          class="w-full text-left px-4 py-2.5 text-sm transition hover:bg-violet-500/10 flex items-center justify-between gap-2 ${e.id === _empresa.id ? 'text-violet-400 font-medium' : 'val-text'}">
+          ${esc(e.nombre)}
+          ${e.id === _empresa.id ? '<span class="text-violet-400">✓</span>' : ''}
+        </button>`).join('')
+    } catch (err) {
+      lista.innerHTML = `<div class="px-4 py-3 text-xs text-red-400 text-center">Error: ${esc(err.message)}</div>`
+    }
+  }
+
+  function seleccionarEmpresa(empresaId) {
+    const empresa = _empresasMenu.find(e => String(e.id) === String(empresaId))
+    if (!empresa) return
+    sessionStorage.setItem('crm_empresa', JSON.stringify(empresa))
+    sessionStorage.removeItem('crm_inmobiliaria')
+    sessionStorage.removeItem('crm_proyecto')
+    window.location.reload()
+  }
+
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('menu-empresas')
+    const btn  = document.getElementById('btn-cambiar-empresa')
+    if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+      menu.classList.add('hidden')
+    }
+  })
 
   // ── Cargar tabla ─────────────────────────────────────────
   async function cargarInmobiliarias() {

@@ -160,6 +160,20 @@
         </div>
       </div>
     </div>
+    <!-- Cambiar inmobiliaria -->
+    <div class="relative">
+      <button id="btn-cambiar-inmobiliaria" onclick="toggleMenuInmobiliarias()" class="theme-btn text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5" title="Cambiar inmobiliaria">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+        </svg>
+        Inmobiliaria
+      </button>
+      <div id="menu-inmobiliarias" class="hidden absolute right-0 top-full mt-2 w-56 rounded-xl glass shadow-xl overflow-hidden z-50">
+        <div id="menu-inmobiliarias-lista" class="max-h-72 overflow-y-auto py-1">
+          <div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>
+        </div>
+      </div>
+    </div>
     <!-- User info -->
     <div class="flex items-center gap-2 text-xs sidebar-text">
       <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
@@ -867,16 +881,21 @@ async function initAuth() {
   })
 
   try {
-    const [resPerfil, resEmpresas] = await Promise.all([
+    const [resPerfil, resEmpresas, resInmobiliarias] = await Promise.all([
       fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }),
       fetch('/api/empresas',    { headers: { Authorization: `Bearer ${_token}` } }),
+      fetch(`/api/inmobiliarias?empresa_id=${empresa.id}`, { headers: { Authorization: `Bearer ${_token}` } }),
     ])
     _perfil = await resPerfil.json()
     const empresas = resEmpresas.ok ? await resEmpresas.json() : []
+    const inmobiliarias = resInmobiliarias.ok ? await resInmobiliarias.json() : []
     document.getElementById('user-name').textContent = _perfil.nombre || _perfil.correo || ''
-    // Ocultar "Empresa" si el usuario solo tiene 1 (no tiene sentido cambiar)
+    // Ocultar "Empresa"/"Inmobiliaria" si el usuario solo tiene 1 (no tiene sentido cambiar)
     if (empresas.length <= 1) {
       document.getElementById('btn-cambiar-empresa').classList.add('hidden')
+    }
+    if (inmobiliarias.length <= 1) {
+      document.getElementById('btn-cambiar-inmobiliaria').classList.add('hidden')
     }
     const tog = document.getElementById('toggle-filtro-usuario')
     if (_esAdmin(_perfil.rol)) {
@@ -1015,6 +1034,51 @@ function seleccionarEmpresa(empresaId) {
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('menu-empresas')
   const btn  = document.getElementById('btn-cambiar-empresa')
+  if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+    menu.classList.add('hidden')
+  }
+})
+
+let _inmobiliariasMenu = []
+async function toggleMenuInmobiliarias() {
+  const menu = document.getElementById('menu-inmobiliarias')
+  const abrir = menu.classList.contains('hidden')
+  menu.classList.toggle('hidden', !abrir)
+  if (!abrir) return
+
+  const lista = document.getElementById('menu-inmobiliarias-lista')
+  lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Cargando…</div>'
+  try {
+    const empresa = JSON.parse(sessionStorage.getItem('crm_empresa') || 'null')
+    const inmobiliarias = await api('GET', `/api/inmobiliarias?empresa_id=${empresa.id}`)
+    if (!inmobiliarias.length) {
+      lista.innerHTML = '<div class="px-4 py-3 text-xs sidebar-text text-center">Sin inmobiliarias disponibles</div>'
+      return
+    }
+    _inmobiliariasMenu = inmobiliarias
+    const actualId = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || 'null')?.id
+    lista.innerHTML = inmobiliarias.map(i => `
+      <button onclick="seleccionarInmobiliaria('${i.id}')"
+        class="w-full text-left px-4 py-2.5 text-sm transition hover:bg-violet-500/10 flex items-center justify-between gap-2 ${i.id === actualId ? 'text-violet-400 font-medium' : 'val-text'}">
+        ${esc(i.nombre)}
+        ${i.id === actualId ? '<span class="text-violet-400">✓</span>' : ''}
+      </button>`).join('')
+  } catch (err) {
+    lista.innerHTML = `<div class="px-4 py-3 text-xs err-text text-center">Error: ${esc(err.message)}</div>`
+  }
+}
+
+function seleccionarInmobiliaria(inmobiliariaId) {
+  const inmobiliaria = _inmobiliariasMenu.find(i => String(i.id) === String(inmobiliariaId))
+  if (!inmobiliaria) return
+  sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(inmobiliaria))
+  sessionStorage.removeItem('crm_proyecto')
+  window.location.href = '/proyecto.html'
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('menu-inmobiliarias')
+  const btn  = document.getElementById('btn-cambiar-inmobiliaria')
   if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
     menu.classList.add('hidden')
   }
