@@ -1350,14 +1350,17 @@ function _msDate(val) {
 function clientesFiltrados() {
   const q        = document.getElementById('search').value.toLowerCase()
   const qDigits  = q.replace(/\D/g, '')
+  const qRut     = q.replace(/[.\-]/g, '')
   const proyecto = document.getElementById('filtro-proyecto').value
   return clientes
     .filter(c => {
       const telDigits = (c.Telefono||'').replace(/\D/g, '')
+      const rutNorm   = (c.Rut||'').toLowerCase().replace(/[.\-]/g, '')
       const matchQ = !q ||
         (c.Contacto||'').toLowerCase().includes(q) ||
         (qDigits && telDigits && telDigits.includes(qDigits)) ||
-        (c.Rut||'').toLowerCase().includes(q)
+        (c.Rut||'').toLowerCase().includes(q) ||
+        (qRut && rutNorm.includes(qRut))
       const matchP = !proyecto || c.proyecto_id === proyecto
       const filtroUsuario    = document.getElementById('filtro-usuario')?.value || ''
       const filtroEstadoConv = document.getElementById('filtro-estado-conv')?.value || ''
@@ -2100,6 +2103,29 @@ const TIPOS_DOC_LABELS = {
 let _evalDocsSeleccionados = {}
 let _evalClienteId = null
 let _evalEjecutivosSeleccionados = []
+
+function evalToggleEjecutivo(input) {
+  if (input.checked) {
+    if (!_evalEjecutivosSeleccionados.includes(input.value)) _evalEjecutivosSeleccionados.push(input.value)
+  } else {
+    _evalEjecutivosSeleccionados = _evalEjecutivosSeleccionados.filter(x => x !== input.value)
+  }
+  document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
+}
+
+function evalSeleccionarTodosEjecutivos() {
+  const checks = document.querySelectorAll('#eval-ejecutivos-lista input[type=checkbox]')
+  checks.forEach(c => { c.checked = true })
+  _evalEjecutivosSeleccionados = [...checks].map(c => c.value)
+  document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
+}
+
+function evalSoloEjecutivo(email) {
+  const checks = document.querySelectorAll('#eval-ejecutivos-lista input[type=checkbox]')
+  checks.forEach(c => { c.checked = (c.value === email) })
+  _evalEjecutivosSeleccionados = [email]
+  document.getElementById('btn-confirmar-envio').disabled = false
+}
 let _evalFuerzaArmada = false
 let _evalConCodeudor = false
 let _enviandoEvaluacion = false
@@ -2591,16 +2617,16 @@ async function mostrarPreviewEval() {
 
     const ejecutivosHTML = (data.ejecutivos || []).length
       ? (data.ejecutivos || []).map(e => `
-          <label class="flex items-center gap-2 cursor-pointer py-1 hover:bg-slate-50 rounded-lg px-1 transition">
-            <input type="checkbox" class="accent-violet-600 w-4 h-4 rounded shrink-0"
-              value="${e.email}" checked
-              onchange="
-                if(this.checked) _evalEjecutivosSeleccionados.push(this.value)
-                else _evalEjecutivosSeleccionados = _evalEjecutivosSeleccionados.filter(x => x !== this.value)
-                document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
-              ">
-            <span class="text-xs leading-tight"><span class="font-semibold text-slate-800">${e.nombre}</span><br><span class="text-slate-400">${e.email}</span></span>
-          </label>`).join('')
+          <div class="flex items-center justify-between gap-2 py-1 hover:bg-slate-50 rounded-lg px-1 transition">
+            <label class="flex items-center gap-2 cursor-pointer min-w-0">
+              <input type="checkbox" class="accent-violet-600 w-4 h-4 rounded shrink-0"
+                value="${e.email}" checked
+                onchange="evalToggleEjecutivo(this)">
+              <span class="text-xs leading-tight min-w-0"><span class="font-semibold text-slate-800">${e.nombre}</span><br><span class="text-slate-400">${e.email}</span></span>
+            </label>
+            <button type="button" onclick="evalSoloEjecutivo('${e.email}')"
+              class="text-[10px] uppercase tracking-wide font-semibold text-violet-500 hover:text-violet-700 transition shrink-0">Solamente</button>
+          </div>`).join('')
       : '<span class="text-slate-400 text-xs">Sin ejecutivos disponibles</span>'
 
     const cl = data.cliente
@@ -2616,8 +2642,12 @@ async function mostrarPreviewEval() {
           <p class="font-mono text-xs text-violet-700">${data.remitente}</p>
         </div>
         <div class="${_sec}">
-          <p ${_lbl}>Para <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(selecciona destinatarios)</span></p>
-          <div class="space-y-1">${ejecutivosHTML}</div>
+          <div class="flex items-center justify-between mb-1">
+            <p ${_lbl} class="!mb-0">Para <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(selecciona destinatarios)</span></p>
+            <button type="button" onclick="evalSeleccionarTodosEjecutivos()"
+              class="text-[10px] uppercase tracking-wide font-semibold text-violet-500 hover:text-violet-700 transition shrink-0">Seleccionar todos</button>
+          </div>
+          <div id="eval-ejecutivos-lista" class="space-y-1">${ejecutivosHTML}</div>
         </div>
         <div class="${_sec}">
           <p ${_lbl}>Asunto</p>

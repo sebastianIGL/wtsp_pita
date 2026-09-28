@@ -169,7 +169,7 @@ async def _gmail_send(
             part = MIMEBase("application", "octet-stream")
             part.set_payload(a["content"])
             _email_encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f'attachment; filename="{a["filename"]}"')
+            part.add_header("Content-Disposition", "attachment", filename=a["filename"])
             msg.attach(part)
     else:
         msg = MIMEMultipart("alternative")
