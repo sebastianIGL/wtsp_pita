@@ -66,9 +66,9 @@
 </head>
 <body class="min-h-screen font-sans">
 
-<div class="flex min-h-screen">
+<div class="flex h-screen">
   <!-- Sidebar: árbol Empresa → Inmobiliaria -->
-  <aside class="w-64 shrink-0 header-border border-r flex flex-col">
+  <aside class="w-64 shrink-0 header-border border-r flex flex-col overflow-hidden">
     <div class="px-4 py-4 flex items-center gap-2.5 header-border border-b">
       <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-7 w-auto object-contain" />
       <span class="font-bold val-text text-sm">Panel</span>
@@ -98,7 +98,7 @@
   </aside>
 
   <!-- Main -->
-  <main class="flex-1 px-8 py-8 max-w-6xl overflow-x-hidden">
+  <main class="flex-1 px-8 py-8 max-w-6xl overflow-y-auto overflow-x-hidden">
     <div id="breadcrumb" class="flex items-center gap-2 text-sm sidebar-text mb-1"></div>
     <h1 id="titulo-panel" class="text-2xl font-bold val-text mb-6">Selecciona una empresa</h1>
     <div id="contenido-panel"></div>
