@@ -1582,7 +1582,7 @@
           document.getElementById('ml-nueva').focus();
         } else {
           mostrarAlertaModal('Ingresando…', 'ok');
-          setTimeout(() => { window.location.href = '/empresas'; }, 600);
+          setTimeout(() => { window.location.href = '/panel'; }, 600);
         }
       } else {
         // Usuario público (no admin) → redirigir a Mi Camino
@@ -1614,7 +1614,7 @@
       });
       if (!res.ok) throw new Error(await res.text());
       mostrarAlertaModal('Contraseña guardada. Ingresando…', 'ok');
-      setTimeout(() => { window.location.href = '/empresas'; }, 800);
+      setTimeout(() => { window.location.href = '/panel'; }, 800);
     } catch (err) {
       mostrarAlertaModal(err.message || 'Error al cambiar la contraseña.', 'err');
       btn.disabled = false;

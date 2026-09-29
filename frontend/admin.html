@@ -844,7 +844,7 @@
     const match = _ultimasInmobiliarias.find(i => i.empresa_id === empresaId);
     const nombre = (match && (match.Empresa || {}).nombre) || '';
     sessionStorage.setItem('crm_empresa', JSON.stringify({ id: empresaId, nombre }));
-    window.location.href = '/inmobiliaria';
+    window.location.href = '/panel';
   }
 
   // ── Logs WhatsApp (envíos fallidos) ─────────────────────────────────────────

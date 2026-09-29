@@ -862,8 +862,8 @@ async function initAuth() {
   const empresaRaw     = sessionStorage.getItem('crm_empresa')
   const inmRaw         = sessionStorage.getItem('crm_inmobiliaria')
   const proyectoRaw    = sessionStorage.getItem('crm_proyecto')
-  if (!empresaRaw) { window.location.href = '/empresas'; return }
-  if (!inmRaw)     { window.location.href = '/inmobiliaria.html'; return }
+  if (!empresaRaw) { window.location.href = '/panel'; return }
+  if (!inmRaw)     { window.location.href = '/panel'; return }
 
   const empresa      = JSON.parse(empresaRaw)
   const inmobiliaria = JSON.parse(inmRaw)
@@ -1028,7 +1028,7 @@ function seleccionarEmpresa(empresaId) {
   sessionStorage.setItem('crm_empresa', JSON.stringify(empresa))
   sessionStorage.removeItem('crm_inmobiliaria')
   sessionStorage.removeItem('crm_proyecto')
-  window.location.href = '/inmobiliaria.html'
+  window.location.href = '/panel'
 }
 
 document.addEventListener('click', (e) => {
@@ -1073,7 +1073,7 @@ function seleccionarInmobiliaria(inmobiliariaId) {
   if (!inmobiliaria) return
   sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(inmobiliaria))
   sessionStorage.removeItem('crm_proyecto')
-  window.location.href = '/proyecto.html'
+  window.location.href = '/panel'
 }
 
 document.addEventListener('click', (e) => {

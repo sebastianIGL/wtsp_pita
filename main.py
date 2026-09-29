@@ -6326,9 +6326,17 @@ async def api_newsletter(request: Request):
 async def page_reset_password():
     return FileResponse("frontend/reset-password.html")
 
+@app.get("/panel")
+async def page_panel():
+    return FileResponse("frontend/panel.html")
+
 @app.get("/empresas")
 async def page_empresas():
-    return FileResponse("frontend/empresas.html")
+    return RedirectResponse(url="/panel", status_code=302)
+
+@app.get("/empresas.html")
+async def page_empresas_html():
+    return RedirectResponse(url="/panel", status_code=302)
 
 @app.get("/login")
 async def page_login():
@@ -6336,11 +6344,19 @@ async def page_login():
 
 @app.get("/inmobiliaria")
 async def page_inmobiliaria():
-    return FileResponse("frontend/inmobiliaria.html")
+    return RedirectResponse(url="/panel", status_code=302)
+
+@app.get("/inmobiliaria.html")
+async def page_inmobiliaria_html():
+    return RedirectResponse(url="/panel", status_code=302)
 
 @app.get("/proyecto")
 async def page_proyecto():
-    return FileResponse("frontend/proyecto.html")
+    return RedirectResponse(url="/panel", status_code=302)
+
+@app.get("/proyecto.html")
+async def page_proyecto_html():
+    return RedirectResponse(url="/panel", status_code=302)
 
 @app.get("/perfil")
 async def page_perfil():

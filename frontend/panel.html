@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/img/favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM QueSubsidio — Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    .dark body  { background:#0f172a; color:#e2e8f0; }
+    .dark .glass { background:rgba(255,255,255,0.04); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); }
+    .dark input, .dark textarea, .dark select { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
+    .dark input::placeholder, .dark textarea::placeholder { color:#64748b; }
+    .dark select option { background:#1e293b; color:#e2e8f0; }
+    .dark .val-text   { color:#e2e8f0; }
+    .dark .sub-text   { color:#64748b; }
+    .dark .sidebar-text { color:#94a3b8; }
+    .dark .header-border { border-color:#1e293b; }
+    .dark .trow { border-color:rgba(51,65,85,0.5); }
+    .dark tr:hover td { background:rgba(255,255,255,0.03); }
+    .dark .thead-row th { color:#94a3b8; border-color:#1e293b; }
+    .dark .modal-bg { background:rgba(0,0,0,0.6); }
+    .dark .cancel-btn { border-color:#475569; color:#cbd5e1; }
+    .dark .cancel-btn:hover { background:#1e293b; }
+    .dark .empty-text { color:#64748b; }
+
+    html:not(.dark) body  { background:#f1f5f9; color:#1e293b; }
+    html:not(.dark) .glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); border:1px solid rgba(0,0,0,0.07); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+    html:not(.dark) input, html:not(.dark) textarea, html:not(.dark) select { background:#fff; color:#1e293b; border:1px solid #cbd5e1; }
+    html:not(.dark) input::placeholder, html:not(.dark) textarea::placeholder { color:#94a3b8; }
+    html:not(.dark) select option { background:#fff; color:#1e293b; }
+    html:not(.dark) .val-text   { color:#1e293b; }
+    html:not(.dark) .sub-text   { color:#94a3b8; }
+    html:not(.dark) .sidebar-text { color:#64748b; }
+    html:not(.dark) .header-border { border-color:#e2e8f0; }
+    html:not(.dark) .trow { border-color:rgba(226,232,240,0.8); }
+    html:not(.dark) tr:hover td { background:rgba(0,0,0,0.02); }
+    html:not(.dark) .thead-row th { color:#64748b; border-color:#e2e8f0; }
+    html:not(.dark) .modal-bg { background:rgba(0,0,0,0.35); }
+    html:not(.dark) .cancel-btn { border-color:#cbd5e1; color:#475569; }
+    html:not(.dark) .cancel-btn:hover { background:#f1f5f9; }
+    html:not(.dark) .empty-text { color:#94a3b8; }
+
+    ::-webkit-scrollbar { width:6px; }
+    ::-webkit-scrollbar-thumb { border-radius:3px; background:#334155; }
+    input:focus, textarea:focus, select:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
+    .toast { position:fixed; bottom:24px; right:24px; padding:12px 20px; border-radius:10px; font-size:14px; font-weight:500; z-index:9999; animation:slideIn .3s ease; }
+    @keyframes slideIn { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+
+    .drop-zone { border:2px dashed #334155; border-radius:12px; padding:2rem 1.5rem; text-align:center; cursor:pointer; transition:border-color .2s, background .2s; }
+    .drop-zone:hover, .drop-zone.drag-over { border-color:#7c3aed; background:rgba(124,58,237,.06); }
+    .drop-zone input[type=file] { display:none; }
+    .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px; }
+    @keyframes spin { to { transform:rotate(360deg) } }
+
+    .arbol-nodo { transition: background-color .15s; }
+    .arbol-chevron { transition: transform .15s; }
+    .arbol-chevron.abierto { transform: rotate(90deg); }
+    .empresa-card { transition: transform .15s, box-shadow .15s; }
+    .empresa-card:hover { transform: translateY(-3px); }
+  </style>
+</head>
+<body class="min-h-screen font-sans">
+
+<div class="flex min-h-screen">
+  <!-- Sidebar: árbol Empresa → Inmobiliaria -->
+  <aside class="w-64 shrink-0 header-border border-r flex flex-col">
+    <div class="px-4 py-4 flex items-center gap-2.5 header-border border-b">
+      <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-7 w-auto object-contain" />
+      <span class="font-bold val-text text-sm">Panel</span>
+    </div>
+
+    <nav id="arbol-empresas" class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
+      <div class="px-3 py-2 text-xs sidebar-text">Cargando…</div>
+    </nav>
+
+    <div class="px-2.5 pb-2.5">
+      <button id="btn-nueva-empresa-sidebar" onclick="abrirModalEmpresa()" class="hidden w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium sidebar-text hover:text-violet-400 transition">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Nueva empresa
+      </button>
+    </div>
+
+    <div class="px-4 py-3 header-border border-t space-y-2.5">
+      <a id="link-admin" href="/admin.html" class="hidden w-full text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition text-center">Panel Admin</a>
+      <div class="flex items-center justify-between gap-2">
+        <span id="nombreUsuario" class="text-xs sidebar-text truncate"></span>
+        <button onclick="toggleTheme()" class="w-8 h-8 rounded-lg flex items-center justify-center glass hover:scale-110 transition shrink-0" title="Cambiar tema">
+          <span id="theme-icon" class="text-base">🌙</span>
+        </button>
+      </div>
+      <button onclick="cerrarSesion()" class="w-full text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 px-8 py-8 overflow-x-hidden">
+    <div id="breadcrumb" class="flex items-center gap-2 text-sm sidebar-text mb-1"></div>
+    <h1 id="titulo-panel" class="text-2xl font-bold val-text mb-6">Selecciona una empresa</h1>
+    <div id="contenido-panel"></div>
+  </main>
+</div>
+
+<!-- ═══════════════ MODAL: NUEVA EMPRESA ═══════════════ -->
+<div id="modal-empresa" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl p-8 w-full max-w-md shadow-2xl">
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="text-lg font-bold val-text">Nueva empresa</h3>
+      <button onclick="cerrarModalEmpresa()" class="sidebar-text hover:text-violet-400 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium sidebar-text mb-1.5">Nombre *</label>
+        <input id="emp-nombre" type="text" oninput="autoSlug()" placeholder="Ej: Inmobiliaria Los Andes" class="w-full rounded-lg px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium sidebar-text mb-1.5">Slug (identificador único)</label>
+        <input id="emp-slug" type="text" oninput="this.dataset.tocado='true'" placeholder="inmobiliaria-los-andes" class="w-full rounded-lg px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-xs font-medium sidebar-text mb-1.5">Industria</label>
+        <select id="emp-industria" class="w-full rounded-lg px-3 py-2.5 text-sm">
+          <option value="">Sin especificar</option>
+        </select>
+      </div>
+      <div class="flex gap-3">
+        <div>
+          <label class="block text-xs font-medium sidebar-text mb-1.5">Color</label>
+          <input id="emp-color" type="color" value="#7c3aed" class="w-14 h-10 rounded-lg cursor-pointer" style="background:transparent;border:1px solid #334155" />
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs font-medium sidebar-text mb-1.5">Logo (URL, opcional)</label>
+          <input id="emp-logo" type="text" placeholder="https://…" class="w-full rounded-lg px-3 py-2.5 text-sm" />
+        </div>
+      </div>
+      <div id="emp-error" class="hidden text-sm text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-3 pt-1">
+        <button onclick="cerrarModalEmpresa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+        <button id="btn-guardar-empresa" onclick="guardarEmpresa()" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition">Crear empresa</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL: CREAR/EDITAR INMOBILIARIA ═══════════════ -->
+<div id="modal-inmobiliaria" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl p-8 w-full max-w-md shadow-2xl">
+    <h2 id="modal-inmobiliaria-titulo" class="text-lg font-bold val-text mb-6">Nueva inmobiliaria</h2>
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+        <input id="f-nombre-inmobiliaria" type="text" placeholder="Ej: Inmobiliaria Central" class="w-full rounded-lg px-3 py-2 text-sm" />
+      </div>
+    </div>
+    <div class="flex gap-3 mt-6">
+      <button onclick="cerrarModalInmobiliaria()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarInmobiliaria()" id="btn-guardar-inmobiliaria" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL: IMPORTAR CSV DE CLIENTES ═══════════════ -->
+<div id="modal-import" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl p-8 w-full max-w-lg shadow-2xl">
+    <h2 class="text-lg font-bold val-text mb-1">Cargar base de clientes</h2>
+    <p class="text-xs sidebar-text mb-6">El CSV puede incluir clientes de múltiples proyectos de esta empresa. Cada fila se asigna automáticamente al proyecto correspondiente.</p>
+
+    <div id="import-form">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('csv-input').click()">
+        <input type="file" id="csv-input" accept=".csv" onchange="onFileSelected(this)" />
+        <svg class="w-8 h-8 mx-auto mb-2 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p id="drop-label" class="text-sm sidebar-text">Haz clic o arrastra un archivo <span class="font-semibold">.csv</span></p>
+        <p id="file-name" class="hidden text-sm val-text font-medium mt-1"></p>
+      </div>
+      <p class="text-xs sidebar-text mt-3">Columnas requeridas: <span class="val-text">Proyecto, Contacto, Rut, Teléfono</span> · Opcionales: Correo, Estado, Tramo de renta, Tiene subsidio, Tipo subsidio, Tiene propiedad</p>
+      <div class="flex gap-3 mt-6">
+        <button onclick="cerrarModalImport()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+        <button onclick="importar()" id="btn-import" disabled class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition">Importar</button>
+      </div>
+    </div>
+
+    <div id="import-progress" class="hidden space-y-4">
+      <div class="flex items-center justify-between text-xs mb-1">
+        <span id="prog-label" class="sidebar-text">Iniciando…</span>
+        <span id="prog-pct" class="val-text font-semibold">0%</span>
+      </div>
+      <div class="w-full rounded-full h-2" style="background:rgba(255,255,255,0.08)">
+        <div id="prog-bar" class="bg-violet-500 h-2 rounded-full transition-all duration-200" style="width:0%"></div>
+      </div>
+      <div class="grid grid-cols-3 gap-3 text-center mt-2">
+        <div class="glass rounded-xl p-3">
+          <p id="prog-creados" class="text-xl font-bold text-emerald-400">0</p>
+          <p class="text-xs sidebar-text mt-1">Creados</p>
+        </div>
+        <div class="glass rounded-xl p-3">
+          <p id="prog-dups" class="text-xl font-bold text-amber-400">0</p>
+          <p class="text-xs sidebar-text mt-1">Duplicados</p>
+        </div>
+        <div class="glass rounded-xl p-3">
+          <p id="prog-errs" class="text-xl font-bold text-red-400">0</p>
+          <p class="text-xs sidebar-text mt-1">Errores</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="import-results" class="hidden space-y-4">
+      <p class="text-xs val-text font-semibold text-center">Importación completada</p>
+      <div id="import-stats" class="grid grid-cols-3 gap-3 text-center"></div>
+      <div id="import-errores" class="hidden max-h-40 overflow-y-auto space-y-1 p-3 glass rounded-xl"></div>
+      <button id="btn-descargar-errores" class="hidden w-full py-2 rounded-lg border cancel-btn text-xs font-medium transition flex items-center justify-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Descargar rechazados (.csv)
+      </button>
+      <button onclick="cerrarModalImport()" class="w-full py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ LIGHTBOX imagen de proyecto ═══════════════ -->
+<div id="lightbox" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4"
+  style="background:rgba(0,0,0,0.88);backdrop-filter:blur(8px)" onclick="cerrarLightbox()">
+  <button onclick="cerrarLightbox()" class="absolute top-4 right-4 text-white/60 hover:text-white transition text-3xl leading-none" aria-label="Cerrar">✕</button>
+  <div onclick="event.stopPropagation()" class="relative max-w-4xl w-full">
+    <img id="lightbox-img" src="" alt="" class="w-full max-h-[80vh] object-contain rounded-2xl shadow-2xl" style="box-shadow:0 0 60px rgba(124,58,237,0.3)" />
+    <p id="lightbox-nombre" class="text-center text-white/80 text-sm mt-4 font-medium"></p>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL CREAR/EDITAR PROYECTO ═══════════════ -->
+<div id="modal-proyecto" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col" style="max-height:92vh">
+    <div class="px-8 pt-7 pb-0 flex items-center justify-between">
+      <h2 id="modal-proyecto-titulo" class="text-lg font-bold val-text">Nuevo proyecto</h2>
+      <button onclick="cerrarModalProyecto()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="flex px-8 mt-4 border-b" style="border-color:rgba(255,255,255,0.08)">
+      <button id="tab-btn-1" onclick="irTab(1)" class="py-2.5 px-4 text-sm font-medium border-b-2 border-violet-500 text-violet-400 -mb-px transition">Datos del proyecto</button>
+      <button id="tab-btn-2" onclick="irTab(2)" disabled class="py-2.5 px-4 text-sm font-medium border-b-2 border-transparent sidebar-text -mb-px transition" style="opacity:0.4;cursor:not-allowed">Tipologías y Etapas</button>
+    </div>
+
+    <div id="tab-1" class="overflow-y-auto px-8 py-6 space-y-6 flex-1">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Básico</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="col-span-2">
+            <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+            <input id="f-nombre-proyecto" type="text" placeholder="Ej: Torre Central" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Código *</label>
+            <input id="f-codigo" type="text" placeholder="torre-central" class="w-full rounded-lg px-3 py-2 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Ubicación</label>
+            <input id="f-ubicacion" type="text" placeholder="Ej: Santiago, RM" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <div id="seccion-imagen" class="hidden">
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Imagen del proyecto</p>
+        <div class="flex items-start gap-4">
+          <div id="img-preview-wrap" class="hidden w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 border" style="border-color:rgba(255,255,255,0.12)">
+            <img id="img-preview" src="" class="w-full h-full object-cover" />
+          </div>
+          <div class="flex-1">
+            <label class="block text-xs sidebar-text mb-1.5">Subir imagen (JPG, PNG, WebP · máx. 3MB)</label>
+            <input id="f-imagen" type="file" accept="image/*" onchange="previsualizarImagen(this)"
+              class="w-full text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-violet-600 file:text-white hover:file:bg-violet-500 sidebar-text" />
+            <p id="img-estado" class="text-xs sidebar-text mt-1"></p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Financiero</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Ahorro mínimo (UF)</label>
+            <input id="f-ahorro-minimo" type="number" step="0.1" min="0" placeholder="50" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Valor reserva (CLP)</label>
+            <input id="f-reserva-clp" type="number" step="1000" min="0" placeholder="500000" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Valor reserva (UF)</label>
+            <input id="f-reserva-uf" type="number" step="0.1" min="0" placeholder="20" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Características</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs sidebar-text mb-1.5">Valor estacionamiento (UF)</label>
+            <input id="f-estac-uf" type="number" step="0.1" min="0" placeholder="Ej: 15" class="w-full rounded-lg px-3 py-2 text-sm" />
+          </div>
+          <div class="flex items-center gap-6 pt-5">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-tiene-piloto" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
+              <span class="text-sm val-text">Sala piloto</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-estac-obligatorio" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
+              <span class="text-sm val-text">Estac. obligatorio</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Subsidios</p>
+        <div class="space-y-3">
+          <div class="flex items-center gap-6 flex-wrap">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-acepta-ds19" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
+              <span class="text-sm val-text">Acepta DS19</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input id="f-acepta-ds1t23" type="checkbox" class="w-4 h-4 accent-violet-500 rounded" />
+              <span class="text-sm val-text">Acepta DS1 Tramo 2 y 3</span>
+            </label>
+          </div>
+          <p class="text-xs sidebar-text">El monto del subsidio se configura en cada tipología.</p>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">Notas internas</p>
+        <textarea id="f-notas" rows="3" placeholder="Información relevante para el equipo y el bot..." class="w-full rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+      </div>
+    </div><!-- /tab-1 -->
+
+    <div id="tab-2" class="hidden overflow-y-auto px-8 py-6 flex-1">
+      <div id="tab2-wizard" class="hidden space-y-6">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">A · Tipologías del proyecto</p>
+            <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+              <input id="wiz-unica" type="checkbox" checked onchange="wizToggleTipUnica()" class="w-3.5 h-3.5 accent-violet-500" />
+              <span class="sidebar-text">Única tipología</span>
+            </label>
+          </div>
+          <div id="wiz-tips" class="space-y-3"></div>
+          <button id="wiz-btn-add-tip" onclick="wizAddTip()"
+            class="hidden mt-2 text-xs px-3 py-1.5 rounded-lg sidebar-text hover:text-violet-400 transition" style="border:1px dashed currentColor">+ Agregar tipología</button>
+        </div>
+        <div class="border-t" style="border-color:rgba(255,255,255,0.08)"></div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text mb-3">B · Etapas de entrega</p>
+          <div id="wiz-etapas" class="space-y-4"></div>
+          <button onclick="wizAddEtapa()"
+            class="mt-3 text-xs px-3 py-1.5 rounded-lg sidebar-text hover:text-slate-300 transition" style="border:1px dashed currentColor">+ Nueva etapa</button>
+        </div>
+      </div>
+
+      <div id="tab2-mgmt" class="hidden space-y-4">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías</p>
+            <button onclick="abrirModalTipologia()" class="text-xs px-3 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Tipología</button>
+          </div>
+          <div id="lista-tipologias" class="space-y-2"><p class="text-xs sidebar-text italic">Cargando…</p></div>
+        </div>
+        <div class="border-t pt-4" style="border-color:rgba(255,255,255,0.08)">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Etapas del proyecto</p>
+            <button onclick="abrirModalEtapa()" class="text-xs px-3 py-1 rounded-lg bg-slate-600 hover:bg-slate-500 text-white font-medium transition">+ Etapa</button>
+          </div>
+          <div id="lista-etapas" class="space-y-1.5"><p class="text-xs sidebar-text italic">Cargando…</p></div>
+        </div>
+      </div>
+    </div><!-- /tab-2 -->
+
+    <div class="px-8 py-5 border-t flex gap-3 items-center" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalProyecto()" class="py-2.5 px-5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button id="btn-siguiente" onclick="guardarYIrTab2()" class="hidden flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar y configurar →</button>
+      <button id="btn-guardar-proyecto" onclick="guardarProyecto()" class="hidden flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+      <button id="btn-volver-t2" onclick="irTab(1)" class="hidden py-2.5 px-4 rounded-lg border cancel-btn text-sm font-medium transition">← Datos</button>
+      <button id="btn-guardar-wiz" onclick="guardarWizard()" class="hidden flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Finalizar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL TIPOLOGÍA ═══════════════ -->
+<div id="modal-tipologia" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b" style="border-color:rgba(255,255,255,0.08)">
+      <h3 id="modal-tip-titulo" class="text-base font-bold val-text">Nueva tipología</h3>
+      <button onclick="cerrarModalTipologia()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="overflow-y-auto px-6 py-5 space-y-4 flex-1">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2">
+          <label class="block text-xs sidebar-text mb-1.5">Nombre *</label>
+          <input id="tip-nombre" type="text" placeholder="Ej: 2D/1B" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div><label class="block text-xs sidebar-text mb-1.5">Dormitorios</label><input id="tip-dormitorios" type="number" min="0" placeholder="2" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label class="block text-xs sidebar-text mb-1.5">Baños</label><input id="tip-banos" type="number" min="0" placeholder="1" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label class="block text-xs sidebar-text mb-1.5">Superficie útil (m²)</label><input id="tip-superficie" type="number" step="0.01" min="0" placeholder="42.5" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label class="block text-xs sidebar-text mb-1.5">Terreno (m²)</label><input id="tip-terreno" type="number" step="0.01" min="0" placeholder="Ej: 60" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label class="block text-xs sidebar-text mb-1.5">Valor propiedad (UF)</label><input id="tip-precio-desde" type="number" step="0.1" min="0" placeholder="1200" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+        <div><label class="block text-xs sidebar-text mb-1.5">Monto subsidio (UF)</label><input id="tip-precio-hasta" type="number" step="0.1" min="0" placeholder="700" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Tipo subsidio</label>
+          <select id="tip-tipo-subsidio" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="ninguno">Sin especificar</option>
+            <option value="ds19">DS19</option>
+            <option value="ds1_t23">DS1 T23</option>
+            <option value="ambos">DS19 + DS1 T23</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Estado</label>
+          <select id="tip-estado" class="w-full rounded-lg px-3 py-2 text-sm">
+            <option value="activo">Activo</option>
+            <option value="agotado">Agotado</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Cuotas de ahorro</label>
+          <input id="tip-cuotas-ahorro" type="number" min="0" placeholder="1" class="w-full rounded-lg px-3 py-2 text-sm" />
+          <p class="text-xs mt-1 sub-text">0 = regalo · 1 = pago único · +1 = nº de cuotas</p>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 flex gap-3 border-t" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarTipologia()" id="btn-guardar-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL ETAPA ═══════════════ -->
+<div id="modal-etapa" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[60] p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <h3 id="modal-etapa-titulo" class="text-base font-bold val-text">Nueva etapa</h3>
+      <button onclick="cerrarModalEtapa()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div class="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+      <div><label class="block text-xs sidebar-text mb-1.5">Nombre *</label><input id="eta-nombre" type="text" placeholder="Ej: Etapa 1" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1.5">Tipo de entrega</label>
+        <select id="eta-estado" onchange="onEtaEstadoChange()" class="w-full rounded-lg px-3 py-2 text-sm">
+          <option value="entrega_futura">Futura</option>
+          <option value="entrega_inmediata">Inmediata</option>
+        </select>
+      </div>
+      <div id="eta-modo-wrap" class="hidden">
+        <label class="block text-xs sidebar-text mb-1.5">Modalidad de ahorro</label>
+        <div class="flex gap-5">
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input type="radio" name="eta-modo" value="unico" id="eta-modo-unico" checked onchange="onEtaModoChange()" class="accent-violet-500" />
+            <span class="val-text">Pago único</span>
+          </label>
+          <label class="flex items-center gap-2 text-sm cursor-pointer select-none">
+            <input type="radio" name="eta-modo" value="cuotas" id="eta-modo-cuotas" onchange="onEtaModoChange()" class="accent-violet-500" />
+            <span class="val-text">En cuotas</span>
+          </label>
+        </div>
+        <div id="eta-ncuotas-wrap" class="hidden mt-2">
+          <label class="block text-xs sidebar-text mb-1.5">N° de cuotas</label>
+          <input id="eta-num-cuotas" type="number" min="2" placeholder="Ej: 12" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div><label class="block text-xs sidebar-text mb-1.5">Fecha de entrega</label><input id="eta-fecha" type="date" class="w-full rounded-lg px-3 py-2 text-sm" /></div>
+      <div id="eta-tip-seccion" class="hidden pt-2 border-t" style="border-color:rgba(255,255,255,0.08)">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-semibold uppercase tracking-wider sidebar-text">Tipologías en esta etapa</p>
+          <button onclick="abrirModalAsignarTipologia()" class="text-xs px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">+ Asignar</button>
+        </div>
+        <div id="eta-tip-lista" class="space-y-1.5"><p class="text-xs sidebar-text italic">Cargando…</p></div>
+      </div>
+    </div>
+    <div class="px-6 py-4 flex gap-3 border-t flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalEtapa()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cerrar</button>
+      <button onclick="guardarEtapa()" id="btn-guardar-eta" class="flex-1 py-2.5 rounded-lg bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MODAL ASIGNAR TIPOLOGÍA A ETAPA ═══════════════ -->
+<div id="modal-asignar-tipologia" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-[70] p-4">
+  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="px-6 pt-6 pb-4 flex items-center justify-between border-b flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <div>
+        <h3 class="text-base font-bold val-text">Stock por tipología</h3>
+        <p class="text-xs sidebar-text mt-0.5">Stock 0 = sin asignar</p>
+      </div>
+      <button onclick="cerrarModalAsignarTipologia()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div id="asgn-tip-lista" class="overflow-y-auto px-6 py-4 space-y-3 flex-1"></div>
+    <div class="px-6 py-4 flex gap-3 border-t flex-shrink-0" style="border-color:rgba(255,255,255,0.08)">
+      <button onclick="cerrarModalAsignarTipologia()" class="flex-1 py-2.5 rounded-lg border cancel-btn text-sm font-medium transition">Cancelar</button>
+      <button onclick="guardarAsignacionTipologia()" id="btn-guardar-asgn-tip" class="flex-1 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ═══════════════════════════ CONFIG / AUTH BASE ═══════════════════════════
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co'
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc'
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+  const BUCKET = 'proyectos-imagenes'
+  let _token = null
+  let _perfil = null
+  let _esAdmin = false
+
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark)
+    document.getElementById('theme-icon').textContent = dark ? '🌙' : '☀️'
+    localStorage.setItem('theme', dark ? 'dark' : 'light')
+  }
+  function toggleTheme() { applyTheme(!document.documentElement.classList.contains('dark')) }
+  applyTheme(localStorage.getItem('theme') === 'dark')
+
+  async function api(method, path, body) {
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` }
+    const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+    if (!res.ok) { const t = await res.text(); throw new Error(t || `Error ${res.status}`) }
+    return res.json()
+  }
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+  function toast(msg, tipo = 'success') {
+    const t = document.createElement('div')
+    t.className = `toast ${tipo === 'error' ? 'bg-red-900 text-red-200' : 'bg-emerald-800 text-emerald-100'}`
+    t.textContent = msg
+    document.body.appendChild(t)
+    setTimeout(() => t.remove(), 3000)
+  }
+  async function cerrarSesion() {
+    await _supabase.auth.signOut()
+    sessionStorage.clear()
+    window.location.href = '/login.html'
+  }
+
+  // ═══════════════════════════ ESTADO DEL ÁRBOL ═══════════════════════════
+  let _empresas = []
+  let _empresaSel = null           // objeto empresa actualmente seleccionado, o null
+  let _inmobiliariaSel = null      // objeto inmobiliaria, sentinel {_todos:true,...}, o null
+  const _inmobiliariasByEmpresa = {}   // empresaId -> array
+  const _proyectosByInmobiliaria = {}  // inmobiliariaId (o 'TODOS:'+empresaId) -> array
+  const _expanded = new Set()          // 'emp:<id>' que están expandidos
+
+  // Import CSV / wizard en curso → bloquea navegación del árbol mientras dura
+  let _operacionEnCurso = false
+
+  async function init() {
+    const { data: { session } } = await _supabase.auth.getSession()
+    if (!session) { window.location.href = '/login.html'; return }
+    _token = session.access_token
+    _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
+
+    try {
+      const [rPerfil, rEmpresas] = await Promise.all([
+        fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }),
+        fetch('/api/empresas',    { headers: { Authorization: `Bearer ${_token}` } }),
+      ])
+      _perfil = rPerfil.ok ? await rPerfil.json() : {}
+      _esAdmin = ['owner', 'administrador'].includes(_perfil.rol)
+      _empresas = rEmpresas.ok ? await rEmpresas.json() : []
+    } catch (e) {
+      document.getElementById('arbol-empresas').innerHTML = `<p class="text-xs text-red-400 px-3">Error al cargar: ${esc(e.message)}</p>`
+      return
+    }
+
+    document.getElementById('nombreUsuario').textContent = _perfil.nombre || _perfil.correo || ''
+    if (_perfil.rol === 'owner') document.getElementById('link-admin').classList.remove('hidden')
+    if (_esAdmin) document.getElementById('btn-nueva-empresa-sidebar').classList.remove('hidden')
+
+    // Retomar selección previa desde sessionStorage (F5, o entrada vía admin.html)
+    const empresaRaw = sessionStorage.getItem('crm_empresa')
+    const inmRaw     = sessionStorage.getItem('crm_inmobiliaria')
+    if (empresaRaw) {
+      try {
+        const guardada = JSON.parse(empresaRaw)
+        const real = _empresas.find(e => String(e.id) === String(guardada.id))
+        if (real) {
+          await seleccionarEmpresaNodo(real, false)
+          if (inmRaw) {
+            const inmGuardada = JSON.parse(inmRaw)
+            if (inmGuardada._todos) {
+              await seleccionarInmobiliariaNodo(real, { _todos: true, nombre: 'Todos los proyectos' }, false)
+            } else {
+              const inms = _inmobiliariasByEmpresa[real.id] || []
+              const inmReal = inms.find(i => String(i.id) === String(inmGuardada.id))
+              if (inmReal) await seleccionarInmobiliariaNodo(real, inmReal, false)
+            }
+          }
+        }
+      } catch (_) { /* sessionStorage corrupto — arrancar limpio */ }
+    }
+
+    renderArbol()
+    if (!_empresaSel) {
+      await intentarAutoSkip()
+      if (!_empresaSel) renderPanelDefault()
+    }
+  }
+
+  // Ejecutivo con una sola opción en cualquier nivel → auto-seleccionar sin que tenga que clicar
+  async function intentarAutoSkip() {
+    if (_esAdmin) return
+    if (_empresas.length === 1) {
+      await seleccionarEmpresaNodo(_empresas[0], true)
+      const inms = _inmobiliariasByEmpresa[_empresas[0].id] || []
+      if (inms.length === 1) {
+        await seleccionarInmobiliariaNodo(_empresas[0], inms[0], true)
+        const proys = _proyectosByInmobiliaria[inms[0].id] || []
+        if (proys.length === 1) { irAClientesDeProyecto(proys[0]); }
+      }
+    }
+  }
+
+  function bloqueadoPorOperacion() {
+    if (_operacionEnCurso) toast('Termina la operación en curso antes de cambiar de sección', 'error')
+    return _operacionEnCurso
+  }
+
+  // ═══════════════════════════ ÁRBOL — render ═══════════════════════════
+  function iniciales(nombre) {
+    return (nombre || '?').split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase()
+  }
+
+  function renderArbol() {
+    const cont = document.getElementById('arbol-empresas')
+    if (!_empresas.length) {
+      cont.innerHTML = '<p class="text-xs sidebar-text px-3 py-2">Sin empresas disponibles</p>'
+      return
+    }
+    cont.innerHTML = _empresas.map(renderNodoEmpresa).join('')
+  }
+
+  function renderNodoEmpresa(emp) {
+    const key = 'emp:' + emp.id
+    const expandido = _expanded.has(key)
+    const activo = _empresaSel?.id === emp.id && !_inmobiliariaSel
+    const color = emp.color_marca || '#7c3aed'
+    const inms = _inmobiliariasByEmpresa[emp.id]
+
+    let hijos = ''
+    if (expandido) {
+      let listaHijos
+      if (!inms) {
+        listaHijos = `<div class="px-3 py-1.5 text-xs sidebar-text">Cargando…</div>`
+      } else if (!inms.length) {
+        listaHijos = `<div class="px-3 py-1.5 text-xs sidebar-text italic">Sin inmobiliarias</div>`
+      } else {
+        listaHijos = inms.map(inm => renderNodoInmobiliaria(emp, inm)).join('')
+      }
+      const btnCrear = _esAdmin ? `
+        <button onclick='event.stopPropagation();seleccionarEmpresaNodo(${JSON.stringify(emp).replace(/'/g,"&#39;")}, true).then(abrirModalInmobiliaria)'
+          class="w-full text-left px-3 py-1.5 text-xs sidebar-text hover:text-violet-400 transition">+ Crear inmobiliaria</button>` : ''
+      hijos = `<div class="ml-3 pl-3 border-l header-border space-y-0.5 py-1">${listaHijos}${btnCrear}</div>`
+    }
+
+    return `
+      <div>
+        <button onclick="toggleEmpresaNode('${emp.id}')"
+          class="arbol-nodo w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition ${activo ? 'bg-violet-600 text-white' : 'sidebar-text hover:text-violet-400'}">
+          <svg class="arbol-chevron w-3.5 h-3.5 shrink-0 ${expandido ? 'abierto' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0" style="background:${color}">${emp.logo_url ? `<img src="${esc(emp.logo_url)}" class="w-full h-full object-cover rounded-md"/>` : iniciales(emp.nombre)}</span>
+          <span class="truncate">${esc(emp.nombre)}</span>
+        </button>
+        ${hijos}
+      </div>`
+  }
+
+  function renderNodoInmobiliaria(emp, inm) {
+    const esTodos = !!inm._todos
+    const key = esTodos ? 'TODOS' : inm.id
+    const activo = _inmobiliariaSel && (esTodos ? _inmobiliariaSel._todos : String(_inmobiliariaSel.id) === String(inm.id))
+    return `
+      <button onclick='event.stopPropagation();seleccionarInmobiliariaNodo(${JSON.stringify(emp).replace(/'/g,"&#39;")}, ${JSON.stringify(inm).replace(/'/g,"&#39;")}, true)'
+        class="arbol-nodo w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition truncate ${activo ? 'bg-violet-600 text-white' : (esTodos ? 'text-emerald-400 hover:text-emerald-300' : 'sidebar-text hover:text-violet-400')}">
+        ${esTodos ? '★ ' : ''}${esc(inm.nombre)}
+      </button>`
+  }
+
+  // ═══════════════════════════ ÁRBOL — interacción ═══════════════════════════
+  async function toggleEmpresaNode(empresaId) {
+    if (bloqueadoPorOperacion()) return
+    const emp = _empresas.find(e => String(e.id) === String(empresaId))
+    if (!emp) return
+    const key = 'emp:' + emp.id
+    const yaActivo = _empresaSel?.id === emp.id
+    if (yaActivo && _expanded.has(key)) {
+      // Ya seleccionada y expandida → solo colapsar, sin perder la selección del panel
+      _expanded.delete(key)
+      renderArbol()
+      return
+    }
+    await seleccionarEmpresaNodo(emp, true)
+  }
+
+  async function seleccionarEmpresaNodo(emp, actualizarPanel) {
+    _empresaSel = emp
+    _inmobiliariaSel = null
+    _expanded.add('emp:' + emp.id)
+    sessionStorage.setItem('crm_empresa', JSON.stringify(emp))
+    sessionStorage.removeItem('crm_inmobiliaria')
+    sessionStorage.removeItem('crm_proyecto')
+
+    if (!_inmobiliariasByEmpresa[emp.id]) {
+      renderArbol()
+      try {
+        _inmobiliariasByEmpresa[emp.id] = await api('GET', `/api/inmobiliarias?empresa_id=${emp.id}`)
+      } catch (e) {
+        _inmobiliariasByEmpresa[emp.id] = []
+        toast('Error al cargar inmobiliarias: ' + e.message, 'error')
+      }
+    }
+    renderArbol()
+    if (actualizarPanel) renderPanelInmobiliarias()
+  }
+
+  async function seleccionarInmobiliariaNodo(emp, inm, actualizarPanel) {
+    if (bloqueadoPorOperacion()) return
+    if (_empresaSel?.id !== emp.id) await seleccionarEmpresaNodo(emp, false)
+    _inmobiliariaSel = inm
+    sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(inm))
+    sessionStorage.removeItem('crm_proyecto')
+
+    const cacheKey = inm._todos ? ('TODOS:' + emp.id) : inm.id
+    if (!_proyectosByInmobiliaria[cacheKey]) {
+      renderArbol()
+      if (actualizarPanel) renderPanelProyectos()
+      try {
+        const qs = inm._todos ? `empresa_id=${emp.id}` : `inmobiliaria_id=${inm.id}`
+        _proyectosByInmobiliaria[cacheKey] = await api('GET', `/api/proyectos?${qs}`)
+      } catch (e) {
+        _proyectosByInmobiliaria[cacheKey] = []
+        toast('Error al cargar proyectos: ' + e.message, 'error')
+      }
+    }
+    renderArbol()
+    if (actualizarPanel) renderPanelProyectos()
+  }
+
+  function proyectosCacheKey() {
+    if (!_inmobiliariaSel) return null
+    return _inmobiliariaSel._todos ? ('TODOS:' + _empresaSel.id) : _inmobiliariaSel.id
+  }
+
+  // ═══════════════════════════ PANEL PRINCIPAL — router ═══════════════════════════
+  function renderBreadcrumb() {
+    const bc = document.getElementById('breadcrumb')
+    const partes = []
+    if (_empresaSel) partes.push(esc(_empresaSel.nombre))
+    if (_inmobiliariaSel) partes.push(esc(_inmobiliariaSel.nombre))
+    bc.innerHTML = partes.length ? partes.join(' <span class="opacity-40">/</span> ') : ''
+  }
+
+  function renderPanelDefault() {
+    renderBreadcrumb()
+    document.getElementById('titulo-panel').textContent = 'Selecciona una empresa'
+    const cont = document.getElementById('contenido-panel')
+    if (!_empresas.length) {
+      cont.innerHTML = `<p class="sidebar-text text-sm">No hay empresas activas.</p>`
+      return
+    }
+    cont.innerHTML = `
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-3xl">
+        ${_empresas.map(e => {
+          const color = e.color_marca || '#7c3aed'
+          return `
+            <button onclick="toggleEmpresaNode('${e.id}')" class="empresa-card glass rounded-2xl p-6 flex flex-col items-center gap-3 text-center">
+              <div class="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-extrabold text-white shrink-0" style="background:${color};box-shadow:0 8px 24px ${color}40">
+                ${e.logo_url ? `<img src="${esc(e.logo_url)}" class="w-full h-full object-contain rounded-xl"/>` : iniciales(e.nombre)}
+              </div>
+              <p class="font-semibold val-text">${esc(e.nombre)}</p>
+              <span class="text-xs uppercase tracking-wide font-semibold px-3 py-1 rounded-full text-violet-400" style="background:rgba(124,58,237,0.15)">Entrar →</span>
+            </button>`
+        }).join('')}
+        ${_esAdmin ? `
+          <button onclick="abrirModalEmpresa()" class="empresa-card glass rounded-2xl p-6 flex flex-col items-center justify-center gap-3 text-center" style="border-style:dashed">
+            <div class="w-14 h-14 rounded-xl flex items-center justify-center border-2 border-dashed sidebar-text">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </div>
+            <p class="font-semibold sidebar-text">Nueva empresa</p>
+          </button>` : ''}
+      </div>`
+  }
+
+  // ── Panel: Inmobiliarias de la empresa seleccionada ──────────────────────
+  function renderPanelInmobiliarias() {
+    renderBreadcrumb()
+    document.getElementById('titulo-panel').textContent = `Inmobiliarias de ${_empresaSel.nombre}`
+    const inms = _inmobiliariasByEmpresa[_empresaSel.id]
+    const cont = document.getElementById('contenido-panel')
+
+    const btnCargarBase = _esAdmin ? `
+      <button id="btn-cargar-base" onclick="abrirModalImport()" class="text-xs px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition flex items-center gap-1.5 border border-transparent hover:border-violet-500/30">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Cargar base
+      </button>` : ''
+    const btnCrear = _esAdmin ? `
+      <button id="btn-crear-inm" onclick="abrirModalInmobiliaria()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Crear inmobiliaria
+      </button>` : ''
+
+    cont.innerHTML = `
+      <div class="glass rounded-2xl overflow-hidden max-w-3xl">
+        <div class="px-6 py-4 border-b thead-row flex items-center justify-between">
+          <p id="contador-inmobiliarias" class="text-xs sidebar-text">—</p>
+          <div class="flex items-center gap-2">${btnCargarBase}${btnCrear}</div>
+        </div>
+        <table class="w-full text-sm">
+          <thead><tr class="thead-row border-b"><th class="px-6 py-3 text-left font-medium">Nombre</th><th class="px-6 py-3 text-right font-medium">Acciones</th></tr></thead>
+          <tbody id="tabla-body-inmobiliarias"><tr><td colspan="2" class="px-6 py-12 text-center empty-text">Cargando…</td></tr></tbody>
+        </table>
+      </div>`
+
+    if (!inms) return // aún cargando — toggleEmpresaNode ya disparó el fetch
+    renderTablaInmobiliarias(inms)
+  }
+
+  function renderTablaInmobiliarias(rows) {
+    const contadorEl = document.getElementById('contador-inmobiliarias')
+    if (!contadorEl) return // el panel cambió mientras la carga estaba en vuelo
+    contadorEl.textContent = `${rows.length} inmobiliaria${rows.length !== 1 ? 's' : ''}`
+    const tbody = document.getElementById('tabla-body-inmobiliarias')
+
+    const filaTodos = _esAdmin ? `
+      <tr class="border-b" style="background:rgba(124,58,237,0.06)">
+        <td class="px-6 py-4">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-violet-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 004 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"/></svg>
+            <span class="font-semibold text-violet-400">Todos los proyectos</span>
+            <span class="text-xs sidebar-text">— vista completa de ${esc(_empresaSel.nombre)}</span>
+          </div>
+        </td>
+        <td class="px-6 py-4 text-right">
+          <button onclick='seleccionarInmobiliariaNodo(${JSON.stringify(_empresaSel).replace(/'/g,"&#39;")}, {_todos:true,nombre:"Todos los proyectos"}, true)' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
+        </td>
+      </tr>` : ''
+
+    if (!rows.length) {
+      tbody.innerHTML = filaTodos + `<tr><td colspan="2" class="px-6 py-12 text-center empty-text">No hay inmobiliarias. Crea la primera.</td></tr>`
+      return
+    }
+    tbody.innerHTML = filaTodos + rows.map(r => `
+      <tr class="trow border-b transition">
+        <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
+        <td class="px-6 py-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            ${_esAdmin ? `<button onclick='editarInmobiliaria(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>` : ''}
+            <button onclick='seleccionarInmobiliariaNodo(${JSON.stringify(_empresaSel).replace(/'/g,"&#39;")}, ${JSON.stringify(r).replace(/'/g,"&#39;")}, true)' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
+          </div>
+        </td>
+      </tr>`).join('')
+  }
+
+  // ── Panel: Proyectos de la inmobiliaria seleccionada ─────────────────────
+  function renderPanelProyectos() {
+    renderBreadcrumb()
+    const esTodos = !!_inmobiliariaSel._todos
+    document.getElementById('titulo-panel').textContent = esTodos
+      ? `Todos los proyectos de ${_empresaSel.nombre}`
+      : `Proyectos de ${_inmobiliariaSel.nombre}`
+    const proys = _proyectosByInmobiliaria[proyectosCacheKey()]
+    const cont = document.getElementById('contenido-panel')
+
+    const btnCrear = (_esAdmin && !esTodos) ? `
+      <button id="btn-crear-proyecto" onclick="abrirModalProyecto()" class="text-xs px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        Crear proyecto
+      </button>` : ''
+
+    cont.innerHTML = `
+      <div class="glass rounded-2xl overflow-hidden">
+        <div class="px-6 py-4 border-b thead-row flex items-center justify-between">
+          <p id="contador-proyectos" class="text-xs sidebar-text">—</p>
+          ${btnCrear}
+        </div>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="thead-row border-b">
+              <th class="px-3 py-3 text-left font-medium w-16">Imagen</th>
+              <th class="px-6 py-3 text-left font-medium">Nombre</th>
+              <th class="px-6 py-3 text-left font-medium">Ubicación</th>
+              ${esTodos ? `<th class="px-6 py-3 text-left font-medium">Inmobiliaria</th>` : ''}
+              <th class="px-6 py-3 text-right font-medium">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-body-proyectos"><tr><td colspan="5" class="px-6 py-12 text-center empty-text">Cargando…</td></tr></tbody>
+        </table>
+      </div>`
+
+    if (!proys) return
+    renderTablaProyectos(proys)
+  }
+
+  function renderTablaProyectos(rows) {
+    const contadorEl = document.getElementById('contador-proyectos')
+    if (!contadorEl) return
+    contadorEl.textContent = `${rows.length} proyecto${rows.length !== 1 ? 's' : ''}`
+    const tbody = document.getElementById('tabla-body-proyectos')
+    const esTodos = !!_inmobiliariaSel._todos
+    const cols = esTodos ? 5 : 4
+    const contexto = esTodos ? _empresaSel.nombre : _inmobiliariaSel.nombre
+    const labelTodos = _esAdmin ? `— vista completa de ${esc(contexto)}` : '— todos mis clientes'
+
+    const filaTodosClientes = `
+      <tr class="border-b" style="background:rgba(16,185,129,0.06)">
+        <td class="px-6 py-4" colspan="${cols - 1}">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="font-semibold text-emerald-400">Todos los clientes</span>
+            <span class="text-xs sidebar-text">${labelTodos}</span>
+          </div>
+        </td>
+        <td class="px-6 py-4 text-right">
+          <button onclick="irATodosLosClientes()" class="text-xs px-4 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-medium transition">Ver todos →</button>
+        </td>
+      </tr>`
+
+    if (!rows.length) {
+      tbody.innerHTML = filaTodosClientes + `<tr><td colspan="${cols}" class="px-6 py-12 text-center empty-text">No hay proyectos.</td></tr>`
+      return
+    }
+    tbody.innerHTML = filaTodosClientes + rows.map(r => `
+      <tr class="trow border-b transition">
+        <td class="px-3 py-3">
+          ${r.imagen_url
+            ? `<button data-img="${esc(r.imagen_url)}" data-nombre="${esc(r.nombre)}" onclick="abrirLightbox(this.dataset.img,this.dataset.nombre)"
+                class="group relative block w-14 h-10 rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-violet-500" style="border:1px solid rgba(255,255,255,0.1)">
+                <img src="${esc(r.imagen_url)}" alt="${esc(r.nombre)}" class="w-full h-full object-cover transition group-hover:scale-105" />
+                <span class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition text-white text-base">🔍</span>
+              </button>`
+            : `<div class="w-14 h-10 rounded-lg flex items-center justify-center text-xs" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.2)">—</div>`}
+        </td>
+        <td class="px-6 py-4 font-medium val-text">${esc(r.nombre)}</td>
+        <td class="px-6 py-4 sidebar-text">${esc(r.ubicacion || '—')}</td>
+        ${esTodos ? `<td class="px-6 py-4 text-xs sidebar-text">${esc(r.Inmobiliaria?.nombre || '—')}</td>` : ''}
+        <td class="px-6 py-4 text-right">
+          <div class="flex items-center justify-end gap-2">
+            ${_esAdmin && !esTodos ? `<button onclick='editarProyecto(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>` : ''}
+            <button onclick='irAClientesDeProyecto(${JSON.stringify(r).replace(/'/g,"&#39;")})' class="text-xs px-4 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium transition">Ingresar →</button>
+          </div>
+        </td>
+      </tr>`).join('')
+  }
+
+  // ═══════════════════════════ HOJAS: navegación real a index.html ═══════════════════════════
+  function irAClientesDeProyecto(row) {
+    sessionStorage.setItem('crm_proyecto', JSON.stringify(row))
+    window.location.href = '/index.html'
+  }
+  function irATodosLosClientes() {
+    sessionStorage.removeItem('crm_proyecto')
+    window.location.href = '/index.html'
+  }
+
+  // ═══════════════════════════ EMPRESA — crear (admin/owner) ═══════════════════════════
+  let _industrias = []
+
+  async function abrirModalEmpresa() {
+    document.getElementById('emp-nombre').value = ''
+    document.getElementById('emp-slug').value = ''
+    document.getElementById('emp-slug').dataset.tocado = 'false'
+    document.getElementById('emp-color').value = '#7c3aed'
+    document.getElementById('emp-logo').value = ''
+    document.getElementById('emp-error').classList.add('hidden')
+    document.getElementById('modal-empresa').classList.remove('hidden')
+    if (!_industrias.length) {
+      try { _industrias = await api('GET', '/api/industrias') } catch (_) { _industrias = [] }
+    }
+    const sel = document.getElementById('emp-industria')
+    sel.innerHTML = '<option value="">Sin especificar</option>' + _industrias.map(i => `<option value="${i.id}">${esc(i.nombre)}</option>`).join('')
+  }
+  function cerrarModalEmpresa() { document.getElementById('modal-empresa').classList.add('hidden') }
+  function autoSlug() {
+    const slugEl = document.getElementById('emp-slug')
+    if (slugEl.dataset.tocado === 'true') return
+    const nombre = document.getElementById('emp-nombre').value
+    slugEl.value = nombre.normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase()
+  }
+  async function guardarEmpresa() {
+    const nombre = document.getElementById('emp-nombre').value.trim()
+    const errEl = document.getElementById('emp-error')
+    if (!nombre) { errEl.textContent = 'El nombre es obligatorio'; errEl.classList.remove('hidden'); return }
+    const btn = document.getElementById('btn-guardar-empresa')
+    btn.disabled = true; btn.textContent = 'Creando…'
+    const payload = {
+      nombre,
+      slug: document.getElementById('emp-slug').value.trim(),
+      industria_id: document.getElementById('emp-industria').value || null,
+      color_marca: document.getElementById('emp-color').value,
+      logo_url: document.getElementById('emp-logo').value.trim(),
+    }
+    try {
+      const nueva = await api('POST', '/api/empresas', payload)
+      _empresas.push(nueva)
+      cerrarModalEmpresa()
+      toast('Empresa creada')
+      renderArbol()
+      if (!_empresaSel) renderPanelDefault()
+    } catch (e) {
+      errEl.textContent = e.message; errEl.classList.remove('hidden')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Crear empresa'
+    }
+  }
+
+  // ═══════════════════════════ INMOBILIARIA — CRUD ═══════════════════════════
+  let _editandoInmId = null
+  function abrirModalInmobiliaria() {
+    _editandoInmId = null
+    document.getElementById('modal-inmobiliaria-titulo').textContent = 'Nueva inmobiliaria'
+    document.getElementById('f-nombre-inmobiliaria').value = ''
+    document.getElementById('modal-inmobiliaria').classList.remove('hidden')
+    setTimeout(() => document.getElementById('f-nombre-inmobiliaria').focus(), 50)
+  }
+  function editarInmobiliaria(row) {
+    _editandoInmId = row.id
+    document.getElementById('modal-inmobiliaria-titulo').textContent = 'Editar inmobiliaria'
+    document.getElementById('f-nombre-inmobiliaria').value = row.nombre
+    document.getElementById('modal-inmobiliaria').classList.remove('hidden')
+    setTimeout(() => document.getElementById('f-nombre-inmobiliaria').focus(), 50)
+  }
+  function cerrarModalInmobiliaria() {
+    document.getElementById('modal-inmobiliaria').classList.add('hidden')
+    _editandoInmId = null
+  }
+  async function guardarInmobiliaria() {
+    const nombre = document.getElementById('f-nombre-inmobiliaria').value.trim()
+    if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+    const btn = document.getElementById('btn-guardar-inmobiliaria')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      if (_editandoInmId) {
+        await api('PATCH', `/api/inmobiliarias/${_editandoInmId}`, { nombre })
+        toast('Inmobiliaria actualizada')
+      } else {
+        await api('POST', '/api/inmobiliarias', { nombre, empresa_id: _empresaSel.id })
+        toast('Inmobiliaria creada')
+      }
+      cerrarModalInmobiliaria()
+      delete _inmobiliariasByEmpresa[_empresaSel.id]
+      await seleccionarEmpresaNodo(_empresaSel, true)
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  // ═══════════════════════════ IMPORTAR CSV DE CLIENTES ═══════════════════════════
+  let _archivoCSV = null
+
+  function abrirModalImport() {
+    _archivoCSV = null
+    document.getElementById('csv-input').value = ''
+    document.getElementById('drop-label').classList.remove('hidden')
+    document.getElementById('file-name').classList.add('hidden')
+    document.getElementById('import-form').classList.remove('hidden')
+    document.getElementById('import-results').classList.add('hidden')
+    document.getElementById('btn-import').disabled = true
+    document.getElementById('modal-import').classList.remove('hidden')
+  }
+  function cerrarModalImport() {
+    if (_operacionEnCurso) { toast('Espera a que termine la importación', 'error'); return }
+    document.getElementById('modal-import').classList.add('hidden')
+    _archivoCSV = null
+  }
+  function onFileSelected(input) {
+    const file = input.files[0]
+    if (!file) return
+    _archivoCSV = file
+    document.getElementById('drop-label').classList.add('hidden')
+    const fn = document.getElementById('file-name')
+    fn.textContent = file.name
+    fn.classList.remove('hidden')
+    document.getElementById('btn-import').disabled = false
+  }
+
+  async function importar() {
+    if (!_archivoCSV) return
+    _operacionEnCurso = true
+    document.getElementById('import-form').classList.add('hidden')
+    document.getElementById('import-progress').classList.remove('hidden')
+    document.getElementById('import-results').classList.add('hidden')
+
+    const fd = new FormData()
+    fd.append('file', _archivoCSV)
+    try {
+      const res = await fetch(`/api/clientes/importar?empresa_id=${_empresaSel.id}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${_token}` },
+        body: fd,
+      })
+      if (!res.ok) throw new Error(await res.text())
+
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop()
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          let evt
+          try { evt = JSON.parse(line.slice(6)) } catch { continue }
+
+          if (evt.t === 'prog') {
+            const pct = evt.total > 0 ? Math.round((evt.n / evt.total) * 100) : 0
+            document.getElementById('prog-bar').style.width = pct + '%'
+            document.getElementById('prog-pct').textContent = pct + '%'
+            document.getElementById('prog-label').textContent = `Fila ${evt.n} de ${evt.total}…`
+            document.getElementById('prog-creados').textContent = evt.creados
+            document.getElementById('prog-dups').textContent = evt.dups
+            document.getElementById('prog-errs').textContent = evt.errs
+          } else if (evt.t === 'done') {
+            document.getElementById('import-progress').classList.add('hidden')
+            mostrarResultadosImport(evt)
+          } else if (evt.t === 'error') {
+            throw new Error(evt.msg)
+          }
+        }
+      }
+    } catch (e) {
+      document.getElementById('import-progress').classList.add('hidden')
+      document.getElementById('import-form').classList.remove('hidden')
+      document.getElementById('btn-import').disabled = false
+      document.getElementById('btn-import').textContent = 'Importar'
+      toast(e.message, 'error')
+    } finally {
+      _operacionEnCurso = false
+    }
+  }
+
+  function mostrarResultadosImport(data) {
+    document.getElementById('import-results').classList.remove('hidden')
+    document.getElementById('import-stats').innerHTML = `
+      <div class="glass rounded-xl p-3"><p class="text-2xl font-bold text-emerald-400">${data.creados ?? 0}</p><p class="text-xs sidebar-text mt-1">Creados</p></div>
+      <div class="glass rounded-xl p-3"><p class="text-2xl font-bold text-amber-400">${data.duplicados ?? 0}</p><p class="text-xs sidebar-text mt-1">Duplicados</p></div>
+      <div class="glass rounded-xl p-3"><p class="text-2xl font-bold text-red-400">${data.errores ?? 0}</p><p class="text-xs sidebar-text mt-1">Errores</p></div>`
+    const errDiv = document.getElementById('import-errores')
+    const detalleErr = data.detalle_errores || []
+    const detalleDups = data.detalle_duplicados || []
+    if (detalleErr.length || detalleDups.length) {
+      let html = ''
+      if (detalleDups.length) {
+        html += `<p class="text-xs sidebar-text font-semibold mb-1">Duplicados (${detalleDups.length}):</p>` +
+          detalleDups.slice(0, 5).map(d => `<p class="text-xs text-amber-400">• Fila ${d.fila ?? '?'} (${esc(d.nombre)}): teléfono ya existe</p>`).join('') +
+          (detalleDups.length > 5 ? `<p class="text-xs sidebar-text">… y ${detalleDups.length - 5} más</p>` : '')
+      }
+      if (detalleErr.length) {
+        html += `<p class="text-xs sidebar-text font-semibold mb-1 mt-2">Errores (${detalleErr.length}):</p>` +
+          detalleErr.slice(0, 5).map(d => `<p class="text-xs text-red-400">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo)}</p>`).join('') +
+          (detalleErr.length > 5 ? `<p class="text-xs sidebar-text">… y ${detalleErr.length - 5} más</p>` : '')
+      }
+      errDiv.innerHTML = html
+      errDiv.classList.remove('hidden')
+      document.getElementById('btn-descargar-errores').classList.remove('hidden')
+      document.getElementById('btn-descargar-errores').onclick = () => descargarRechazadosCSV(detalleErr, detalleDups)
+    } else {
+      errDiv.classList.add('hidden')
+      document.getElementById('btn-descargar-errores').classList.add('hidden')
+    }
+    // Refrescar tabla de inmobiliarias/proyectos si el panel activo sigue vigente
+    if (_empresaSel && !_inmobiliariaSel) { delete _inmobiliariasByEmpresa[_empresaSel.id] }
+  }
+
+  function descargarRechazadosCSV(errores, duplicados) {
+    const cols = ['_tipo','Proyecto','Contacto','Rut','Teléfono','Correo','Estado','Tramo de renta','Tiene subsidio','Tipo subsidio','Tiene propiedad','_motivo']
+    const filasDups = duplicados.map(d => {
+      const r = d.datos || {}
+      return cols.map(c => {
+        let v = ''
+        if (c === '_tipo') v = 'Duplicado'
+        else if (c === '_motivo') v = 'Teléfono ya existe en el sistema'
+        else v = r[c] ?? ''
+        return `"${String(v).replace(/"/g, '""')}"`
+      }).join(',')
+    })
+    const filasErr = errores.map(e => {
+      const r = e.datos || {}
+      return cols.map(c => {
+        let v = ''
+        if (c === '_tipo') v = 'Error'
+        else if (c === '_motivo') v = e.motivo || ''
+        else v = r[c] ?? ''
+        return `"${String(v).replace(/"/g, '""')}"`
+      }).join(',')
+    })
+    const csv = [cols.join(','), ...filasDups, ...filasErr].join('\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `rechazados_${new Date().toISOString().slice(0,10)}.csv`
+    a.click()
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const dropZone = document.getElementById('drop-zone')
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over') })
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'))
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault()
+      dropZone.classList.remove('drag-over')
+      const file = e.dataTransfer.files[0]
+      if (file && file.name.endsWith('.csv')) {
+        const dt = new DataTransfer()
+        dt.items.add(file)
+        document.getElementById('csv-input').files = dt.files
+        onFileSelected(document.getElementById('csv-input'))
+      } else {
+        toast('Solo se aceptan archivos .csv', 'error')
+      }
+    })
+  })
+
+  // ═══════════════════════════ PROYECTO — CRUD + imagen ═══════════════════════════
+  let _editandoProyId = null
+  let _imagenUrlActual = null
+
+  function _resetModalProyecto() {
+    ['f-nombre-proyecto','f-codigo','f-ubicacion','f-ahorro-minimo','f-reserva-clp','f-reserva-uf','f-estac-uf','f-notas']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+    document.getElementById('f-tiene-piloto').checked = false
+    document.getElementById('f-estac-obligatorio').checked = false
+    document.getElementById('f-acepta-ds19').checked = false
+    document.getElementById('f-acepta-ds1t23').checked = false
+    document.getElementById('f-imagen').value = ''
+    document.getElementById('img-estado').textContent = ''
+    document.getElementById('img-preview-wrap').classList.add('hidden')
+    _imagenUrlActual = null
+  }
+
+  let _tab2Mode = null
+  function irTab(n) {
+    const onTab1 = n === 1
+    document.getElementById('tab-1').classList.toggle('hidden', !onTab1)
+    document.getElementById('tab-2').classList.toggle('hidden', onTab1)
+    const btn1 = document.getElementById('tab-btn-1')
+    const btn2 = document.getElementById('tab-btn-2')
+    btn1.className = `py-2.5 px-4 text-sm font-medium border-b-2 -mb-px transition ${onTab1 ? 'border-violet-500 text-violet-400' : 'border-transparent sidebar-text'}`
+    btn2.className = `py-2.5 px-4 text-sm font-medium border-b-2 -mb-px transition ${!onTab1 ? 'border-violet-500 text-violet-400' : 'border-transparent sidebar-text'}`
+    if (!onTab1) {
+      document.getElementById('tab2-wizard').classList.toggle('hidden', _tab2Mode !== 'wizard')
+      document.getElementById('tab2-mgmt').classList.toggle('hidden', _tab2Mode !== 'mgmt')
+    }
+    _actualizarFooterProyecto(n)
+  }
+  function _actualizarFooterProyecto(tab) {
+    const enTab1 = tab === 1
+    document.getElementById('btn-siguiente').classList.toggle('hidden', !enTab1 || !!_editandoProyId)
+    document.getElementById('btn-guardar-proyecto').classList.toggle('hidden', !enTab1 || !_editandoProyId)
+    document.getElementById('btn-volver-t2').classList.toggle('hidden', enTab1)
+    document.getElementById('btn-guardar-wiz').classList.toggle('hidden', enTab1 || _tab2Mode !== 'wizard')
+  }
+  function _habilitarTab2(modo) {
+    _tab2Mode = modo
+    const btn2 = document.getElementById('tab-btn-2')
+    btn2.disabled = false
+    btn2.style.opacity = '1'
+    btn2.style.cursor = 'pointer'
+  }
+
+  function abrirModalProyecto() {
+    _editandoProyId = null
+    _tab2Mode = null
+    _resetModalProyecto()
+    document.getElementById('modal-proyecto-titulo').textContent = 'Nuevo proyecto'
+    const btn2 = document.getElementById('tab-btn-2')
+    btn2.disabled = true; btn2.style.opacity = '0.4'; btn2.style.cursor = 'not-allowed'
+    if (_esAdmin) document.getElementById('seccion-imagen').classList.remove('hidden')
+    irTab(1)
+    document.getElementById('modal-proyecto').classList.remove('hidden')
+    setTimeout(() => document.getElementById('f-nombre-proyecto').focus(), 50)
+  }
+
+  async function editarProyecto(row) {
+    _editandoProyId = row.id
+    _tab2Mode = 'mgmt'
+    _resetModalProyecto()
+    document.getElementById('modal-proyecto-titulo').textContent = 'Editar proyecto'
+    document.getElementById('f-nombre-proyecto').value = row.nombre || ''
+    document.getElementById('f-codigo').value = row.codigo || ''
+    document.getElementById('f-ubicacion').value = row.ubicacion || ''
+    document.getElementById('f-ahorro-minimo').value = row.ahorro_minimo_uf ?? ''
+    document.getElementById('f-reserva-clp').value = row.valor_reserva_clp ?? ''
+    document.getElementById('f-reserva-uf').value = row.valor_reserva_uf ?? ''
+    document.getElementById('f-estac-uf').value = row.valor_estacionamiento_uf ?? ''
+    document.getElementById('f-tiene-piloto').checked = !!row.tiene_piloto
+    document.getElementById('f-estac-obligatorio').checked = !!row.estacionamiento_obligatorio
+    document.getElementById('f-acepta-ds19').checked = !!row.acepta_ds19
+    document.getElementById('f-acepta-ds1t23').checked = !!row.acepta_ds1_t23
+    document.getElementById('f-notas').value = row.notas || ''
+    if (_esAdmin) document.getElementById('seccion-imagen').classList.remove('hidden')
+    if (row.imagen_url) {
+      _imagenUrlActual = row.imagen_url
+      document.getElementById('img-preview').src = row.imagen_url
+      document.getElementById('img-preview-wrap').classList.remove('hidden')
+    }
+    _habilitarTab2('mgmt')
+    cargarTipologias()
+    cargarEtapas()
+    irTab(1)
+    document.getElementById('modal-proyecto').classList.remove('hidden')
+    setTimeout(() => document.getElementById('f-nombre-proyecto').focus(), 50)
+  }
+
+  function cerrarModalProyecto() {
+    if (_operacionEnCurso) { toast('Espera a que termine de guardar', 'error'); return }
+    if (_tab2Mode === 'wizard' && (_wizTips.some(t => t.nombre || t.valor_uf) || _wizEtapas.length > 1)) {
+      if (!confirm('Hay configuración de tipologías/etapas sin guardar. ¿Salir de todas formas?')) return
+    }
+    document.getElementById('modal-proyecto').classList.add('hidden')
+    _editandoProyId = null
+    _tab2Mode = null
+  }
+
+  function abrirLightbox(url, nombre) {
+    document.getElementById('lightbox-img').src = url
+    document.getElementById('lightbox-nombre').textContent = nombre || ''
+    document.getElementById('lightbox').classList.remove('hidden')
+    document.addEventListener('keydown', _lightboxEsc)
+  }
+  function cerrarLightbox() {
+    document.getElementById('lightbox').classList.add('hidden')
+    document.getElementById('lightbox-img').src = ''
+    document.removeEventListener('keydown', _lightboxEsc)
+  }
+  function _lightboxEsc(e) { if (e.key === 'Escape') cerrarLightbox() }
+
+  function previsualizarImagen(input) {
+    const file = input.files[0]
+    if (!file) return
+    if (file.size > 3 * 1024 * 1024) { toast('La imagen debe ser menor a 3MB', 'error'); input.value = ''; return }
+    const url = URL.createObjectURL(file)
+    document.getElementById('img-preview').src = url
+    document.getElementById('img-preview-wrap').classList.remove('hidden')
+    document.getElementById('img-estado').textContent = `${file.name} (${(file.size/1024).toFixed(0)} KB) — se subirá al guardar`
+  }
+  async function _subirImagen(file) {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/proyectos/upload-imagen', { method: 'POST', headers: { Authorization: `Bearer ${_token}` }, body: fd })
+    if (!res.ok) throw new Error(await res.text())
+    const { imagen_url } = await res.json()
+    return imagen_url
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('f-nombre-proyecto').addEventListener('input', () => {
+      if (_editandoProyId) return
+      const slug = document.getElementById('f-nombre-proyecto').value
+        .toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-')
+      document.getElementById('f-codigo').value = slug
+    })
+  })
+
+  function numOrNull(id) { const v = document.getElementById(id).value; return v !== '' ? parseFloat(v) : null }
+
+  function _buildPayloadProyecto() {
+    return {
+      nombre: document.getElementById('f-nombre-proyecto').value.trim(),
+      codigo: document.getElementById('f-codigo').value.trim(),
+      ubicacion: document.getElementById('f-ubicacion').value.trim(),
+      imagen_url: _imagenUrlActual,
+      ahorro_minimo_uf: numOrNull('f-ahorro-minimo'),
+      valor_reserva_clp: numOrNull('f-reserva-clp'),
+      valor_reserva_uf: numOrNull('f-reserva-uf'),
+      valor_estacionamiento_uf: numOrNull('f-estac-uf'),
+      tiene_piloto: document.getElementById('f-tiene-piloto').checked,
+      estacionamiento_obligatorio: document.getElementById('f-estac-obligatorio').checked,
+      acepta_ds19: document.getElementById('f-acepta-ds19').checked,
+      acepta_ds1_t23: document.getElementById('f-acepta-ds1t23').checked,
+      notas: document.getElementById('f-notas').value.trim() || null,
+    }
+  }
+
+  async function refrescarPanelProyectos() {
+    delete _proyectosByInmobiliaria[proyectosCacheKey()]
+    await seleccionarInmobiliariaNodo(_empresaSel, _inmobiliariaSel, true)
+  }
+
+  async function guardarProyecto() {
+    const p = _buildPayloadProyecto()
+    if (!p.nombre || !p.codigo) { toast('Nombre y código son obligatorios', 'error'); return }
+    const btn = document.getElementById('btn-guardar-proyecto')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      const fileInput = document.getElementById('f-imagen')
+      if (fileInput.files[0]) {
+        document.getElementById('img-estado').textContent = 'Subiendo imagen…'
+        p.imagen_url = await _subirImagen(fileInput.files[0])
+        document.getElementById('img-estado').textContent = 'Imagen subida ✓'
+      }
+      await api('PATCH', `/api/proyectos/${_editandoProyId}`, p)
+      toast('Proyecto actualizado')
+      document.getElementById('modal-proyecto').classList.add('hidden')
+      _editandoProyId = null; _tab2Mode = null
+      await refrescarPanelProyectos()
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar'
+    }
+  }
+
+  async function guardarYIrTab2() {
+    const p = _buildPayloadProyecto()
+    if (!p.nombre || !p.codigo) { toast('Nombre y código son obligatorios', 'error'); return }
+    const btn = document.getElementById('btn-siguiente')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      const fileInput = document.getElementById('f-imagen')
+      if (fileInput.files[0]) {
+        p.imagen_url = await _subirImagen(fileInput.files[0])
+        document.getElementById('img-estado').textContent = 'Imagen subida ✓'
+      }
+      const row = await api('POST', '/api/proyectos', { ...p, inmobiliaria_id: _inmobiliariaSel.id })
+      _editandoProyId = row.id
+      await refrescarPanelProyectos()
+      _habilitarTab2('wizard')
+      wizInit()
+      irTab(2)
+      toast('Proyecto creado — ahora configura tipologías y etapas')
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      btn.disabled = false; btn.textContent = 'Guardar y configurar →'
+    }
+  }
+
+  // ── Wizard tipologías + etapas ────────────────────────────────────────────
+  let _wizTips = []
+  let _wizEtapas = []
+
+  function wizInit() {
+    _wizTips = [{ nombre: '', dormitorios: null, banos: null, superficie_util_m2: null, valor_uf: null, monto_subsidio: null, tipo_subsidio: 'ninguno', cuotas_ahorro: null }]
+    _wizEtapas = [{ nombre: 'Etapa 1', tipo: 'entrega_futura', fecha: '', modo: 'unico', numCuotas: null, stocks: [0] }]
+    document.getElementById('wiz-unica').checked = true
+    _wizRender()
+  }
+  function _wizSaveState() {
+    const unica = document.getElementById('wiz-unica').checked
+    _wizTips = _wizTips.map((t, i) => ({
+      ...t,
+      nombre: unica ? '' : (document.getElementById(`wiz-tip-${i}-nombre`)?.value?.trim() || ''),
+      dormitorios: _intOrNull(`wiz-tip-${i}-dorms`),
+      banos: _intOrNull(`wiz-tip-${i}-banos`),
+      superficie_util_m2: _floatOrNull(`wiz-tip-${i}-sup`),
+      valor_uf: _floatOrNull(`wiz-tip-${i}-valor`),
+      monto_subsidio: _floatOrNull(`wiz-tip-${i}-sub`),
+      tipo_subsidio: document.getElementById(`wiz-tip-${i}-tipo-sub`)?.value || 'ninguno',
+      cuotas_ahorro: _intOrNull(`wiz-tip-${i}-cuotas`),
+    }))
+    _wizEtapas = _wizEtapas.map((e, i) => ({
+      ...e,
+      nombre: document.getElementById(`wiz-eta-${i}-nombre`)?.value?.trim() || `Etapa ${i+1}`,
+      tipo: document.getElementById(`wiz-eta-${i}-tipo`)?.value || 'entrega_futura',
+      fecha: document.getElementById(`wiz-eta-${i}-fecha`)?.value || '',
+      modo: document.getElementById(`wiz-eta-${i}-modo-cuotas`)?.checked ? 'cuotas' : 'unico',
+      numCuotas: parseInt(document.getElementById(`wiz-eta-${i}-ncuotas`)?.value || '') || null,
+      stocks: _wizTips.map((_, ti) => parseInt(document.getElementById(`wiz-eta-${i}-stock-${ti}`)?.value || '0') || 0),
+    }))
+  }
+  function _intOrNull(id) { const v = document.getElementById(id)?.value; return v !== '' && v != null ? parseInt(v) : null }
+  function _floatOrNull(id) { const v = document.getElementById(id)?.value; return v !== '' && v != null ? parseFloat(v) : null }
+
+  function _wizRender() {
+    const unica = document.getElementById('wiz-unica').checked
+    document.getElementById('wiz-tips').innerHTML = _wizTips.map((t, i) => _wizTipHTML(i, t, unica)).join('')
+    document.getElementById('wiz-btn-add-tip').classList.toggle('hidden', unica)
+    document.getElementById('wiz-etapas').innerHTML = _wizEtapas.map((e, i) => _wizEtapaHTML(i, e, unica)).join('')
+  }
+
+  function _wizTipHTML(i, t, unica) {
+    return `<div class="glass rounded-xl p-4 space-y-2">
+      ${!unica ? `<div class="flex items-center gap-2">
+        <input id="wiz-tip-${i}-nombre" value="${esc(t.nombre)}" placeholder="Nombre tipología (ej: 2D+1B)" class="flex-1 rounded-lg px-3 py-1.5 text-sm" />
+        ${i>0?`<button onclick="wizRemoveTip(${i})" class="text-xs sidebar-text hover:text-red-400 transition flex-shrink-0">✕</button>`:''}
+      </div>` : (i>0?`<div class="flex justify-end"><button onclick="wizRemoveTip(${i})" class="text-xs sidebar-text hover:text-red-400 transition">✕</button></div>`:'')}
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Dormitorios</label><input id="wiz-tip-${i}-dorms" type="number" min="0" value="${t.dormitorios??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Baños</label><input id="wiz-tip-${i}-banos" type="number" min="0" value="${t.banos??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Sup. útil (m²)</label><input id="wiz-tip-${i}-sup" type="number" step="0.01" min="0" value="${t.superficie_util_m2??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Valor (UF)</label><input id="wiz-tip-${i}-valor" type="number" step="0.1" min="0" value="${t.valor_uf??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Subsidio (UF)</label><input id="wiz-tip-${i}-sub" type="number" step="0.1" min="0" value="${t.monto_subsidio??''}" placeholder="0" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Tipo subsidio</label>
+          <select id="wiz-tip-${i}-tipo-sub" class="w-full rounded-lg px-2 py-1.5 text-xs">
+            <option value="ninguno" ${t.tipo_subsidio==='ninguno'?'selected':''}>Sin especificar</option>
+            <option value="ds19" ${t.tipo_subsidio==='ds19'?'selected':''}>DS19</option>
+            <option value="ds1_t23" ${t.tipo_subsidio==='ds1_t23'?'selected':''}>DS1 T23</option>
+            <option value="ambos" ${t.tipo_subsidio==='ambos'?'selected':''}>DS19 + DS1 T23</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Cuotas ahorro</label><input id="wiz-tip-${i}-cuotas" type="number" min="0" value="${t.cuotas_ahorro??''}" placeholder="1" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+      </div>
+    </div>`
+  }
+
+  function _wizEtapaHTML(i, e, unica) {
+    const stockRows = _wizTips.map((t, ti) => {
+      const lbl = unica ? 'Tipología única' : (t.nombre || `Tipología ${ti+1}`)
+      return `<div class="flex items-center justify-between py-1 border-b last:border-0" style="border-color:rgba(255,255,255,0.06)">
+        <span class="text-xs val-text">${esc(lbl)}</span>
+        <input type="number" min="0" value="${e.stocks[ti]??0}" placeholder="0" id="wiz-eta-${i}-stock-${ti}" class="w-20 rounded-lg px-2 py-1 text-xs text-center" />
+      </div>`
+    }).join('')
+    return `<div class="glass rounded-xl p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <p class="text-xs font-semibold val-text">Etapa ${i+1}</p>
+        ${i>0?`<button onclick="wizRemoveEtapa(${i})" class="text-xs sidebar-text hover:text-red-400 transition">✕</button>`:''}
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><label class="block text-xs sidebar-text mb-1">Nombre</label><input id="wiz-eta-${i}-nombre" value="${esc(e.nombre)}" placeholder="Etapa 1" class="w-full rounded-lg px-2 py-1.5 text-xs" /></div>
+        <div><label class="block text-xs sidebar-text mb-1">Tipo entrega</label>
+          <select id="wiz-eta-${i}-tipo" onchange="wizTogglePeriodo(${i})" class="w-full rounded-lg px-2 py-1.5 text-xs">
+            <option value="entrega_futura" ${e.tipo==='entrega_futura'?'selected':''}>Futura</option>
+            <option value="entrega_inmediata" ${e.tipo==='entrega_inmediata'?'selected':''}>Inmediata</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs sidebar-text mb-1">Fecha entrega</label>
+        <input id="wiz-eta-${i}-fecha" type="date" value="${e.fecha||''}" class="w-full rounded-lg px-2 py-1.5 text-xs" />
+      </div>
+      <div id="wiz-eta-${i}-modo-wrap" class="${e.tipo==='entrega_inmediata'?'hidden':''}">
+        <label class="block text-xs sidebar-text mb-1">Modalidad de ahorro</label>
+        <div class="flex gap-4">
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="radio" name="wiz-eta-${i}-modo" value="unico" ${e.modo!=='cuotas'?'checked':''} onchange="wizToggleModo(${i})" class="accent-violet-500" />
+            <span class="val-text">Pago único</span>
+          </label>
+          <label class="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+            <input type="radio" name="wiz-eta-${i}-modo" value="cuotas" id="wiz-eta-${i}-modo-cuotas" ${e.modo==='cuotas'?'checked':''} onchange="wizToggleModo(${i})" class="accent-violet-500" />
+            <span class="val-text">En cuotas</span>
+          </label>
+        </div>
+        <div id="wiz-eta-${i}-ncuotas-wrap" class="${e.modo!=='cuotas'?'hidden':''} mt-1.5">
+          <input id="wiz-eta-${i}-ncuotas" type="number" min="2" value="${e.numCuotas||''}" placeholder="N° cuotas" class="w-full rounded-lg px-2 py-1.5 text-xs" />
+        </div>
+      </div>
+      <div class="border-t pt-2" style="border-color:rgba(255,255,255,0.08)">
+        <p class="text-xs sidebar-text mb-1.5">Stock por tipología</p>
+        ${stockRows}
+      </div>
+    </div>`
+  }
+
+  function wizToggleTipUnica() {
+    _wizSaveState()
+    if (document.getElementById('wiz-unica').checked && _wizTips.length > 1) {
+      _wizTips = [_wizTips[0]]
+      _wizEtapas.forEach(e => { e.stocks = [e.stocks[0] ?? 0] })
+    }
+    _wizRender()
+  }
+  function wizAddTip() {
+    _wizSaveState()
+    _wizTips.push({ nombre: '', dormitorios: null, banos: null, superficie_util_m2: null, valor_uf: null, monto_subsidio: null, tipo_subsidio: 'ninguno', cuotas_ahorro: null })
+    _wizEtapas.forEach(e => e.stocks.push(0))
+    _wizRender()
+  }
+  function wizRemoveTip(idx) {
+    if (_wizTips.length <= 1) { toast('Debe haber al menos una tipología', 'error'); return }
+    _wizSaveState()
+    _wizTips.splice(idx, 1)
+    _wizEtapas.forEach(e => e.stocks.splice(idx, 1))
+    _wizRender()
+  }
+  function wizAddEtapa() {
+    _wizSaveState()
+    _wizEtapas.push({ nombre: `Etapa ${_wizEtapas.length + 1}`, tipo: 'entrega_futura', fecha: '', modo: 'unico', numCuotas: null, stocks: _wizTips.map(() => 0) })
+    _wizRender()
+    setTimeout(() => document.getElementById('wiz-etapas').lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50)
+  }
+  function wizRemoveEtapa(idx) {
+    if (_wizEtapas.length <= 1) { toast('Debe haber al menos una etapa', 'error'); return }
+    _wizSaveState()
+    _wizEtapas.splice(idx, 1)
+    _wizRender()
+  }
+  function wizTogglePeriodo(idx) {
+    const tipo = document.getElementById(`wiz-eta-${idx}-tipo`).value
+    const esFutura = tipo !== 'entrega_inmediata'
+    document.getElementById(`wiz-eta-${idx}-modo-wrap`).classList.toggle('hidden', !esFutura)
+    if (!esFutura) {
+      document.querySelectorAll(`input[name="wiz-eta-${idx}-modo"]`).forEach(r => { if (r.value === 'unico') r.checked = true })
+      document.getElementById(`wiz-eta-${idx}-ncuotas-wrap`)?.classList.add('hidden')
+    }
+  }
+  function wizToggleModo(idx) {
+    const esCuotas = document.getElementById(`wiz-eta-${idx}-modo-cuotas`)?.checked
+    document.getElementById(`wiz-eta-${idx}-ncuotas-wrap`)?.classList.toggle('hidden', !esCuotas)
+  }
+
+  async function guardarWizard() {
+    _wizSaveState()
+    _operacionEnCurso = true
+    const btn = document.getElementById('btn-guardar-wiz')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      const unica = document.getElementById('wiz-unica').checked
+      const tipIds = []
+      for (let i = 0; i < _wizTips.length; i++) {
+        const t = _wizTips[i]
+        const row = await api('POST', '/api/tipologias', {
+          proyecto_id: _editandoProyId,
+          nombre: unica ? 'Tipología única' : (t.nombre || `Tipología ${i+1}`),
+          dormitorios: t.dormitorios,
+          banos: t.banos,
+          superficie_util_m2: t.superficie_util_m2,
+          valor_uf: t.valor_uf,
+          monto_subsidio: t.monto_subsidio,
+          tipo_subsidio: t.tipo_subsidio !== 'ninguno' ? t.tipo_subsidio : null,
+          estado: 'activo',
+          cuotas_ahorro: t.cuotas_ahorro,
+        })
+        tipIds.push(row.id)
+      }
+      for (let i = 0; i < _wizEtapas.length; i++) {
+        const e = _wizEtapas[i]
+        const esCuotasWiz = e.tipo !== 'entrega_inmediata' && e.modo === 'cuotas'
+        const etaRow = await api('POST', '/api/etapas', {
+          proyecto_id: _editandoProyId,
+          nombre: e.nombre,
+          estado: e.tipo,
+          fecha_entrega: e.fecha || null,
+          tipo_ahorro: esCuotasWiz ? 'cuotas' : 'unico',
+          num_cuotas: esCuotasWiz ? (e.numCuotas || null) : null,
+        })
+        for (let ti = 0; ti < tipIds.length; ti++) {
+          await api('POST', '/api/etapa-tipologia', { etapa_id: etaRow.id, tipologia_id: tipIds[ti], stock: e.stocks[ti] || 0 })
+        }
+      }
+      toast('Tipologías y etapas creadas')
+      _habilitarTab2('mgmt')
+      cargarTipologias()
+      cargarEtapas()
+      irTab(2)
+      await refrescarPanelProyectos()
+    } catch (e) {
+      toast(e.message, 'error')
+    } finally {
+      _operacionEnCurso = false
+      btn.disabled = false; btn.textContent = 'Finalizar →'
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return
+    if (!document.getElementById('modal-asignar-tipologia').classList.contains('hidden')) cerrarModalAsignarTipologia()
+    else if (!document.getElementById('modal-etapa').classList.contains('hidden')) cerrarModalEtapa()
+    else if (!document.getElementById('modal-tipologia').classList.contains('hidden')) cerrarModalTipologia()
+    else if (!document.getElementById('modal-proyecto').classList.contains('hidden')) cerrarModalProyecto()
+    else if (!document.getElementById('modal-inmobiliaria').classList.contains('hidden')) cerrarModalInmobiliaria()
+    else if (!document.getElementById('modal-empresa').classList.contains('hidden')) cerrarModalEmpresa()
+    else if (!document.getElementById('modal-import').classList.contains('hidden')) cerrarModalImport()
+  })
+
+  // ── Tipologías ────────────────────────────────────────────────────────────
+  let _editandoTipId = null
+  let _etapasProyecto = []
+  let _tipologiasProyecto = []
+
+  function _fmtFecha(iso) {
+    if (!iso) return ''
+    const [y, m, d] = iso.split('-')
+    const ms = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
+    return `${parseInt(d)} ${ms[parseInt(m)]} ${y}`
+  }
+
+  async function cargarTipologias() {
+    const contenedor = document.getElementById('lista-tipologias')
+    if (!_editandoProyId) return
+    contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+    try {
+      const rows = await api('GET', `/api/tipologias?proyecto_id=${_editandoProyId}`)
+      _tipologiasProyecto = rows
+      if (!rows.length) { contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Sin tipologías registradas.</p>'; return }
+      contenedor.innerHTML = rows.map(t => {
+        const info = [
+          t.dormitorios != null ? `${t.dormitorios}D` : null,
+          t.banos != null ? `${t.banos}B` : null,
+          t.superficie_util_m2 != null ? `${t.superficie_util_m2}m²` : null,
+          t.valor_uf != null ? `${t.valor_uf} UF` : null,
+          t.tipo_subsidio || null,
+          t.estado || null,
+        ].filter(Boolean).join(' · ')
+        return `
+          <div class="glass rounded-xl px-4 py-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium val-text">${esc(t.nombre)}</p>
+                ${info ? `<p class="text-xs sidebar-text mt-0.5">${info}</p>` : ''}
+              </div>
+              <div class="flex gap-2 flex-shrink-0">
+                <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+                <button onclick="eliminarTipologia(${t.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+              </div>
+            </div>
+          </div>`
+      }).join('')
+    } catch (e) { contenedor.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>` }
+  }
+
+  function _resetModalTipologia() {
+    ['tip-nombre','tip-dormitorios','tip-banos','tip-superficie','tip-terreno','tip-precio-desde','tip-precio-hasta','tip-cuotas-ahorro']
+      .forEach(id => { const el = document.getElementById(id); if (el) el.value = '' })
+    document.getElementById('tip-tipo-subsidio').value = 'ninguno'
+    document.getElementById('tip-estado').value = 'activo'
+  }
+  function abrirModalTipologia() {
+    _editandoTipId = null
+    _resetModalTipologia()
+    document.getElementById('modal-tip-titulo').textContent = 'Nueva tipología'
+    document.getElementById('modal-tipologia').classList.remove('hidden')
+    setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
+  }
+  function editarTipologia(t) {
+    _editandoTipId = t.id
+    _resetModalTipologia()
+    document.getElementById('modal-tip-titulo').textContent = 'Editar tipología'
+    document.getElementById('tip-nombre').value = t.nombre || ''
+    document.getElementById('tip-dormitorios').value = t.dormitorios ?? ''
+    document.getElementById('tip-banos').value = t.banos ?? ''
+    document.getElementById('tip-superficie').value = t.superficie_util_m2 ?? ''
+    document.getElementById('tip-terreno').value = t.terreno_m2 ?? ''
+    document.getElementById('tip-precio-desde').value = t.valor_uf ?? ''
+    document.getElementById('tip-precio-hasta').value = t.monto_subsidio ?? ''
+    document.getElementById('tip-tipo-subsidio').value = t.tipo_subsidio || 'ninguno'
+    document.getElementById('tip-estado').value = t.estado || 'activo'
+    document.getElementById('tip-cuotas-ahorro').value = t.cuotas_ahorro ?? ''
+    document.getElementById('modal-tipologia').classList.remove('hidden')
+    setTimeout(() => document.getElementById('tip-nombre').focus(), 50)
+  }
+  function cerrarModalTipologia() {
+    document.getElementById('modal-tipologia').classList.add('hidden')
+    _editandoTipId = null
+  }
+  async function guardarTipologia() {
+    const nombre = document.getElementById('tip-nombre').value.trim()
+    if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+    const btn = document.getElementById('btn-guardar-tip')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    const intOrNull = id => { const v = document.getElementById(id).value; return v !== '' ? parseInt(v) : null }
+    const floatOrNull = id => { const v = document.getElementById(id).value; return v !== '' ? parseFloat(v) : null }
+    const payload = {
+      nombre,
+      dormitorios: intOrNull('tip-dormitorios'),
+      banos: intOrNull('tip-banos'),
+      superficie_util_m2: floatOrNull('tip-superficie'),
+      terreno_m2: floatOrNull('tip-terreno'),
+      valor_uf: floatOrNull('tip-precio-desde'),
+      monto_subsidio: floatOrNull('tip-precio-hasta'),
+      tipo_subsidio: document.getElementById('tip-tipo-subsidio').value || null,
+      estado: document.getElementById('tip-estado').value || null,
+      cuotas_ahorro: intOrNull('tip-cuotas-ahorro'),
+    }
+    try {
+      if (_editandoTipId) { await api('PATCH', `/api/tipologias/${_editandoTipId}`, payload); toast('Tipología actualizada') }
+      else { await api('POST', '/api/tipologias', { ...payload, proyecto_id: _editandoProyId }); toast('Tipología creada') }
+      cerrarModalTipologia()
+      cargarTipologias()
+    } catch (e) { toast(e.message, 'error') }
+    finally { btn.disabled = false; btn.textContent = 'Guardar' }
+  }
+  async function eliminarTipologia(id) {
+    if (!confirm('¿Eliminar esta tipología?')) return
+    try { await api('DELETE', `/api/tipologias/${id}`); toast('Tipología eliminada'); cargarTipologias() }
+    catch (e) { toast(e.message, 'error') }
+  }
+
+  // ── Etapas del proyecto ────────────────────────────────────────────────────
+  let _editandoEtapaId = null
+
+  async function cargarEtapas() {
+    const contenedor = document.getElementById('lista-etapas')
+    if (!_editandoProyId) return
+    contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+    try {
+      _etapasProyecto = await api('GET', `/api/etapas?proyecto_id=${_editandoProyId}`)
+      if (!_etapasProyecto.length) { contenedor.innerHTML = '<p class="text-xs sidebar-text italic">Sin etapas registradas.</p>'; return }
+      contenedor.innerHTML = _etapasProyecto.map(e => {
+        const esFutura = e.estado !== 'entrega_inmediata'
+        const modoLbl = esFutura ? (e.tipo_ahorro === 'cuotas' && e.num_cuotas ? ` · ${e.num_cuotas} cuotas` : ' · Pago único') : ''
+        const tipo = esFutura ? 'Futura' : 'Inmediata'
+        const fecha = e.fecha_entrega ? ` · ${_fmtFecha(e.fecha_entrega)}` : ''
+        const eJson = JSON.stringify(e).replace(/'/g,"&#39;")
+        const asigs = (e.EtapaTipologia || [])
+        const pills = asigs.length
+          ? asigs.map(et => { const t = et.Tipologia || {}; return `<span class="text-xs px-2 py-0.5 rounded-full font-medium" style="background:rgba(124,58,237,0.15);color:#a78bfa">${esc(t.nombre || '—')} · ${et.stock ?? 0}u</span>` }).join('')
+          : `<span class="text-xs sidebar-text italic">Sin tipologías asignadas — click en Editar</span>`
+        return `
+          <div class="glass rounded-lg px-3 py-2.5 space-y-2">
+            <div class="flex items-center justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <span class="text-xs font-medium val-text">${esc(e.nombre || '—')}</span>
+                <span class="text-xs sidebar-text ml-2">${tipo}${fecha}${modoLbl}</span>
+              </div>
+              <div class="flex gap-1.5 flex-shrink-0">
+                <button onclick='editarEtapa(${eJson})' class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-slate-300 transition">Editar</button>
+                <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2 py-0.5 rounded glass sidebar-text hover:text-red-400 transition">✕</button>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1.5">${pills}</div>
+          </div>`
+      }).join('')
+    } catch (e) { contenedor.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>` }
+  }
+
+  function _etaResetModo() {
+    document.getElementById('eta-modo-unico').checked = true
+    document.getElementById('eta-modo-wrap').classList.add('hidden')
+    document.getElementById('eta-ncuotas-wrap').classList.add('hidden')
+    document.getElementById('eta-num-cuotas').value = ''
+  }
+  function onEtaEstadoChange() {
+    const esFutura = document.getElementById('eta-estado').value === 'entrega_futura'
+    document.getElementById('eta-modo-wrap').classList.toggle('hidden', !esFutura)
+    if (!esFutura) {
+      document.getElementById('eta-modo-unico').checked = true
+      document.getElementById('eta-ncuotas-wrap').classList.add('hidden')
+    }
+  }
+  function onEtaModoChange() {
+    const esCuotas = document.getElementById('eta-modo-cuotas').checked
+    document.getElementById('eta-ncuotas-wrap').classList.toggle('hidden', !esCuotas)
+  }
+  function abrirModalEtapa() {
+    _editandoEtapaId = null
+    document.getElementById('modal-etapa-titulo').textContent = 'Nueva etapa'
+    document.getElementById('eta-nombre').value = ''
+    document.getElementById('eta-estado').value = 'entrega_futura'
+    document.getElementById('eta-fecha').value = ''
+    _etaResetModo()
+    document.getElementById('eta-modo-wrap').classList.remove('hidden')
+    document.getElementById('eta-tip-seccion').classList.add('hidden')
+    document.getElementById('modal-etapa').classList.remove('hidden')
+    setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
+  }
+  function editarEtapa(e) {
+    _editandoEtapaId = e.id
+    document.getElementById('modal-etapa-titulo').textContent = 'Editar etapa'
+    document.getElementById('eta-nombre').value = e.nombre || ''
+    document.getElementById('eta-estado').value = e.estado || 'entrega_futura'
+    document.getElementById('eta-fecha').value = e.fecha_entrega || ''
+    _etaResetModo()
+    const esFutura = (e.estado || 'entrega_futura') === 'entrega_futura'
+    document.getElementById('eta-modo-wrap').classList.toggle('hidden', !esFutura)
+    if (esFutura && e.tipo_ahorro === 'cuotas') {
+      document.getElementById('eta-modo-cuotas').checked = true
+      document.getElementById('eta-ncuotas-wrap').classList.remove('hidden')
+      document.getElementById('eta-num-cuotas').value = e.num_cuotas || ''
+    }
+    document.getElementById('eta-tip-seccion').classList.remove('hidden')
+    document.getElementById('modal-etapa').classList.remove('hidden')
+    cargarTipologiasDeEtapa(e.id)
+    setTimeout(() => document.getElementById('eta-nombre').focus(), 50)
+  }
+  function cerrarModalEtapa() {
+    document.getElementById('modal-etapa').classList.add('hidden')
+    _editandoEtapaId = null
+  }
+  async function guardarEtapa() {
+    const nombre = document.getElementById('eta-nombre').value.trim()
+    if (!nombre) { toast('El nombre es obligatorio', 'error'); return }
+    const btn = document.getElementById('btn-guardar-eta')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    const estado = document.getElementById('eta-estado').value
+    const esCuotas = estado === 'entrega_futura' && document.getElementById('eta-modo-cuotas').checked
+    const nCuotas = esCuotas ? parseInt(document.getElementById('eta-num-cuotas').value) || null : null
+    const payload = {
+      nombre, estado,
+      fecha_entrega: document.getElementById('eta-fecha').value || null,
+      tipo_ahorro: esCuotas ? 'cuotas' : 'unico',
+      num_cuotas: esCuotas ? nCuotas : null,
+    }
+    try {
+      if (_editandoEtapaId) { await api('PATCH', `/api/etapas/${_editandoEtapaId}`, payload); toast('Etapa actualizada') }
+      else { await api('POST', '/api/etapas', { ...payload, proyecto_id: _editandoProyId }); toast('Etapa creada') }
+      cerrarModalEtapa()
+      cargarEtapas()
+      cargarTipologias()
+    } catch (e) { toast(e.message, 'error') }
+    finally { btn.disabled = false; btn.textContent = 'Guardar' }
+  }
+  async function eliminarEtapa(id) {
+    if (!confirm('¿Eliminar esta etapa? Se eliminarán también sus asignaciones a tipologías.')) return
+    try { await api('DELETE', `/api/etapas/${id}`); toast('Etapa eliminada'); cargarEtapas(); cargarTipologias() }
+    catch (e) { toast(e.message, 'error') }
+  }
+
+  // ── EtapaTipologia (stock) ──────────────────────────────────────────────────
+  let _etaTipActual = []
+
+  async function cargarTipologiasDeEtapa(etapaId) {
+    const lista = document.getElementById('eta-tip-lista')
+    lista.innerHTML = '<p class="text-xs sidebar-text italic">Cargando…</p>'
+    try {
+      _etaTipActual = await api('GET', `/api/etapa-tipologia?etapa_id=${etapaId}`)
+      if (!_etaTipActual.length) { lista.innerHTML = '<p class="text-xs sidebar-text italic">Sin tipologías asignadas — usa + Asignar</p>'; return }
+      lista.innerHTML = _etaTipActual.map(et => {
+        const tip = et.Tipologia || {}
+        const sub = [tip.dormitorios != null ? `${tip.dormitorios}D` : null, tip.banos != null ? `${tip.banos}B` : null, tip.valor_uf != null ? `${tip.valor_uf} UF` : null].filter(Boolean).join(' · ')
+        return `
+          <div class="glass rounded-lg px-3 py-2 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <span class="text-xs font-medium val-text">${esc(tip.nombre || '—')}</span>
+              ${sub ? `<span class="text-xs sidebar-text ml-1.5">${sub}</span>` : ''}
+            </div>
+            <span class="text-sm font-bold flex-shrink-0 text-violet-400">${et.stock ?? 0}u</span>
+          </div>`
+      }).join('')
+    } catch (e) { lista.innerHTML = `<p class="text-xs text-red-400">Error: ${esc(e.message)}</p>` }
+  }
+
+  function abrirModalAsignarTipologia() {
+    const lista = document.getElementById('asgn-tip-lista')
+    if (!_tipologiasProyecto.length) {
+      lista.innerHTML = '<p class="text-xs sidebar-text italic">Sin tipologías — crea una primero</p>'
+    } else {
+      lista.innerHTML = _tipologiasProyecto.map(t => {
+        const existing = _etaTipActual.find(et => et.tipologia_id === t.id)
+        const stock = existing?.stock ?? 0
+        const sub = [t.dormitorios != null ? `${t.dormitorios}D` : null, t.banos != null ? `${t.banos}B` : null].filter(Boolean).join(' · ')
+        return `
+          <div class="flex items-center justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm val-text font-medium truncate">${esc(t.nombre || '—')}</p>
+              ${sub ? `<p class="text-xs sidebar-text">${sub}</p>` : ''}
+            </div>
+            <div class="flex items-center gap-2 flex-shrink-0">
+              <label class="text-xs sidebar-text">Stock</label>
+              <input type="number" min="0" value="${stock}" data-tip-id="${t.id}" data-et-id="${existing?.id ?? ''}" class="w-20 rounded-lg px-2 py-1.5 text-sm text-center asgn-stock-input" />
+            </div>
+          </div>`
+      }).join('')
+    }
+    document.getElementById('modal-asignar-tipologia').classList.remove('hidden')
+  }
+  function cerrarModalAsignarTipologia() { document.getElementById('modal-asignar-tipologia').classList.add('hidden') }
+  async function guardarAsignacionTipologia() {
+    const btn = document.getElementById('btn-guardar-asgn-tip')
+    btn.disabled = true; btn.textContent = 'Guardando…'
+    try {
+      const inputs = document.querySelectorAll('.asgn-stock-input')
+      for (const inp of inputs) {
+        const tipologia_id = parseInt(inp.dataset.tipId)
+        const etId = inp.dataset.etId ? parseInt(inp.dataset.etId) : null
+        const stock = parseInt(inp.value) || 0
+        if (etId) {
+          if (stock === 0) await api('DELETE', `/api/etapa-tipologia/${etId}`)
+          else await api('PATCH', `/api/etapa-tipologia/${etId}`, { stock })
+        } else if (stock > 0) {
+          await api('POST', '/api/etapa-tipologia', { etapa_id: _editandoEtapaId, tipologia_id, stock })
+        }
+      }
+      toast('Stock actualizado')
+      cerrarModalAsignarTipologia()
+      cargarTipologiasDeEtapa(_editandoEtapaId)
+      cargarEtapas()
+    } catch (e) { toast(e.message, 'error') }
+    finally { btn.disabled = false; btn.textContent = 'Guardar' }
+  }
+
+  init()
+</script>
+</body>
+</html>

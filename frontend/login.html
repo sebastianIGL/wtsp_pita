@@ -256,9 +256,9 @@
     try {
       const res  = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${token}` } });
       const user = res.ok ? await res.json() : null;
-      window.location.href = user?.rol === 'owner' ? '/admin.html' : '/empresas';
+      window.location.href = user?.rol === 'owner' ? '/admin.html' : '/panel';
     } catch (e) {
-      window.location.href = '/empresas';
+      window.location.href = '/panel';
     }
   }
 
@@ -300,7 +300,7 @@
         document.getElementById('formCambio').classList.remove('hidden');
         mostrarAlerta('Debes crear una contraseña permanente para continuar.', 'info');
       } else {
-        window.location.href = user.rol === 'owner' ? '/admin.html' : '/empresas';
+        window.location.href = user.rol === 'owner' ? '/admin.html' : '/panel';
       }
     } catch (err) {
       mostrarAlerta(err.message || 'Error al iniciar sesión');
