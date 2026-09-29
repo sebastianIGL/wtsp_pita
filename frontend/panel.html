@@ -692,11 +692,34 @@
     const esTodos = !!inm._todos
     const key = esTodos ? 'TODOS' : inm.id
     const activo = _inmobiliariaSel && (esTodos ? _inmobiliariaSel._todos : String(_inmobiliariaSel.id) === String(inm.id))
+
+    const acciones = (_esAdmin && !esTodos) ? `
+      <button onclick='event.stopPropagation();crearProyectoDesdeArbol(${JSON.stringify(emp).replace(/'/g,"&#39;")}, ${JSON.stringify(inm).replace(/'/g,"&#39;")})'
+        title="Crear proyecto"
+        class="shrink-0 w-6 h-6 rounded-md flex items-center justify-center sidebar-text hover:text-violet-400 hover:bg-violet-500/10 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      </button>
+      <button onclick='event.stopPropagation();editarInmobiliariaDesdeArbol(${JSON.stringify(emp).replace(/'/g,"&#39;")}, ${JSON.stringify(inm).replace(/'/g,"&#39;")})'
+        title="Editar inmobiliaria"
+        class="shrink-0 w-6 h-6 rounded-md flex items-center justify-center sidebar-text hover:text-violet-400 hover:bg-violet-500/10 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+      </button>` : ''
+
     return `
-      <button onclick='event.stopPropagation();seleccionarInmobiliariaNodo(${JSON.stringify(emp).replace(/'/g,"&#39;")}, ${JSON.stringify(inm).replace(/'/g,"&#39;")}, true)'
-        class="arbol-nodo w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition truncate ${activo ? 'bg-violet-600 text-white' : (esTodos ? 'text-emerald-400 hover:text-emerald-300' : 'sidebar-text hover:text-violet-400')}">
-        ${esTodos ? '★ ' : ''}${esc(inm.nombre)}
-      </button>`
+      <div class="flex items-center gap-0.5">
+        <button onclick='event.stopPropagation();seleccionarInmobiliariaNodo(${JSON.stringify(emp).replace(/'/g,"&#39;")}, ${JSON.stringify(inm).replace(/'/g,"&#39;")}, true)'
+          class="arbol-nodo flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition truncate ${activo ? 'bg-violet-600 text-white' : (esTodos ? 'text-emerald-400 hover:text-emerald-300' : 'sidebar-text hover:text-violet-400')}">
+          ${esTodos ? '★ ' : ''}${esc(inm.nombre)}
+        </button>
+        ${acciones}
+      </div>`
+  }
+
+  function crearProyectoDesdeArbol(emp, inm) {
+    seleccionarInmobiliariaNodo(emp, inm, true).then(abrirModalProyecto)
+  }
+  function editarInmobiliariaDesdeArbol(emp, inm) {
+    seleccionarInmobiliariaNodo(emp, inm, true).then(() => editarInmobiliaria(inm))
   }
 
   // ═══════════════════════════ ÁRBOL — interacción ═══════════════════════════
