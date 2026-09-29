@@ -661,22 +661,29 @@
       } else {
         listaHijos = inms.map(inm => renderNodoInmobiliaria(emp, inm)).join('')
       }
-      const btnCrear = _esAdmin ? `
-        <button onclick='event.stopPropagation();seleccionarEmpresaNodo(${JSON.stringify(emp).replace(/'/g,"&#39;")}, true).then(abrirModalInmobiliaria)'
-          class="w-full text-left px-3 py-1.5 text-xs sidebar-text hover:text-violet-400 transition">+ Crear inmobiliaria</button>` : ''
-      hijos = `<div class="ml-3 pl-3 border-l header-border space-y-0.5 py-1">${listaHijos}${btnCrear}</div>`
+      hijos = `<div class="ml-3 pl-3 border-l header-border space-y-0.5 py-1">${listaHijos}</div>`
     }
+
+    const btnCrearIcono = (_esAdmin && expandido) ? `
+      <button onclick='event.stopPropagation();seleccionarEmpresaNodo(${JSON.stringify(emp).replace(/'/g,"&#39;")}, true).then(abrirModalInmobiliaria)'
+        title="Crear inmobiliaria"
+        class="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center sidebar-text hover:text-violet-400 hover:bg-violet-500/10 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      </button>` : ''
 
     return `
       <div>
-        <button onclick="toggleEmpresaNode('${emp.id}')"
-          class="arbol-nodo w-full flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition ${activo ? 'bg-violet-600 text-white' : 'sidebar-text hover:text-violet-400'}">
-          <svg class="arbol-chevron w-3.5 h-3.5 shrink-0 ${expandido ? 'abierto' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-          </svg>
-          <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0" style="background:${color}">${emp.logo_url ? `<img src="${esc(emp.logo_url)}" class="w-full h-full object-cover rounded-md"/>` : iniciales(emp.nombre)}</span>
-          <span class="truncate">${esc(emp.nombre)}</span>
-        </button>
+        <div class="flex items-center gap-1">
+          <button onclick="toggleEmpresaNode('${emp.id}')"
+            class="arbol-nodo flex-1 min-w-0 flex items-center gap-2 px-2 py-2 rounded-lg text-sm font-medium transition ${activo ? 'bg-violet-600 text-white' : 'sidebar-text hover:text-violet-400'}">
+            <svg class="arbol-chevron w-3.5 h-3.5 shrink-0 ${expandido ? 'abierto' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            <span class="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white shrink-0" style="background:${color}">${emp.logo_url ? `<img src="${esc(emp.logo_url)}" class="w-full h-full object-cover rounded-md"/>` : iniciales(emp.nombre)}</span>
+            <span class="truncate">${esc(emp.nombre)}</span>
+          </button>
+          ${btnCrearIcono}
+        </div>
         ${hijos}
       </div>`
   }
