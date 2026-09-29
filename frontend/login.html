@@ -253,13 +253,20 @@
 
   // Owner entra directo al panel admin; el resto sigue al flujo normal (elegir empresa).
   async function redirigirSegunRol(token) {
+    let res;
     try {
-      const res  = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${token}` } });
-      const user = res.ok ? await res.json() : null;
-      window.location.href = user?.rol === 'owner' ? '/admin.html' : '/panel';
+      res = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${token}` } });
     } catch (e) {
       window.location.href = '/panel';
+      return;
     }
+    if (!res.ok) {
+      await _supabase.auth.signOut();
+      mostrarAlerta('Esta cuenta no tiene acceso al sistema. Contacta a un administrador.');
+      return;
+    }
+    const user = await res.json();
+    window.location.href = user.rol === 'owner' ? '/admin.html' : '/panel';
   }
 
   function mostrarAlerta(msg, tipo = 'error') {

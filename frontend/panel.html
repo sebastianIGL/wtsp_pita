@@ -564,18 +564,26 @@
     _token = session.access_token
     _supabase.auth.onAuthStateChange((_, s) => { if (!s) window.location.href = '/login.html'; else _token = s.access_token })
 
+    let rPerfil, rEmpresas
     try {
-      const [rPerfil, rEmpresas] = await Promise.all([
+      [rPerfil, rEmpresas] = await Promise.all([
         fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }),
         fetch('/api/empresas',    { headers: { Authorization: `Bearer ${_token}` } }),
       ])
-      _perfil = rPerfil.ok ? await rPerfil.json() : {}
-      _esAdmin = ['owner', 'administrador'].includes(_perfil.rol)
-      _empresas = rEmpresas.ok ? await rEmpresas.json() : []
     } catch (e) {
       document.getElementById('arbol-empresas').innerHTML = `<p class="text-xs text-red-400 px-3">Error al cargar: ${esc(e.message)}</p>`
       return
     }
+    if (!rPerfil.ok) {
+      await _supabase.auth.signOut()
+      document.getElementById('arbol-empresas').innerHTML = `<p class="text-xs text-red-400 px-3">Esta cuenta no tiene acceso al sistema.</p>`
+      document.getElementById('titulo-panel').textContent = 'Sin acceso'
+      document.getElementById('contenido-panel').innerHTML = `<p class="sidebar-text text-sm">Esta cuenta no tiene acceso al panel. Si crees que es un error, contacta a un administrador.</p>`
+      return
+    }
+    _perfil = await rPerfil.json()
+    _esAdmin = ['owner', 'administrador'].includes(_perfil.rol)
+    _empresas = rEmpresas.ok ? await rEmpresas.json() : []
 
     document.getElementById('nombreUsuario').textContent = _perfil.nombre || _perfil.correo || ''
     if (_esAdmin) document.getElementById('link-admin').classList.remove('hidden')
