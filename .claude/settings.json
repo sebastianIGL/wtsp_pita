@@ -24,7 +24,10 @@
       "Bash(openssl s_client -connect quesubsidio.cl:443 -servername quesubsidio.cl)",
       "Bash(openssl s_client -connect hii7ab7b.up.railway.app:443 -servername hii7ab7b.up.railway.app)",
       "Bash(node -e ' *)",
-      "Bash(grep -n \"'/api/clientes'\\\\|\\\\\"/api/clientes\\\\\"\\\\|GET', \\\\`/api/clientes\\\\|api\\('GET', \\\\`/api/clientes\" /Users/sglincovil/wtsp_pita/frontend/index.html)"
+      "Bash(grep -n \"'/api/clientes'\\\\|\\\\\"/api/clientes\\\\\"\\\\|GET', \\\\`/api/clientes\\\\|api\\('GET', \\\\`/api/clientes\" /Users/sglincovil/wtsp_pita/frontend/index.html)",
+      "Bash(python3 -)",
+      "Bash(node --check /tmp/panel_script_check.js)",
+      "Bash(node --check /tmp/panel_script_check2.js)"
     ]
   }
 }
