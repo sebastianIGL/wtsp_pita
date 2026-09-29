@@ -221,6 +221,25 @@ def _segundos_hasta_horario_bot() -> float:
     return max(0.0, (objetivo - ahora_cl).total_seconds())
 
 
+# Horario más amplio para avisos urgentes al ejecutivo ("necesita_ayuda"): 08:00–00:00 hora Chile.
+HORARIO_URGENTE_INICIO = 8  # 08:00 hora Chile (sin límite superior: corre hasta medianoche)
+
+
+def _dentro_horario_urgente(ahora: Optional[datetime] = None) -> bool:
+    """True si estamos dentro del horario permitido para avisos urgentes (08:00–24:00, hora Chile)."""
+    hora_local = (ahora or datetime.now(timezone.utc)).astimezone(_TZ_CHILE)
+    return hora_local.hour >= HORARIO_URGENTE_INICIO
+
+
+def _segundos_hasta_horario_urgente() -> float:
+    """Segundos que faltan hasta que se abra el horario de avisos urgentes (8:00 hora Chile)."""
+    ahora_cl = datetime.now(timezone.utc).astimezone(_TZ_CHILE)
+    objetivo = ahora_cl.replace(hour=HORARIO_URGENTE_INICIO, minute=0, second=0, microsecond=0)
+    if ahora_cl.hour >= HORARIO_URGENTE_INICIO:
+        objetivo += timedelta(days=1)
+    return max(0.0, (objetivo - ahora_cl).total_seconds())
+
+
 async def _recovery_loop():
     """Cada 3 min reintenta conversaciones donde el cliente escribió y el bot no respondió."""
     await asyncio.sleep(60)  # 1 min de gracia al arrancar
@@ -5832,6 +5851,10 @@ async def _get_default_user() -> Optional[Dict]:
 async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> Dict[str, Any]:
     """Envía notificación WA al ejecutivo asignado al cliente (template recordatorio_wtsp).
     Retorna {"ok": True} si se envió, o {"ok": False, "motivo": "..."} si no se pudo."""
+    if not _dentro_horario_urgente():
+        # Horario ampliado (08:00–24:00 hora Chile) para no despertar al ejecutivo de madrugada,
+        # pero sin retrasarlo tanto como los avisos rutinarios.
+        await asyncio.sleep(_segundos_hasta_horario_urgente())
     try:
         clientes = await _supabase_request("GET", "/Cliente",
             params={"id": f"eq.{cliente_id}", "select": "usuario_id,Proyecto(nombre)", "limit": "1"}) or []

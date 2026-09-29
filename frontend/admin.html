@@ -52,90 +52,111 @@
 </head>
 <body class="min-h-screen font-sans">
 
-<!-- Header -->
-<header class="header-border border-b px-6 py-4 flex items-center justify-between">
-  <div class="flex items-center gap-3">
-    <a href="/index.html" class="sidebar-text hover:text-violet-400 transition">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-    </a>
-    <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-8 w-auto object-contain" />
-    <h1 class="text-lg font-bold val-text">Panel de Administración</h1>
-  </div>
-  <div class="flex items-center gap-3">
-    <span id="adminNombre" class="text-sm sidebar-text"></span>
-    <button onclick="cerrarSesion()"
-      class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">
-      Cerrar sesión
-    </button>
-    <button onclick="toggleTheme()" class="w-9 h-9 rounded-xl flex items-center justify-center glass hover:scale-110 transition" title="Cambiar tema">
-      <span id="theme-icon" class="text-lg">🌙</span>
-    </button>
-  </div>
-</header>
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside class="w-60 shrink-0 header-border border-r flex flex-col">
+    <div class="px-4 py-4 flex items-center gap-2.5 header-border border-b">
+      <a href="/index.html" class="sidebar-text hover:text-violet-400 transition shrink-0" title="Volver al CRM">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-7 w-auto object-contain" />
+      <span class="font-bold val-text text-sm">Admin</span>
+    </div>
 
-<!-- Main -->
-<main class="max-w-5xl mx-auto px-4 py-8">
+    <nav class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
+      <button onclick="mostrarTab('usuarios')" id="tab-usuarios"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full bg-violet-600 text-white">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        Usuarios
+      </button>
+      <button onclick="mostrarTab('ejecutivos')" id="tab-ejecutivos"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        Ejecutivos
+      </button>
+      <button onclick="mostrarTab('inmobiliarias')" id="tab-inmobiliarias"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2M5 21h2m0 0h10M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 8v-4a1 1 0 011-1h0a1 1 0 011 1v4"/></svg>
+        Inmobiliarias
+      </button>
+      <div class="my-2 border-t header-border"></div>
+      <button onclick="mostrarTab('logs')" id="tab-logs"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        Log correos
+      </button>
+      <button onclick="mostrarTab('plantillas')" id="tab-plantillas"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        Plantillas WA
+      </button>
+      <button onclick="mostrarTab('logswa')" id="tab-logswa"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        Logs WTSP
+      </button>
+      <button onclick="mostrarTab('scraping')" id="tab-scraping"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Scraping
+      </button>
+    </nav>
 
-  <!-- Toast -->
-  <div id="toast" class="fixed top-5 right-5 z-50 hidden max-w-xs px-4 py-3 rounded-xl shadow-xl text-sm font-medium"></div>
+    <div class="px-4 py-3 header-border border-t space-y-2.5">
+      <div class="flex items-center justify-between gap-2">
+        <span id="adminNombre" class="text-xs sidebar-text truncate"></span>
+        <button onclick="toggleTheme()" class="w-8 h-8 rounded-lg flex items-center justify-center glass hover:scale-110 transition shrink-0" title="Cambiar tema">
+          <span id="theme-icon" class="text-base">🌙</span>
+        </button>
+      </div>
+      <button onclick="cerrarSesion()"
+        class="w-full text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">
+        Cerrar sesión
+      </button>
+    </div>
+  </aside>
 
-  <!-- KPIs -->
-  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-    <button onclick="mostrarTab('usuarios')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
-      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Total usuarios</p>
-      <p id="kpi-usuarios" class="text-3xl font-bold val-text">—</p>
-    </button>
-    <button onclick="mostrarTab('ejecutivos')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
-      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Total ejecutivos</p>
-      <p id="kpi-ejecutivos" class="text-3xl font-bold val-text">—</p>
-    </button>
-    <button onclick="mostrarTab('inmobiliarias')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
-      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Total inmobiliarias</p>
-      <p id="kpi-inmobiliarias" class="text-3xl font-bold val-text">—</p>
-    </button>
-    <button onclick="mostrarTab('plantillas')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
-      <p class="text-xs uppercase tracking-wider sidebar-text mb-1">Plantillas WTSP</p>
-      <p id="kpi-plantillas" class="text-3xl font-bold val-text">—</p>
-    </button>
-  </div>
+  <!-- Main -->
+  <main class="flex-1 px-8 py-8 max-w-6xl">
 
-  <!-- Tabs -->
-  <div class="flex gap-1 mb-8 glass p-1 rounded-xl w-fit">
-    <button onclick="mostrarTab('usuarios')" id="tab-usuarios"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition bg-violet-600 text-white">
-      Usuarios
-    </button>
-    <button onclick="mostrarTab('ejecutivos')" id="tab-ejecutivos"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Ejecutivos
-    </button>
-    <button onclick="mostrarTab('inmobiliarias')" id="tab-inmobiliarias"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Inmobiliarias
-    </button>
-    <button onclick="mostrarTab('proyectos')" id="tab-proyectos"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Proyectos
-    </button>
-    <button onclick="mostrarTab('logs')" id="tab-logs"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Log correos
-    </button>
-    <button onclick="mostrarTab('plantillas')" id="tab-plantillas"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Plantillas WA
-    </button>
-    <button onclick="mostrarTab('logswa')" id="tab-logswa"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Logs WTSP
-    </button>
-    <button onclick="mostrarTab('scraping')" id="tab-scraping"
-      class="tab-btn px-5 py-2 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">
-      Scraping
-    </button>
-  </div>
+    <h1 class="text-2xl font-bold val-text mb-6">Panel de Administración</h1>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed top-5 right-5 z-50 hidden max-w-xs px-4 py-3 rounded-xl shadow-xl text-sm font-medium"></div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <button onclick="mostrarTab('usuarios')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="w-4 h-4 text-violet-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+          <p class="text-xs uppercase tracking-wider sidebar-text">Total usuarios</p>
+        </div>
+        <p id="kpi-usuarios" class="text-3xl font-bold val-text">—</p>
+      </button>
+      <button onclick="mostrarTab('ejecutivos')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="w-4 h-4 text-violet-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <p class="text-xs uppercase tracking-wider sidebar-text">Total ejecutivos</p>
+        </div>
+        <p id="kpi-ejecutivos" class="text-3xl font-bold val-text">—</p>
+      </button>
+      <button onclick="mostrarTab('inmobiliarias')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="w-4 h-4 text-violet-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2M5 21h2m0 0h10M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 8v-4a1 1 0 011-1h0a1 1 0 011 1v4"/></svg>
+          <p class="text-xs uppercase tracking-wider sidebar-text">Total inmobiliarias</p>
+        </div>
+        <p id="kpi-inmobiliarias" class="text-3xl font-bold val-text">—</p>
+      </button>
+      <button onclick="mostrarTab('plantillas')" class="text-left glass rounded-2xl p-5 hover:ring-1 ring-violet-500 transition">
+        <div class="flex items-center gap-2 mb-2">
+          <svg class="w-4 h-4 text-violet-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <p class="text-xs uppercase tracking-wider sidebar-text">Plantillas WTSP</p>
+        </div>
+        <p id="kpi-plantillas" class="text-3xl font-bold val-text">—</p>
+      </button>
+    </div>
 
   <!-- TAB: USUARIOS -->
   <div id="panel-usuarios">
@@ -305,29 +326,6 @@
     </div>
   </div>
 
-  <!-- TAB: PROYECTOS -->
-  <div id="panel-proyectos" class="hidden">
-    <div class="flex items-center justify-between mb-5">
-      <h2 class="text-xl font-semibold val-text">Proyectos y mapeos CSV</h2>
-      <p class="sidebar-text text-sm">Los aliases CSV permiten importar clientes con nombres alternativos.</p>
-    </div>
-    <div class="glass rounded-2xl overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="thead-row text-xs uppercase tracking-wider border-b">
-            <th class="text-left px-5 py-3">Imagen</th>
-            <th class="text-left px-5 py-3">Código</th>
-            <th class="text-left px-5 py-3">Nombre en DB</th>
-            <th class="text-left px-5 py-3">Nombres en CSV</th>
-          </tr>
-        </thead>
-        <tbody id="tablaProyectos">
-          <tr><td colspan="4" class="text-center empty-text py-10">Cargando…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- TAB: EJECUTIVOS BANCARIOS -->
   <div id="panel-ejecutivos" class="hidden">
     <div class="flex items-center justify-between mb-5">
@@ -357,7 +355,8 @@
       </table>
     </div>
   </div>
-</main>
+  </main>
+</div>
 
 <!-- Modal: Ejecutivo bancario -->
 <div id="modalEjecutivo" class="fixed inset-0 z-50 hidden modal-bg backdrop-blur-sm flex items-center justify-center p-4">
@@ -617,7 +616,6 @@
     if (!['owner', 'administrador'].includes(_perfil.rol)) { window.location.href = '/'; return; }
     document.getElementById('adminNombre').textContent = _perfil.nombre || '';
     cargarUsuarios();
-    cargarProyectos();
     cargarKPIs();
   }
 
@@ -652,7 +650,7 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'inmobiliarias', 'proyectos', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping'].forEach(t => {
+    ['usuarios', 'inmobiliarias', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-violet-600', t === tab);
@@ -1239,48 +1237,6 @@
       btn.disabled = false; btn.textContent = 'Guardar';
     }
   });
-
-  // ── Proyectos ─────────────────────────────────────────────────────────
-  async function cargarProyectos() {
-    const res  = await fetch('/api/proyectos', { headers: authHeaders() });
-    if (!res.ok) { toast('Error al cargar proyectos: ' + await res.text(), 'error'); return; }
-    const rows = await res.json();
-    const tbody = document.getElementById('tablaProyectos');
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="text-center empty-text py-10">Sin proyectos</td></tr>';
-      return;
-    }
-    tbody.innerHTML = rows.map(p => {
-      const thumb = p.imagen_url
-        ? `<img src="${p.imagen_url}" alt="${p.nombre}" class="w-14 h-10 object-cover rounded-lg header-border border" />`
-        : `<div class="w-14 h-10 rounded-lg header-border border glass flex items-center justify-center sub-text text-xs">—</div>`;
-      return `
-        <tr class="trow border-b transition">
-          <td class="px-5 py-2">
-            <button onclick="editarImagenProyecto('${p.id}','${(p.nombre||'').replace(/'/g,"\\'")}','${(p.imagen_url||'').replace(/'/g,"\\'")}')"
-              class="group relative" title="Editar imagen">
-              ${thumb}
-              <span class="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition text-white text-xs">✏️</span>
-            </button>
-          </td>
-          <td class="px-5 py-3 font-mono text-xs text-violet-400">${p.codigo}</td>
-          <td class="px-5 py-3 font-medium val-text">${p.nombre}</td>
-          <td class="px-5 py-3 sidebar-text text-xs">${(p.nombres_csv || []).join(', ') || '—'}</td>
-        </tr>`;
-    }).join('');
-  }
-
-  async function editarImagenProyecto(id, nombre, actual) {
-    const nueva = prompt(`URL de imagen para "${nombre}":\n(deja vacío para quitar la imagen)`, actual || '');
-    if (nueva === null) return;
-    const res = await fetch(`/api/proyectos/${id}`, {
-      method: 'PATCH',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imagen_url: nueva.trim() || null }),
-    });
-    if (res.ok) { toast('Imagen actualizada', 'ok'); cargarProyectos(); }
-    else        { toast('Error al actualizar imagen', 'error'); }
-  }
 
   // ── Plantillas WA ─────────────────────────────────────────────────────
   const POOL_VARS = [

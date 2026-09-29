@@ -251,6 +251,17 @@
 
   let _session = null;
 
+  // Owner entra directo al panel admin; el resto sigue al flujo normal (elegir empresa).
+  async function redirigirSegunRol(token) {
+    try {
+      const res  = await fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${token}` } });
+      const user = res.ok ? await res.json() : null;
+      window.location.href = user?.rol === 'owner' ? '/admin.html' : '/empresas';
+    } catch (e) {
+      window.location.href = '/empresas';
+    }
+  }
+
   function mostrarAlerta(msg, tipo = 'error') {
     const el = document.getElementById('alerta');
     el.className = `mb-5 px-4 py-3 rounded-lg text-sm font-medium ${
@@ -289,7 +300,7 @@
         document.getElementById('formCambio').classList.remove('hidden');
         mostrarAlerta('Debes crear una contraseña permanente para continuar.', 'info');
       } else {
-        window.location.href = '/empresas';
+        window.location.href = user.rol === 'owner' ? '/admin.html' : '/empresas';
       }
     } catch (err) {
       mostrarAlerta(err.message || 'Error al iniciar sesión');
@@ -316,7 +327,7 @@
       });
       if (!res.ok) throw new Error(await res.text());
       mostrarAlerta('✓ Contraseña actualizada. Redirigiendo…', 'ok');
-      setTimeout(() => window.location.href = '/empresas', 1500);
+      setTimeout(() => redirigirSegunRol(_session.access_token), 1500);
     } catch (err) {
       mostrarAlerta(err.message || 'Error al cambiar contraseña');
       btn.disabled = false;
@@ -359,7 +370,7 @@
   });
 
   _supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) window.location.href = '/empresas';
+    if (session) redirigirSegunRol(session.access_token);
   });
 </script>
 </body>
