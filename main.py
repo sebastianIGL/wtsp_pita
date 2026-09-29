@@ -1731,6 +1731,10 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
 
 _PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23"
 
+# Variante liviana para el listado del panel (frontend/panel.html): solo necesita el nombre
+# de la Inmobiliaria (para la vista "Todos los proyectos"), no la cadena Empresa/Industria.
+_PROYECTO_SELECT_PANEL = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23"
+
 # ---------------------------------------------------------------------------
 # Mapeo de variables por plantilla de WhatsApp
 # Cada clave es el nombre exacto de la plantilla en Meta.
@@ -3767,7 +3771,7 @@ async def api_listar_proyectos(request: Request):
         return Response(content="Unauthorized", status_code=401)
     inmobiliaria_id = request.query_params.get("inmobiliaria_id")
     empresa_id      = request.query_params.get("empresa_id")
-    params: Dict[str, str] = {"select": _PROYECTO_SELECT, "order": "nombre.asc"}
+    params: Dict[str, str] = {"select": _PROYECTO_SELECT_PANEL, "order": "nombre.asc"}
     if _solo_admin(perfil):
         if inmobiliaria_id:
             params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
