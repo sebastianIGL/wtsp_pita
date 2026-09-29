@@ -578,7 +578,7 @@
     }
 
     document.getElementById('nombreUsuario').textContent = _perfil.nombre || _perfil.correo || ''
-    if (_perfil.rol === 'owner') document.getElementById('link-admin').classList.remove('hidden')
+    if (_esAdmin) document.getElementById('link-admin').classList.remove('hidden')
     if (_esAdmin) document.getElementById('btn-nueva-empresa-sidebar').classList.remove('hidden')
 
     // Retomar selección previa desde sessionStorage (F5, o entrada vía admin.html)
