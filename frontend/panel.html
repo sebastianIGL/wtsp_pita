@@ -98,7 +98,7 @@
   </aside>
 
   <!-- Main -->
-  <main class="flex-1 px-8 py-8 overflow-x-hidden">
+  <main class="flex-1 px-8 py-8 max-w-6xl overflow-x-hidden">
     <div id="breadcrumb" class="flex items-center gap-2 text-sm sidebar-text mb-1"></div>
     <h1 id="titulo-panel" class="text-2xl font-bold val-text mb-6">Selecciona una empresa</h1>
     <div id="contenido-panel"></div>
@@ -589,15 +589,15 @@
         const guardada = JSON.parse(empresaRaw)
         const real = _empresas.find(e => String(e.id) === String(guardada.id))
         if (real) {
-          await seleccionarEmpresaNodo(real, false)
+          await seleccionarEmpresaNodo(real, true)
           if (inmRaw) {
             const inmGuardada = JSON.parse(inmRaw)
             if (inmGuardada._todos) {
-              await seleccionarInmobiliariaNodo(real, { _todos: true, nombre: 'Todos los proyectos' }, false)
+              await seleccionarInmobiliariaNodo(real, { _todos: true, nombre: 'Todos los proyectos' }, true)
             } else {
               const inms = _inmobiliariasByEmpresa[real.id] || []
               const inmReal = inms.find(i => String(i.id) === String(inmGuardada.id))
-              if (inmReal) await seleccionarInmobiliariaNodo(real, inmReal, false)
+              if (inmReal) await seleccionarInmobiliariaNodo(real, inmReal, true)
             }
           }
         }
