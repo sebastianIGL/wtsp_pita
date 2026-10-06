@@ -4197,6 +4197,57 @@ BUYDEPA_API_URL = (
 BUYDEPA_INMOBILIARIA_ID = 13
 
 
+UF_UMBRAL_CLP = 1_000_000
+
+
+def _precio_a_uf(precio: Any, uf_clp: float) -> Optional[float]:
+    try:
+        p = float(precio)
+    except (TypeError, ValueError):
+        return None
+    if p <= 0:
+        return None
+    return round(p if p < UF_UMBRAL_CLP else p / uf_clp, 2)
+
+
+async def _registrar_cambio_depa(nombre: Optional[str], fuente_id: str, campo: str,
+                                 anterior: Any, nuevo: Any) -> None:
+    try:
+        await _supabase_request("POST", "/log_depas", json={
+            "direccion": nombre,
+            "fuente_externo_id": fuente_id,
+            "campo": campo,
+            "valor_anterior": None if anterior is None else str(anterior),
+            "valor_nuevo": None if nuevo is None else str(nuevo),
+        }, extra_headers={"Prefer": "return=minimal"})
+    except Exception:
+        logger.exception("No se pudo registrar el cambio de %s en log_depas", fuente_id)
+
+
+async def _sincronizar_precio_depa(existente: Dict[str, Any], item: Dict[str, Any],
+                                   uf_clp: float, fuente_id: str) -> bool:
+    precio_uf = _precio_a_uf(item.get("listPrice"), uf_clp)
+    if precio_uf is None:
+        return False
+    tips = await _supabase_request("GET", "/Tipologia",
+        params={"proyecto_id": f"eq.{existente['id']}", "select": "id,valor_uf", "limit": "1"}) or []
+    if not tips:
+        return False
+    tip = tips[0]
+    anterior = float(tip["valor_uf"]) if tip.get("valor_uf") is not None else None
+    if anterior is not None and abs(anterior - precio_uf) < 0.01:
+        return False
+    await _supabase_request("PATCH", "/Tipologia",
+        params={"id": f"eq.{tip['id']}"}, json={"valor_uf": precio_uf},
+        extra_headers={"Prefer": "return=minimal"})
+    await _supabase_request("PATCH", "/Proyecto",
+        params={"id": f"eq.{existente['id']}"},
+        json={"ahorro_minimo_uf": round(precio_uf * 0.10, 2)},
+        extra_headers={"Prefer": "return=minimal"})
+    await _registrar_cambio_depa(existente.get("nombre"), fuente_id, "precio_uf", anterior, precio_uf)
+    return True
+
+
 def _primera_imagen_buydepa(images: Any) -> Optional[str]:
     if isinstance(images, dict):
         candidatas = images.get("legacy") or []
@@ -4258,8 +4309,9 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
     existentes = await _supabase_request("GET", "/Proyecto",
         params={"inmobiliaria_id": f"eq.{BUYDEPA_INMOBILIARIA_ID}",
                 "fuente_externo_id": "not.is.null",
-                "select": "id,fuente_externo_id,activo"}) or []
+                "select": "id,nombre,fuente_externo_id,activo"}) or []
     existentes_por_id = {e["fuente_externo_id"]: e for e in existentes}
+    uf_clp = await _obtener_valor_uf()
 
     creados = actualizados = desactivados = 0
     errores: List[Dict[str, Any]] = []
@@ -4278,21 +4330,28 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                 existente = existentes_por_id.get(fuente_id)
 
                 if existente:
+                    hubo_cambio = False
                     if bool(existente.get("activo")) != disponible:
                         await _supabase_request("PATCH", "/Proyecto",
                             params={"id": f"eq.{existente['id']}"},
                             json={"activo": disponible},
                             extra_headers={"Prefer": "return=minimal"})
                         await _actualizar_stock_proyecto(existente["id"], disponible)
-                        actualizados += 1
-                        accion = "actualizado"
+                        await _registrar_cambio_depa(existente.get("nombre"), fuente_id, "disponible",
+                                                     str(bool(existente.get("activo"))).lower(), str(disponible).lower())
+                        hubo_cambio = True
                         if not disponible:
                             desactivados += 1
+                    if await _sincronizar_precio_depa(existente, item, uf_clp, fuente_id):
+                        hubo_cambio = True
+                    if hubo_cambio:
+                        actualizados += 1
+                        accion = "actualizado"
                 else:
                     # Nuevo departamento → crear Proyecto + Etapa + Tipologia + EtapaTipologia
                     direccion  = direccion_log or f"Depto buydepa {fuente_id}"
-                    precio     = item.get("listPrice")
-                    ahorro_min = round(precio * 0.10, 2) if precio else None
+                    precio_uf  = _precio_a_uf(item.get("listPrice"), uf_clp)
+                    ahorro_min = round(precio_uf * 0.10, 2) if precio_uf else None
                     imagen_url = _primera_imagen_buydepa(item.get("images"))
                     codigo     = f"buydepa-{fuente_id}"
 
@@ -4325,7 +4384,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                         "dormitorios": item.get("bedrooms"),
                         "banos": item.get("bathrooms"),
                         "superficie_util_m2": item.get("totalArea"),
-                        "valor_uf": precio,
+                        "valor_uf": precio_uf,
                         "estacionamientos": item.get("parkings"),
                         "bodegas": item.get("storages"),
                     }, extra_headers={"Prefer": "return=representation"})
@@ -4349,6 +4408,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
     for fuente_id, existente in existentes_por_id.items():
         if fuente_id not in ids_vistos_hoy and existente.get("activo"):
             try:
+                await _registrar_cambio_depa(existente.get("nombre"), fuente_id, "disponible", "true", "false")
                 await _supabase_request("PATCH", "/Proyecto",
                     params={"id": f"eq.{existente['id']}"},
                     json={"activo": False},
