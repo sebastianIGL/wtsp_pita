@@ -4295,6 +4295,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                         "valor_reserva_clp": None, "valor_reserva_uf": None,
                         "tiene_piloto": True,
                         "acepta_ds19": False, "acepta_ds1_t23": False,
+                        "condicion_propiedad": "semi-nueva",
                         "activo": disponible,
                         "fuente_externo_id": fuente_id,
                     }, extra_headers={"Prefer": "return=representation"})
@@ -5163,6 +5164,11 @@ async def api_eliminar_documento(cliente_id: int, doc_id: str, request: Request)
         return Response(content=_safe_httpx_error(e) or "Error al eliminar documento", status_code=500, media_type="text/plain")
 
 
+CONDICION_LABEL = {
+    "nueva": "Nueva",
+    "semi-nueva": "Semi-nueva",
+}
+
 async def _enviar_email_evaluacion(
     cliente_id: int,
     usuario: dict | None = None,
@@ -5210,6 +5216,7 @@ async def _enviar_email_evaluacion(
     proyecto_nombre     = "No registrado"
     proyecto_ubicacion  = "No registrada"
     inmobiliaria_nombre = "No registrada"
+    condicion_propiedad = "nueva"
     valor_uf: float | None = None
     monto_subsidio: float | None = None
     entrega_label = "Futura"
@@ -5220,13 +5227,14 @@ async def _enviar_email_evaluacion(
         proy_rows = await _supabase_request("GET", "/Proyecto",
             params={
                 "id": f"eq.{proyecto_id_raw}",
-                "select": "nombre,ubicacion,Inmobiliaria(nombre)",
+                "select": "nombre,ubicacion,condicion_propiedad,Inmobiliaria(nombre)",
                 "limit": "1",
             })
         if proy_rows:
             p = proy_rows[0]
             proyecto_nombre    = p.get("nombre") or "No registrado"
             proyecto_ubicacion = p.get("ubicacion") or "No registrada"
+            condicion_propiedad = p.get("condicion_propiedad") or "nueva"
             inm = (p.get("Inmobiliaria") or {})
             inmobiliaria_nombre = inm.get("nombre") or "No registrada"
 
@@ -5333,6 +5341,10 @@ async def _enviar_email_evaluacion(
         <tr style="background:#e8eef7;border-top:2px solid #1e3a5f;">
           <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">Proyecto</td>
           <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">{proyecto_nombre}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Condición</td>
+          <td style="padding:8px 12px;">{CONDICION_LABEL.get(condicion_propiedad, condicion_propiedad)}</td>
         </tr>
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Dirección</td>
@@ -5464,16 +5476,18 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     valor_uf: float | None = None
     monto_subsidio: float | None = None
     entrega_label = "Futura"
+    condicion_propiedad = "nueva"
 
     if c.get("proyecto_id"):
         proy = await _supabase_request("GET", "/Proyecto",
             params={"id": f"eq.{c['proyecto_id']}",
-                    "select": "nombre,ubicacion,Inmobiliaria(nombre)",
+                    "select": "nombre,ubicacion,condicion_propiedad,Inmobiliaria(nombre)",
                     "limit": "1"})
         if proy:
             p = proy[0]
             proyecto_nombre    = p.get("nombre") or "No registrado"
             proyecto_ubicacion = p.get("ubicacion") or "No registrada"
+            condicion_propiedad = p.get("condicion_propiedad") or "nueva"
             inm = (p.get("Inmobiliaria") or {})
             inmobiliaria_nombre = inm.get("nombre") or "No registrada"
 
@@ -5531,6 +5545,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
             "rut":           rut,
             "telefono":      c.get("Telefono") or "—",
             "correo":        (c.get("Correo") or "").strip() or None,
+            "condicion":     CONDICION_LABEL.get(condicion_propiedad, condicion_propiedad),
             "renta":         c.get("Tramo de renta") or "—",
             "proyecto":      proyecto_nombre,
             "direccion":     proyecto_ubicacion,
