@@ -2662,6 +2662,7 @@ async function mostrarPreviewEval() {
             <span class="text-slate-500">Nombre</span><span class="font-medium text-slate-800">${cl.nombre}</span>
             <span class="text-slate-500">RUT</span><span class="text-slate-700">${cl.rut}</span>
             <span class="text-slate-500">Teléfono</span><span class="text-slate-700">${cl.telefono}</span>
+            ${cl.correo ? `<span class="text-slate-500">Correo</span><span class="text-slate-700 break-all">${cl.correo}</span>` : ''}
             <span class="text-slate-500">Tramo de renta</span><span class="text-slate-700">${cl.renta}</span>
             <span ${_div}></span>
             <span class="text-slate-500">Proyecto</span><span class="font-semibold text-indigo-700">${cl.proyecto}</span>
@@ -2674,6 +2675,11 @@ async function mostrarPreviewEval() {
             <span class="text-slate-500">Ahorro cliente</span><span class="text-slate-700">${fmtUF(cl.ahorro_uf)}</span>
             <span class="font-semibold text-slate-700">Monto crédito</span><span class="font-semibold text-violet-700">${fmtUF(cl.monto_credito)}</span>
           </div>
+        </div>
+        <div class="${_sec}">
+          <p ${_lbl}>Nota para el ejecutivo <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(opcional)</span></p>
+          <textarea id="eval-nota" rows="2" maxlength="500" placeholder="Ej: Departamento usado publicado en Portal Inmobiliario, confirmar disponibilidad con la inmobiliaria…"
+            class="w-full rounded-lg px-3 py-2 text-xs border border-slate-200 focus:outline-none focus:border-violet-400 resize-none"></textarea>
         </div>
         <div class="${_sec}">
           <p ${_lbl}>Documentos adjuntos (${data.total_docs + nuevos.length})</p>
@@ -2705,6 +2711,7 @@ async function confirmarEnvioEval() {
   _enviandoEvaluacion = true
   document.getElementById('btn-confirmar-envio').disabled = true
 
+  const notaParaEnviar = (document.getElementById('eval-nota')?.value || '').trim() || null
   cerrarPreviewEval()
   const ejecutivosParaEnviar = [..._evalEjecutivosSeleccionados]
   const btn = document.getElementById('btn-eval-enviar')
@@ -2714,7 +2721,7 @@ async function confirmarEnvioEval() {
     const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${_evalClienteId}/enviar-evaluacion`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${_token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ejecutivos: ejecutivosParaEnviar }),
+      body: JSON.stringify({ ejecutivos: ejecutivosParaEnviar, nota: notaParaEnviar }),
     })
     if (!res.ok) { const t = await res.text(); throw new Error(t) }
     const data = await res.json()

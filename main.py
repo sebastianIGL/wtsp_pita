@@ -17,6 +17,7 @@ from collections import defaultdict
 import logging
 import time
 import base64
+from html import escape as html_escape
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -5166,6 +5167,7 @@ async def _enviar_email_evaluacion(
     cliente_id: int,
     usuario: dict | None = None,
     ejecutivos_emails: list | None = None,
+    nota: str | None = None,
 ) -> dict:
     if not os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"):
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON no configurada")
@@ -5202,6 +5204,7 @@ async def _enviar_email_evaluacion(
     nombre   = (c.get("Contacto") or "Sin nombre").strip()
     rut      = c.get("Rut") or "No registrado"
     telefono = c.get("Telefono") or "No registrado"
+    correo   = (c.get("Correo") or "").strip()
     renta    = c.get("Tramo de renta") or "No registrado"
 
     proyecto_nombre     = "No registrado"
@@ -5285,6 +5288,23 @@ async def _enviar_email_evaluacion(
         if partes_docs else "No se adjuntan documentos."
     )
 
+    fila_correo = ""
+    bg_tramo = ""
+    if correo:
+        fila_correo = f"""
+        <tr>
+          <td style="padding:8px 12px;font-weight:bold;color:#555;">Correo</td>
+          <td style="padding:8px 12px;">{html_escape(correo)}</td>
+        </tr>"""
+        bg_tramo = ' style="background:#f5f7fa;"'
+
+    bloque_nota = ""
+    if nota:
+        bloque_nota = f"""
+      <div style="margin-top:20px;padding:12px 16px;background:#fff8e1;border-left:4px solid #f59e0b;font-size:14px;color:#374151;">
+        <strong style="color:#92400e;">Nota:</strong> {html_escape(nota)}
+      </div>"""
+
     body_html = f"""
     <div style="font-family:Arial,sans-serif;max-width:600px;">
       <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">
@@ -5305,8 +5325,8 @@ async def _enviar_email_evaluacion(
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
           <td style="padding:8px 12px;">{telefono}</td>
-        </tr>
-        <tr>
+        </tr>{fila_correo}
+        <tr{bg_tramo}>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Tramo de renta</td>
           <td style="padding:8px 12px;">{renta}</td>
         </tr>
@@ -5342,7 +5362,7 @@ async def _enviar_email_evaluacion(
           <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">Monto crédito solicitado</td>
           <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">{_fmt_uf(monto_credito)}</td>
         </tr>
-      </table>
+      </table>{bloque_nota}
       <h3 style="color:#1e3a5f;margin-top:24px;">Documentos adjuntos ({len(docs)})</h3>
       <p style="font-size:13px;color:#444;margin:4px 0 0;">{resumen_docs}</p>
     </div>
@@ -5510,6 +5530,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
             "nombre":        (c.get("Contacto") or "Sin nombre").strip(),
             "rut":           rut,
             "telefono":      c.get("Telefono") or "—",
+            "correo":        (c.get("Correo") or "").strip() or None,
             "renta":         c.get("Tramo de renta") or "—",
             "proyecto":      proyecto_nombre,
             "direccion":     proyecto_ubicacion,
@@ -5549,8 +5570,9 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
         except Exception:
             pass
         ejecutivos_emails = body.get("ejecutivos") or None
+        nota = (body.get("nota") or "").strip()[:500] or None
         result = await _enviar_email_evaluacion(
-            cliente_id, usuario=perfil, ejecutivos_emails=ejecutivos_emails
+            cliente_id, usuario=perfil, ejecutivos_emails=ejecutivos_emails, nota=nota
         )
         return {"ok": True, **result}
     except Exception as e:
