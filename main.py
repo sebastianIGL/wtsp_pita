@@ -4197,6 +4197,16 @@ BUYDEPA_API_URL = (
 BUYDEPA_INMOBILIARIA_ID = 13
 
 
+def _primera_imagen_buydepa(images: Any) -> Optional[str]:
+    if isinstance(images, dict):
+        candidatas = images.get("legacy") or []
+    elif isinstance(images, list):
+        candidatas = images
+    else:
+        candidatas = []
+    return next((c for c in candidatas if isinstance(c, str) and c), None)
+
+
 async def _actualizar_stock_proyecto(proyecto_id: Any, disponible: bool) -> None:
     """Refleja la disponibilidad en el stock de la (única) EtapaTipologia del proyecto."""
     etapas = await _supabase_request("GET", "/Etapa",
@@ -4283,9 +4293,8 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                     direccion  = direccion_log or f"Depto buydepa {fuente_id}"
                     precio     = item.get("listPrice")
                     ahorro_min = round(precio * 0.10, 2) if precio else None
-                    imagenes   = ((item.get("images") or {}).get("legacy") or [])
-                    imagen_url = imagenes[0] if imagenes else None
-                    codigo     = _slugify(f"{direccion}-{precio}") or f"buydepa-{fuente_id}"
+                    imagen_url = _primera_imagen_buydepa(item.get("images"))
+                    codigo     = f"buydepa-{fuente_id}"
 
                     proyecto = await _supabase_request("POST", "/Proyecto", json={
                         "nombre": direccion, "codigo": codigo, "ubicacion": direccion,
@@ -4331,7 +4340,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                     creados += 1
                     accion = "creado"
             except Exception as ex:
-                errores.append({"fuente_externo_id": fuente_id, "direccion": direccion_log, "motivo": str(ex)})
+                errores.append({"fuente_externo_id": fuente_id, "direccion": direccion_log, "motivo": _safe_httpx_error(ex)})
                 accion = "error"
 
         yield f"data: {json.dumps({'t':'prog','n':idx,'total':total,'accion':accion,'direccion':direccion_log,'creados':creados,'actualizados':actualizados,'desactivados':desactivados,'errores':len(errores)})}\n\n"
