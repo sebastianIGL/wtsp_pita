@@ -4248,6 +4248,20 @@ async def _sincronizar_precio_depa(existente: Dict[str, Any], item: Dict[str, An
     return True
 
 
+async def _revertir_proyecto_huerfano(proyecto_id: Any) -> None:
+    """Borra Proyecto/Etapa/Tipologia/EtapaTipologia creados a medias por un ítem que falló."""
+    try:
+        etapas = await _supabase_request("GET", "/Etapa",
+            params={"proyecto_id": f"eq.{proyecto_id}", "select": "id"}) or []
+        for e in etapas:
+            await _supabase_request("DELETE", "/EtapaTipologia", params={"etapa_id": f"eq.{e['id']}"})
+        await _supabase_request("DELETE", "/Tipologia", params={"proyecto_id": f"eq.{proyecto_id}"})
+        await _supabase_request("DELETE", "/Etapa", params={"proyecto_id": f"eq.{proyecto_id}"})
+        await _supabase_request("DELETE", "/Proyecto", params={"id": f"eq.{proyecto_id}"})
+    except Exception:
+        logger.exception("No se pudo revertir completamente el proyecto huérfano %s", proyecto_id)
+
+
 def _primera_imagen_buydepa(images: Any) -> Optional[str]:
     if isinstance(images, dict):
         candidatas = images.get("legacy") or []
@@ -4371,30 +4385,40 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                     if not proyecto or not proyecto.get("id"):
                         raise RuntimeError("No se pudo crear el proyecto")
 
-                    etapa = await _supabase_request("POST", "/Etapa", json={
-                        "proyecto_id": proyecto["id"],
-                        "nombre": "Entrega inmediata",
-                        "estado": "entrega_inmediata",
-                    }, extra_headers={"Prefer": "return=representation"})
-                    etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
+                    try:
+                        etapa = await _supabase_request("POST", "/Etapa", json={
+                            "proyecto_id": proyecto["id"],
+                            "nombre": "Entrega inmediata",
+                            "estado": "entrega_inmediata",
+                        }, extra_headers={"Prefer": "return=representation"})
+                        etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
+                        if not etapa or not etapa.get("id"):
+                            raise RuntimeError("No se pudo crear la etapa")
 
-                    tipologia = await _supabase_request("POST", "/Tipologia", json={
-                        "proyecto_id": proyecto["id"],
-                        "nombre": direccion,
-                        "dormitorios": item.get("bedrooms"),
-                        "banos": item.get("bathrooms"),
-                        "superficie_util_m2": item.get("totalArea"),
-                        "valor_uf": precio_uf,
-                        "estacionamientos": item.get("parkings"),
-                        "bodegas": item.get("storages"),
-                    }, extra_headers={"Prefer": "return=representation"})
-                    tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
+                        tipologia = await _supabase_request("POST", "/Tipologia", json={
+                            "proyecto_id": proyecto["id"],
+                            "nombre": direccion,
+                            "dormitorios": item.get("bedrooms"),
+                            "banos": item.get("bathrooms"),
+                            "superficie_util_m2": item.get("totalArea"),
+                            "valor_uf": precio_uf,
+                            "estacionamientos": item.get("parkings"),
+                            "bodegas": item.get("storages"),
+                        }, extra_headers={"Prefer": "return=representation"})
+                        tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
+                        if not tipologia or not tipologia.get("id"):
+                            raise RuntimeError("No se pudo crear la tipología")
 
-                    if etapa and etapa.get("id") and tipologia and tipologia.get("id"):
                         await _supabase_request("POST", "/EtapaTipologia", json={
                             "etapa_id": etapa["id"], "tipologia_id": tipologia["id"],
                             "stock": 1 if disponible else 0,
                         }, extra_headers={"Prefer": "return=minimal"})
+                    except Exception:
+                        # Quedó a medio crear (sin etapa, tipología o el vínculo entre ambas) →
+                        # deshacer todo para que la próxima corrida lo reintente limpio en vez
+                        # de dejar un proyecto huérfano sin tipología.
+                        await _revertir_proyecto_huerfano(proyecto["id"])
+                        raise
 
                     creados += 1
                     accion = "creado"
