@@ -2653,6 +2653,11 @@ async function mostrarPreviewEval() {
           <p ${_lbl}>Asunto</p>
           <p class="text-xs text-slate-700">${data.asunto}</p>
         </div>
+        <div class="${_sec} border-violet-300 bg-violet-50/40">
+          <p ${_lbl}>Nota para el ejecutivo <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(opcional, se agrega al correo)</span></p>
+          <textarea id="eval-nota" rows="2" maxlength="500" placeholder="Ej: Departamento usado publicado en Portal Inmobiliario, confirmar disponibilidad con la inmobiliaria…"
+            class="w-full rounded-lg px-3 py-2 text-xs border border-slate-200 focus:outline-none focus:border-violet-400 resize-none"></textarea>
+        </div>
         <div class="${_sec}">
           <p class="text-xs text-slate-600 italic leading-relaxed">Junto con saludar cordialmente, solicito tu amable colaboración para realizar la evaluación del siguiente cliente, conforme a las condiciones que se adjuntan a este correo.</p>
         </div>
@@ -2676,11 +2681,6 @@ async function mostrarPreviewEval() {
             <span class="text-slate-500">Ahorro cliente</span><span class="text-slate-700">${fmtUF(cl.ahorro_uf)}</span>
             <span class="font-semibold text-slate-700">Monto crédito</span><span class="font-semibold text-violet-700">${fmtUF(cl.monto_credito)}</span>
           </div>
-        </div>
-        <div class="${_sec}">
-          <p ${_lbl}>Nota para el ejecutivo <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(opcional)</span></p>
-          <textarea id="eval-nota" rows="2" maxlength="500" placeholder="Ej: Departamento usado publicado en Portal Inmobiliario, confirmar disponibilidad con la inmobiliaria…"
-            class="w-full rounded-lg px-3 py-2 text-xs border border-slate-200 focus:outline-none focus:border-violet-400 resize-none"></textarea>
         </div>
         <div class="${_sec}">
           <p ${_lbl}>Documentos adjuntos (${data.total_docs + nuevos.length})</p>
