@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
 {% include "partials/_head.html" %}
 <style>
   /* ── HERO ──────────────────────────────────────────────────────────── */
   #cf-hero {
-    background: linear-gradient(160deg, #0b1929 0%, #0d2e2a 100%);
+    background: linear-gradient(135deg, #0b2a6b 0%, #1651d6 100%);
     padding: 5.5rem 0 4.5rem;
     text-align: center;
   }
@@ -18,7 +18,7 @@
     margin-bottom: 1.25rem;
   }
   #cf-hero p {
-    color: #94a3b8;
+    color: #cfdcff;
     font-size: 1.0625rem;
     line-height: 1.75;
     max-width: 560px;
@@ -28,9 +28,7 @@
   /* ── PASOS ZIGZAG ──────────────────────────────────────────────────── */
   .cf-step { padding: 5rem 0; }
   .cf-step:nth-child(odd)  { background: #ffffff; }
-  .cf-step:nth-child(even) { background: #f8fafc; }
-  [data-theme="dark"] .cf-step:nth-child(odd)  { background: var(--bg);  }
-  [data-theme="dark"] .cf-step:nth-child(even) { background: var(--bg2); }
+  .cf-step:nth-child(even) { background: var(--bg2); }
 
   .cf-step-inner {
     display: flex;
@@ -58,7 +56,6 @@
     z-index: 2;
     letter-spacing: 0.02em;
   }
-  [data-theme="dark"] .cf-num-badge { background: #1e293b; color: #f1f5f9; }
   .cf-icon-box {
     width: 200px;
     height: 200px;
@@ -98,7 +95,6 @@
     padding: 5.5rem 0;
     background: #ffffff;
   }
-  [data-theme="dark"] #cf-beneficios { background: var(--bg); }
   .cf-ben-header { text-align: center; max-width: 640px; margin: 0 auto 3rem; }
   .cf-ben-header h2 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 900; color: var(--text); margin-bottom: 0.75rem; }
   .cf-ben-header p { color: var(--text-muted); font-size: 1.0625rem; }
@@ -108,17 +104,16 @@
     gap: 1.5rem;
   }
   .cf-ben-card {
-    background: #f8fffe;
-    border: 1px solid #d1fae5;
+    background: var(--bg2);
+    border: 1px solid var(--border);
     border-radius: 1rem;
     padding: 1.75rem;
   }
-  [data-theme="dark"] .cf-ben-card { background: var(--surface); border-color: var(--border); }
   .cf-ben-icon {
     width: 44px; height: 44px; border-radius: 10px;
-    background: rgba(13,148,136,0.1);
+    background: var(--blue-soft);
     display: flex; align-items: center; justify-content: center;
-    color: var(--primary);
+    color: var(--blue);
     margin-bottom: 1rem;
   }
   .cf-ben-card h4 { font-size: 0.9375rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text); }
@@ -126,12 +121,12 @@
 
   /* ── CTA ────────────────────────────────────────────────────────────── */
   #cf-cta {
-    background: #0f172a;
+    background: linear-gradient(120deg, #0b2a6b 0%, #1651d6 100%);
     padding: 5.5rem 0;
     text-align: center;
   }
   #cf-cta h2 { color: #ffffff; font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 900; line-height: 1.2; margin-bottom: 1rem; }
-  #cf-cta p  { color: #94a3b8; font-size: 1.0625rem; margin: 0 auto 2.25rem; max-width: 440px; }
+  #cf-cta p  { color: #cfdcff; font-size: 1.0625rem; margin: 0 auto 2.25rem; max-width: 440px; }
 
   /* ── RESPONSIVE ─────────────────────────────────────────────────────── */
   @media (max-width: 768px) {
@@ -165,7 +160,7 @@
     <div class="cf-step-inner reveal">
       <div class="cf-icon-side">
         <span class="cf-num-badge">01</span>
-        <div class="cf-icon-box" style="background:linear-gradient(135deg,#0ea5e9 0%,#0d9488 100%)">
+        <div class="cf-icon-box" style="background:linear-gradient(135deg,#1651d6 0%,#3b82f6 100%)">
           <svg width="88" height="88" fill="none" viewBox="0 0 88 88">
             <circle cx="44" cy="34" r="16" fill="rgba(255,255,255,0.95)"/>
             <path d="M18 74c0-14.36 11.64-26 26-26s26 11.64 26 26" stroke="rgba(255,255,255,0.95)" stroke-width="4" stroke-linecap="round"/>
@@ -192,7 +187,7 @@
     <div class="cf-step-inner reverse reveal">
       <div class="cf-icon-side">
         <span class="cf-num-badge">02</span>
-        <div class="cf-icon-box" style="background:linear-gradient(135deg,#0d9488 0%,#059669 100%)">
+        <div class="cf-icon-box" style="background:linear-gradient(135deg,#e53935 0%,#f2655f 100%)">
           <svg width="88" height="88" fill="none" viewBox="0 0 88 88">
             <rect x="26" y="26" width="36" height="36" rx="5" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.95)" stroke-width="3"/>
             <rect x="33" y="33" width="22" height="22" rx="3" fill="rgba(255,255,255,0.3)"/>
@@ -342,9 +337,9 @@
       <div class="reveal" style="max-width:520px;margin:0 auto">
         <h2>¿Listo para descubrir tus subsidios?</h2>
         <p>Comienza ahora y obtén resultados en menos de 5 minutos</p>
-        <button onclick="typeof abrirLogin==='function'?abrirLogin():window.location.href='/login.html'" class="btn btn-primary" style="font-size:1rem;padding:0.9rem 2.25rem">
+        <a href="/#registro" class="btn btn-red" style="font-size:1rem;padding:0.9rem 2.25rem">
           Evaluar mi elegibilidad gratis
-        </button>
+        </a>
       </div>
     </div>
   </section>

@@ -1,18 +1,45 @@
+<!-- Franja de confianza -->
+<section class="trust-strip" aria-label="Por qué QueSubsidio">
+  <div class="container">
+    <div class="trust-grid">
+      <div class="trust-item">
+        <div class="trust-icon" aria-hidden="true">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 010-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 010 5"/></svg>
+        </div>
+        <div><strong>Gratis</strong><span>Sin costo para ti</span></div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon" aria-hidden="true">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v6c0 4.5-3.2 8.2-8 9-4.8-.8-8-4.5-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <div><strong>Seguro</strong><span>Protegemos tus datos</span></div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon" aria-hidden="true">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        </div>
+        <div><strong>Información clara</strong><span>Explicamos de forma simple</span></div>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon" aria-hidden="true">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h11l-1.5 3.5L16 11H5"/></svg>
+        </div>
+        <div><strong>Enfocado en Chile</strong><span>Contenido 100% chileno</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="container">
     <div class="footer-grid">
 
       <!-- Col 1: Marca -->
       <div>
-        <a href="/" class="nav-logo" style="margin-bottom:1rem;display:inline-flex">
-          <div class="nav-logo-box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
-            </svg>
-          </div>
-          <span style="color:#f0fdfa">QueSubsidio</span>
+        <a href="/" aria-label="QueSubsidio — inicio">
+          <img src="/img/logo-completo.png" alt="QueSubsidio" class="footer-logo" loading="lazy" />
         </a>
-        <p style="font-size:.875rem;color:#5eead4;line-height:1.75;margin-top:.75rem;max-width:240px">
+        <p style="font-size:.875rem;color:var(--text-muted);line-height:1.75;margin-top:.75rem;max-width:260px">
           Acercamos la vivienda a más familias chilenas con información clara sobre subsidios habitacionales.
         </p>
         <div class="social-row">
@@ -56,20 +83,20 @@
         <div style="margin-top:1.5rem">
           <div class="footer-col-title">Contacto</div>
           <a href="mailto:hola@quesubsidio.cl" class="footer-link">hola@quesubsidio.cl</a>
-          <p style="font-size:.8125rem;color:#2dd4bf;margin-top:.25rem">Santiago, Chile</p>
+          <p style="font-size:.8125rem;color:var(--text-subtle);margin-top:.25rem">Santiago, Chile</p>
         </div>
       </div>
 
       <!-- Col 4: Newsletter -->
       <div>
         <div class="footer-col-title">Newsletter</div>
-        <p style="font-size:.875rem;color:#5eead4;line-height:1.7;margin-bottom:1rem">
+        <p style="font-size:.875rem;color:var(--text-muted);line-height:1.7;margin-bottom:1rem">
           Recibe alertas sobre nuevos proyectos y actualizaciones de subsidios.
         </p>
         <form id="footerNewsletterForm" onsubmit="submitNewsletter(event)">
           <div style="display:flex;flex-direction:column;gap:.625rem">
-            <input type="email" id="footerEmail" class="inp" placeholder="tu@correo.cl" required autocomplete="email" />
-            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center" id="footerNewsletterBtn">
+            <input type="email" id="footerEmail" class="inp" placeholder="tu@correo.cl" required autocomplete="email" aria-label="Correo para el newsletter" />
+            <button type="submit" class="btn btn-primary" style="width:100%" id="footerNewsletterBtn">
               <span id="footerNewsletterLabel">Suscribirme</span>
             </button>
           </div>
@@ -82,7 +109,7 @@
     <div class="footer-divider"></div>
     <div class="footer-bottom">
       <p class="footer-copy">© <span id="footerYear"></span> QueSubsidio SpA. Todos los derechos reservados.</p>
-      <p class="footer-copy" style="color:#1e3a50">Hecho con ♥ en Chile</p>
+      <p class="footer-copy">Hecho con ♥ en Chile</p>
     </div>
   </div>
 </footer>

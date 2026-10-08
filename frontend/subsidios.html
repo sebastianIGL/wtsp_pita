@@ -1,77 +1,47 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es">
 <head>
 {% include "partials/_head.html" %}
 <style>
-  /* ── HERO ──────────────────────────────────────────────────────────── */
-  #sub-hero {
-    padding: 5rem 0 4rem;
-    text-align: center;
-    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13,148,136,0.13) 0%, transparent 70%);
+  /* ── Tarjetas de subsidio ──────────────────────────────────────────────── */
+  #sub-cards { background: var(--bg2); }
+  .sub-detail-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; align-items: stretch; }
+  .sub-detail-grid > * { min-width: 0; }
+  @media (max-width: 960px) { .sub-detail-grid { grid-template-columns: 1fr; max-width: 520px; margin: 0 auto; } }
+  .sub-detail {
+    display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center;
+    background: #fff; border: 1px solid var(--border); border-radius: 1.25rem; padding: 2rem 1.75rem;
+    box-shadow: var(--shadow-sm); transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   }
-  #sub-hero h1 {
-    font-size: clamp(2rem, 5vw, 3rem);
-    font-weight: 900;
-    line-height: 1.2;
-    letter-spacing: -0.025em;
-    margin-bottom: 1.25rem;
+  .sub-detail:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--cat); }
+  .sub-detail h3 { font-size: 1.1rem; font-weight: 800; color: var(--ink); line-height: 1.3; }
+  .sub-tag {
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--cat); background: var(--cat-soft); border-radius: 9999px; padding: 0.2rem 0.7rem;
   }
+  .sub-desc { color: var(--text-muted); font-size: 0.9rem; line-height: 1.75; }
+  .sub-desc strong { color: var(--cat); }
+  .sub-detail .check-list { align-self: stretch; text-align: left; }
+  .sub-detail .sub-link { margin-top: auto; }
 
-  /* ── CARDS ─────────────────────────────────────────────────────────── */
-  #sub-cards { padding: 1rem 0 5rem; }
-  .sub-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.75rem;
-  }
-  .sub-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 1.125rem;
-    padding: 2rem;
-    box-shadow: 0 2px 16px rgba(0,0,0,0.05);
-    transition: box-shadow 0.2s, transform 0.2s;
-  }
-  .sub-card:hover {
-    box-shadow: 0 8px 32px rgba(13,148,136,0.12);
-    transform: translateY(-2px);
-  }
-  [data-theme="dark"] .sub-card {
-    background: var(--surface);
-    border-color: var(--border);
-    box-shadow: none;
-  }
-  [data-theme="dark"] .sub-card:hover {
-    box-shadow: 0 8px 24px rgba(13,148,136,0.1);
-  }
+  /* ── Tabla comparativa ─────────────────────────────────────────────────── */
+  #comparar { background: #fff; }
+  .row-pill { display: inline-block; font-weight: 700; font-size: 0.78rem; color: #fff; background: var(--cat); border-radius: 9999px; padding: 0.25rem 0.9rem; white-space: nowrap; }
+  .table-note { font-size: 0.78rem; color: var(--text-subtle); margin-top: 0.9rem; }
 
-  .sub-card-top {
-    display: flex;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
+  /* ── Fuentes oficiales ─────────────────────────────────────────────────── */
+  #oficial { background: var(--bg2); }
+  .official-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+  @media (max-width: 800px) { .official-grid { grid-template-columns: 1fr; } }
+  .official-card {
+    display: flex; align-items: center; gap: 1rem; background: #fff; border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem 1.4rem; text-decoration: none; box-shadow: var(--shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   }
-  .sub-icon {
-    width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
-    background: rgba(13,148,136,0.1);
-    border: 1px solid rgba(13,148,136,0.2);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .sub-meta { display: flex; flex-direction: column; gap: 0.25rem; padding-top: 0.125rem; }
-  .sub-card h3 { font-size: 1.075rem; font-weight: 700; margin: 0; line-height: 1.3; }
-  .sub-desc { color: var(--text-muted); font-size: 0.9rem; line-height: 1.8; margin-bottom: 1.25rem; }
-  .sub-checks { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-  .sub-checks li { font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 0.5rem; align-items: flex-start; line-height: 1.5; }
-  .sub-checks li .chk { color: var(--primary); flex-shrink: 0; font-weight: 700; margin-top: 0.05rem; }
-
-  /* ── CTA ────────────────────────────────────────────────────────────── */
-  #sub-cta {
-    background: #0f172a;
-    padding: 5rem 0;
-    text-align: center;
-  }
-  #sub-cta h2 { color: #ffffff; font-size: clamp(1.75rem, 4vw, 2.25rem); font-weight: 900; margin-bottom: 1rem; }
-  #sub-cta p  { color: #94a3b8; font-size: 1.0625rem; margin: 0 auto 2.25rem; max-width: 480px; line-height: 1.75; }
+  .official-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--border-strong); }
+  .official-ico { width: 46px; height: 46px; border-radius: 0.85rem; background: var(--blue-soft); color: var(--blue); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .official-card strong { display: block; color: var(--ink); font-size: 0.95rem; }
+  .official-card span { font-size: 0.8rem; color: var(--blue); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -81,109 +51,211 @@
 <main>
 
   <!-- ── HERO ──────────────────────────────────────────────────────────────── -->
-  <section id="sub-hero">
-    <div class="container" style="max-width:720px;margin:0 auto">
-      <div class="chip">Subsidios habitacionales</div>
-      <h1>
-        Conoce los <span style="color:var(--primary)">subsidios disponibles</span> en Chile
-      </h1>
-      <p class="section-lead" style="margin:0 auto">
-        DS19, DS49 y DS1 T2/T3: entendemos cada programa para que tú puedas tomar la mejor decisión para tu familia.
-      </p>
-    </div>
-  </section>
-
-  <!-- ── CARDS ─────────────────────────────────────────────────────────────── -->
-  <section id="sub-cards">
+  <section id="hero" aria-labelledby="sub-title">
     <div class="container">
-      <div class="sub-grid">
+      <div class="hero-grid">
 
-        <!-- DS19 -->
-        <div class="sub-card reveal">
-          <div class="sub-card-top">
-            <div class="sub-icon">
-              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="var(--primary)" stroke-width="2">
-                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
-              </svg>
-            </div>
-            <div class="sub-meta">
-              <span class="badge badge-teal">Alta prioridad</span>
-              <h3>DS19 — Integración Social</h3>
-            </div>
-          </div>
-          <p class="sub-desc">
-            El programa de integración social y territorial del MINVU. Permite a familias de los primeros 5 tramos del RSH acceder a viviendas nuevas con hasta <strong style="color:var(--primary)">650 UF</strong> de subsidio.
+        <div>
+          <span class="chip">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Vivienda
+          </span>
+          <h1 id="sub-title" class="hero-title">Subsidios de <span class="hl-red">Vivienda</span> en Chile</h1>
+          <p class="hero-desc">
+            DS19, DS49 y DS1 T2/T3: entendemos cada programa para que tú puedas tomar la mejor decisión para tu familia.
           </p>
-          <ul class="sub-checks">
-            <li><span class="chk">✓</span>Tramos 1–5 del RSH</li>
-            <li><span class="chk">✓</span>Ahorro mínimo 30 UF o 1 año de cuenta</li>
-            <li><span class="chk">✓</span>Sin vivienda propia ni en proceso de compra</li>
-            <li><span class="chk">✓</span>Mayor de 18 años</li>
-          </ul>
+          <div class="hero-actions">
+            <a href="/#registro" class="btn btn-primary">
+              Quiero saber si califico
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </a>
+            <a href="#comparar" class="btn btn-outline">Ver requisitos generales</a>
+          </div>
+          <div class="hero-trust">
+            <span><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M8 12.5l3 3 5-6"/></svg> Es gratis, rápido y seguro</span>
+            <span><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M8 12.5l3 3 5-6"/></svg> 100% online</span>
+          </div>
         </div>
 
-        <!-- DS1 T2/T3 -->
-        <div class="sub-card reveal">
-          <div class="sub-card-top">
-            <div class="sub-icon">
-              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="var(--primary)" stroke-width="2">
-                <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/>
-              </svg>
+        <div class="photo-frame hero-photo">
+          <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/Subsidios.cl/home_quesubsidio.jpg"
+               alt="Familia caminando al atardecer con las montañas de fondo" width="1920" height="1072" fetchpriority="high" />
+          <div class="photo-note">El sueño de tu casa propia también es posible</div>
+          <div class="float-card">
+            <div class="float-ico">
+              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
             </div>
-            <div class="sub-meta">
-              <span class="badge" style="background:rgba(59,130,246,0.12);color:#3b82f6">Clase media</span>
-              <h3>DS1 T2/T3 — Clase Media</h3>
-            </div>
+            <div><strong>Más familias</strong>accediendo a una mejor calidad de vida</div>
           </div>
-          <p class="sub-desc">
-            Para familias de clase media con subsidio ya adjudicado. El Tramo 2 (1–2 personas) otorga <strong style="color:var(--primary)">hasta 200 UF</strong> y el Tramo 3 (3 o más personas) <strong style="color:var(--primary)">hasta 350 UF</strong>, aplicables directamente al precio del proyecto.
-          </p>
-          <ul class="sub-checks">
-            <li><span class="chk">✓</span>Subsidio ya adjudicado por el MINVU</li>
-            <li><span class="chk">✓</span>Proyecto debe estar habilitado DS1</li>
-            <li><span class="chk">✓</span>Reduce el crédito hipotecario necesario</li>
-            <li><span class="chk">✓</span>Ingresos verificables</li>
-          </ul>
-        </div>
-
-        <!-- DS49 -->
-        <div class="sub-card reveal">
-          <div class="sub-card-top">
-            <div class="sub-icon">
-              <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="var(--primary)" stroke-width="2">
-                <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
-              </svg>
-            </div>
-            <div class="sub-meta">
-              <span class="badge" style="background:rgba(148,163,184,0.15);color:#64748b">En revisión</span>
-              <h3>DS49 — Sectores Medios</h3>
-            </div>
-          </div>
-          <p class="sub-desc">
-            El Programa de Subsidio Habitacional para Sectores Medios del DS49 está orientado a familias sin vivienda con capacidad de ahorro y endeudamiento. Otorga subsidios de hasta <strong style="color:var(--primary)">500 UF</strong> según la zona del país.
-          </p>
-          <ul class="sub-checks">
-            <li><span class="chk">✓</span>Tramos 5–9 del RSH</li>
-            <li><span class="chk">✓</span>Ahorro mínimo según zona</li>
-            <li><span class="chk">✓</span>Requiere capacidad de endeudamiento</li>
-            <li><span class="chk">✓</span>Disponible en todo Chile</li>
-          </ul>
         </div>
 
       </div>
     </div>
   </section>
 
-  <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
-  <section id="sub-cta">
+  <!-- ── EXPLORA LOS SUBSIDIOS ─────────────────────────────────────────────── -->
+  <section id="sub-cards" class="section" aria-labelledby="explora-title">
     <div class="container">
-      <div class="reveal" style="max-width:520px;margin:0 auto">
-        <h2>¿Cuál subsidio te corresponde?</h2>
-        <p>Escríbenos por WhatsApp y evaluamos tu situación sin costo ni compromiso.</p>
-        <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
-          <a href="/viviendas" class="btn btn-primary" style="font-size:1rem;padding:0.9rem 2rem">Ver proyectos disponibles</a>
-          <a href="/como-funciona" class="btn btn-ghost" style="font-size:1rem;padding:0.9rem 2rem">¿Cómo funciona?</a>
+      <div class="reveal" style="text-align:center;max-width:680px;margin:0 auto 3rem">
+        <h2 id="explora-title" class="section-h">Explora los subsidios de vivienda</h2>
+        <p class="section-lead" style="margin:0 auto">Revisa los requisitos clave de cada alternativa, con énfasis en monto y condiciones.</p>
+      </div>
+
+      <div class="sub-detail-grid">
+
+        <!-- DS19 -->
+        <article class="sub-detail cat-red reveal">
+          <div class="cat-icon">
+            <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+          <span class="cat-pill">DS19</span>
+          <h3>Integración Social</h3>
+          <span class="sub-tag">Alta prioridad</span>
+          <p class="sub-desc">
+            El programa de integración social y territorial del MINVU. Permite a familias de los primeros 5 tramos del RSH acceder a viviendas nuevas con hasta <strong>650 UF</strong> de subsidio.
+          </p>
+          <ul class="check-list">
+            <li>Tramos 1–5 del RSH</li>
+            <li>Ahorro mínimo 30 UF o 1 año de cuenta</li>
+            <li>Sin vivienda propia ni en proceso de compra</li>
+            <li>Mayor de 18 años</li>
+          </ul>
+          <a href="/#registro" class="sub-link">Evaluar mi caso
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </a>
+        </article>
+
+        <!-- DS1 T2/T3 -->
+        <article class="sub-detail cat-blue reveal">
+          <div class="cat-icon">
+            <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 10-16 0"/></svg>
+          </div>
+          <span class="cat-pill">DS1 T2/T3</span>
+          <h3>Clase Media</h3>
+          <span class="sub-tag">Subsidio adjudicado</span>
+          <p class="sub-desc">
+            Para familias de clase media con subsidio ya adjudicado. El Tramo 2 (1–2 personas) otorga <strong>hasta 200 UF</strong> y el Tramo 3 (3 o más personas) <strong>hasta 350 UF</strong>, aplicables directamente al precio del proyecto.
+          </p>
+          <ul class="check-list">
+            <li>Subsidio ya adjudicado por el MINVU</li>
+            <li>Proyecto debe estar habilitado DS1</li>
+            <li>Reduce el crédito hipotecario necesario</li>
+            <li>Ingresos verificables</li>
+          </ul>
+          <a href="/#registro" class="sub-link">Evaluar mi caso
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </a>
+        </article>
+
+        <!-- DS49 -->
+        <article class="sub-detail cat-purple reveal">
+          <div class="cat-icon">
+            <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+          </div>
+          <span class="cat-pill">DS49</span>
+          <h3>Sectores Medios</h3>
+          <span class="sub-tag">En revisión</span>
+          <p class="sub-desc">
+            El Programa de Subsidio Habitacional para Sectores Medios del DS49 está orientado a familias sin vivienda con capacidad de ahorro y endeudamiento. Otorga subsidios de hasta <strong>500 UF</strong> según la zona del país.
+          </p>
+          <ul class="check-list">
+            <li>Tramos 5–9 del RSH</li>
+            <li>Ahorro mínimo según zona</li>
+            <li>Requiere capacidad de endeudamiento</li>
+            <li>Disponible en todo Chile</li>
+          </ul>
+          <a href="/#registro" class="sub-link">Evaluar mi caso
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+          </a>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMPARA ───────────────────────────────────────────────────────────── -->
+  <section id="comparar" class="section" aria-labelledby="comparar-title">
+    <div class="container">
+      <div class="reveal" style="margin-bottom:1.75rem">
+        <h2 id="comparar-title" class="section-h">Compara requisitos clave de un vistazo</h2>
+      </div>
+      <div class="table-wrap reveal">
+        <table class="table-compare">
+          <thead>
+            <tr>
+              <th>Subsidio</th>
+              <th>Para quién</th>
+              <th>Monto del subsidio</th>
+              <th>Ahorro mínimo</th>
+              <th>Condición clave</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="cat-red">
+              <td><span class="row-pill">DS19</span></td>
+              <td>Tramos 1–5 del RSH</td>
+              <td>Hasta 650 UF</td>
+              <td>30 UF o 1 año de cuenta</td>
+              <td>Sin vivienda propia ni en proceso de compra</td>
+            </tr>
+            <tr class="cat-blue">
+              <td><span class="row-pill">DS1 T2/T3</span></td>
+              <td>Clase media con subsidio adjudicado</td>
+              <td>T2 hasta 200 UF · T3 hasta 350 UF</td>
+              <td>—</td>
+              <td>Proyecto habilitado DS1 e ingresos verificables</td>
+            </tr>
+            <tr class="cat-purple">
+              <td><span class="row-pill">DS49</span></td>
+              <td>Tramos 5–9 del RSH</td>
+              <td>Hasta 500 UF según zona</td>
+              <td>Según zona</td>
+              <td>Capacidad de endeudamiento</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">Los montos y condiciones pueden variar según zona, proyecto y llamado vigente. Revisa siempre la información oficial.</p>
+    </div>
+  </section>
+
+  <!-- ── FUENTES OFICIALES ─────────────────────────────────────────────────── -->
+  <section id="oficial" class="section-sm" aria-labelledby="oficial-title">
+    <div class="container">
+      <div class="reveal" style="margin-bottom:1.75rem">
+        <h2 id="oficial-title" class="section-h" style="font-size:clamp(1.4rem,3vw,1.75rem)">Información oficial y actualizada</h2>
+        <p class="section-lead">Accede directamente a las fuentes oficiales del Estado.</p>
+      </div>
+      <div class="official-grid">
+        <a class="official-card reveal" href="https://www.minvu.gob.cl" target="_blank" rel="noopener">
+          <div class="official-ico"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6"/></svg></div>
+          <div><strong>MINVU</strong><span>Ver sitio oficial ↗</span></div>
+        </a>
+        <a class="official-card reveal" href="https://registrosocial.gob.cl" target="_blank" rel="noopener">
+          <div class="official-ico"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 20h5v-2a3 3 0 00-5.4-1.8M17 20H7m10 0v-2c0-.7-.1-1.3-.4-1.8M7 20H2v-2a3 3 0 015.4-1.8M7 20v-2c0-.7.1-1.3.4-1.8m0 0a5 5 0 019.2 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+          <div><strong>Registro Social de Hogares</strong><span>Consulta tu tramo ↗</span></div>
+        </a>
+        <a class="official-card reveal" href="https://www.cmfchile.cl/portal/principal/613/w3-channel.html" target="_blank" rel="noopener">
+          <div class="official-ico"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg></div>
+          <div><strong>CMF — deudas</strong><span>Revisa tu situación ↗</span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CTA ────────────────────────────────────────────────────────────────── -->
+  <section id="sub-cta" class="section-sm" aria-labelledby="sub-cta-title">
+    <div class="container">
+      <div class="banner-cta reveal">
+        <div style="flex:1;min-width:260px;">
+          <h2 id="sub-cta-title" style="font-size:clamp(1.4rem,3vw,1.9rem);font-weight:800;line-height:1.2;margin-bottom:0.35rem;">¿Cuál subsidio te corresponde?</h2>
+          <p style="font-size:1rem;">Escríbenos por WhatsApp y evaluamos tu situación sin costo ni compromiso.</p>
         </div>
+        <a href="/#registro" class="btn btn-red" style="padding:0.9rem 2rem;">Descubre si calificas</a>
+      </div>
+      <div style="display:flex;gap:0.9rem;justify-content:center;flex-wrap:wrap;margin-top:1.75rem">
+        <a href="/viviendas" class="btn btn-primary">Ver proyectos disponibles</a>
+        <a href="/como-funciona" class="btn btn-outline">¿Cómo funciona?</a>
       </div>
     </div>
   </section>
