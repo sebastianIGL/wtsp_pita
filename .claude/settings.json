@@ -27,7 +27,27 @@
       "Bash(grep -n \"'/api/clientes'\\\\|\\\\\"/api/clientes\\\\\"\\\\|GET', \\\\`/api/clientes\\\\|api\\('GET', \\\\`/api/clientes\" /Users/sglincovil/wtsp_pita/frontend/index.html)",
       "Bash(python3 -)",
       "Bash(node --check /tmp/panel_script_check.js)",
-      "Bash(node --check /tmp/panel_script_check2.js)"
+      "Bash(node --check /tmp/panel_script_check2.js)",
+      "Bash(python3 -c \"import PIL; print\\('PIL', PIL.__version__\\)\")",
+      "Bash(python3 -c \"import playwright; print\\('playwright py ok'\\)\")",
+      "Read(//Users/sglincovil/Library/Caches/ms-playwright/**)",
+      "Read(//Applications/**)",
+      "Bash(mkdir -p /tmp/qs)",
+      "Bash(curl -s --max-time 30 -o /tmp/qs/hero_actual.jpg \"https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/Subsidios.cl/home_quesubsidio.jpg\")",
+      "Read(//tmp/qs/**)",
+      "Read(//private/tmp/claude-501/-Users-sglincovil-wtsp_pita/16c9d5b5-a807-4541-a48f-ed3b8d0c5a9a/images/**)",
+      "Bash(/tmp/qs/venv/bin/python -)",
+      "Bash(cp home.html /tmp/qs/home_old.html && grep -n \"paso-\\\\|\\\\.prog-\\\\|opt-btn\\\\|tipo-btn\" home.html | sed -n '1,200p' | grep -v \"^4[0-9][0-9]:\\\\|^5[0-9][0-9]:\\\\|^6[0-4][0-9]:\" | grep -v \"^[0-9]*:    \\\\.\" | head -30)",
+      "Bash(curl -s -o /tmp/qs/home_render.html -w \"%{http_code}\\\\n\" http://127.0.0.1:8765/)",
+      "Bash(/tmp/qs/shot.sh / /tmp/qs/new_home_top.png 1440 1500)",
+      "Bash(cat)",
+      "Bash(/tmp/qs/shot.sh / /tmp/qs/full_home.png 1440 7600)",
+      "Bash(/tmp/qs/venv/bin/python /tmp/qs/segs.py /tmp/qs/full_home.png /tmp/qs/home_seg 1100)",
+      "Bash(/tmp/qs/shot.sh / /tmp/qs/m_home.png 390 7600)",
+      "Bash(/tmp/qs/venv/bin/python /tmp/qs/segs.py /tmp/qs/m_home.png /tmp/qs/m_home_seg 1500)"
+    ],
+    "additionalDirectories": [
+      "/tmp/qs"
     ]
   }
 }
