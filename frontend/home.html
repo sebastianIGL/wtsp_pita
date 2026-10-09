@@ -174,11 +174,14 @@
       width: 100%; aspect-ratio: 16/9; border-radius: 1.25rem; overflow: hidden;
       display: flex; align-items: flex-end; padding: 1.75rem; position: relative; background-color: #0b2a6b;
     }
-    .carousel-card[style*="url("] { background-size: contain !important; background-position: center !important; background-repeat: no-repeat !important; }
+    .carousel-card[style*="url("] { background-size: contain !important; background-position: center !important; background-repeat: no-repeat !important; background-color: #0b2a6b !important; }
+    .carousel-card.carousel-card--foto[style*="url("] { background-size: cover !important; }
     .carousel-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,26,72,0.65) 0%, transparent 45%); z-index: 1; }
     .carousel-card-content { position: relative; z-index: 2; }
     .carousel-card-title { font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
     .carousel-card-sub { font-size: 0.875rem; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 0.5rem; }
+    .carousel-tag { display: inline-block; margin-bottom: 0.5rem; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: var(--red); border-radius: 9999px; padding: 0.2rem 0.7rem; }
+    .carousel-fotos { position: absolute; top: 1rem; right: 1rem; z-index: 2; font-size: 0.78rem; font-weight: 600; color: #fff; background: rgba(8,26,72,0.72); border-radius: 9999px; padding: 0.3rem 0.8rem; }
     .carousel-arrow {
       position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%;
       background: #fff; border: 1px solid var(--border); color: var(--ink); cursor: pointer; z-index: 3;
@@ -1213,6 +1216,8 @@
 
 {% include "partials/_footer.html" %}
 
+{% include "partials/_galeria.html" %}
+
 {% include "partials/_scripts_common.html" %}
 
 <script>
@@ -1271,7 +1276,7 @@
         if (Math.abs(diff) > 45) { goTo(current + (diff > 0 ? 1 : -1)); resetAuto(); }
       }, { passive: true });
 
-      function startAuto() { autoId = setInterval(() => goTo(current + 1), 2000); }
+      function startAuto() { autoId = setInterval(() => goTo(current + 1), 5000); }
       function resetAuto()  { clearInterval(autoId); startAuto(); }
       startAuto();
       carousel.addEventListener('mouseenter', () => clearInterval(autoId));
@@ -1285,20 +1290,38 @@
         const proyectos = (data.proyectos || []).filter(p => p.nombre);
         if (!proyectos.length) { initCarousel(); return; }
 
+        window._proyectosVitrina = proyectos;
+        const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        const uf  = v => 'UF ' + Number(v).toLocaleString('es-CL', { maximumFractionDigits: 0 });
         track.innerHTML = proyectos.map((p, i) => {
+          const imgs = p.imagenes || [];
           const bg = p.imagen
-            ? `url('${p.imagen}') center/cover no-repeat`
+            ? `url('${encodeURI(p.imagen).replace(/'/g,'%27')}') center/cover no-repeat`
             : GRADIENTS[i % GRADIENTS.length];
+          const semi = p.condicion === 'semi-nueva';
+          const specs = semi ? [
+            p.precio_uf ? uf(p.precio_uf) : null,
+            p.dormitorios != null ? `${p.dormitorios}D` + (p.banos != null ? `/${p.banos}B` : '') : null,
+            p.m2 ? `${Number(p.m2).toLocaleString('es-CL', { maximumFractionDigits: 0 })} m²` : null,
+          ].filter(Boolean).join(' · ') : '';
           return `
             <div class="carousel-slide" role="group" aria-label="Proyecto ${i+1} de ${proyectos.length}">
-              <div class="carousel-card" style="background:${bg};">
+              <div class="carousel-card${semi ? ' carousel-card--foto' : ''}" data-i="${i}" style="background:${bg};${imgs.length ? 'cursor:pointer;' : ''}">
                 <div class="carousel-card-content">
-                  <p class="carousel-card-title">${p.nombre}</p>
-                  ${p.ubicacion ? `<p class="carousel-card-sub">${p.ubicacion}</p>` : ''}
+                  ${semi ? '<span class="carousel-tag">Semi-nueva</span>' : ''}
+                  <p class="carousel-card-title">${esc(p.nombre)}</p>
+                  ${specs ? `<p class="carousel-card-sub">${esc(specs)}</p>` : (p.ubicacion ? `<p class="carousel-card-sub">${esc(p.ubicacion)}</p>` : '')}
                 </div>
+                ${imgs.length > 1 ? `<span class="carousel-fotos">${imgs.length} fotos</span>` : ''}
               </div>
             </div>`;
         }).join('');
+        track.onclick = e => {
+          const card = e.target.closest('.carousel-card[data-i]');
+          if (!card) return;
+          const p = (window._proyectosVitrina || [])[Number(card.dataset.i)];
+          if (p && (p.imagenes || []).length) QSGaleria.abrir(p.nombre, p.ubicacion, p.imagenes, 0);
+        };
       } catch (_) { /* en error, usar slide de loading ya en el DOM */ }
       initCarousel();
     }
