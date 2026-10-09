@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 import asyncio
 import os
 import json
+import random
 import re
 import httpx
 import csv
@@ -4360,14 +4361,49 @@ async def _revertir_proyecto_huerfano(proyecto_id: Any) -> None:
         logger.exception("No se pudo revertir completamente el proyecto huérfano %s", proyecto_id)
 
 
-def _primera_imagen_buydepa(images: Any) -> Optional[str]:
+_EXT_IMAGEN = re.compile(r"\.(jpe?g|png|webp|gif)(\?.*)?$", re.IGNORECASE)
+_SECCIONES_IMAGEN_BUYDEPA = ("legacy", "post-remodeling", "pre-remodeling", "inspection")
+
+
+def _imagenes_buydepa(images: Any) -> List[str]:
+    """Todas las fotos de un departamento, sin repetidas y en orden: legacy, remodelado, antes, inspección."""
     if isinstance(images, dict):
-        candidatas = images.get("legacy") or []
+        bloques = [images.get(k) for k in _SECCIONES_IMAGEN_BUYDEPA]
+        bloques += [v for k, v in images.items() if k not in _SECCIONES_IMAGEN_BUYDEPA]
     elif isinstance(images, list):
-        candidatas = images
+        bloques = [images]
     else:
-        candidatas = []
-    return next((c for c in candidatas if isinstance(c, str) and c), None)
+        return []
+    urls: List[str] = []
+    vistas: set = set()
+
+    def recorrer(x: Any) -> None:
+        if isinstance(x, str):
+            if x.startswith("http") and _EXT_IMAGEN.search(x) and x not in vistas:
+                vistas.add(x)
+                urls.append(x)
+        elif isinstance(x, list):
+            for e in x:
+                recorrer(e)
+        elif isinstance(x, dict):
+            for v in x.values():
+                recorrer(v)
+
+    for b in bloques:
+        recorrer(b)
+    return urls
+
+
+async def _sincronizar_imagenes_depa(existente: Dict[str, Any], imagenes: List[str]) -> bool:
+    if not imagenes:
+        return False
+    if existente.get("imagenes") == imagenes and existente.get("imagen_url") == imagenes[0]:
+        return False
+    await _supabase_request("PATCH", "/Proyecto",
+        params={"id": f"eq.{existente['id']}"},
+        json={"imagen_url": imagenes[0], "imagenes": imagenes},
+        extra_headers={"Prefer": "return=minimal"})
+    return True
 
 
 async def _actualizar_stock_proyecto(proyecto_id: Any, disponible: bool) -> None:
@@ -4421,7 +4457,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
     existentes = await _supabase_request("GET", "/Proyecto",
         params={"inmobiliaria_id": f"eq.{BUYDEPA_INMOBILIARIA_ID}",
                 "fuente_externo_id": "not.is.null",
-                "select": "id,nombre,codigo,fuente_externo_id,activo"}) or []
+                "select": "id,nombre,codigo,imagen_url,imagenes,fuente_externo_id,activo"}) or []
     existentes_por_id = {e["fuente_externo_id"]: e for e in existentes}
     uf_clp = await _obtener_valor_uf()
 
@@ -4458,6 +4494,8 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                         hubo_cambio = True
                     if await _normalizar_codigo_depa(existente, fuente_id):
                         hubo_cambio = True
+                    if await _sincronizar_imagenes_depa(existente, _imagenes_buydepa(item.get("images"))):
+                        hubo_cambio = True
                     if await _sincronizar_precio_depa(existente, item, uf_clp, fuente_id):
                         hubo_cambio = True
                     if await _registrar_oferta_depa(existente.get("nombre"), fuente_id, item):
@@ -4470,13 +4508,14 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                     direccion  = direccion_log or f"Depto buydepa {fuente_id}"
                     precio_uf  = _precio_a_uf(item.get("listPrice"), uf_clp)
                     ahorro_min = round(precio_uf * 0.10, 2) if precio_uf else None
-                    imagen_url = _primera_imagen_buydepa(item.get("images"))
+                    imagenes   = _imagenes_buydepa(item.get("images"))
                     codigo     = f"buydepa-{fuente_id}"
 
                     proyecto = await _supabase_request("POST", "/Proyecto", json={
                         "nombre": direccion, "codigo": codigo, "ubicacion": direccion,
                         "inmobiliaria_id": BUYDEPA_INMOBILIARIA_ID,
-                        "imagen_url": imagen_url,
+                        "imagen_url": imagenes[0] if imagenes else None,
+                        "imagenes": imagenes,
                         "ahorro_minimo_uf": ahorro_min,
                         "valor_reserva_clp": None, "valor_reserva_uf": None,
                         "tiene_piloto": True,
@@ -6323,31 +6362,54 @@ async def page_blog(request: Request):
     })
 
 @app.get("/api/proyectos-landing")
-async def api_proyectos_landing():
-    """Devuelve proyectos públicos para el carrusel de la landing (sin autenticación)."""
+async def api_proyectos_landing(limite: int = 12):
+    """Proyectos públicos para la vitrina (sin autenticación): activos, nuevos primero y luego
+    semi-nuevos (solo con fotos). Con límite menor al total, los semi-nuevos se muestrean al azar."""
+    limite = max(1, min(int(limite), 150))
     now = time.time()
-    if _cache_proyectos["data"] and now - _cache_proyectos["ts"] < _CACHE_TTL:
-        return _cache_proyectos["data"]
+    if not (_cache_proyectos["data"] and now - _cache_proyectos["ts"] < _CACHE_TTL):
+        rows = await _supabase_request("GET", "/Proyecto", params={
+            "select": "id,nombre,imagen_url,imagenes,ubicacion,activo,condicion_propiedad,"
+                      "Tipologia(valor_uf,dormitorios,banos,superficie_util_m2)",
+            "order": "nombre.asc",
+            "limit": "1000",
+        }) or []
+        nuevos: List[Dict[str, Any]] = []
+        semi: List[Dict[str, Any]] = []
+        for r in rows:
+            if not r.get("nombre") or r.get("activo") is False:
+                continue
+            condicion = r.get("condicion_propiedad") or "nueva"
+            imagenes = [u for u in (r.get("imagenes") or []) if isinstance(u, str)]
+            if r.get("imagen_url") and r["imagen_url"] not in imagenes:
+                imagenes.insert(0, r["imagen_url"])
+            item = {
+                "id":        r.get("id"),
+                "nombre":    r.get("nombre") or "Proyecto",
+                "imagen":    imagenes[0] if imagenes else None,
+                "imagenes":  imagenes,
+                "ubicacion": r.get("ubicacion") or "",
+                "condicion": condicion,
+            }
+            if condicion == "nueva":
+                nuevos.append(item)
+            elif imagenes:
+                tip = (r.get("Tipologia") or [None])[0] or {}
+                item.update({
+                    "precio_uf":   tip.get("valor_uf"),
+                    "dormitorios": tip.get("dormitorios"),
+                    "banos":       tip.get("banos"),
+                    "m2":          tip.get("superficie_util_m2"),
+                })
+                semi.append(item)
+        _cache_proyectos["data"] = {"nuevos": nuevos, "semi": semi}
+        _cache_proyectos["ts"] = now
 
-    rows = await _supabase_request("GET", "/Proyecto", params={
-        "select": "id,nombre,imagen_url,ubicacion",
-        "order": "nombre.asc",
-        "limit": "12",
-    }) or []
-    proyectos = [
-        {
-            "id":      r.get("id"),
-            "nombre":  r.get("nombre") or "Proyecto",
-            "imagen":  r.get("imagen_url") or None,
-            "ubicacion": r.get("ubicacion") or "",
-        }
-        for r in rows
-        if r.get("nombre")
-    ]
-    result = {"proyectos": proyectos}
-    _cache_proyectos["data"] = result
-    _cache_proyectos["ts"]   = now
-    return result
+    nuevos = _cache_proyectos["data"]["nuevos"]
+    semi = _cache_proyectos["data"]["semi"]
+    cupo = max(0, limite - len(nuevos))
+    elegidos_semi = semi if cupo >= len(semi) else random.sample(semi, cupo)
+    return {"proyectos": (nuevos + elegidos_semi)[:limite], "total": len(nuevos) + len(semi)}
 
 @app.post("/api/contacto")
 async def api_contacto(request: Request):
