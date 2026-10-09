@@ -4362,36 +4362,36 @@ async def _revertir_proyecto_huerfano(proyecto_id: Any) -> None:
 
 
 _EXT_IMAGEN = re.compile(r"\.(jpe?g|png|webp|gif)(\?.*)?$", re.IGNORECASE)
-_SECCIONES_IMAGEN_BUYDEPA = ("legacy", "post-remodeling", "pre-remodeling", "inspection")
+
+
+def _urls_imagen(x: Any) -> List[str]:
+    """URLs de imagen que hay dentro de x (lista/dict anidado), sin repetidas y en orden."""
+    urls: List[str] = []
+
+    def recorrer(v: Any) -> None:
+        if isinstance(v, str):
+            if v.startswith("http") and _EXT_IMAGEN.search(v) and v not in urls:
+                urls.append(v)
+        elif isinstance(v, list):
+            for e in v:
+                recorrer(e)
+        elif isinstance(v, dict):
+            for e in v.values():
+                recorrer(e)
+
+    recorrer(x)
+    return urls
 
 
 def _imagenes_buydepa(images: Any) -> List[str]:
-    """Todas las fotos de un departamento, sin repetidas y en orden: legacy, remodelado, antes, inspección."""
+    """Fotos a mostrar de un departamento: las de 'post-remodeling' (ya remodelado) y, si no
+    tiene, las fotos normales de la publicación ('legacy' o lista plana). Se descartan
+    'pre-remodeling' e 'inspection' porque son del estado anterior a la remodelación."""
+    if isinstance(images, list):
+        return _urls_imagen(images)
     if isinstance(images, dict):
-        bloques = [images.get(k) for k in _SECCIONES_IMAGEN_BUYDEPA]
-        bloques += [v for k, v in images.items() if k not in _SECCIONES_IMAGEN_BUYDEPA]
-    elif isinstance(images, list):
-        bloques = [images]
-    else:
-        return []
-    urls: List[str] = []
-    vistas: set = set()
-
-    def recorrer(x: Any) -> None:
-        if isinstance(x, str):
-            if x.startswith("http") and _EXT_IMAGEN.search(x) and x not in vistas:
-                vistas.add(x)
-                urls.append(x)
-        elif isinstance(x, list):
-            for e in x:
-                recorrer(e)
-        elif isinstance(x, dict):
-            for v in x.values():
-                recorrer(v)
-
-    for b in bloques:
-        recorrer(b)
-    return urls
+        return _urls_imagen(images.get("post-remodeling")) or _urls_imagen(images.get("legacy"))
+    return []
 
 
 async def _sincronizar_imagenes_depa(existente: Dict[str, Any], imagenes: List[str]) -> bool:
