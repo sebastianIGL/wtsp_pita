@@ -4260,10 +4260,12 @@ async def _registrar_oferta_depa(nombre: Optional[str], fuente_id: str, item: Di
 
 
 def _payload_tipologia_buydepa(proyecto_id: Any, nombre: str, item: Dict[str, Any],
-                               precio_uf: Optional[float]) -> Dict[str, Any]:
+                               precio_uf: Optional[float], disponible: bool) -> Dict[str, Any]:
     return {
         "proyecto_id": proyecto_id,
         "nombre": nombre,
+        # El default de la columna ('activa') viola tipologia_estado_check; los valores válidos son activo/agotado/inactivo
+        "estado": "activo" if disponible else "agotado",
         "dormitorios": item.get("bedrooms"),
         "banos": item.get("bathrooms"),
         "superficie_util_m2": item.get("totalArea"),
@@ -4305,7 +4307,7 @@ async def _completar_tipologia_depa(existente: Dict[str, Any], item: Dict[str, A
         etapa_id = etapa["id"]
     nombre = existente.get("nombre") or (item.get("address") or "").strip() or f"Depto buydepa {item.get('id')}"
     tip = await _supabase_request("POST", "/Tipologia",
-        json=_payload_tipologia_buydepa(existente["id"], nombre, item, _precio_a_uf(item.get("listPrice"), uf_clp)),
+        json=_payload_tipologia_buydepa(existente["id"], nombre, item, _precio_a_uf(item.get("listPrice"), uf_clp), disponible),
         extra_headers={"Prefer": "return=representation"})
     tip = tip[0] if isinstance(tip, list) and tip else tip
     if not tip or not tip.get("id"):
@@ -4498,7 +4500,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                             raise RuntimeError("No se pudo crear la etapa")
 
                         tipologia = await _supabase_request("POST", "/Tipologia",
-                            json=_payload_tipologia_buydepa(proyecto["id"], direccion, item, precio_uf),
+                            json=_payload_tipologia_buydepa(proyecto["id"], direccion, item, precio_uf, disponible),
                             extra_headers={"Prefer": "return=representation"})
                         tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
                         if not tipologia or not tipologia.get("id"):
