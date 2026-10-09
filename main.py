@@ -4259,6 +4259,67 @@ async def _registrar_oferta_depa(nombre: Optional[str], fuente_id: str, item: Di
         return False
 
 
+def _payload_tipologia_buydepa(proyecto_id: Any, nombre: str, item: Dict[str, Any],
+                               precio_uf: Optional[float]) -> Dict[str, Any]:
+    return {
+        "proyecto_id": proyecto_id,
+        "nombre": nombre,
+        "dormitorios": item.get("bedrooms"),
+        "banos": item.get("bathrooms"),
+        "superficie_util_m2": item.get("totalArea"),
+        "valor_uf": precio_uf,
+        "estacionamientos": item.get("parkings"),
+        "bodegas": item.get("storages"),
+    }
+
+
+async def _normalizar_codigo_depa(existente: Dict[str, Any], fuente_id: str) -> bool:
+    """Proyectos creados con el código viejo (dirección+precio) pasan a buydepa-<id>."""
+    codigo = f"buydepa-{fuente_id}"
+    if existente.get("codigo") == codigo:
+        return False
+    await _supabase_request("PATCH", "/Proyecto",
+        params={"id": f"eq.{existente['id']}"}, json={"codigo": codigo},
+        extra_headers={"Prefer": "return=minimal"})
+    return True
+
+
+async def _completar_tipologia_depa(existente: Dict[str, Any], item: Dict[str, Any],
+                                    uf_clp: float, disponible: bool) -> bool:
+    """Si un proyecto de buydepa quedó sin tipología (corridas fallidas anteriores), la crea."""
+    tips = await _supabase_request("GET", "/Tipologia",
+        params={"proyecto_id": f"eq.{existente['id']}", "select": "id", "limit": "1"}) or []
+    if tips:
+        return False
+    etapas = await _supabase_request("GET", "/Etapa",
+        params={"proyecto_id": f"eq.{existente['id']}", "select": "id", "order": "id.asc", "limit": "1"}) or []
+    if etapas:
+        etapa_id = etapas[0]["id"]
+    else:
+        etapa = await _supabase_request("POST", "/Etapa", json={
+            "proyecto_id": existente["id"], "nombre": "Entrega inmediata", "estado": "entrega_inmediata",
+        }, extra_headers={"Prefer": "return=representation"})
+        etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
+        if not etapa or not etapa.get("id"):
+            raise RuntimeError("No se pudo crear la etapa")
+        etapa_id = etapa["id"]
+    nombre = existente.get("nombre") or (item.get("address") or "").strip() or f"Depto buydepa {item.get('id')}"
+    tip = await _supabase_request("POST", "/Tipologia",
+        json=_payload_tipologia_buydepa(existente["id"], nombre, item, _precio_a_uf(item.get("listPrice"), uf_clp)),
+        extra_headers={"Prefer": "return=representation"})
+    tip = tip[0] if isinstance(tip, list) and tip else tip
+    if not tip or not tip.get("id"):
+        raise RuntimeError("No se pudo crear la tipología")
+    try:
+        await _supabase_request("POST", "/EtapaTipologia", json={
+            "etapa_id": etapa_id, "tipologia_id": tip["id"], "stock": 1 if disponible else 0,
+        }, extra_headers={"Prefer": "return=minimal"})
+    except Exception:
+        await _supabase_request("DELETE", "/Tipologia", params={"id": f"eq.{tip['id']}"})
+        raise
+    return True
+
+
 async def _sincronizar_precio_depa(existente: Dict[str, Any], item: Dict[str, Any],
                                    uf_clp: float, fuente_id: str) -> bool:
     precio_uf = _precio_a_uf(item.get("listPrice"), uf_clp)
@@ -4358,7 +4419,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
     existentes = await _supabase_request("GET", "/Proyecto",
         params={"inmobiliaria_id": f"eq.{BUYDEPA_INMOBILIARIA_ID}",
                 "fuente_externo_id": "not.is.null",
-                "select": "id,nombre,fuente_externo_id,activo"}) or []
+                "select": "id,nombre,codigo,fuente_externo_id,activo"}) or []
     existentes_por_id = {e["fuente_externo_id"]: e for e in existentes}
     uf_clp = await _obtener_valor_uf()
 
@@ -4391,6 +4452,10 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                         hubo_cambio = True
                         if not disponible:
                             desactivados += 1
+                    if await _completar_tipologia_depa(existente, item, uf_clp, disponible):
+                        hubo_cambio = True
+                    if await _normalizar_codigo_depa(existente, fuente_id):
+                        hubo_cambio = True
                     if await _sincronizar_precio_depa(existente, item, uf_clp, fuente_id):
                         hubo_cambio = True
                     if await _registrar_oferta_depa(existente.get("nombre"), fuente_id, item):
@@ -4432,16 +4497,9 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                         if not etapa or not etapa.get("id"):
                             raise RuntimeError("No se pudo crear la etapa")
 
-                        tipologia = await _supabase_request("POST", "/Tipologia", json={
-                            "proyecto_id": proyecto["id"],
-                            "nombre": direccion,
-                            "dormitorios": item.get("bedrooms"),
-                            "banos": item.get("bathrooms"),
-                            "superficie_util_m2": item.get("totalArea"),
-                            "valor_uf": precio_uf,
-                            "estacionamientos": item.get("parkings"),
-                            "bodegas": item.get("storages"),
-                        }, extra_headers={"Prefer": "return=representation"})
+                        tipologia = await _supabase_request("POST", "/Tipologia",
+                            json=_payload_tipologia_buydepa(proyecto["id"], direccion, item, precio_uf),
+                            extra_headers={"Prefer": "return=representation"})
                         tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
                         if not tipologia or not tipologia.get("id"):
                             raise RuntimeError("No se pudo crear la tipología")
