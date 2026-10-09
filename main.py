@@ -4224,6 +4224,41 @@ async def _registrar_cambio_depa(nombre: Optional[str], fuente_id: str, campo: s
         logger.exception("No se pudo registrar el cambio de %s en log_depas", fuente_id)
 
 
+async def _registrar_oferta_depa(nombre: Optional[str], fuente_id: str, item: Dict[str, Any]) -> bool:
+    """Registra en log_depas los cambios de descuento y etiquetas de oferta de buydepa.
+
+    listPrice ya viene con el descuento aplicado (verificado contra avg_uf_m2_price), por lo
+    que el precio se guarda tal cual y aquí solo se deja trazabilidad de la oferta.
+    """
+    try:
+        pct = item.get("relativeDiscountPercentage")
+        tags = sorted(t for t in (item.get("tags") or []) if isinstance(t, str))
+        actual = {
+            "descuento_pct": None if pct is None else str(pct),
+            "ofertas": ", ".join(tags) or None,
+        }
+        filas = await _supabase_request("GET", "/log_depas", params={
+            "fuente_externo_id": f"eq.{fuente_id}",
+            "campo": "in.(descuento_pct,ofertas)",
+            "select": "campo,valor_nuevo",
+            "order": "detectado_en.desc",
+            "limit": "20",
+        }) or []
+        ultimo: Dict[str, Any] = {}
+        for f in filas:
+            ultimo.setdefault(f["campo"], f.get("valor_nuevo"))
+        hubo_cambio = False
+        for campo, nuevo in actual.items():
+            anterior = ultimo.get(campo)
+            if anterior != nuevo:
+                await _registrar_cambio_depa(nombre, fuente_id, campo, anterior, nuevo)
+                hubo_cambio = True
+        return hubo_cambio
+    except Exception:
+        logger.exception("No se pudo registrar la oferta de %s en log_depas", fuente_id)
+        return False
+
+
 async def _sincronizar_precio_depa(existente: Dict[str, Any], item: Dict[str, Any],
                                    uf_clp: float, fuente_id: str) -> bool:
     precio_uf = _precio_a_uf(item.get("listPrice"), uf_clp)
@@ -4358,6 +4393,8 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                             desactivados += 1
                     if await _sincronizar_precio_depa(existente, item, uf_clp, fuente_id):
                         hubo_cambio = True
+                    if await _registrar_oferta_depa(existente.get("nombre"), fuente_id, item):
+                        hubo_cambio = True
                     if hubo_cambio:
                         actualizados += 1
                         accion = "actualizado"
@@ -4420,6 +4457,7 @@ async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
                         await _revertir_proyecto_huerfano(proyecto["id"])
                         raise
 
+                    await _registrar_oferta_depa(direccion, fuente_id, item)
                     creados += 1
                     accion = "creado"
             except Exception as ex:
