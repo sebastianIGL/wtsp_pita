@@ -44,7 +44,10 @@
       "Bash(/tmp/qs/shot.sh / /tmp/qs/full_home.png 1440 7600)",
       "Bash(/tmp/qs/venv/bin/python /tmp/qs/segs.py /tmp/qs/full_home.png /tmp/qs/home_seg 1100)",
       "Bash(/tmp/qs/shot.sh / /tmp/qs/m_home.png 390 7600)",
-      "Bash(/tmp/qs/venv/bin/python /tmp/qs/segs.py /tmp/qs/m_home.png /tmp/qs/m_home_seg 1500)"
+      "Bash(/tmp/qs/venv/bin/python /tmp/qs/segs.py /tmp/qs/m_home.png /tmp/qs/m_home_seg 1500)",
+      "Bash(pkill -f \"bnt25wc60\")",
+      "Bash(grep -n -E \"^# \\(─|═|-\\){3,}|^# [─═-]+ [A-Za-zÁÉÍÓÚáéíóú]\" main.py)",
+      "Bash(git fetch *)"
     ],
     "additionalDirectories": [
       "/tmp/qs"
