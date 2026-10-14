@@ -2864,35 +2864,6 @@ async def send_whatsapp_template(
 
 
 # ---------------------------------------------------------------------------
-# Endpoint de prueba
-# ---------------------------------------------------------------------------
-
-@app.post("/test/hello-world")
-async def test_hello_world(request: Request):
-    try:
-        body = await request.json()
-        phone = _normalize_phone(
-            body.get("telefono") or body.get("telefono_e164") or body.get("phone") or ""
-        )
-        if not phone:
-            return Response(content="Falta telefono", status_code=400)
-        wa_resp = await send_whatsapp_template(
-            to=phone,
-            template_name="hello_world",
-            language_code="en_US",
-            body_text_params=[],
-        )
-        return {"ok": True, "wa": wa_resp}
-    except Exception as e:
-        logger.exception("Error en /test/hello-world")
-        return Response(
-            content=_safe_httpx_error(e) or "Internal Server Error",
-            status_code=500,
-            media_type="text/plain",
-        )
-
-
-# ---------------------------------------------------------------------------
 # Auth JWT (Supabase)
 # ---------------------------------------------------------------------------
 
