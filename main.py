@@ -48,7 +48,16 @@ async def _lifespan(app: FastAPI):
     asyncio.create_task(_recovery_loop())
     yield
 
-app = FastAPI(lifespan=_lifespan)
+# Documentación automática (/docs, /redoc, /openapi.json): cerrada por defecto porque
+# publica el mapa completo de la API. En desarrollo se activa con ENABLE_DOCS=true.
+_docs_enabled = os.getenv("ENABLE_DOCS", "").strip().lower() in ("1", "true", "yes", "on")
+
+app = FastAPI(
+    lifespan=_lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 templates = Jinja2Templates(directory="frontend")
 
 # ── Security headers ──────────────────────────────────────────────────────────
