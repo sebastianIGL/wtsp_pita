@@ -36,6 +36,7 @@ try:
 except Exception:
     pass
 
+from app.core.config import get_settings, registrar_configuracion
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -45,12 +46,13 @@ from starlette.middleware.gzip import GZipMiddleware
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    registrar_configuracion(logger)   # falla solo si falta lo obligatorio; registra nombres, nunca valores
     asyncio.create_task(_recovery_loop())
     yield
 
 # Documentación automática (/docs, /redoc, /openapi.json): cerrada por defecto porque
 # publica el mapa completo de la API. En desarrollo se activa con ENABLE_DOCS=true.
-_docs_enabled = os.getenv("ENABLE_DOCS", "").strip().lower() in ("1", "true", "yes", "on")
+_docs_enabled = get_settings().enable_docs
 
 app = FastAPI(
     lifespan=_lifespan,
@@ -77,7 +79,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
 app.add_middleware(_SecurityHeadersMiddleware)
 
 _cors_origins = ["http://localhost:8000", "http://127.0.0.1:8000"]
-_site_url = os.getenv("SITE_URL", "")
+_site_url = get_settings().site_url or ""
 if _site_url:
     _cors_origins.append(_site_url.rstrip("/"))
     # Agrega variante con/sin www
@@ -141,7 +143,7 @@ def _gmail_get_token_sync(impersonate_email: str) -> str:
     """Obtiene access token de Gmail API via Service Account. Síncrono — usar en executor."""
     from google.oauth2 import service_account
     from google.auth.transport.requests import Request
-    sa_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "{}"))
+    sa_info = json.loads(get_settings().google_service_account_json or "{}")
     if not sa_info:
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON no configurada")
     creds = service_account.Credentials.from_service_account_info(
@@ -203,7 +205,7 @@ async def _gmail_send(
 
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
-    logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+    logging.basicConfig(level=get_settings().log_level)
 
 # Debounce: una tarea pendiente por número — la nueva cancela la anterior
 _pending_tasks: Dict[str, asyncio.Task] = {}
@@ -312,14 +314,6 @@ def _safe_httpx_error(e: Exception) -> str:
     return str(e)
 
 
-def _get_env(*names: str, default: Optional[str] = None) -> Optional[str]:
-    for name in names:
-        value = os.getenv(name)
-        if value:
-            return value
-    return default
-
-
 def _normalize_phone(phone: str) -> str:
     digits = "".join(ch for ch in (phone or "").strip() if ch.isdigit())
     # Celular chileno sin código de país (9 dígitos, empieza con 9) — anteponer 56
@@ -337,12 +331,12 @@ def _utc_now_iso() -> str:
 # Variables de entorno
 # ---------------------------------------------------------------------------
 
-TOKEN_VERIFICACION = _get_env("WA_VERIFY_TOKEN", "WHATSAPP_VERIFY_TOKEN")
-TOKEN_ACCESO       = _get_env("WA_ACCESS_TOKEN", "WHATSAPP_ACCESS_TOKEN")
-ID_NUMERO_TELEFONO = _get_env("WA_PHONE_NUMBER_ID", "WHATSAPP_PHONE_NUMBER_ID")
-VERSION_GRAPH      = _get_env("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION", default="v22.0")
-WA_WABA_ID         = _get_env("WA_WABA_ID", "WHATSAPP_WABA_ID")
-ANTHROPIC_API_KEY  = _get_env("ANTHROPIC_API_KEY")
+TOKEN_VERIFICACION = get_settings().wa_verify_token
+TOKEN_ACCESO       = get_settings().wa_access_token
+ID_NUMERO_TELEFONO = get_settings().wa_phone_number_id
+VERSION_GRAPH      = get_settings().wa_graph_version
+WA_WABA_ID         = get_settings().wa_waba_id
+ANTHROPIC_API_KEY  = get_settings().anthropic_api_key
 
 # ---------------------------------------------------------------------------
 # Documentos requeridos y sus cantidades mínimas
@@ -1524,15 +1518,15 @@ datos_extraidos:
 # ---------------------------------------------------------------------------
 
 def _supabase_url() -> Optional[str]:
-    return _get_env("SUPABASE_URL", "SUPABASE_PROJECT_URL", "SUPABASE_REST_URL")
+    return get_settings().supabase_url
 
 
 def _supabase_service_role_key() -> Optional[str]:
-    return _get_env("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SERVICE_KEY", "SUPABASE_SERVICE_ROLE")
+    return get_settings().supabase_service_role_key
 
 
 def _ingest_api_key() -> Optional[str]:
-    return _get_env("INGEST_API_KEY")
+    return get_settings().ingest_api_key
 
 
 def _supabase_rest_base() -> str:
@@ -2318,7 +2312,7 @@ async def verify_webhook(request: Request):
 
 
 # Segundos de espera antes de que el bot responda (para sensación más humana)
-DELAY_RESPUESTA_SEGUNDOS = int(os.getenv("BOT_REPLY_DELAY", "30"))
+DELAY_RESPUESTA_SEGUNDOS = get_settings().bot_reply_delay
 
 
 async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
@@ -2922,7 +2916,7 @@ async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
         r = await client.post(
             f"{supa_url}/auth/v1/invite",
             headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
-            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{os.getenv('SITE_URL', 'http://localhost:8000')}/reset-password"},
+            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{get_settings().site_url_o_local}/reset-password"},
         )
         r.raise_for_status()
         return r.json()["id"]
@@ -5385,7 +5379,7 @@ async def _enviar_email_evaluacion(
     ejecutivos_emails: list | None = None,
     nota: str | None = None,
 ) -> dict:
-    if not os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"):
+    if not get_settings().google_service_account_json:
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON no configurada")
 
     clientes = await _supabase_request("GET", "/Cliente",
@@ -5590,7 +5584,7 @@ async def _enviar_email_evaluacion(
     </div>
     """
 
-    alias = (usuario or {}).get("email_alias") or (usuario or {}).get("correo") or os.getenv("EMAIL_ADMIN", "")
+    alias = (usuario or {}).get("email_alias") or (usuario or {}).get("correo") or (get_settings().email_admin or "")
     nombre_usuario = (usuario or {}).get("nombre") or "QueSubsidio"
     email_from = f"{nombre_usuario} <{alias}>" if "@" in alias and "<" not in alias else alias
 
@@ -5742,7 +5736,7 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
         for t, n in conteo.items()
     ]
 
-    alias = perfil.get("email_alias") or perfil.get("correo") or os.getenv("EMAIL_ADMIN", "")
+    alias = perfil.get("email_alias") or perfil.get("correo") or (get_settings().email_admin or "")
     rut = c.get("Rut") or "—"
     return {
         "remitente": alias,
@@ -5809,7 +5803,7 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
 
 # ── Recordatorio WA al ejecutivo ─────────────────────────────────────────────
 
-TEMPLATE_RECORDATORIO_WA = _get_env("TEMPLATE_RECORDATORIO_WA", "TEMPLATE_RECORDATORIO_WA") or "recordatorio_cliente"
+TEMPLATE_RECORDATORIO_WA = get_settings().template_recordatorio_wa
 
 @app.post("/api/clientes/{cliente_id}/recordatorio-wa")
 async def api_recordatorio_wa(cliente_id: int, request: Request):
@@ -5846,7 +5840,7 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
 # ── Movendo / Zonapropia Integration ─────────────────────────────────────────
 
 def _movendo_webhook_key() -> Optional[str]:
-    return _get_env("MOVENDO_WEBHOOK_KEY")
+    return get_settings().movendo_webhook_key
 
 def _verificar_movendo_auth(request: Request) -> bool:
     key = _movendo_webhook_key()
@@ -6087,7 +6081,7 @@ async def api_movendo_actualizar_contacto(request: Request):
 
 async def _get_default_user() -> Optional[Dict]:
     """Devuelve el usuario admin por defecto {id, correo, nombre}."""
-    env_id = _get_env("MOVENDO_DEFAULT_USER_ID")
+    env_id = get_settings().movendo_default_user_id
     params = {"select": "id,correo,nombre", "limit": "1"}
     if env_id:
         params["id"] = f"eq.{env_id}"
@@ -6221,7 +6215,7 @@ async def _notificar_interesado(prospecto_id: str) -> None:
             f"🏗️ {proyecto_nombre or 'Sin proyecto'}\n"
             f"✅ Confirmó interés y está reuniendo documentos."
         )
-        notify_phone = _get_env("ADMIN_NOTIFY_PHONE")
+        notify_phone = get_settings().admin_notify_phone
         if notify_phone:
             try:
                 await send_whatsapp_message(to=notify_phone, text=texto)
@@ -6239,7 +6233,7 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
         f"📱 {telefono}\n"
         f"🏗️ Proyecto: {proyecto_nombre}"
     )
-    notify_phone = _get_env("ADMIN_NOTIFY_PHONE")
+    notify_phone = get_settings().admin_notify_phone
     if notify_phone:
         try:
             await send_whatsapp_message(to=notify_phone, text=texto)
@@ -6262,7 +6256,7 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
               </table>
               <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
             </div>"""
-            email_from = os.getenv("EMAIL_ADMIN", "")
+            email_from = (get_settings().email_admin or "")
             if not email_from:
                 raise RuntimeError("EMAIL_ADMIN no configurada")
             await _gmail_send(
@@ -6284,10 +6278,10 @@ async def _movendo_get_token() -> str:
             "https://autentica-api.movendo.cl/oauth/token",
             json={
                 "grant_type":    "password",
-                "client_id":     _get_env("MOVENDO_CLIENT_ID")     or "7",
-                "client_secret": _get_env("MOVENDO_CLIENT_SECRET") or "",
-                "username":      _get_env("MOVENDO_USERNAME")       or "",
-                "password":      _get_env("MOVENDO_PASSWORD")       or "",
+                "client_id":     get_settings().movendo_client_id or "7",
+                "client_secret": get_settings().movendo_client_secret or "",
+                "username":      get_settings().movendo_username or "",
+                "password":      get_settings().movendo_password or "",
             },
         )
         r.raise_for_status()
@@ -6410,7 +6404,7 @@ async def api_contacto(request: Request):
 
     logger.info("📩 Contacto landing | %s | %s | %s", nombre, correo, empresa)
 
-    destino = os.getenv("EMAIL_ADMIN")
+    destino = get_settings().email_admin
     if destino:
         try:
             cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
@@ -6420,7 +6414,7 @@ async def api_contacto(request: Request):
 <b>Empresa:</b> {empresa or '—'}</p>
 <p><b>Mensaje:</b><br>{mensaje or '—'}</p>"""
             await _gmail_send(
-                from_addr=os.getenv("EMAIL_ADMIN", ""),
+                from_addr=(get_settings().email_admin or ""),
                 to=[destino],
                 subject=f"[QueSubsidio] Contacto desde la landing — {nombre}",
                 html=cuerpo,
@@ -6650,7 +6644,7 @@ async def _uid_desde_jwt(request: Request) -> Optional[str]:
         sb_url = _supabase_url()
         if not sb_url:
             return None
-        anon_key = _get_env("SUPABASE_ANON_KEY", "SUPABASE_KEY")
+        anon_key = get_settings().supabase_anon_key
         if not anon_key:
             return None
         async with httpx.AsyncClient(timeout=10) as client:
@@ -6707,7 +6701,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
         "main:app",
-        host=os.getenv("HOST", "0.0.0.0"),
-        port=int(os.getenv("PORT", "8000")),
+        host=get_settings().host,
+        port=get_settings().port,
         reload=True,
     )

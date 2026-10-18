@@ -182,3 +182,17 @@ def validar_obligatorias() -> None:
             "Falta configuración obligatoria: " + "; ".join(faltan)
             + ". Defínela en las variables de entorno del servicio."
         )
+
+
+def registrar_configuracion(logger) -> None:
+    """Registra al arrancar qué variables hay (solo nombres) y qué módulos quedan deshabilitados.
+    Lanza ConfigError si falta algo obligatorio (después de registrarlo)."""
+    d = diagnostico()
+    logger.info("Configuración: %d variables cargadas: %s", len(d["cargadas"]), ", ".join(d["cargadas"]) or "(ninguna)")
+    if d["faltan_opcionales"]:
+        logger.info("Configuración: variables opcionales ausentes: %s", ", ".join(d["faltan_opcionales"]))
+    for modulo, faltan, efecto in modulos_deshabilitados():
+        logger.warning("Módulo deshabilitado o incompleto [%s]: falta %s → %s", modulo, ", ".join(faltan), efecto)
+    if d["faltan_obligatorias"]:
+        logger.error("Configuración: faltan variables obligatorias: %s", "; ".join(d["faltan_obligatorias"]))
+    validar_obligatorias()
