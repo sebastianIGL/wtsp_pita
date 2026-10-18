@@ -37,6 +37,7 @@ except Exception:
     pass
 
 from app.core.config import get_settings, registrar_configuracion
+from app.core.logging_config import RequestContextMiddleware, configurar_logging
 from app.core.llm import cerrar_anthropic, cliente_anthropic
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
@@ -82,7 +83,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 # Orden de add_middleware: el último en agregarse queda más externo (primer en procesar).
-# GZip → CORS → SecurityHeaders → App
+# RequestContext → GZip → CORS → SecurityHeaders → App
 app.add_middleware(_SecurityHeadersMiddleware)
 
 _cors_origins = ["http://localhost:8000", "http://127.0.0.1:8000"]
@@ -104,6 +105,7 @@ app.add_middleware(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(RequestContextMiddleware)   # el más externo: request_id, X-Request-ID y log de acceso
 
 # ── Rate limiting (en memoria, single-instance) ───────────────────────────────
 _rl_store: Dict[str, List[float]] = defaultdict(list)
@@ -212,7 +214,7 @@ async def _gmail_send(
 
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
-    logging.basicConfig(level=get_settings().log_level)
+    configurar_logging(get_settings().log_level)
 
 # Debounce: una tarea pendiente por número — la nueva cancela la anterior
 _pending_tasks: Dict[str, asyncio.Task] = {}
