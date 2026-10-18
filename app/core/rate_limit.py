@@ -21,3 +21,15 @@ def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
         return False
     _rl_store[key].append(now)
     return True
+
+
+def ip_cliente(request) -> str:
+    """IP real del visitante. Detrás del proxy de Railway ``request.client.host`` es la del proxy (no la del visitante),
+    así que todos los visitantes compartían contador (o ninguno lo alcanzaba). Railway agrega la IP que vio al FINAL de
+    X-Forwarded-For: se usa esa última entrada, porque las anteriores las puede inventar quien llama."""
+    reenviada = request.headers.get("x-forwarded-for", "")
+    if reenviada:
+        ultima = reenviada.split(",")[-1].strip()
+        if ultima:
+            return ultima
+    return request.client.host if request.client else "unknown"

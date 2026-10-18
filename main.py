@@ -120,7 +120,7 @@ from app.clients.whatsapp import (  # noqa: F401  (se re-exportan con los mismos
     send_whatsapp_template,
 )
 from app.core.permisos import _solo_admin, _solo_owner  # noqa: F401  (se re-exportan con los mismos nombres)
-from app.core.rate_limit import _rate_limit_ok, _rl_store  # noqa: F401  (se re-exportan con los mismos nombres)
+from app.core.rate_limit import _rate_limit_ok, _rl_store, ip_cliente  # noqa: F401  (se re-exportan con los mismos nombres)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -5974,7 +5974,7 @@ async def api_proyectos_landing(limite: int = 12):
 @app.post("/api/contacto")
 async def api_contacto(request: Request):
     """Recibe formulario de contacto de la landing y notifica por email."""
-    ip = request.client.host if request.client else "unknown"
+    ip = ip_cliente(request)
     if not _rate_limit_ok(f"contacto:{ip}", max_req=5, window=60):
         return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
 
@@ -6149,7 +6149,7 @@ async def api_convertir_formulario(token: str, request: Request):
 @app.post("/api/newsletter")
 async def api_newsletter(request: Request):
     """Guarda suscripción al blog/newsletter en Supabase."""
-    ip = request.client.host if request.client else "unknown"
+    ip = ip_cliente(request)
     if not _rate_limit_ok(f"newsletter:{ip}", max_req=3, window=60):
         return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
 
