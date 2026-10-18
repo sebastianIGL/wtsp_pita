@@ -37,6 +37,7 @@ except Exception:
     pass
 
 from app.core.config import get_settings, registrar_configuracion
+from app.core.http import cerrar_http, http_client, iniciar_http
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -47,8 +48,12 @@ from starlette.middleware.gzip import GZipMiddleware
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     registrar_configuracion(logger)   # falla solo si falta lo obligatorio; registra nombres, nunca valores
+    await iniciar_http()              # cliente httpx compartido (se cierra al apagar)
     asyncio.create_task(_recovery_loop())
-    yield
+    try:
+        yield
+    finally:
+        await cerrar_http()
 
 # Documentación automática (/docs, /redoc, /openapi.json): cerrada por defecto porque
 # publica el mapa completo de la API. En desarrollo se activa con ENABLE_DOCS=true.
@@ -1559,7 +1564,7 @@ async def _supabase_request(
     headers = _supabase_headers()
     if extra_headers:
         headers.update(extra_headers)
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with http_client(20) as client:
         r = await client.request(method, url, params=params, json=json, headers=headers)
         r.raise_for_status()
         if not r.content:
@@ -1934,7 +1939,7 @@ async def subir_a_storage(
         "Content-Type": mime_type,
     }
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with http_client(60) as client:
         r = await client.post(upload_url, headers=headers, content=file_bytes)
         r.raise_for_status()
 
@@ -2881,7 +2886,7 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
     if not supa_url or not key:
         return None
     try:
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with http_client(10) as client:
             r = await client.get(
                 f"{supa_url}/auth/v1/user",
                 headers={"Authorization": f"Bearer {token}", "apikey": key},
@@ -2912,7 +2917,7 @@ def _solo_owner(perfil: Optional[Dict]) -> bool:
 async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
     supa_url = _supabase_url()
     key = _supabase_service_role_key()
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with http_client(20) as client:
         r = await client.post(
             f"{supa_url}/auth/v1/invite",
             headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
@@ -3126,7 +3131,7 @@ async def api_cambiar_password(request: Request):
         token    = request.headers.get("Authorization", "")[7:]
         supa_url = _supabase_url()
         key      = _supabase_service_role_key()
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with http_client(20) as client:
             r = await client.put(
                 f"{supa_url}/auth/v1/user",
                 headers={"Authorization": f"Bearer {token}", "apikey": key, "Content-Type": "application/json"},
@@ -3841,7 +3846,7 @@ async def api_subir_imagen_proyecto(request: Request, file: UploadFile = File(..
     key      = _supabase_service_role_key()
     upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/proyectos-imagenes/{path}"
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with http_client(60) as client:
         r = await client.post(upload_url,
             headers={"Authorization": f"Bearer {key}", "Content-Type": mime,
                      "x-upsert": "true"},
@@ -5317,7 +5322,7 @@ async def api_descargar_documento(cliente_id: int, doc_id: str, request: Request
 
 async def _descargar_documento_storage(url_storage: str) -> bytes:
     key = _supabase_service_role_key()
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with http_client(60) as client:
         r = await client.get(url_storage, headers={"Authorization": f"Bearer {key}"})
         r.raise_for_status()
     return r.content
@@ -5325,7 +5330,7 @@ async def _descargar_documento_storage(url_storage: str) -> bytes:
 
 async def _eliminar_documento_storage(url_storage: str) -> None:
     key = _supabase_service_role_key()
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with http_client(30) as client:
         r = await client.delete(url_storage, headers={"Authorization": f"Bearer {key}"})
         if r.status_code not in (200, 204, 404):
             r.raise_for_status()
@@ -6647,7 +6652,7 @@ async def _uid_desde_jwt(request: Request) -> Optional[str]:
         anon_key = get_settings().supabase_anon_key
         if not anon_key:
             return None
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with http_client(10) as client:
             r = await client.get(
                 f"{sb_url.rstrip('/')}/auth/v1/user",
                 headers={"apikey": anon_key, "Authorization": f"Bearer {token}"},
