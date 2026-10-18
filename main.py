@@ -1886,7 +1886,7 @@ async def descargar_media_whatsapp(media_id: str) -> tuple[bytes, str, str]:
 
     headers = {"Authorization": f"Bearer {TOKEN_ACCESO}"}
 
-    async with httpx.AsyncClient(timeout=30) as client:
+    async with http_client(30) as client:
         # 1) Obtener URL de descarga
         r = await client.get(
             f"https://graph.facebook.com/{VERSION_GRAPH}/{media_id}",
@@ -2801,7 +2801,7 @@ async def send_whatsapp_message(to: str, text: str):
         "type": "text",
         "text": {"body": text},
     }
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with http_client(20) as client:
         r = await client.post(url, headers=headers, json=data)
         r.raise_for_status()
         return r.json()
@@ -2865,7 +2865,7 @@ async def send_whatsapp_template(
         "template": template_payload,
     }
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with http_client(20) as client:
         r = await client.post(url, headers=headers, json=data)
         r.raise_for_status()
         return r.json()
@@ -3158,7 +3158,7 @@ async def api_listar_templates(request: Request):
     if not WA_WABA_ID:
         return Response(content="WA_WABA_ID no configurado en el servidor", status_code=500)
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with http_client(20) as client:
             r = await client.get(
                 f"https://graph.facebook.com/{VERSION_GRAPH}/{WA_WABA_ID}/message_templates",
                 params={"status": "APPROVED", "limit": "100"},
