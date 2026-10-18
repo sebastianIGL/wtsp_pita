@@ -5872,25 +5872,6 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
             logger.warning("Notificación email fallida: %s", e)
 
 
-async def _movendo_get_token() -> str:
-    """Obtiene un Bearer token de Movendo via OAuth2 Password Grant.
-    Usar cuando necesitemos llamar a la API de Movendo (enviar datos hacia ellos).
-    """
-    async with http_client(15) as client:
-        r = await client.post(
-            "https://autentica-api.movendo.cl/oauth/token",
-            json={
-                "grant_type":    "password",
-                "client_id":     get_settings().movendo_client_id or "7",
-                "client_secret": get_settings().movendo_client_secret or "",
-                "username":      get_settings().movendo_username or "",
-                "password":      get_settings().movendo_password or "",
-            },
-        )
-        r.raise_for_status()
-        return r.json()["access_token"]
-
-
 # ── Landing pública ───────────────────────────────────────────────────────────
 @app.get("/")
 async def page_home(request: Request):
