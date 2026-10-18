@@ -39,7 +39,7 @@ except Exception:
 from app.core.config import get_settings, registrar_configuracion
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging
-from app.core.llm import cerrar_anthropic, cliente_anthropic
+from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, cliente_anthropic, margen_frente_a_recovery
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -51,6 +51,9 @@ from starlette.middleware.gzip import GZipMiddleware
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     registrar_configuracion(logger)   # falla solo si falta lo obligatorio; registra nombres, nunca valores
+    if margen_frente_a_recovery(DELAY_RESPUESTA_SEGUNDOS) < 0:
+        logger.warning("BOT_REPLY_DELAY=%s + presupuesto del modelo %ss supera los 180 s del _recovery_loop: "
+                       "una respuesta lenta podría enviarse dos veces", DELAY_RESPUESTA_SEGUNDOS, PRESUPUESTO_TOTAL_S)
     await iniciar_http()              # cliente httpx compartido (se cierra al apagar)
     asyncio.create_task(_recovery_loop())
     try:
@@ -2270,12 +2273,13 @@ En datos_extraidos puedes incluir además: "nuevo_proyecto_id": "<uuid>" cuando 
     messages.append({"role": "assistant", "content": "{"})
 
     client = cliente_anthropic(ANTHROPIC_API_KEY)
-    response = await client.messages.create(
+    # El presupuesto total incluye los reintentos del SDK y cualquier Retry-After (ver app/core/llm.py)
+    response = await asyncio.wait_for(client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=700,
         system=system_prompt,
         messages=messages,
-    )
+    ), timeout=PRESUPUESTO_TOTAL_S)
 
     raw = "{" + response.content[0].text.strip()
     # Limpiar si viene con markdown igual
