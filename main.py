@@ -120,6 +120,7 @@ from app.clients.whatsapp import (  # noqa: F401  (se re-exportan con los mismos
     send_whatsapp_template,
 )
 from app.core.permisos import _solo_admin, _solo_owner  # noqa: F401  (se re-exportan con los mismos nombres)
+from app.core.rate_limit import _rate_limit_ok, _rl_store  # noqa: F401  (se re-exportan con los mismos nombres)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -199,18 +200,6 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(RequestContextMiddleware)   # el más externo: request_id, X-Request-ID y log de acceso
 
-# ── Rate limiting (en memoria, single-instance) ───────────────────────────────
-_rl_store: Dict[str, List[float]] = defaultdict(list)
-
-def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
-    """Retorna True si el request está dentro del límite, False si debe bloquearse."""
-    now = time.time()
-    bucket = _rl_store[key]
-    _rl_store[key] = [t for t in bucket if now - t < window]
-    if len(_rl_store[key]) >= max_req:
-        return False
-    _rl_store[key].append(now)
-    return True
 
 # ── Caché en memoria para endpoints públicos de la landing ────────────────────
 _cache_proyectos: Dict = {"data": None, "ts": 0.0}
