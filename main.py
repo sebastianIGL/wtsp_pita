@@ -56,6 +56,7 @@ from app.clients.supabase_auth import (  # noqa: F401  (se re-exportan con los m
     _get_usuario_actual,
     _invitar_usuario_supabase,
     _uid_desde_jwt,
+    cambiar_password_supabase,
 )
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
@@ -3231,15 +3232,7 @@ async def api_cambiar_password(request: Request):
         if len(nueva) < 8:
             return Response(content="La contraseña debe tener al menos 8 caracteres", status_code=400)
         token    = request.headers.get("Authorization", "")[7:]
-        supa_url = _supabase_url()
-        key      = _supabase_service_role_key()
-        async with http_client(20) as client:
-            r = await client.put(
-                f"{supa_url}/auth/v1/user",
-                headers={"Authorization": f"Bearer {token}", "apikey": key, "Content-Type": "application/json"},
-                json={"password": nueva},
-            )
-            r.raise_for_status()
+        await cambiar_password_supabase(token, nueva)
         try:
             await _supabase_request("PATCH", "/Usuario",
                 params={"id": f"eq.{perfil['id']}"},

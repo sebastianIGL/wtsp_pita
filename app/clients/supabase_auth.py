@@ -95,3 +95,20 @@ async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
         )
         r.raise_for_status()
         return r.json()["id"]
+
+
+async def cambiar_password_supabase(token: str, nueva: str) -> None:
+    """Cambia la contraseña de la persona dueña del token en Supabase Auth.
+
+    Extraído de api_cambiar_password (main.py): las tres sentencias de la petición son las mismas; la ruta conserva el
+    resto (validación, actualización de ``password_provisional`` e invalidación de la caché de usuario).
+    """
+    supa_url = _supabase_url()
+    key      = _supabase_service_role_key()
+    async with http_client(20) as client:
+        r = await client.put(
+            f"{supa_url}/auth/v1/user",
+            headers={"Authorization": f"Bearer {token}", "apikey": key, "Content-Type": "application/json"},
+            json={"password": nueva},
+        )
+        r.raise_for_status()
