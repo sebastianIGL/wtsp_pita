@@ -58,6 +58,21 @@ from app.clients.supabase_auth import (  # noqa: F401  (se re-exportan con los m
     _uid_desde_jwt,
     cambiar_password_supabase,
 )
+from app.core.utilidades import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    _CSV_COL_MAP,
+    _es_violacion_unica,
+    _horas_desde,
+    _norm_col,
+    _norm_row,
+    _norm_row_keys,
+    _normalizar_nombre,
+    _normalizar_telefono_cl,
+    _normalizar_wamid,
+    _normalize_phone,
+    _safe_httpx_error,
+    _slugify,
+    _utc_now_iso,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -324,13 +339,6 @@ def _segundos_hasta_horario_urgente() -> float:
 _RECOVERY_CICLOS_ENTRE_AVISOS = 20   # un aviso de pendientes vencidos al arrancar y luego cada ~1 h (20 × 3 min)
 
 
-def _horas_desde(iso: Optional[str]) -> Optional[float]:
-    try:
-        return (datetime.now(timezone.utc) - datetime.fromisoformat(str(iso))).total_seconds() / 3600
-    except (TypeError, ValueError):
-        return None
-
-
 async def _registrar_pendientes_vencidos(limite_iso: str, max_horas: int) -> None:
     """Deja en el log los pendientes más antiguos que el tope (no se reprocesan). Solo lectura."""
     try:
@@ -424,25 +432,6 @@ def _cuerpo_opcional_ilegible(request: Request, contexto: str, e: Exception) -> 
     if request.headers.get("content-length") not in (None, "0"):
         logger.warning("%s: el cuerpo no es JSON válido y se ignora (%s)", contexto, type(e).__name__,
                        extra={"contexto": contexto})
-
-
-def _safe_httpx_error(e: Exception) -> str:
-    """Resumen del error para el log o para diagnóstico de administradores (nunca para el navegador:
-    para eso está respuesta_error / mensaje_publico en app/core/errors.py)."""
-    return detalle_error(e)
-
-
-def _normalize_phone(phone: str) -> str:
-    digits = "".join(ch for ch in (phone or "").strip() if ch.isdigit())
-    # Celular chileno sin código de país (9 dígitos, empieza con 9) — anteponer 56
-    # para que calce con el formato que siempre manda WhatsApp (telefono_e164).
-    if len(digits) == 9 and digits.startswith("9"):
-        digits = "56" + digits
-    return digits
-
-
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
 
 
 # ---------------------------------------------------------------------------
@@ -1751,25 +1740,6 @@ async def actualizar_datos_prospecto(
         asyncio.create_task(_notificar_interesado(prospecto_id))
 
 
-def _normalizar_wamid(valor: Any) -> Optional[str]:
-    """Identificador de WhatsApp tal como debe guardarse: sin espacios sobrantes y, si no hay uno real
-    (None, vacío o solo espacios), NULL. Un texto vacío o un valor fijo chocaría con el índice único."""
-    if valor is None:
-        return None
-    texto = valor.strip() if isinstance(valor, str) else str(valor).strip()
-    return texto or None
-
-
-def _es_violacion_unica(e: "httpx.HTTPStatusError") -> bool:
-    """PostgREST responde 409 con code 23505 cuando se viola un índice único."""
-    if getattr(e.response, "status_code", None) != 409:
-        return False
-    try:
-        return (e.response.json() or {}).get("code") == "23505"
-    except Exception:
-        return False
-
-
 async def insertar_mensaje(
     *,
     prospecto_id: str,
@@ -3037,60 +3007,6 @@ async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, de
         logger.warning("No se pudo guardar log de correo: %s", e)
 
 
-
-def _normalizar_nombre(s: str) -> str:
-    nfkd = unicodedata.normalize("NFKD", (s or "").lower().strip())
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
-
-# ── Normalización de columnas CSV ────────────────────────────────────────────
-# Mapea cualquier variante normalizada al nombre canónico interno.
-_CSV_COL_MAP: Dict[str, str] = {
-    # contacto
-    "contacto": "contacto", "nombre": "contacto", "nombrecompleto": "contacto", "cliente": "contacto",
-    # rut
-    "rut": "rut", "run": "rut",
-    # telefono
-    "telefono": "telefono", "fono": "telefono", "celular": "telefono",
-    "movil": "telefono", "numerodecontacto": "telefono",
-    # proyecto
-    "proyecto": "proyecto", "nombreproyecto": "proyecto",
-    # correo
-    "correo": "correo", "email": "correo", "mail": "correo",
-    "correoelectronico": "correo", "email1": "correo",
-    # tramo_renta
-    "tramoderenta": "tramo_renta", "renta": "tramo_renta", "tramo": "tramo_renta",
-    "tramorenta": "tramo_renta", "ingreso": "tramo_renta",
-    # estado
-    "estado": "estado",
-    # tiene_subsidio
-    "tienesubsidio": "tiene_subsidio", "subsidio": "tiene_subsidio",
-    # tipo_subsidio
-    "tiposubsidio": "tipo_subsidio",
-    # tiene_propiedad
-    "tienepropiedad": "tiene_propiedad", "propiedad": "tiene_propiedad",
-}
-
-def _norm_col(s: str) -> str:
-    """Normaliza un nombre de columna: minúsculas, sin tildes, sin caracteres no-alfanuméricos."""
-    nfkd = unicodedata.normalize("NFKD", (s or "").lower().strip())
-    ascii_s = "".join(c for c in nfkd if not unicodedata.combining(c))
-    return re.sub(r"[^a-z0-9]", "", ascii_s)
-
-def _norm_row(row: dict) -> dict:
-    """Construye un dict con claves canónicas a partir de una fila CSV."""
-    result: Dict[str, str] = {}
-    for k, v in row.items():
-        canonical = _CSV_COL_MAP.get(_norm_col(k))
-        if canonical and canonical not in result:
-            result[canonical] = v or ""
-    return result
-
-def _norm_row_keys(row: dict) -> Dict[str, str]:
-    """Dict indexado por nombre de columna normalizado (sin tildes/mayúsculas/espacios),
-    sin mapeo semántico — para formatos con columnas fijas (ej. SERVIU) tolerantes a variantes."""
-    return {_norm_col(k): (v or "") for k, v in row.items() if k}
-
-
 async def _buscar_id_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[Dict]:
     nombre_norm = _normalizar_nombre(nombre_csv)
     for p in proyectos_cache:
@@ -3711,13 +3627,6 @@ async def api_listar_empresas(request: Request):
         params["id"] = f"in.({','.join(empresa_ids)})"
     rows = await _supabase_request("GET", "/Empresa", params=params)
     return rows or []
-
-
-def _slugify(texto: str) -> str:
-    t = unicodedata.normalize("NFKD", texto or "")
-    t = t.encode("ascii", "ignore").decode("ascii")
-    t = re.sub(r"[^a-zA-Z0-9]+", "-", t).strip("-").lower()
-    return t
 
 
 @app.get("/api/industrias")
@@ -5909,19 +5818,6 @@ def _verificar_movendo_auth(request: Request) -> bool:
         return True  # Sin clave configurada → aceptar (desarrollo)
     auth = request.headers.get("Authorization", "")
     return auth.lower().startswith("bearer ") and auth[7:].strip() == key
-
-def _normalizar_telefono_cl(phone_raw: str) -> Optional[str]:
-    """Normaliza a formato E.164 chileno: 56XXXXXXXXX."""
-    digits = _normalize_phone(phone_raw)
-    if not digits:
-        return None
-    if digits.startswith("56") and len(digits) == 11:
-        return digits
-    if digits.startswith("9") and len(digits) == 9:
-        return f"56{digits}"
-    if digits.startswith("09") and len(digits) == 10:
-        return f"56{digits[1:]}"
-    return digits if len(digits) >= 10 else None
 
 
 @app.post("/api/movendo/nuevo-cliente")
