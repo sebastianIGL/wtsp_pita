@@ -1051,6 +1051,9 @@ Confirma lo que ya llegó y NO lo vuelvas a pedir. En ese caso NO uses el
 mensaje de apertura: pídele solo los documentos pendientes (puedes usar
 el marcador <<LISTA_DOCUMENTOS>> únicamente si todavía no ha recibido
 ninguno).
+Nunca listes como pendiente un documento que figure en "Documentos ya
+recibidos", aunque aparezca pedido en mensajes anteriores de la conversación:
+esos mensajes pueden ser anteriores a que el documento llegara.
 
 MENSAJE DE APERTURA — usa EXACTAMENTE este formato, sin modificarlo:
 "Perfecto {nombre}, ya casi terminamos 💪
