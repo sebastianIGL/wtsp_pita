@@ -1042,6 +1042,14 @@ la postulación al subsidio y pre-evaluación del crédito.
 CONTEXTO:
 - Nombre: {nombre}
 - Datos recopilados: {datos}
+- Documentos ya recibidos: {docs_recibidos}
+- Documentos pendientes: {docs_pendientes}
+
+SI YA HAY DOCUMENTOS RECIBIDOS:
+Confirma lo que ya llegó y NO lo vuelvas a pedir. En ese caso NO uses el
+mensaje de apertura: pídele solo los documentos pendientes (puedes usar
+el marcador <<LISTA_DOCUMENTOS>> únicamente si todavía no ha recibido
+ninguno).
 
 MENSAJE DE APERTURA — usa EXACTAMENTE este formato, sin modificarlo:
 "Perfecto {nombre}, ya casi terminamos 💪
