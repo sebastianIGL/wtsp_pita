@@ -38,6 +38,13 @@ except Exception as _e_dotenv:
     _error_dotenv = _e_dotenv
 
 from app.core.config import get_settings, registrar_configuracion
+from app.clients.supabase import (  # noqa: F401  (se re-exportan: main.py y los tests los usan con estos nombres)
+    _supabase_headers,
+    _supabase_request,
+    _supabase_rest_base,
+    _supabase_service_role_key,
+    _supabase_url,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -1615,54 +1622,11 @@ datos_extraidos:
 # Supabase REST
 # ---------------------------------------------------------------------------
 
-def _supabase_url() -> Optional[str]:
-    return get_settings().supabase_url
-
-
-def _supabase_service_role_key() -> Optional[str]:
-    return get_settings().supabase_service_role_key
-
-
 def _ingest_api_key() -> Optional[str]:
     return get_settings().ingest_api_key
 
 
-def _supabase_rest_base() -> str:
-    url = _supabase_url()
-    if not url:
-        raise RuntimeError("Falta SUPABASE_URL")
-    return f"{url.rstrip('/')}/rest/v1"
-
-
-def _supabase_headers() -> dict:
-    key = _supabase_service_role_key()
-    if not key:
-        raise RuntimeError("Falta SUPABASE_SERVICE_ROLE_KEY")
-    return {
-        "apikey": key,
-        "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-    }
-
-
-async def _supabase_request(
-    method: str,
-    path: str,
-    *,
-    params: Optional[Union[Dict[str, str], List[Tuple[str, str]]]] = None,   # lista de pares = mismo filtro repetido
-    json: Optional[Union[Dict[str, Any], List[Any]]] = None,
-    extra_headers: Optional[Dict[str, str]] = None,
-):
-    url = f"{_supabase_rest_base()}{path}"
-    headers = _supabase_headers()
-    if extra_headers:
-        headers.update(extra_headers)
-    async with http_client(20) as client:
-        r = await request_con_reintentos_get(client, method, url, params=params, json=json, headers=headers)
-        r.raise_for_status()
-        if not r.content:
-            return None
-        return r.json()
+# Acceso a Supabase: movido a app/clients/supabase.py (se importa arriba con los mismos nombres).
 
 
 # ---------------------------------------------------------------------------
