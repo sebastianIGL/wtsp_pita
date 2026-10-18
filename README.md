@@ -141,6 +141,13 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   ausente` (campo `firma_webhook`) y **no se rechaza nada** (modo vigilar). Con `WA_SIGNATURE_ENFORCE=true` se rechazan (403)
   los mensajes sin firma válida; si falta `WA_APP_SECRET` no se rechaza nada y el arranque lo marca como error. Dónde
   sacar el secreto: developers.facebook.com → tu app → Configuración de la app → Básica → Clave secreta de la app.
+- **Webhook de WhatsApp: lote y duplicados.** Se procesan todos los mensajes y estados de cada POST de Meta (los mensajes
+  de un mismo número, en orden y respondiendo solo al último). Un mensaje repetido se ignora primero por memoria (últimos
+  500) y, de forma durable, por un **índice único en la base** que hay que crear a mano en Supabase (si no existe, el
+  sistema funciona igual pero solo con la memoria):
+  `CREATE UNIQUE INDEX IF NOT EXISTS mensaje_wa_id_mensaje_uniq ON public."Mensaje" (wa_id_mensaje);`
+  Para revertirlo: `DROP INDEX IF EXISTS public.mensaje_wa_id_mensaje_uniq;`. Los archivos se deduplican por
+  `Documento.wa_media_id`. El aviso "WA status … sin cliente" es informativo salvo que el envío haya fallado.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto
