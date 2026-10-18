@@ -45,6 +45,11 @@ from app.clients.supabase import (  # noqa: F401  (se re-exportan: main.py y los
     _supabase_service_role_key,
     _supabase_url,
 )
+from app.clients.supabase_storage import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    _descargar_documento_storage,
+    _eliminar_documento_storage,
+    subir_a_storage,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -1995,40 +2000,6 @@ async def descargar_media_whatsapp(media_id: str) -> tuple[bytes, str, str]:
     nombre = f"{media_id}.{ext}"
 
     return file_bytes, mime_type, nombre
-
-
-async def subir_a_storage(
-    file_bytes: bytes,
-    nombre_archivo: str,
-    prospecto_id: str,
-    mime_type: str,
-) -> str:
-    """
-    Sube un archivo al bucket documentos-clientes en Supabase Storage.
-    Retorna la URL pública (firmada).
-    """
-    supa_url = _supabase_url()
-    key = _supabase_service_role_key()
-    if not supa_url or not key:
-        raise RuntimeError("Falta configuración de Supabase")
-
-    nombre_seguro = unicodedata.normalize("NFKD", nombre_archivo)
-    nombre_seguro = nombre_seguro.encode("ascii", "ignore").decode("ascii")
-    nombre_seguro = re.sub(r"[^\w.\-]", "_", nombre_seguro)
-    path = f"{prospecto_id}/{nombre_seguro}"
-    upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/documentos-clientes/{path}"
-
-    headers = {
-        "Authorization": f"Bearer {key}",
-        "Content-Type": mime_type,
-    }
-
-    async with http_client(60) as client:
-        r = await client.post(upload_url, headers=headers, content=file_bytes)
-        r.raise_for_status()
-
-    # URL de acceso (requiere service role para acceder, bucket privado)
-    return f"{supa_url.rstrip('/')}/storage/v1/object/documentos-clientes/{path}"
 
 
 # ---------------------------------------------------------------------------
@@ -5487,22 +5458,6 @@ async def api_descargar_documento(cliente_id: int, doc_id: str, request: Request
         )
     except Exception as e:
         return respuesta_error(e, contexto="api_descargar_documento")
-
-
-async def _descargar_documento_storage(url_storage: str) -> bytes:
-    key = _supabase_service_role_key()
-    async with http_client(60) as client:
-        r = await client.get(url_storage, headers={"Authorization": f"Bearer {key}"})
-        r.raise_for_status()
-    return r.content
-
-
-async def _eliminar_documento_storage(url_storage: str) -> None:
-    key = _supabase_service_role_key()
-    async with http_client(30) as client:
-        r = await client.delete(url_storage, headers={"Authorization": f"Bearer {key}"})
-        if r.status_code not in (200, 204, 404):
-            r.raise_for_status()
 
 
 @app.delete("/api/clientes/{cliente_id}/documentos/{doc_id}")
