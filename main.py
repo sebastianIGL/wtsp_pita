@@ -150,6 +150,14 @@ from app.services.plantillas import (  # noqa: F401  (se re-exportan con los mis
     TEMPLATE_VARS_MAP,
     _pool_plantilla,
 )
+from app.services.proyectos import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    _PROYECTO_SELECT,
+    _PROYECTO_SELECT_LIGHT,
+    _PROYECTO_SELECT_PANEL,
+    _aplicar_campos_proyecto,
+    _buscar_id_proyecto,
+    obtener_proyecto_por_id,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -1677,21 +1685,6 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     return rows or []
 
 
-_PROYECTO_SELECT = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre,empresa_id,Empresa(nombre,industria_id,Industria(nombre))),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23"
-
-# Variante liviana para el listado del panel (frontend/panel.html): solo necesita el nombre
-# de la Inmobiliaria (para la vista "Todos los proyectos"), no la cadena Empresa/Industria.
-_PROYECTO_SELECT_PANEL = "id,codigo,nombre,ubicacion,imagen_url,inmobiliaria_id,Inmobiliaria(nombre),ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,valor_estacionamiento_uf,estacionamiento_obligatorio,notas,acepta_ds19,acepta_ds1_t23"
-
-
-async def obtener_proyecto_por_id(proyecto_id: str):
-    rows = await _supabase_request(
-        "GET", "/Proyecto",
-        params={"id": f"eq.{proyecto_id}", "select": _PROYECTO_SELECT, "limit": "1"},
-    )
-    return rows[0] if rows else None
-
-
 async def obtener_historial_mensajes(prospecto_id: str, limite: int = 12) -> List[Dict]:
     rows = await _supabase_request(
         "GET",
@@ -1732,13 +1725,6 @@ def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
         "proyecto":     p.get("nombre")   or "",
     }
 
-
-_PROYECTO_SELECT_LIGHT = (
-    "id,nombre,ubicacion,acepta_ds19,"
-    "acepta_ds1_t23,"
-    "ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,"
-    "tiene_piloto,valor_estacionamiento_uf,notas"
-)
 
 async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional[str]) -> List[Dict]:
     """Devuelve todos los proyectos de la empresa excepto el actual."""
@@ -2673,17 +2659,6 @@ async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, de
         logger.warning("No se pudo guardar log de correo: %s", e)
 
 
-async def _buscar_id_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[Dict]:
-    nombre_norm = _normalizar_nombre(nombre_csv)
-    for p in proyectos_cache:
-        if _normalizar_nombre(p.get("nombre", "")) == nombre_norm:
-            return p
-        for alias in (p.get("nombres_csv") or []):
-            if _normalizar_nombre(alias) == nombre_norm:
-                return p
-    return None
-
-
 # ---------------------------------------------------------------------------
 # API — Usuarios
 # ---------------------------------------------------------------------------
@@ -3519,26 +3494,6 @@ async def api_subir_imagen_proyecto(request: Request, file: UploadFile = File(..
     except StorageError as e:
         return respuesta_error(e, contexto="api_subir_imagen_proyecto")
     return {"imagen_url": public_url}
-
-
-def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> None:
-    """Copia los campos opcionales del proyecto desde body → payload."""
-    if es_admin and body.get("imagen_url") is not None:
-        payload["imagen_url"] = body["imagen_url"] or None
-    for campo in ("notas",):
-        if campo in body:
-            payload[campo] = (body[campo] or "").strip() or None
-    for campo in ("ahorro_minimo_uf", "valor_reserva_clp", "valor_reserva_uf",
-                  "valor_estacionamiento_uf"):
-        if campo in body:
-            try:
-                payload[campo] = float(body[campo]) if body[campo] not in (None, "") else None
-            except (TypeError, ValueError):
-                # se ignora el valor no numérico (como antes), pero ya no en silencio
-                logger.warning("Proyecto: el campo %s no es numérico y se ignora", campo, extra={"contexto": "_aplicar_campos_proyecto"})
-    for campo in ("tiene_piloto", "estacionamiento_obligatorio", "acepta_ds19", "acepta_ds1_t23"):
-        if campo in body:
-            payload[campo] = bool(body[campo])
 
 
 # ── Tipologia ─────────────────────────────────────────────────────────────────
