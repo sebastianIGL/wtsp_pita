@@ -1624,6 +1624,11 @@ async def tipo_por_texto_desde_envio(prospecto_id: str, timestamp_envio: Any) ->
     return await _tipo_segun_textos(prospecto_id, "gte", desde.isoformat())
 
 
+async def obtener_prospecto_por_id(prospecto_id: str) -> Optional[Dict]:
+    filas = await _supabase_request("GET", "/Prospecto", params={"id": f"eq.{prospecto_id}", "select": "*", "limit": "1"})
+    return filas[0] if filas else None
+
+
 async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     rows = await _supabase_request(
         "GET",
@@ -2256,6 +2261,14 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False, responder: bo
         docs_recibidos = []
 
         if prospecto_id:
+            # Durante la espera pudo cambiar el estado (p. ej. se registró un archivo y el paso avanzó): se responde con
+            # el estado de ahora, no con el que se leyó al llegar el mensaje.
+            try:
+                prospecto = await obtener_prospecto_por_id(prospecto_id) or prospecto
+            except Exception as e_fresco:
+                registrar_error(e_fresco, "_procesar_webhook: releer el prospecto después de la espera",
+                                mensaje="No se pudo releer el prospecto; el bot responde con el estado de cuando llegó el mensaje",
+                                nivel=logging.WARNING)
             try:
                 await etiquetar_documentos_sin_tipo(prospecto_id)
             except Exception as e_etiq:
