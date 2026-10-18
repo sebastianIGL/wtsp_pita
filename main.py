@@ -37,6 +37,7 @@ except Exception:
     pass
 
 from app.core.config import get_settings, registrar_configuracion
+from app.core.llm import cerrar_anthropic, cliente_anthropic
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -54,6 +55,7 @@ async def _lifespan(app: FastAPI):
         yield
     finally:
         await cerrar_http()
+        await cerrar_anthropic()
 
 # Documentación automática (/docs, /redoc, /openapi.json): cerrada por defecto porque
 # publica el mapa completo de la API. En desarrollo se activa con ENABLE_DOCS=true.
@@ -2263,7 +2265,7 @@ En datos_extraidos puedes incluir además: "nuevo_proyecto_id": "<uuid>" cuando 
     # Prefill: fuerza a Claude a comenzar directamente con JSON
     messages.append({"role": "assistant", "content": "{"})
 
-    client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
+    client = cliente_anthropic(ANTHROPIC_API_KEY)
     response = await client.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=700,
