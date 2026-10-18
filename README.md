@@ -111,6 +111,11 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   claves, JWT, teléfonos (quedan los 4 últimos dígitos), RUT y correos (`a***@dominio.cl`); los nombres no. Cada petición lleva un `request_id`, que también
   se devuelve en la cabecera `X-Request-ID` (se respeta el que envíe el proxy si es seguro).
 - **`/health`**: responde `{"status":"ok"}` sin consultar Supabase ni terceros. Railway aún no lo usa como healthcheck.
+- **Horario del bot**: `HORARIO_BOT_INICIO` y `HORARIO_BOT_FIN` (enteros, hora de Chile) fijan cuándo el bot **responde
+  mensajes de texto**. Por defecto `0` y `24` = 24/7. Para volver a 9–19 basta definir `HORARIO_BOT_INICIO=9` y
+  `HORARIO_BOT_FIN=19` en Railway (sin tocar código). Un valor no válido (texto, fuera de rango o inicio ≥ fin) no
+  tumba el servicio: se usa 24/7 y el arranque lo avisa. No afecta a los avisos a ejecutivos, que conservan sus
+  horarios fijos: "primer documento" y "documentos completos" de 9 a 19, y "necesita ayuda" de 8 a 24.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto

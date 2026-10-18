@@ -224,28 +224,55 @@ if not logger.handlers:
 # Debounce: una tarea pendiente por número — la nueva cancela la anterior
 _pending_tasks: Dict[str, asyncio.Task] = {}
 
-# ── Horario de atención del bot y de recordatorios ─────────────────────────
+# ── Horarios ────────────────────────────────────────────────────────────────
 _TZ_CHILE = ZoneInfo("America/Santiago")
-HORARIO_BOT_INICIO = 9   # 09:00 hora Chile
-HORARIO_BOT_FIN    = 19  # 19:00 hora Chile (no incluido)
+
+# 1) Horario en que el bot RESPONDE mensajes de texto: configurable (HORARIO_BOT_INICIO / HORARIO_BOT_FIN,
+#    hora de Chile). Por defecto 0–24 = 24/7. Solo afecta a cuándo se responden mensajes entrantes.
+def _horas_bot() -> tuple:
+    s = get_settings()
+    return s.horario_bot_inicio, s.horario_bot_fin
 
 
-def _dentro_horario_bot(ahora: Optional[datetime] = None) -> bool:
-    """True si estamos dentro del horario permitido (9:00–19:00, hora Chile)."""
+def _dentro_de(inicio: int, fin: int, ahora: Optional[datetime] = None) -> bool:
     hora_local = (ahora or datetime.now(timezone.utc)).astimezone(_TZ_CHILE)
-    return HORARIO_BOT_INICIO <= hora_local.hour < HORARIO_BOT_FIN
+    return inicio <= hora_local.hour < fin
 
 
-def _segundos_hasta_horario_bot() -> float:
-    """Segundos que faltan hasta que se abra el próximo horario hábil (9:00 hora Chile)."""
+def _segundos_hasta_apertura(inicio: int, fin: int) -> float:
+    """Segundos que faltan hasta la próxima apertura de la ventana [inicio, fin) en hora de Chile."""
     ahora_cl = datetime.now(timezone.utc).astimezone(_TZ_CHILE)
-    objetivo = ahora_cl.replace(hour=HORARIO_BOT_INICIO, minute=0, second=0, microsecond=0)
-    if ahora_cl.hour >= HORARIO_BOT_FIN:
+    objetivo = ahora_cl.replace(hour=inicio, minute=0, second=0, microsecond=0)
+    if ahora_cl.hour >= fin:
         objetivo += timedelta(days=1)
-    elif ahora_cl.hour >= HORARIO_BOT_INICIO:
+    elif ahora_cl.hour >= inicio:
         # Ya pasó el inicio de hoy pero seguimos dentro del horario — no debería llamarse en este caso.
         objetivo += timedelta(days=1)
     return max(0.0, (objetivo - ahora_cl).total_seconds())
+
+
+def _dentro_horario_bot(ahora: Optional[datetime] = None) -> bool:
+    """True si el bot puede responder ahora un mensaje de texto (por defecto siempre)."""
+    return _dentro_de(*_horas_bot(), ahora)
+
+
+def _segundos_hasta_horario_bot() -> float:
+    """Segundos hasta que se abra el horario del bot (solo se usa si se configuró una ventana)."""
+    return _segundos_hasta_apertura(*_horas_bot())
+
+
+# 2) Horario de los AVISOS a ejecutivos "primer documento" y "documentos completos": fijo 9:00–19:00,
+#    independiente del horario del bot (antes compartían la misma constante).
+HORARIO_AVISOS_INICIO = 9   # 09:00 hora Chile
+HORARIO_AVISOS_FIN    = 19  # 19:00 hora Chile (no incluido)
+
+
+def _dentro_horario_avisos(ahora: Optional[datetime] = None) -> bool:
+    return _dentro_de(HORARIO_AVISOS_INICIO, HORARIO_AVISOS_FIN, ahora)
+
+
+def _segundos_hasta_horario_avisos() -> float:
+    return _segundos_hasta_apertura(HORARIO_AVISOS_INICIO, HORARIO_AVISOS_FIN)
 
 
 # Horario más amplio para avisos urgentes al ejecutivo ("necesita_ayuda"): 08:00–00:00 hora Chile.
@@ -273,8 +300,10 @@ async def _recovery_loop():
     while True:
         try:
             if not _dentro_horario_bot():
-                # Fuera de horario: no reintentar (evita reprocesar/duplicar el mismo
-                # mensaje cada 3 min toda la noche). Se retoma solo al abrir el horario.
+                # Solo ocurre si se configuró una ventana horaria (por defecto el bot es 24/7).
+                # Fuera de la ventana el webhook guarda el mensaje y no responde; si el loop siguiera
+                # corriendo, cada 3 min volvería a recoger los mismos pendientes y a registrar
+                # "respuesta pospuesta". Se retoma solo al abrir el horario.
                 await asyncio.sleep(_segundos_hasta_horario_bot())
                 continue
             hace_3_min = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
@@ -2412,10 +2441,9 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
                 ultimo_texto_entrante=text,
             )
 
-        # Fuera del horario de atención (9:00–19:00 hora Chile): no responder ahora.
-        # El mensaje ya quedó guardado con pendiente_respuesta=true; _recovery_loop
-        # lo reintenta solo cada 3 min y aquí mismo se vuelve a frenar hasta
-        # que se abra el horario, momento en que por fin se genera la respuesta.
+        # Fuera del horario del bot (HORARIO_BOT_INICIO/FIN; por defecto 24/7, así que normalmente no frena):
+        # no responder ahora. El mensaje ya quedó guardado con pendiente_respuesta=true;
+        # _recovery_loop lo retoma solo cuando se abra el horario.
         if not _dentro_horario_bot():
             logger.info("Fuera de horario hábil, respuesta pospuesta para %s", from_number)
             return
@@ -6169,9 +6197,10 @@ async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, t
     """Avisa al ejecutivo asignado cuando el bot mueve al cliente a un estado puntual
     ('primer_documento' | 'docs_completos'). No vuelve a enviar el mismo tipo de aviso
     hasta que el ejecutivo cambie estado_gestion (reconociendo que ya actuó)."""
-    if not _dentro_horario_bot():
-        # No despertar al ejecutivo fuera de horario — esperar a que abra 9:00 hora Chile.
-        await asyncio.sleep(_segundos_hasta_horario_bot())
+    if not _dentro_horario_avisos():
+        # No despertar al ejecutivo fuera de horario — esperar a que abra 9:00 hora Chile
+        # (horario fijo de avisos, independiente del horario del bot).
+        await asyncio.sleep(_segundos_hasta_horario_avisos())
     texto = _TEXTOS_RECORDATORIO.get(tipo)
     if not texto:
         return {"ok": False, "motivo": f"tipo '{tipo}' inválido"}

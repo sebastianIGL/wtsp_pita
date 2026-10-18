@@ -17,8 +17,25 @@ conocidos): en producción equivale a un singleton, y en pruebas respeta ``monke
 import os
 from typing import Dict, List, Optional, Tuple
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+_HORA_INVALIDA = -1
+
+
+def _parse_hora(valor, minimo: int, maximo: int) -> Optional[int]:
+    """Entero dentro de [minimo, maximo] o None."""
+    try:
+        n = int(str(valor).strip())
+    except (TypeError, ValueError):
+        return None
+    return n if minimo <= n <= maximo else None
+
+
+def _hora_o_marca(valor, minimo: int, maximo: int) -> int:
+    n = _parse_hora(valor, minimo, maximo)
+    return _HORA_INVALIDA if n is None else n
 
 
 class ConfigError(RuntimeError):
@@ -54,6 +71,10 @@ class Settings(BaseSettings):
     template_recordatorio_wa: str = Field("recordatorio_cliente", validation_alias=_alias("TEMPLATE_RECORDATORIO_WA"))
     admin_notify_phone: Optional[str] = Field(None, validation_alias=_alias("ADMIN_NOTIFY_PHONE"))
     bot_reply_delay: int = Field(30, validation_alias=_alias("BOT_REPLY_DELAY"))
+    # Horas (hora de Chile) entre las que el bot RESPONDE mensajes de texto. 0–24 = siempre (24/7).
+    # No afecta a los avisos a ejecutivos, que tienen sus propios horarios fijos.
+    horario_bot_inicio: int = Field(0, validation_alias=_alias("HORARIO_BOT_INICIO"))
+    horario_bot_fin: int = Field(24, validation_alias=_alias("HORARIO_BOT_FIN"))
 
     # ── Bot (Anthropic) ─────────────────────────────────────────────────────
     anthropic_api_key: Optional[str] = Field(None, validation_alias=_alias("ANTHROPIC_API_KEY"))
@@ -83,6 +104,25 @@ class Settings(BaseSettings):
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)
         return str(v).strip().lower() in _VERDADERO
+
+    @field_validator("horario_bot_inicio", mode="before")
+    @classmethod
+    def _inicio_valido(cls, v):
+        return _hora_o_marca(v, 0, 23)
+
+    @field_validator("horario_bot_fin", mode="before")
+    @classmethod
+    def _fin_valido(cls, v):
+        return _hora_o_marca(v, 1, 24)
+
+    @model_validator(mode="after")
+    def _ventana_coherente(self):
+        # Un horario no válido (valor ilegible, fuera de rango o inicio >= fin) no tumba el servicio ni
+        # deja una ventana a medias: vuelve a 24/7 completo y el arranque avisa.
+        if (_HORA_INVALIDA in (self.horario_bot_inicio, self.horario_bot_fin)
+                or self.horario_bot_inicio >= self.horario_bot_fin):
+            self.horario_bot_inicio, self.horario_bot_fin = 0, 24
+        return self
 
     # Conveniencias que replican valores por defecto que antes vivían en cada sitio de uso
     @property
@@ -202,6 +242,37 @@ def registrar_configuracion(logger) -> None:
         logger.info("Configuración: opcionales ausentes (sin valor por defecto): %s", ", ".join(d["faltan_opcionales"]))
     for modulo, faltan, efecto in modulos_deshabilitados():
         logger.warning("Módulo deshabilitado o incompleto [%s]: falta %s → %s", modulo, ", ".join(faltan), efecto)
+    for nombre in horario_bot_invalido():
+        logger.warning("Configuración: %s tiene un valor no válido (debe ser un entero 0–23 para el inicio y 1–24 "
+                       "para el fin, con inicio < fin): se usa el horario por defecto 24/7", nombre)
+    logger.info("Horario en que el bot responde mensajes de texto: %s", describir_horario_bot())
     if d["faltan_obligatorias"]:
         logger.error("Configuración: faltan variables obligatorias: %s", "; ".join(d["faltan_obligatorias"]))
     validar_obligatorias()
+
+
+def describir_horario_bot() -> str:
+    s = get_settings()
+    if (s.horario_bot_inicio, s.horario_bot_fin) == (0, 24):
+        return "24/7 (sin restricción horaria)"
+    return f"de {s.horario_bot_inicio}:00 a {s.horario_bot_fin}:00 hora de Chile"
+
+
+def horario_bot_invalido() -> List[str]:
+    """Nombres de las variables HORARIO_BOT_* definidas que provocan la vuelta a 24/7: valor no numérico
+    o fuera de rango, o ventana con inicio >= fin. Solo nombres, nunca valores."""
+    crudo_i, crudo_f = os.environ.get("HORARIO_BOT_INICIO"), os.environ.get("HORARIO_BOT_FIN")
+    ini = _parse_hora(crudo_i, 0, 23) if crudo_i else None
+    fin = _parse_hora(crudo_f, 1, 24) if crudo_f else None
+    invalidas = [n for n, crudo, v in (("HORARIO_BOT_INICIO", crudo_i, ini), ("HORARIO_BOT_FIN", crudo_f, fin))
+                 if crudo and v is None]
+    if invalidas:
+        return invalidas
+    s = get_settings()
+    if (s.horario_bot_inicio, s.horario_bot_fin) == (0, 24) and (crudo_i or crudo_f):
+        # ambos legibles, pero la ventana no es coherente (p. ej. inicio 19 y fin 9): se descartó entera
+        efectivo_i = ini if ini is not None else 0
+        efectivo_f = fin if fin is not None else 24
+        if efectivo_i >= efectivo_f:
+            return [n for n, crudo in (("HORARIO_BOT_INICIO", crudo_i), ("HORARIO_BOT_FIN", crudo_f)) if crudo]
+    return []
