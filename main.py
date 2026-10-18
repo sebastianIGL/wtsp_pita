@@ -40,6 +40,7 @@ from app.core.config import get_settings, registrar_configuracion
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
+from app.core.errors import AppError, detalle_error, mensaje_publico, registrar_error, respuesta_error
 from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, cliente_anthropic, margen_frente_a_recovery
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
@@ -223,6 +224,7 @@ logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
     configurar_logging(get_settings().log_level)
 
+
 # Debounce: una tarea pendiente por número — la nueva cancela la anterior
 _pending_tasks: Dict[str, asyncio.Task] = {}
 
@@ -394,17 +396,9 @@ _WAMID_MAX = 500
 # ---------------------------------------------------------------------------
 
 def _safe_httpx_error(e: Exception) -> str:
-    if isinstance(e, httpx.HTTPStatusError):
-        status = getattr(e.response, "status_code", "?")
-        try:
-            body = e.response.text
-        except Exception:
-            body = ""
-        body = (body or "").strip().replace("\n", " ")
-        if len(body) > 600:
-            body = body[:600] + "…"
-        return f"Upstream HTTP {status}: {body}" if body else f"Upstream HTTP {status}"
-    return str(e)
+    """Resumen del error para el log o para diagnóstico de administradores (nunca para el navegador:
+    para eso está respuesta_error / mensaje_publico en app/core/errors.py)."""
+    return detalle_error(e)
 
 
 def _normalize_phone(phone: str) -> str:
@@ -2879,12 +2873,7 @@ async def ingestar_prospecto(request: Request):
         return {"ok": True, "prospecto_id": (prospecto or {}).get("id")}
 
     except Exception as e:
-        logger.exception("Error en /prospectos/ingesta")
-        return Response(
-            content=_safe_httpx_error(e) or "Internal Server Error",
-            status_code=500,
-            media_type="text/plain",
-        )
+        return respuesta_error(e, contexto="ingestar_prospecto")
 
 
 # ---------------------------------------------------------------------------
@@ -3179,8 +3168,7 @@ async def api_crear_usuario(request: Request):
                 ))
         return {"ok": True, "usuario_id": user_id}
     except Exception as e:
-        logger.exception("Error creando usuario")
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_crear_usuario")
 
 
 @app.get("/api/log-correos")
@@ -3235,7 +3223,7 @@ async def api_actualizar_usuario(usuario_id: str, request: Request):
             user_cache.invalidar_usuario(usuario_id)
         return {"ok": True}
     except Exception as e:
-        return Response(content=str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_actualizar_usuario")
 
 
 @app.post("/api/auth/cambiar-password")
@@ -3266,7 +3254,7 @@ async def api_cambiar_password(request: Request):
             user_cache.invalidar_usuario(perfil["id"])
         return {"ok": True}
     except Exception as e:
-        return Response(content=str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_cambiar_password")
 
 
 # ---------------------------------------------------------------------------
@@ -3295,7 +3283,7 @@ async def api_listar_templates(request: Request):
             ]
         }
     except Exception as e:
-        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_listar_templates")
 
 
 # ---------------------------------------------------------------------------
@@ -3566,15 +3554,15 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
                                     ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
                                 creados += 1
                 except Exception as ex:
-                    errores.append({"fila": fila, "motivo": str(ex)})
+                    # mensaje de negocio tal cual; cualquier otro fallo → mensaje genérico con código (detalle en el log)
+                    errores.append({"fila": fila, "motivo": mensaje_publico(ex, "api_importar_clientes (fila)")})
 
                 yield f"data: {json.dumps({'t':'prog','n':i+1,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
 
             yield f"data: {json.dumps({'t':'done','ok':True,'creados':creados,'duplicados':len(duplicados),'errores':len(errores),'detalle_errores':errores,'detalle_duplicados':duplicados,'ids_creados':ids_creados})}\n\n"
 
         except Exception as e:
-            logger.exception("Error importando clientes")
-            yield f"data: {json.dumps({'t':'error','msg':str(e)})}\n\n"
+            yield f"data: {json.dumps({'t':'error','msg':mensaje_publico(e, 'api_importar_clientes')})}\n\n"
 
     return _SR(
         _stream(),
@@ -3706,8 +3694,7 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
             )
         return {"ok": True, "wa": wa}
     except Exception as e:
-        logger.exception("Error en enviar-wtsp cliente %s", cliente_id)
-        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_enviar_primer_wtsp")
 
 
 # ---------------------------------------------------------------------------
@@ -3779,7 +3766,7 @@ async def api_crear_empresa(request: Request):
             extra_headers={"Prefer": "return=representation"})
         return row[0] if isinstance(row, list) and row else row
     except Exception as e:
-        return Response(content=_safe_httpx_error(e) or "Error al crear empresa", status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_crear_empresa")
 
 
 @app.patch("/api/empresas/{empresa_id}")
@@ -3811,7 +3798,7 @@ async def api_editar_empresa(empresa_id: str, request: Request):
             extra_headers={"Prefer": "return=minimal"})
         return {"ok": True}
     except Exception as e:
-        return Response(content=_safe_httpx_error(e) or "Error al editar empresa", status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_editar_empresa")
 
 
 @app.get("/api/inmobiliarias")
@@ -3975,7 +3962,8 @@ async def api_subir_imagen_proyecto(request: Request, file: UploadFile = File(..
                      "x-upsert": "true"},
             content=contenido)
         if r.status_code not in (200, 201):
-            return Response(content=f"Error storage: {r.text}", status_code=500)
+            return respuesta_error(RuntimeError(f"Storage respondió {r.status_code}: {r.text[:600]}"),
+                                   contexto="api_subir_imagen_proyecto")
 
     public_url = f"{supa_url.rstrip('/')}/storage/v1/object/public/proyectos-imagenes/{path}"
     return {"imagen_url": public_url}
@@ -4059,8 +4047,7 @@ async def api_crear_tipologia(request: Request):
             json=payload, extra_headers={"Prefer": "return=representation"})
         return row[0] if isinstance(row, list) and row else row
     except Exception as e:
-        logger.exception("Error en POST /api/tipologias")
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_crear_tipologia")
 
 
 @app.patch("/api/tipologias/{tip_id}")
@@ -4080,8 +4067,7 @@ async def api_editar_tipologia(tip_id: int, request: Request):
             json=payload, extra_headers={"Prefer": "return=minimal"})
         return {"ok": True}
     except Exception as e:
-        logger.exception("Error en PATCH /api/tipologias/%s", tip_id)
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_editar_tipologia")
 
 
 @app.delete("/api/tipologias/{tip_id}")
@@ -4154,8 +4140,7 @@ async def api_crear_etapa(request: Request):
             json=payload, extra_headers={"Prefer": "return=representation"})
         return row[0] if isinstance(row, list) and row else row
     except Exception as e:
-        logger.exception("Error en POST /api/etapas")
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_crear_etapa")
 
 
 @app.patch("/api/etapas/{etapa_id}")
@@ -4175,8 +4160,7 @@ async def api_editar_etapa(etapa_id: int, request: Request):
             json=payload, extra_headers={"Prefer": "return=minimal"})
         return {"ok": True}
     except Exception as e:
-        logger.exception("Error en PATCH /api/etapas/%s", etapa_id)
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_editar_etapa")
 
 
 @app.delete("/api/etapas/{etapa_id}")
@@ -4239,7 +4223,7 @@ async def api_find_or_create_etapa_tipologia(request: Request):
             extra_headers={"Prefer": "return=representation"})
         return {"id": (row[0]["id"] if isinstance(row, list) and row else row["id"])}
     except Exception as e:
-        return Response(content=str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_find_or_create_etapa_tipologia")
 
 
 @app.post("/api/etapa-tipologia")
@@ -4258,8 +4242,7 @@ async def api_crear_etapa_tipologia(request: Request):
             json=payload, extra_headers={"Prefer": "return=representation"})
         return row[0] if isinstance(row, list) and row else row
     except Exception as e:
-        logger.exception("Error en POST /api/etapa-tipologia")
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_crear_etapa_tipologia")
 
 
 @app.patch("/api/etapa-tipologia/{et_id}")
@@ -4275,8 +4258,7 @@ async def api_editar_etapa_tipologia(et_id: int, request: Request):
             extra_headers={"Prefer": "return=minimal"})
         return {"ok": True}
     except Exception as e:
-        logger.exception("Error en PATCH /api/etapa-tipologia/%s", et_id)
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_editar_etapa_tipologia")
 
 
 @app.delete("/api/etapa-tipologia/{et_id}")
@@ -5011,12 +4993,7 @@ async def api_crear_cliente(request: Request):
         return {"ok": True, "cliente": cliente, "wa": wa_result}
 
     except Exception as e:
-        logger.exception("Error en /api/clientes POST")
-        return Response(
-            content=_safe_httpx_error(e) or "Internal Server Error",
-            status_code=500,
-            media_type="text/plain",
-        )
+        return respuesta_error(e, contexto="api_crear_cliente")
 
 
 @app.patch("/api/clientes/{cliente_id}")
@@ -5038,7 +5015,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
         )
         return {"ok": True}
     except Exception as e:
-        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_actualizar_cliente")
 
 
 # ── Inbox (prospectos sin cliente) ────────────────────────────────────────────
@@ -5142,8 +5119,7 @@ async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
 
         return {"ok": True, "cliente_id": cliente_id}
     except Exception as e:
-        logger.exception("Error en POST /api/inbox/%s/registrar", prospecto_id)
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_registrar_desde_inbox")
 
 
 async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
@@ -5266,8 +5242,7 @@ async def api_documentos_cliente(cliente_id: int, request: Request):
         )
         return docs or []
     except Exception as e:
-        logger.exception("Error en /api/clientes/%s/documentos", cliente_id)
-        return Response(content=_safe_httpx_error(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_documentos_cliente")
 
 
 TIPOS_VALIDOS = {
@@ -5349,8 +5324,7 @@ async def api_reclasificar_documento(cliente_id: int, doc_id: str, request: Requ
 
         return {"ok": True, "tipo": nuevo_tipo, "pendientes": pendientes}
     except Exception as e:
-        logger.exception("Error reclasificando documento %s del cliente %s", doc_id, cliente_id)
-        return Response(content=_safe_httpx_error(e) or "Error al reclasificar documento", status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_reclasificar_documento")
 
 @app.post("/api/clientes/{cliente_id}/documentos/upload")
 async def api_upload_documento(
@@ -5407,8 +5381,7 @@ async def api_upload_documento(
         return {"ok": True, "documento": doc, "prospecto_id": prospecto_id}
 
     except Exception as e:
-        logger.exception("Error en upload documento cliente %s", cliente_id)
-        return Response(content=_safe_httpx_error(e) or "Error al subir documento", status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_upload_documento")
 
 
 @app.get("/api/clientes/{cliente_id}/documentos/{doc_id}/descargar")
@@ -5439,8 +5412,7 @@ async def api_descargar_documento(cliente_id: int, doc_id: str, request: Request
             headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
         )
     except Exception as e:
-        logger.exception("Error descargando documento %s", doc_id)
-        return Response(content=str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_descargar_documento")
 
 
 async def _descargar_documento_storage(url_storage: str) -> bytes:
@@ -5492,8 +5464,7 @@ async def api_eliminar_documento(cliente_id: int, doc_id: str, request: Request)
             params={"id": f"eq.{doc_id}"}, extra_headers={"Prefer": "return=minimal"})
         return {"ok": True}
     except Exception as e:
-        logger.exception("Error eliminando documento %s del cliente %s", doc_id, cliente_id)
-        return Response(content=_safe_httpx_error(e) or "Error al eliminar documento", status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_eliminar_documento")
 
 
 CONDICION_LABEL = {
@@ -5513,19 +5484,19 @@ async def _enviar_email_evaluacion(
     clientes = await _supabase_request("GET", "/Cliente",
         params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})
     if not clientes:
-        raise ValueError(f"Cliente {cliente_id} no encontrado")
+        raise AppError(f"Cliente {cliente_id} no encontrado")
     c = clientes[0]
 
     ahorro_uf = c.get("ahorro_uf")
     if ahorro_uf is None:
-        raise ValueError(
+        raise AppError(
             "El campo 'Ahorro (UF)' es requerido para enviar la evaluación. "
             "Por favor agrégalo en los datos del cliente."
         )
     ahorro_f = float(ahorro_uf)
 
     if not c.get("etapa_tipologia_id"):
-        raise ValueError(
+        raise AppError(
             "El cliente no tiene tipología y etapa asignada. "
             "Edítalo y selecciona la tipología y etapa antes de enviar la evaluación."
         )
@@ -5537,7 +5508,7 @@ async def _enviar_email_evaluacion(
             params={"disponible": "eq.true", "select": "email,ejecutivo"})
         destinatarios = [e["email"] for e in (ejecutivos or []) if e.get("email")]
     if not destinatarios:
-        raise ValueError("No hay ejecutivos disponibles con email configurado")
+        raise AppError("No hay ejecutivos disponibles con email configurado")
 
     nombre   = (c.get("Contacto") or "Sin nombre").strip()
     rut      = c.get("Rut") or "No registrado"
@@ -5923,8 +5894,7 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
         )
         return {"ok": True, **result}
     except Exception as e:
-        logger.exception("Error enviando evaluación cliente %s", cliente_id)
-        return Response(content=str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_enviar_evaluacion")
     finally:
         _evaluaciones_en_curso.pop(cliente_id, None)
 
@@ -5961,8 +5931,7 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
         )
         return {"ok": True}
     except Exception as e:
-        logger.exception("Error enviando recordatorio WA cliente %s", cliente_id)
-        return Response(content=str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_recordatorio_wa")
 
 
 # ── Movendo / Zonapropia Integration ─────────────────────────────────────────
@@ -6144,9 +6113,7 @@ async def api_movendo_nuevo_cliente(request: Request):
         return {"ok": True, "cliente_id": cliente_id}
 
     except Exception as e:
-        logger.exception("Error en /api/movendo/nuevo-cliente")
-        return Response(content=_safe_httpx_error(e) or "Internal Server Error", status_code=500,
-                        media_type="text/plain")
+        return respuesta_error(e, contexto="api_movendo_nuevo_cliente")
 
 
 @app.post("/api/aplicaciones/actualizar-contactos-quesubsidio")
@@ -6202,9 +6169,7 @@ async def api_movendo_actualizar_contacto(request: Request):
         return {"ok": True, "cliente_id": cliente_id}
 
     except Exception as e:
-        logger.exception("Error en /api/aplicaciones/actualizar-contactos-quesubsidio")
-        return Response(content=_safe_httpx_error(e) or "Internal Server Error", status_code=500,
-                        media_type="text/plain")
+        return respuesta_error(e, contexto="api_movendo_actualizar_contacto")
 
 
 async def _get_default_user() -> Optional[Dict]:
@@ -6686,8 +6651,7 @@ async def api_convertir_formulario(token: str, request: Request):
 
         return {"ok": True, "cliente_id": cliente_id, "cliente": cliente}
     except Exception as e:
-        logger.exception("Error en convertir formulario %s", token)
-        return Response(content=_safe_httpx_error(e) or str(e), status_code=500, media_type="text/plain")
+        return respuesta_error(e, contexto="api_convertir_formulario")
 
 
 @app.post("/api/newsletter")
