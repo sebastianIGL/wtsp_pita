@@ -131,7 +131,7 @@ async def _obtener_valor_uf() -> float:
     if _cache_uf["valor"] and now - _cache_uf["ts"] < _CACHE_UF_TTL:
         return _cache_uf["valor"]
     try:
-        async with httpx.AsyncClient(timeout=8) as client:
+        async with http_client(8) as client:
             resp = await client.get("https://mindicador.cl/api/uf")
             resp.raise_for_status()
             data = resp.json()
@@ -199,7 +199,7 @@ async def _gmail_send(
 
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
-    async with httpx.AsyncClient(timeout=60) as client:
+    async with http_client(60) as client:
         r = await client.post(
             f"https://gmail.googleapis.com/gmail/v1/users/{impersonate}/messages/send",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
@@ -4418,7 +4418,7 @@ async def _registrar_log_scraping(fuente: str, usuario_id: Optional[str], creado
 async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
     """Generador SSE: trae los departamentos de buydepa y reporta avance ítem por ítem."""
     try:
-        async with httpx.AsyncClient(timeout=30) as client:
+        async with http_client(30) as client:
             r = await client.get(BUYDEPA_API_URL)
             r.raise_for_status()
             data = r.json()
@@ -6278,7 +6278,7 @@ async def _movendo_get_token() -> str:
     """Obtiene un Bearer token de Movendo via OAuth2 Password Grant.
     Usar cuando necesitemos llamar a la API de Movendo (enviar datos hacia ellos).
     """
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with http_client(15) as client:
         r = await client.post(
             "https://autentica-api.movendo.cl/oauth/token",
             json={
