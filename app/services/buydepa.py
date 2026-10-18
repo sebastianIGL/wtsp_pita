@@ -1,14 +1,18 @@
 """Scraping de buydepa: ayudantes que crean, actualizan y dan de baja los departamentos como proyectos (precio, tipología,
 stock, imágenes, ofertas, log de cambios y log de ejecuciones).
 
-Movido sin cambios desde main.py (Fase 6, tramo 2, lote B). El flujo completo (``_sincronizar_buydepa_stream``) se mueve a
-este mismo módulo en el commit siguiente.
+Movido sin cambios desde main.py (Fase 6, tramo 2, lote B). ``_sincronizar_buydepa_stream`` es el flujo completo: trae los
+departamentos y va reportando el avance (SSE).
 """
+import json
 import logging
 import re
 from typing import Any, Dict, List, Optional
 
+from app.clients.mindicador import _obtener_valor_uf
 from app.clients.supabase import _supabase_request
+from app.core.http import http_client
+from app.core.utilidades import _safe_httpx_error
 
 logger = logging.getLogger("wtsp_pita")
 
@@ -258,3 +262,152 @@ async def _registrar_log_scraping(fuente: str, usuario_id: Optional[str], creado
         }, extra_headers={"Prefer": "return=minimal"})
     except Exception:
         logger.exception("No se pudo registrar el log de scraping")
+
+
+async def _sincronizar_buydepa_stream(usuario_id: Optional[str] = None):
+    """Generador SSE: trae los departamentos de buydepa y reporta avance ítem por ítem."""
+    try:
+        async with http_client(30) as client:
+            r = await client.get(BUYDEPA_API_URL)
+            r.raise_for_status()
+            data = r.json()
+    except Exception as e:
+        motivo = f"Error al consultar la API de buydepa: {e}"
+        await _registrar_log_scraping("buydepa", usuario_id, 0, 0, 0, 1, [{"motivo": motivo}], "error")
+        yield f"data: {json.dumps({'t': 'error', 'msg': motivo})}\n\n"
+        return
+
+    items = data if isinstance(data, list) else (
+        data.get("data") or data.get("items") or data.get("results") or data.get("apartments") or []
+    )
+    total = len(items)
+
+    existentes = await _supabase_request("GET", "/Proyecto",
+        params={"inmobiliaria_id": f"eq.{BUYDEPA_INMOBILIARIA_ID}",
+                "fuente_externo_id": "not.is.null",
+                "select": "id,nombre,codigo,imagen_url,imagenes,fuente_externo_id,activo"}) or []
+    existentes_por_id = {e["fuente_externo_id"]: e for e in existentes}
+    uf_clp = await _obtener_valor_uf()
+
+    creados = actualizados = desactivados = 0
+    errores: List[Dict[str, Any]] = []
+    ids_vistos_hoy: set = set()
+
+    for idx, item in enumerate(items, start=1):
+        fuente_id = str(item.get("id") or "").strip()
+        direccion_log = (item.get("address") or "").strip() or (fuente_id or "?")
+        accion = "sin_cambios"
+        if not fuente_id:
+            accion = "omitido"
+        else:
+            ids_vistos_hoy.add(fuente_id)
+            try:
+                disponible = item.get("state") == "available"
+                existente = existentes_por_id.get(fuente_id)
+
+                if existente:
+                    hubo_cambio = False
+                    if bool(existente.get("activo")) != disponible:
+                        await _supabase_request("PATCH", "/Proyecto",
+                            params={"id": f"eq.{existente['id']}"},
+                            json={"activo": disponible},
+                            extra_headers={"Prefer": "return=minimal"})
+                        await _actualizar_stock_proyecto(existente["id"], disponible)
+                        await _registrar_cambio_depa(existente.get("nombre"), fuente_id, "disponible",
+                                                     str(bool(existente.get("activo"))).lower(), str(disponible).lower())
+                        hubo_cambio = True
+                        if not disponible:
+                            desactivados += 1
+                    if await _completar_tipologia_depa(existente, item, uf_clp, disponible):
+                        hubo_cambio = True
+                    if await _normalizar_codigo_depa(existente, fuente_id):
+                        hubo_cambio = True
+                    if await _sincronizar_imagenes_depa(existente, _imagenes_buydepa(item.get("images"))):
+                        hubo_cambio = True
+                    if await _sincronizar_precio_depa(existente, item, uf_clp, fuente_id):
+                        hubo_cambio = True
+                    if await _registrar_oferta_depa(existente.get("nombre"), fuente_id, item):
+                        hubo_cambio = True
+                    if hubo_cambio:
+                        actualizados += 1
+                        accion = "actualizado"
+                else:
+                    # Nuevo departamento → crear Proyecto + Etapa + Tipologia + EtapaTipologia
+                    direccion  = direccion_log or f"Depto buydepa {fuente_id}"
+                    precio_uf  = _precio_a_uf(item.get("listPrice"), uf_clp)
+                    ahorro_min = round(precio_uf * 0.10, 2) if precio_uf else None
+                    imagenes   = _imagenes_buydepa(item.get("images"))
+                    codigo     = f"buydepa-{fuente_id}"
+
+                    proyecto = await _supabase_request("POST", "/Proyecto", json={
+                        "nombre": direccion, "codigo": codigo, "ubicacion": direccion,
+                        "inmobiliaria_id": BUYDEPA_INMOBILIARIA_ID,
+                        "imagen_url": imagenes[0] if imagenes else None,
+                        "imagenes": imagenes,
+                        "ahorro_minimo_uf": ahorro_min,
+                        "valor_reserva_clp": None, "valor_reserva_uf": None,
+                        "tiene_piloto": True,
+                        "acepta_ds19": False, "acepta_ds1_t23": False,
+                        "condicion_propiedad": "semi-nueva",
+                        "activo": disponible,
+                        "fuente_externo_id": fuente_id,
+                    }, extra_headers={"Prefer": "return=representation"})
+                    proyecto = proyecto[0] if isinstance(proyecto, list) and proyecto else proyecto
+                    if not proyecto or not proyecto.get("id"):
+                        raise RuntimeError("No se pudo crear el proyecto")
+
+                    try:
+                        etapa = await _supabase_request("POST", "/Etapa", json={
+                            "proyecto_id": proyecto["id"],
+                            "nombre": "Entrega inmediata",
+                            "estado": "entrega_inmediata",
+                        }, extra_headers={"Prefer": "return=representation"})
+                        etapa = etapa[0] if isinstance(etapa, list) and etapa else etapa
+                        if not etapa or not etapa.get("id"):
+                            raise RuntimeError("No se pudo crear la etapa")
+
+                        tipologia = await _supabase_request("POST", "/Tipologia",
+                            json=_payload_tipologia_buydepa(proyecto["id"], direccion, item, precio_uf, disponible),
+                            extra_headers={"Prefer": "return=representation"})
+                        tipologia = tipologia[0] if isinstance(tipologia, list) and tipologia else tipologia
+                        if not tipologia or not tipologia.get("id"):
+                            raise RuntimeError("No se pudo crear la tipología")
+
+                        await _supabase_request("POST", "/EtapaTipologia", json={
+                            "etapa_id": etapa["id"], "tipologia_id": tipologia["id"],
+                            "stock": 1 if disponible else 0,
+                        }, extra_headers={"Prefer": "return=minimal"})
+                    except Exception:
+                        # Quedó a medio crear (sin etapa, tipología o el vínculo entre ambas) →
+                        # deshacer todo para que la próxima corrida lo reintente limpio en vez
+                        # de dejar un proyecto huérfano sin tipología.
+                        await _revertir_proyecto_huerfano(proyecto["id"])
+                        raise
+
+                    await _registrar_oferta_depa(direccion, fuente_id, item)
+                    creados += 1
+                    accion = "creado"
+            except Exception as ex:
+                errores.append({"fuente_externo_id": fuente_id, "direccion": direccion_log, "motivo": _safe_httpx_error(ex)})
+                accion = "error"
+
+        yield f"data: {json.dumps({'t':'prog','n':idx,'total':total,'accion':accion,'direccion':direccion_log,'creados':creados,'actualizados':actualizados,'desactivados':desactivados,'errores':len(errores)})}\n\n"
+
+    # Departamentos que ya no aparecen en la respuesta de hoy → se dan de baja
+    for fuente_id, existente in existentes_por_id.items():
+        if fuente_id not in ids_vistos_hoy and existente.get("activo"):
+            try:
+                await _registrar_cambio_depa(existente.get("nombre"), fuente_id, "disponible", "true", "false")
+                await _supabase_request("PATCH", "/Proyecto",
+                    params={"id": f"eq.{existente['id']}"},
+                    json={"activo": False},
+                    extra_headers={"Prefer": "return=minimal"})
+                await _actualizar_stock_proyecto(existente["id"], False)
+                desactivados += 1
+                actualizados += 1
+            except Exception as ex:
+                errores.append({"fuente_externo_id": fuente_id, "motivo": str(ex)})
+
+    estado_log = "ok" if not errores else "parcial"
+    await _registrar_log_scraping("buydepa", usuario_id, creados, actualizados, desactivados, len(errores), errores, estado_log)
+    yield f"data: {json.dumps({'t':'done','creados':creados,'actualizados':actualizados,'desactivados':desactivados,'errores':len(errores),'detalle_errores':errores})}\n\n"
