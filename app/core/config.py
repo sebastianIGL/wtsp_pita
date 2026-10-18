@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     wa_phone_number_id: Optional[str] = Field(None, validation_alias=_alias("WA_PHONE_NUMBER_ID", "WHATSAPP_PHONE_NUMBER_ID"))
     wa_graph_version: str = Field("v22.0", validation_alias=_alias("WA_GRAPH_VERSION", "WHATSAPP_GRAPH_API_VERSION"))
     wa_waba_id: Optional[str] = Field(None, validation_alias=_alias("WA_WABA_ID", "WHATSAPP_WABA_ID"))
+    # App Secret de la app de Meta (Configuración de la app → Básica): permite comprobar la firma del webhook.
+    wa_app_secret: Optional[str] = Field(None, validation_alias=_alias("WA_APP_SECRET", "WHATSAPP_APP_SECRET"))
+    # False (por defecto) = solo registrar el resultado de la firma. True = rechazar (403) lo que no tenga firma válida.
+    wa_signature_enforce: bool = Field(False, validation_alias=_alias("WA_SIGNATURE_ENFORCE"))
     template_recordatorio_wa: str = Field("recordatorio_cliente", validation_alias=_alias("TEMPLATE_RECORDATORIO_WA"))
     admin_notify_phone: Optional[str] = Field(None, validation_alias=_alias("ADMIN_NOTIFY_PHONE"))
     bot_reply_delay: int = Field(30, validation_alias=_alias("BOT_REPLY_DELAY"))
@@ -108,7 +112,7 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", validation_alias=_alias("HOST"))
     port: int = Field(8000, validation_alias=_alias("PORT"))
 
-    @field_validator("enable_docs", "expose_error_detail", mode="before")
+    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", mode="before")
     @classmethod
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)
@@ -176,6 +180,7 @@ MODULOS: Dict[str, Tuple[Tuple[str, ...], str]] = {
                        "el bot no podrá enviar mensajes ni plantillas por WhatsApp"),
     "whatsapp_verificacion": (("wa_verify_token",),
                               "Meta no podrá verificar el webhook (GET /webhook responde 500)"),
+    "webhook_firma": (("wa_app_secret",), "el webhook NO comprueba la firma de Meta: cualquiera que conozca la URL puede enviarle mensajes falsos al bot"),
     "whatsapp_plantillas": (("wa_waba_id",), "no se podrá listar las plantillas aprobadas de Meta"),
     "bot_ia": (("anthropic_api_key",), "el bot responde con eco en vez de usar el modelo"),
     "correo": (("google_service_account_json",), "no se podrán enviar correos (evaluaciones, contacto, avisos)"),
@@ -275,6 +280,10 @@ def registrar_configuracion(logger) -> None:
     if get_settings().expose_error_detail:
         logger.warning("EXPOSE_ERROR_DETAIL está activa: las respuestas de error incluyen el detalle interno. "
                        "Es solo para desarrollo; desactívala en producción")
+    logger.info("Firma del webhook de WhatsApp: %s", describir_firma_webhook())
+    if get_settings().wa_signature_enforce and not get_settings().wa_app_secret:
+        logger.error("Configuración: WA_SIGNATURE_ENFORCE está activa pero falta WA_APP_SECRET: no se puede comprobar "
+                     "la firma, así que NO se rechaza nada hasta que se defina WA_APP_SECRET")
     logger.info("Horario en que el bot responde mensajes de texto: %s", describir_horario_bot())
     if os.environ.get("RECOVERY_MAX_ANTIGUEDAD_HORAS") and _parse_hora(os.environ["RECOVERY_MAX_ANTIGUEDAD_HORAS"], 0, 8760) is None:
         logger.warning("Configuración: RECOVERY_MAX_ANTIGUEDAD_HORAS no es válida (entero 0–8760): se usa %d h",
@@ -297,6 +306,15 @@ def describir_horario_bot() -> str:
     if (s.horario_bot_inicio, s.horario_bot_fin) == (0, 24):
         return "24/7 (sin restricción horaria)"
     return f"de {s.horario_bot_inicio}:00 a {s.horario_bot_fin}:00 hora de Chile"
+
+
+def describir_firma_webhook() -> str:
+    s = get_settings()
+    if not s.wa_app_secret:
+        return "sin WA_APP_SECRET: no se comprueba la firma de Meta"
+    if s.wa_signature_enforce:
+        return "se RECHAZAN (403) los mensajes sin firma válida"
+    return "modo vigilar: se registra si la firma es válida, pero no se rechaza nada"
 
 
 def horario_bot_invalido() -> List[str]:
