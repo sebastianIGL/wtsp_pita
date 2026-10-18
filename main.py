@@ -2447,7 +2447,7 @@ async def verify_webhook(request: Request):
 DELAY_RESPUESTA_SEGUNDOS = get_settings().bot_reply_delay
 
 
-async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
+async def _procesar_webhook(msg: Dict, es_reintento: bool = False, responder: bool = True):
     """Procesa un mensaje de WhatsApp en background (después de devolver 200 a Meta).
 
     es_reintento=True cuando lo invoca _recovery_loop: el mensaje entrante ya
@@ -2518,6 +2518,10 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
                 telefono_e164=from_number,
                 ultimo_texto_entrante=text,
             )
+
+        # Mensajes anteriores de un lote del mismo número: solo se guardan; responde el último del lote.
+        if not responder:
+            return
 
         # Fuera del horario del bot (HORARIO_BOT_INICIO/FIN; por defecto 24/7, así que normalmente no frena):
         # no responder ahora. El mensaje ya quedó guardado con pendiente_respuesta=true;
@@ -2686,6 +2690,41 @@ async def _procesar_status(status: Dict) -> None:
         })
 
 
+# Referencias a las tareas en segundo plano: sin ellas el recolector de basura podría descartarlas a mitad de camino.
+_tareas_fondo: set = set()
+
+
+def _lanzar(coro) -> "asyncio.Task":
+    tarea = asyncio.create_task(coro)
+    _tareas_fondo.add(tarea)
+    tarea.add_done_callback(_tareas_fondo.discard)
+    return tarea
+
+
+def _es_mensaje_nuevo(msg: Any) -> bool:
+    """Deduplicación rápida en memoria (últimos 500 wamids). La definitiva es el índice único de la base."""
+    if not isinstance(msg, dict):
+        return False
+    wamid = msg.get("id", "")
+    if wamid and wamid in _wamids_procesados:
+        logger.info("Webhook duplicado ignorado: %s", wamid)
+        return False
+    if wamid:
+        _wamids_procesados.add(wamid)
+        _wamids_orden.append(wamid)
+        if len(_wamids_orden) > _WAMID_MAX:
+            old = _wamids_orden.pop(0)
+            _wamids_procesados.discard(old)
+    return True
+
+
+async def _procesar_grupo(mensajes: List[Dict]) -> None:
+    """Varios mensajes del mismo número en un mismo lote: se guardan todos en orden y responde el último."""
+    for msg in mensajes[:-1]:
+        await _procesar_webhook(msg, responder=False)
+    await _procesar_webhook(mensajes[-1])
+
+
 def _registrar_firma_webhook(firma: str) -> bool:
     """Registra el resultado de la firma y dice si hay que rechazar la petición (solo con ENFORCE y secreto)."""
     rechazar = debe_rechazar(firma, get_settings().wa_signature_enforce)
@@ -2707,39 +2746,30 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
         return Response(content="Forbidden", status_code=403, media_type="text/plain")
     payload = await request.json()
     try:
-        entry   = payload["entry"][0]
-        changes = entry["changes"][0]
-        value   = changes["value"]
+        mensajes_nuevos: List[Dict] = []
+        for entry in (payload.get("entry") or []) if isinstance(payload, dict) else []:
+            for change in (entry.get("changes") or []) if isinstance(entry, dict) else []:
+                value = (change.get("value") or {}) if isinstance(change, dict) else {}
+                # Actualizaciones de estado (entregado, leído, fallido): todas las del lote
+                for estado in value.get("statuses") or []:
+                    _lanzar(_procesar_status(estado))
+                for msg in value.get("messages") or []:
+                    if _es_mensaje_nuevo(msg):
+                        mensajes_nuevos.append(msg)
 
-        # Procesar actualizaciones de estado (entregado, leído, fallido)
-        statuses_list = value.get("statuses", [])
-        if statuses_list:
-            asyncio.create_task(_procesar_status(statuses_list[0]))
-
-        messages_list = value.get("messages", [])
-        if not messages_list:
-            return {"ok": True}
-
-        msg   = messages_list[0]
-        wamid = msg.get("id", "")
-
-        # Deduplicar: Meta puede reenviar el mismo evento varias veces
-        if wamid and wamid in _wamids_procesados:
-            logger.info("Webhook duplicado ignorado: %s", wamid)
-            return {"ok": True}
-        if wamid:
-            _wamids_procesados.add(wamid)
-            _wamids_orden.append(wamid)
-            if len(_wamids_orden) > _WAMID_MAX:
-                old = _wamids_orden.pop(0)
-                _wamids_procesados.discard(old)
+        # Los mensajes de un mismo número se atienden en orden y responde solo el último (debounce por número);
+        # los de números distintos son independientes.
+        por_numero: Dict[str, List[Dict]] = {}
+        for msg in mensajes_nuevos:
+            por_numero.setdefault(_normalize_phone(msg.get("from", "")), []).append(msg)
 
         # Devuelve 200 a Meta de inmediato — debounce: cancela tarea anterior del mismo número
-        from_number = _normalize_phone(msg.get("from", ""))
-        existing = _pending_tasks.get(from_number)
-        if existing and not existing.done():
-            existing.cancel()
-        _pending_tasks[from_number] = asyncio.create_task(_procesar_webhook(msg))
+        for from_number, grupo in por_numero.items():
+            existing = _pending_tasks.get(from_number)
+            if existing and not existing.done():
+                existing.cancel()
+            tarea = _procesar_webhook(grupo[0]) if len(grupo) == 1 else _procesar_grupo(grupo)
+            _pending_tasks[from_number] = _lanzar(tarea)
 
     except Exception:
         logger.exception("Error en /webhook")
