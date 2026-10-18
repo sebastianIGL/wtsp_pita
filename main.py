@@ -42,6 +42,7 @@ from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
 from app.core.errors import AppError, detalle_error, mensaje_publico, registrar_error, respuesta_error
+from app.core.webhook_signature import debe_rechazar, verificar_firma
 from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, cliente_anthropic, margen_frente_a_recovery
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
@@ -2659,8 +2660,25 @@ async def _procesar_status(status: Dict) -> None:
         })
 
 
+def _registrar_firma_webhook(firma: str) -> bool:
+    """Registra el resultado de la firma y dice si hay que rechazar la petición (solo con ENFORCE y secreto)."""
+    rechazar = debe_rechazar(firma, get_settings().wa_signature_enforce)
+    if firma == "valida":
+        logger.info("Webhook: firma válida", extra={"firma_webhook": firma})
+    elif firma != "sin_secreto":
+        logger.warning("Webhook: firma %s%s", firma, " → se rechaza" if rechazar else " (solo se registra)",
+                       extra={"firma_webhook": firma, "se_rechaza": rechazar})
+    return rechazar
+
+
 @app.post("/webhook")
 async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
+    # Firma de Meta (X-Hub-Signature-256) sobre el cuerpo EXACTO. Por defecto solo se registra; con
+    # WA_SIGNATURE_ENFORCE=true se rechaza lo que no venga firmado por Meta.
+    cuerpo_crudo = await request.body()
+    firma = verificar_firma(cuerpo_crudo, request.headers.get("X-Hub-Signature-256"), get_settings().wa_app_secret)
+    if _registrar_firma_webhook(firma):
+        return Response(content="Forbidden", status_code=403, media_type="text/plain")
     payload = await request.json()
     try:
         entry   = payload["entry"][0]
