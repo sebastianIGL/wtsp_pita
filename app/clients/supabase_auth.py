@@ -82,3 +82,16 @@ async def _uid_desde_jwt(request: Request) -> Optional[str]:
             return r.json().get("id")
     except Exception:
         return None
+
+
+async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
+    supa_url = _supabase_url()
+    key = _supabase_service_role_key()
+    async with http_client(20) as client:
+        r = await client.post(
+            f"{supa_url}/auth/v1/invite",
+            headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
+            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{get_settings().site_url_o_local}/reset-password"},
+        )
+        r.raise_for_status()
+        return r.json()["id"]

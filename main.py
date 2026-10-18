@@ -54,6 +54,7 @@ from app.clients.supabase_storage import (  # noqa: F401  (se re-exportan con lo
 )
 from app.clients.supabase_auth import (  # noqa: F401  (se re-exportan con los mismos nombres)
     _get_usuario_actual,
+    _invitar_usuario_supabase,
     _uid_desde_jwt,
 )
 from app.routers.health import router as health_router
@@ -3023,19 +3024,6 @@ def _solo_admin(perfil: Optional[Dict]) -> bool:
 def _solo_owner(perfil: Optional[Dict]) -> bool:
     """True solo para owner — operaciones exclusivas del dueño."""
     return bool(perfil and perfil.get("rol") == "owner")
-
-
-async def _invitar_usuario_supabase(correo: str, nombre: str, rol: str) -> str:
-    supa_url = _supabase_url()
-    key = _supabase_service_role_key()
-    async with http_client(20) as client:
-        r = await client.post(
-            f"{supa_url}/auth/v1/invite",
-            headers={"Authorization": f"Bearer {key}", "apikey": key, "Content-Type": "application/json"},
-            json={"email": correo, "data": {"nombre": nombre, "rol": rol}, "redirect_to": f"{get_settings().site_url_o_local}/reset-password"},
-        )
-        r.raise_for_status()
-        return r.json()["id"]
 
 
 async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, detalle_error: str = None, usuario_id: str = None):
