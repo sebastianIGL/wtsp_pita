@@ -1582,6 +1582,20 @@ async def insertar_documento(
 VENTANA_TIPO_POR_TEXTO_MIN = 15
 
 
+async def _tipo_segun_textos(prospecto_id: str, operador: str, instante: str) -> Optional[str]:
+    """Tipo de documento que nombra el primer mensaje del cliente recibido desde ``instante`` (operador "gt" o "gte")."""
+    textos = await _supabase_request("GET", "/Mensaje", params={
+        "prospecto_id": f"eq.{prospecto_id}", "direccion": "eq.entrante", "creado_en": f"{operador}.{instante}",
+        "select": "texto", "order": "creado_en.asc", "limit": "20",
+    }) or []
+    for fila in textos:
+        texto = (fila.get("texto") or "").strip()
+        tipo = None if texto.startswith("[") else clasificar_texto_documento(texto)   # "[IMAGE] …" es el registro de un archivo
+        if tipo:
+            return tipo
+    return None
+
+
 async def etiquetar_documentos_sin_tipo(prospecto_id: str) -> int:
     """Una foto de WhatsApp casi nunca trae nombre, así que llega como tipo "otro". Si después el cliente escribe qué
     era ("mi libreta de ahorro"), ese tipo se le pone al archivo. Devuelve cuántos archivos se etiquetaron."""
@@ -1592,18 +1606,22 @@ async def etiquetar_documentos_sin_tipo(prospecto_id: str) -> int:
     }) or []
     etiquetados = 0
     for doc in sin_tipo:
-        textos = await _supabase_request("GET", "/Mensaje", params={
-            "prospecto_id": f"eq.{prospecto_id}", "direccion": "eq.entrante", "creado_en": f"gt.{doc['creado_en']}",
-            "select": "texto", "order": "creado_en.asc", "limit": "20",
-        }) or []
-        for fila in textos:
-            texto = (fila.get("texto") or "").strip()
-            tipo = None if texto.startswith("[") else clasificar_texto_documento(texto)   # "[IMAGE] …" es el registro de un archivo
-            if tipo:
-                await _supabase_request("PATCH", "/Documento", params={"id": f"eq.{doc['id']}"}, json={"tipo": tipo})
-                etiquetados += 1
-                break
+        tipo = await _tipo_segun_textos(prospecto_id, "gt", doc["creado_en"])
+        if tipo:
+            await _supabase_request("PATCH", "/Documento", params={"id": f"eq.{doc['id']}"}, json={"tipo": tipo})
+            etiquetados += 1
     return etiquetados
+
+
+async def tipo_por_texto_desde_envio(prospecto_id: str, timestamp_envio: Any) -> Optional[str]:
+    """Al registrar un archivo: lo que el cliente escribió desde que lo ENVIÓ (la hora de WhatsApp), aunque el archivo
+    haya tardado en procesarse y el texto ya estuviera guardado."""
+    try:
+        envio = datetime.fromtimestamp(int(timestamp_envio), tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
+    desde = max(envio, datetime.now(timezone.utc) - timedelta(minutes=VENTANA_TIPO_POR_TEXTO_MIN))
+    return await _tipo_segun_textos(prospecto_id, "gte", desde.isoformat())
 
 
 async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
@@ -2516,6 +2534,13 @@ async def _procesar_media(
 
         # Clasificar tipo de documento
         tipo = clasificar_documento(nombre_archivo, mime_type)
+        if tipo == "otro" and prospecto_id:
+            try:
+                tipo = await tipo_por_texto_desde_envio(prospecto_id, msg.get("timestamp")) or tipo
+            except Exception as e_tipo:
+                registrar_error(e_tipo, "_procesar_media: tipo según lo que el cliente escribió antes de que llegara el archivo",
+                                mensaje="No se pudo leer lo que escribió el cliente; el archivo queda sin clasificar",
+                                nivel=logging.WARNING)
 
         url_storage = None
         if prospecto_id:
