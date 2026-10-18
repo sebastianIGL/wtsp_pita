@@ -119,6 +119,7 @@ from app.clients.whatsapp import (  # noqa: F401  (se re-exportan con los mismos
     send_whatsapp_message,
     send_whatsapp_template,
 )
+from app.core.permisos import _solo_admin, _solo_owner  # noqa: F401  (se re-exportan con los mismos nombres)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -2654,15 +2655,6 @@ async def ingestar_prospecto(request: Request):
 # ---------------------------------------------------------------------------
 # Auth JWT (Supabase)
 # ---------------------------------------------------------------------------
-
-
-def _solo_admin(perfil: Optional[Dict]) -> bool:
-    """True para owner y administrador — acceso a todo el CRM."""
-    return bool(perfil and perfil.get("rol") in ("owner", "administrador"))
-
-def _solo_owner(perfil: Optional[Dict]) -> bool:
-    """True solo para owner — operaciones exclusivas del dueño."""
-    return bool(perfil and perfil.get("rol") == "owner")
 
 
 async def _log_correo(tipo: str, destinatario: str, asunto: str, estado: str, detalle_error: str = None, usuario_id: str = None):
