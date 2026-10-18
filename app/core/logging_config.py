@@ -1,6 +1,7 @@
 """Logging estructurado en JSON, con ``request_id`` por petición y datos sensibles enmascarados.
 
-  * Una línea JSON por registro, a stdout (Railway pinta como error todo lo que va a stderr).
+  * Una línea JSON por registro, a stdout (Railway pinta como error todo lo que va a stderr), con
+    las claves ``message`` y ``level`` que Railway usa para mostrar y filtrar.
   * ``request_id``: viene de ``X-Request-ID`` si es un valor seguro; si no, se genera uno. Se
     devuelve en la cabecera ``X-Request-ID`` de la respuesta y viaja por ``contextvars``: las
     tareas creadas durante la petición (p. ej. el procesamiento del webhook) lo heredan.
@@ -66,13 +67,17 @@ def enmascarar(texto: Any) -> Any:
 _ESTANDAR = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime", "taskName", "color_message"}
 
 
+# Railway lee "message" y "level" (debug|info|warn|error) de los logs JSON para mostrarlos y filtrarlos
+_NIVELES = {"DEBUG": "debug", "INFO": "info", "WARNING": "warn", "ERROR": "error", "CRITICAL": "error"}
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         datos: Dict[str, Any] = {
             "ts": datetime.fromtimestamp(record.created, timezone.utc).isoformat(timespec="milliseconds"),
-            "level": record.levelname,
+            "level": _NIVELES.get(record.levelname, record.levelname.lower()),
             "logger": record.name,
-            "msg": enmascarar(record.getMessage()),
+            "message": enmascarar(record.getMessage()),
             "request_id": getattr(record, "request_id", None) or request_id_var.get(),
         }
         for k, v in record.__dict__.items():
