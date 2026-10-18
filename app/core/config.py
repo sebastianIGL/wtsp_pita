@@ -148,20 +148,27 @@ def _alias_presente(campo: str) -> Optional[str]:
 
 
 def diagnostico() -> Dict[str, List[str]]:
-    """Nombres de variables cargadas y ausentes. Nunca incluye valores."""
+    """Nombres de variables cargadas y ausentes. Nunca incluye valores.
+
+    ``usan_defecto``: ausentes pero con valor por defecto (no es un problema).
+    ``faltan_opcionales``: ausentes y sin valor por defecto (el módulo afectado queda deshabilitado)."""
     cargadas: List[str] = []
+    usan_defecto: List[str] = []
     faltan_obligatorias: List[str] = []
     faltan_opcionales: List[str] = []
-    for campo in Settings.model_fields:
+    for campo, info in Settings.model_fields.items():
         usado = _alias_presente(campo)
         primario = _aliases_de(campo)[0]
         if usado:
             cargadas.append(usado)
         elif campo in OBLIGATORIAS:
             faltan_obligatorias.append(" | ".join(_aliases_de(campo)))
+        elif info.default is not None:
+            usan_defecto.append(primario)
         else:
             faltan_opcionales.append(primario)
-    return {"cargadas": cargadas, "faltan_obligatorias": faltan_obligatorias, "faltan_opcionales": faltan_opcionales}
+    return {"cargadas": cargadas, "usan_defecto": usan_defecto,
+            "faltan_obligatorias": faltan_obligatorias, "faltan_opcionales": faltan_opcionales}
 
 
 def modulos_deshabilitados() -> List[Tuple[str, List[str], str]]:
@@ -189,8 +196,10 @@ def registrar_configuracion(logger) -> None:
     Lanza ConfigError si falta algo obligatorio (después de registrarlo)."""
     d = diagnostico()
     logger.info("Configuración: %d variables cargadas: %s", len(d["cargadas"]), ", ".join(d["cargadas"]) or "(ninguna)")
+    if d["usan_defecto"]:
+        logger.info("Configuración: ausentes, usan valor por defecto: %s", ", ".join(d["usan_defecto"]))
     if d["faltan_opcionales"]:
-        logger.info("Configuración: variables opcionales ausentes: %s", ", ".join(d["faltan_opcionales"]))
+        logger.info("Configuración: opcionales ausentes (sin valor por defecto): %s", ", ".join(d["faltan_opcionales"]))
     for modulo, faltan, efecto in modulos_deshabilitados():
         logger.warning("Módulo deshabilitado o incompleto [%s]: falta %s → %s", modulo, ", ".join(faltan), efecto)
     if d["faltan_obligatorias"]:

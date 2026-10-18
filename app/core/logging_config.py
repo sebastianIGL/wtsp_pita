@@ -62,7 +62,8 @@ def enmascarar(texto: Any) -> Any:
 
 # ── Formato JSON ─────────────────────────────────────────────────────────────
 
-_ESTANDAR = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime", "taskName"}
+# color_message: lo añade uvicorn con secuencias ANSI; no aporta nada en JSON
+_ESTANDAR = set(logging.LogRecord("", 0, "", 0, "", (), None).__dict__) | {"message", "asctime", "taskName", "color_message"}
 
 
 class JsonFormatter(logging.Formatter):
