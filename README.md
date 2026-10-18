@@ -7,7 +7,7 @@ Webhook mínimo con FastAPI para WhatsApp Cloud API (Meta Business).
 - Tu backend decide respuesta → tu backend llama a Graph API → WhatsApp responde al cliente
 
 ## Requisitos
-- Python 3.8+
+- Python 3.13 (el de Railway; fijado en `.python-version`). También probado en 3.11.
 
 ## Instalación
 ```bash
@@ -89,3 +89,28 @@ En el panel de tu App en Meta (WhatsApp Cloud API) buscá el número de WhatsApp
 
 ### `WA_ACCESS_TOKEN`
 En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba (corto). Para producción normalmente se usa un token más estable asociado a un System User con permisos de WhatsApp/Graph.
+
+## Decisiones tomadas para las fases siguientes
+
+- **Tests**: no forman parte del repositorio; se mantienen fuera de él, en la copia local del dueño.
+- **Tailwind**: CLI standalone v3.4 (equivale al CDN actual). La migración a v4 es una tarea aparte.
+- **Caché de usuario (Fase 2)**: TTL de 30 s, tamaño acotado e invalidación inmediata cuando el propio proceso
+  cambia el rol o el estado de un usuario. Sin validación local del JWT por ahora.
+- **`BOT_ENGINE=legacy|nuevo` (Fase 8)**: el motor legacy queda congelado y **se elimina tras ~2 semanas estables
+  del motor nuevo en producción**. Fecha límite: se anota aquí el día del despliegue del motor nuevo
+  (fecha de despliegue + 14 días).
+
+## Operación: configuración, logs y salud (Fase 2a)
+
+- **Configuración**: `app/core/config.py` (pydantic-settings). Acepta los mismos nombres de variable de siempre y
+  sus alias (`SUPABASE_URL`/`SUPABASE_PROJECT_URL`/…, `WA_*`/`WHATSAPP_*`). Solo **`SUPABASE_URL` y
+  `SUPABASE_SERVICE_ROLE_KEY` son obligatorias**: si faltan, el proceso no arranca y el error nombra qué falta.
+  Todo lo demás es opcional: al arrancar se registra un aviso por cada módulo que queda deshabilitado.
+  Al arrancar se registran los **nombres** de las variables cargadas y de las ausentes, nunca los valores.
+- **Logs**: JSON, una línea por registro, a stdout (`message`, `level`, `request_id`, …). Se enmascaran tokens,
+  claves, JWT, teléfonos (quedan los 4 últimos dígitos) y RUT. Cada petición lleva un `request_id`, que también
+  se devuelve en la cabecera `X-Request-ID` (se respeta el que envíe el proxy si es seguro).
+- **`/health`**: responde `{"status":"ok"}` sin consultar Supabase ni terceros. Railway aún no lo usa como healthcheck.
+- **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
+  Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`),
+  con timeout propio y sin reintentos automáticos.
