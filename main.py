@@ -37,6 +37,7 @@ except Exception:
     pass
 
 from app.core.config import get_settings, registrar_configuracion
+from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging
 from app.core.llm import cerrar_anthropic, cliente_anthropic
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
@@ -68,6 +69,7 @@ app = FastAPI(
     redoc_url="/redoc" if _docs_enabled else None,
     openapi_url="/openapi.json" if _docs_enabled else None,
 )
+app.include_router(health_router)   # /health: solo el proceso, sin Supabase ni terceros
 templates = Jinja2Templates(directory="frontend")
 
 # ── Security headers ──────────────────────────────────────────────────────────
