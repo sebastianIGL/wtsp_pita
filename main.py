@@ -52,6 +52,10 @@ from app.clients.supabase_storage import (  # noqa: F401  (se re-exportan con lo
     subir_a_storage,
     subir_imagen_proyecto,
 )
+from app.clients.supabase_auth import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    _get_usuario_actual,
+    _uid_desde_jwt,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -3010,48 +3014,6 @@ async def send_whatsapp_template(
 # ---------------------------------------------------------------------------
 # Auth JWT (Supabase)
 # ---------------------------------------------------------------------------
-
-async def _get_usuario_actual(request: Request) -> Optional[Dict]:
-    """Verifica el JWT de Supabase y retorna el perfil del usuario, o None.
-
-    El resultado EXITOSO se recuerda hasta 30 s (app/core/user_cache.py): clave = hash del token, solo los
-    campos necesarios del perfil. Los fallos no se cachean. El JWT lo sigue verificando Supabase."""
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        return None
-    token = auth[7:]
-    en_cache = user_cache.obtener(token)
-    if en_cache is not None:
-        user_cache.registrar_periodicamente()
-        return en_cache
-    supa_url = _supabase_url()
-    key = _supabase_service_role_key()
-    if not supa_url or not key:
-        return None
-    generacion = user_cache.generacion()   # antes de consultar: si mientras tanto cambia el usuario, no se guarda
-    try:
-        async with http_client(10) as client:
-            r = await request_con_reintentos_get(
-                client, "GET", f"{supa_url}/auth/v1/user",
-                headers={"Authorization": f"Bearer {token}", "apikey": key},
-            )
-            if r.status_code != 200:
-                return None
-            user_id = r.json().get("id")
-            if not user_id:
-                return None
-        perfiles = await _supabase_request(
-            "GET", "/Usuario",
-            params={"id": f"eq.{user_id}", "select": "*", "limit": "1"},
-        )
-        if not perfiles:
-            return None
-        perfil = reducir_perfil(perfiles[0])
-        user_cache.guardar(token, user_id, perfil, generacion)
-        user_cache.registrar_periodicamente()
-        return perfil
-    except Exception:
-        return None
 
 
 def _solo_admin(perfil: Optional[Dict]) -> bool:
@@ -6746,31 +6708,6 @@ async def page_perfil():
 
 
 # ── API Progreso usuario (requiere JWT de Supabase en Authorization header) ──
-
-async def _uid_desde_jwt(request: Request) -> Optional[str]:
-    """Extrae el user_id desde el JWT de Supabase en el header Authorization."""
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Bearer "):
-        return None
-    token = auth[7:]
-    try:
-        # Verificamos llamando a /auth/v1/user con el token del usuario
-        sb_url = _supabase_url()
-        if not sb_url:
-            return None
-        anon_key = get_settings().supabase_anon_key
-        if not anon_key:
-            return None
-        async with http_client(10) as client:
-            r = await request_con_reintentos_get(
-                client, "GET", f"{sb_url.rstrip('/')}/auth/v1/user",
-                headers={"apikey": anon_key, "Authorization": f"Bearer {token}"},
-            )
-            if r.status_code != 200:
-                return None
-            return r.json().get("id")
-    except Exception:
-        return None
 
 
 @app.get("/api/progreso")
