@@ -37,7 +37,7 @@ except Exception:
     pass
 
 from app.core.config import get_settings, registrar_configuracion
-from app.core.http import cerrar_http, http_client, iniciar_http
+from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -1565,7 +1565,7 @@ async def _supabase_request(
     if extra_headers:
         headers.update(extra_headers)
     async with http_client(20) as client:
-        r = await client.request(method, url, params=params, json=json, headers=headers)
+        r = await request_con_reintentos_get(client, method, url, params=params, json=json, headers=headers)
         r.raise_for_status()
         if not r.content:
             return None
@@ -2887,8 +2887,8 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
         return None
     try:
         async with http_client(10) as client:
-            r = await client.get(
-                f"{supa_url}/auth/v1/user",
+            r = await request_con_reintentos_get(
+                client, "GET", f"{supa_url}/auth/v1/user",
                 headers={"Authorization": f"Bearer {token}", "apikey": key},
             )
             if r.status_code != 200:
@@ -6653,8 +6653,8 @@ async def _uid_desde_jwt(request: Request) -> Optional[str]:
         if not anon_key:
             return None
         async with http_client(10) as client:
-            r = await client.get(
-                f"{sb_url.rstrip('/')}/auth/v1/user",
+            r = await request_con_reintentos_get(
+                client, "GET", f"{sb_url.rstrip('/')}/auth/v1/user",
                 headers={"apikey": anon_key, "Authorization": f"Bearer {token}"},
             )
             if r.status_code != 200:

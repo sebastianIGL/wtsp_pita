@@ -13,10 +13,14 @@ Reglas:
     ``_supabase_request``; nada hacia Meta ni Gmail se reintenta.
   * Si el lifespan no corrió (scripts, pruebas) el cliente se crea de forma perezosa.
 """
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 import httpx
+
+logger = logging.getLogger("wtsp_pita")
 
 CONNECT_TIMEOUT = 10.0
 POOL_TIMEOUT = 10.0
@@ -87,3 +91,44 @@ class _VistaConTimeout:
 async def http_client(total: float):
     """Sustituto directo de ``async with httpx.AsyncClient(timeout=N) as client``: ``http_client(N)``."""
     yield _VistaConTimeout(cliente_http(), timeout(total))
+
+
+# ── Reintentos: solo GET (a Supabase) ────────────────────────────────────────
+
+REINTENTOS_GET = 2                       # máximo de reintentos (3 intentos en total)
+ESPERA_BASE_S = 0.3                      # 0,3 s y luego 0,6 s
+ESTADOS_TRANSITORIOS = frozenset({502, 503, 504})
+# Errores de conexión: la petición pudo no haber llegado. Se excluyen ReadTimeout y PoolTimeout a
+# propósito: reintentar una consulta lenta o un pool agotado empeora el incidente en vez de aliviarlo.
+ERRORES_REINTENTABLES = (httpx.ConnectError, httpx.ConnectTimeout, httpx.RemoteProtocolError,
+                         httpx.ReadError, httpx.WriteError)
+
+
+async def _dormir(segundos: float) -> None:
+    await asyncio.sleep(segundos)
+
+
+async def request_con_reintentos_get(cliente: Any, method: str, url: str, **kw: Any) -> httpx.Response:
+    """Envía la petición; solo si es GET la reintenta (máx. 2, espera creciente) ante errores de
+    conexión o 502/503/504. POST, PATCH, DELETE y PUT se envían exactamente una vez.
+    Devuelve la última respuesta (el llamador decide si hace raise_for_status)."""
+    es_get = method.upper() == "GET"
+    intentos = 1 + (REINTENTOS_GET if es_get else 0)
+    for n in range(intentos):
+        ultimo = n == intentos - 1
+        try:
+            r = await cliente.request(method, url, **kw)
+        except ERRORES_REINTENTABLES as e:
+            if ultimo:
+                raise
+            motivo = type(e).__name__
+        else:
+            if r.status_code not in ESTADOS_TRANSITORIOS or ultimo:
+                return r
+            motivo = f"HTTP {r.status_code}"
+        espera = ESPERA_BASE_S * (2 ** n)
+        # solo la ruta: la query puede llevar teléfonos u otros datos personales
+        logger.warning("Reintento %d/%d de GET %s por %s (espera %.1fs)", n + 1, REINTENTOS_GET,
+                       httpx.URL(url).path, motivo, espera)
+        await _dormir(espera)
+    raise AssertionError("inalcanzable")   # pragma: no cover
