@@ -108,7 +108,7 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   Todo lo demás es opcional: al arrancar se registra un aviso por cada módulo que queda deshabilitado.
   Al arrancar se registran los **nombres** de las variables cargadas y de las ausentes, nunca los valores.
 - **Logs**: JSON, una línea por registro, a stdout (`message`, `level`, `request_id`, …). Se enmascaran tokens,
-  claves, JWT, teléfonos (quedan los 4 últimos dígitos) y RUT. Cada petición lleva un `request_id`, que también
+  claves, JWT, teléfonos (quedan los 4 últimos dígitos), RUT y correos (`a***@dominio.cl`); los nombres no. Cada petición lleva un `request_id`, que también
   se devuelve en la cabecera `X-Request-ID` (se respeta el que envíe el proxy si es seguro).
 - **`/health`**: responde `{"status":"ok"}` sin consultar Supabase ni terceros. Railway aún no lo usa como healthcheck.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a

@@ -5,8 +5,9 @@
   * ``request_id``: viene de ``X-Request-ID`` si es un valor seguro; si no, se genera uno. Se
     devuelve en la cabecera ``X-Request-ID`` de la respuesta y viaja por ``contextvars``: las
     tareas creadas durante la petición (p. ej. el procesamiento del webhook) lo heredan.
-  * Se enmascaran tokens, claves, JWT, teléfonos y RUT en el mensaje, en los campos extra y en
-    las trazas de excepción. Correos y nombres NO se enmascaran (no estaba pedido).
+  * Se enmascaran tokens, claves, JWT, teléfonos, RUT y correos (queda la primera letra y el dominio:
+    ``a***@dominio.cl``) en el mensaje, en los campos extra y en las trazas de excepción. Los nombres
+    NO se enmascaran.
   * El log de acceso lo emite el middleware con la plantilla de la ruta (``/api/formulario/{token}``),
     nunca con la ruta cruda ni con la query, que pueden llevar tokens o teléfonos.
 """
@@ -42,6 +43,14 @@ _REGLAS = [
     (re.compile(r"(?<![\w.])\d{1,2}\.?\d{3}\.?\d{3}-[\dkK](?![\w])"), "***-*"),
 ]
 
+# Correos: se oculta la parte local (puede contener nombre o teléfono) y se deja el dominio
+_CORREO = re.compile(r"([A-Za-z0-9._%+\-]+)@([A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+)")
+
+
+def _mascara_correo(m: "re.Match[str]") -> str:
+    return m.group(1)[0] + "***@" + m.group(2)
+
+
 # Teléfonos: móvil chileno (con o sin +56 / espacios / guiones) y E.164 con "+"
 _TELEFONO = re.compile(
     r"(?<![\w])(\+?56[\s-]?9[\s-]?\d{4}[\s-]?\d{4}|\+?56\d{9}|9\d{8}|\+\d{10,15})(?![\w])"
@@ -56,6 +65,7 @@ def _mascara_telefono(m: "re.Match[str]") -> str:
 def enmascarar(texto: Any) -> Any:
     if not isinstance(texto, str) or not texto:
         return texto
+    texto = _CORREO.sub(_mascara_correo, texto)   # primero: la parte local puede traer dígitos de teléfono
     for patron, reemplazo in _REGLAS:
         texto = patron.sub(reemplazo, texto)
     return _TELEFONO.sub(_mascara_telefono, texto)
