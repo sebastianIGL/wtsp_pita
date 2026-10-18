@@ -100,6 +100,12 @@ from app.services.documentos import (  # noqa: F401  (se re-exportan con los mis
     documentos_pendientes,
     resumen_documentos,
 )
+from app.clients.mindicador import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    _CACHE_UF_TTL,
+    _UF_VALOR_RESPALDO,
+    _cache_uf,
+    _obtener_valor_uf,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -196,28 +202,6 @@ def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
 _cache_proyectos: Dict = {"data": None, "ts": 0.0}
 _CACHE_TTL = 300  # 5 minutos
 
-# ── Valor UF (Chile) para poblar plantillas WhatsApp ──────────────────────────
-_cache_uf: Dict = {"valor": None, "ts": 0.0}
-_CACHE_UF_TTL = 86400  # 24 horas
-_UF_VALOR_RESPALDO = 39000  # fallback si mindicador.cl no responde (ajustar periódicamente)
-
-async def _obtener_valor_uf() -> float:
-    """Valor de la UF en CLP, cacheado 24h. Usa mindicador.cl; ante cualquier falla retorna un respaldo fijo."""
-    now = time.time()
-    if _cache_uf["valor"] and now - _cache_uf["ts"] < _CACHE_UF_TTL:
-        return _cache_uf["valor"]
-    try:
-        async with http_client(8) as client:
-            resp = await client.get("https://mindicador.cl/api/uf")
-            resp.raise_for_status()
-            data = resp.json()
-            valor = float(data["serie"][0]["valor"])
-    except Exception as exc:
-        logger.warning("No se pudo obtener valor UF de mindicador.cl, usando respaldo: %s", exc)
-        valor = _UF_VALOR_RESPALDO
-    _cache_uf["valor"] = valor
-    _cache_uf["ts"]    = now
-    return valor
 
 # ── Gmail API (email transaccional via Service Account) ──────────────────────
 def _gmail_get_token_sync(impersonate_email: str) -> str:
