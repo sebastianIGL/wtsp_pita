@@ -5,6 +5,8 @@ Movido sin cambios desde main.py (Fase 6, tramo 2, lote A). Funciones puras, sin
 ``_CAMPOS_CALIFICACION`` (las preguntas de calificación) vive aquí porque de ellas depende qué documentos se piden;
 también lo usan el bot y las rutas.
 """
+import re
+import unicodedata
 from typing import Dict, List, Optional
 
 
@@ -115,3 +117,31 @@ def resumen_documentos(docs_recibidos: List[Dict], datos: Optional[Dict] = None)
     rec = ", ".join(recibidos_labels)  if recibidos_labels  else "(ninguno)"
     pen = ", ".join(pendientes_labels) if pendientes_labels else "(ninguno)"
     return f"Recibidos: {rec}\nPendientes: {pen}"
+
+
+# Palabras con las que el cliente nombra un documento en un mensaje de texto. Más estricto que _KEYWORDS_TIPO (que mira
+# nombres de archivo): en una conversación "casa", "renta" o "ahorro" aparecen sin referirse a un documento.
+# Cada alternativa es un conjunto de palabras que deben estar todas.
+_PALABRAS_TEXTO_TIPO: List[tuple] = [
+    ("carnet_identidad",   [{"carnet"}, {"cedula"}, {"identidad"}, {"ci"}]),
+    ("libreta_ahorro",     [{"libreta"}, {"cartola"}]),
+    ("certificado_afp",    [{"afp"}]),
+    ("informe_deudas",     [{"cmf"}, {"dicom"}, {"informe", "deudas"}]),
+    ("certificado_rsh",    [{"rsh"}, {"registro", "social"}]),
+    ("liquidacion_sueldo", [{"liquidacion"}, {"liquidaciones"}]),
+    ("antiguedad_laboral", [{"antiguedad"}]),
+]
+_MAX_PALABRAS_TEXTO_DOC = 12
+
+
+def clasificar_texto_documento(texto: str) -> Optional[str]:
+    """Tipo de documento que nombra un mensaje corto del cliente ("mi libreta de ahorro"), o None si no nombra
+    ninguno o nombra varios (ambiguo)."""
+    sin_tildes = unicodedata.normalize("NFD", (texto or "").lower())
+    sin_tildes = "".join(c for c in sin_tildes if unicodedata.category(c) != "Mn")
+    palabras = re.findall(r"[a-z0-9]+", sin_tildes)
+    if not palabras or len(palabras) > _MAX_PALABRAS_TEXTO_DOC:
+        return None
+    conjunto = set(palabras)
+    tipos = [tipo for tipo, alternativas in _PALABRAS_TEXTO_TIPO if any(a <= conjunto for a in alternativas)]
+    return tipos[0] if len(tipos) == 1 else None

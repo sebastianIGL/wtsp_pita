@@ -97,6 +97,7 @@ from app.services.documentos import (  # noqa: F401  (se re-exportan con los mis
     _docs_requeridos,
     _lista_documentos_requeridos_texto,
     clasificar_documento,
+    clasificar_texto_documento,
     documentos_pendientes,
     resumen_documentos,
 )
@@ -1577,6 +1578,34 @@ async def insertar_documento(
     return data[0] if data else {}
 
 
+# Minutos hasta los que un archivo sin tipo ("otro") puede recibir tipo por lo que el cliente escriba después.
+VENTANA_TIPO_POR_TEXTO_MIN = 15
+
+
+async def etiquetar_documentos_sin_tipo(prospecto_id: str) -> int:
+    """Una foto de WhatsApp casi nunca trae nombre, así que llega como tipo "otro". Si después el cliente escribe qué
+    era ("mi libreta de ahorro"), ese tipo se le pone al archivo. Devuelve cuántos archivos se etiquetaron."""
+    desde = (datetime.now(timezone.utc) - timedelta(minutes=VENTANA_TIPO_POR_TEXTO_MIN)).isoformat()
+    sin_tipo = await _supabase_request("GET", "/Documento", params={
+        "prospecto_id": f"eq.{prospecto_id}", "tipo": "eq.otro", "wa_media_id": "not.is.null",
+        "creado_en": f"gte.{desde}", "select": "id,creado_en", "order": "creado_en.asc", "limit": "10",
+    }) or []
+    etiquetados = 0
+    for doc in sin_tipo:
+        textos = await _supabase_request("GET", "/Mensaje", params={
+            "prospecto_id": f"eq.{prospecto_id}", "direccion": "eq.entrante", "creado_en": f"gt.{doc['creado_en']}",
+            "select": "texto", "order": "creado_en.asc", "limit": "20",
+        }) or []
+        for fila in textos:
+            texto = (fila.get("texto") or "").strip()
+            tipo = None if texto.startswith("[") else clasificar_texto_documento(texto)   # "[IMAGE] …" es el registro de un archivo
+            if tipo:
+                await _supabase_request("PATCH", "/Documento", params={"id": f"eq.{doc['id']}"}, json={"tipo": tipo})
+                etiquetados += 1
+                break
+    return etiquetados
+
+
 async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
     rows = await _supabase_request(
         "GET",
@@ -2209,6 +2238,12 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False, responder: bo
         docs_recibidos = []
 
         if prospecto_id:
+            try:
+                await etiquetar_documentos_sin_tipo(prospecto_id)
+            except Exception as e_etiq:
+                registrar_error(e_etiq, "_procesar_webhook: tipo de archivos según lo que escribe el cliente",
+                                mensaje="No se pudo asignar tipo a los archivos sin clasificar; el bot sigue sin ese dato",
+                                nivel=logging.WARNING)
             try:
                 historial = await obtener_historial_mensajes(prospecto_id)
                 docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
