@@ -1774,6 +1774,16 @@ async def actualizar_datos_prospecto(
         asyncio.create_task(_notificar_interesado(prospecto_id))
 
 
+def _es_violacion_unica(e: "httpx.HTTPStatusError") -> bool:
+    """PostgREST responde 409 con code 23505 cuando se viola un índice único."""
+    if getattr(e.response, "status_code", None) != 409:
+        return False
+    try:
+        return (e.response.json() or {}).get("code") == "23505"
+    except Exception:
+        return False
+
+
 async def insertar_mensaje(
     *,
     prospecto_id: str,
@@ -1790,7 +1800,15 @@ async def insertar_mensaje(
     }
     if cliente_id is not None:
         row["cliente_id"] = cliente_id
-    await _supabase_request("POST", "/Mensaje", json=row)
+    try:
+        await _supabase_request("POST", "/Mensaje", json=row)
+    except httpx.HTTPStatusError as e:
+        # Con el índice único sobre Mensaje.wa_id_mensaje, un wamid repetido es un mensaje duplicado de Meta:
+        # no es un error. Cualquier otro fallo (incluida una violación distinta, como una clave foránea) sigue lanzándose.
+        if _es_violacion_unica(e):
+            return False
+        raise
+    return True
 
 
 async def insertar_documento(
@@ -2484,13 +2502,18 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
         # Guardar mensaje entrante ANTES del debounce (queda en historial aunque llegue otro)
         # — se omite en reintentos del recovery loop: el mensaje ya se guardó la primera vez.
         if prospecto_id and not es_reintento:
-            await insertar_mensaje(
+            nuevo = await insertar_mensaje(
                 prospecto_id=prospecto_id,
                 direccion="entrante",
                 text=text,
                 wa_message_id=msg.get("id"),
                 cliente_id=cliente_id_prospecto,
             )
+            if not nuevo:
+                # Duplicado detectado por la base (índice único): sobrevive a reinicios y a varias réplicas.
+                logger.info("Mensaje duplicado ignorado (ya estaba guardado): %s", msg.get("id"),
+                            extra={"wamid": msg.get("id")})
+                return
             await upsert_prospecto(
                 telefono_e164=from_number,
                 ultimo_texto_entrante=text,
@@ -2740,6 +2763,15 @@ async def _procesar_media(
         if not media_id:
             logger.warning("Mensaje de media sin media_id")
             return
+
+        # Duplicado durable: si ya hay un documento con ese media_id de WhatsApp, este envío ya se procesó.
+        if prospecto_id:
+            ya = await _supabase_request("GET", "/Documento",
+                params={"wa_media_id": f"eq.{media_id}", "select": "id", "limit": "1"}) or []
+            if ya:
+                logger.info("Archivo duplicado ignorado (media_id ya procesado): %s", media_id,
+                            extra={"wa_media_id": media_id})
+                return
 
         # Descargar de WhatsApp
         file_bytes, mime_type, nombre_generado = await descargar_media_whatsapp(media_id)
