@@ -47,8 +47,10 @@ from app.clients.supabase import (  # noqa: F401  (se re-exportan: main.py y los
 )
 from app.clients.supabase_storage import (  # noqa: F401  (se re-exportan con los mismos nombres)
     _descargar_documento_storage,
+    StorageError,
     _eliminar_documento_storage,
     subir_a_storage,
+    subir_imagen_proyecto,
 )
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
@@ -3994,20 +3996,10 @@ async def api_subir_imagen_proyecto(request: Request, file: UploadFile = File(..
     ext  = (file.filename or "imagen").rsplit(".", 1)[-1].lower() or "jpg"
     path = f"proyecto-{int(time.time())}.{ext}"
 
-    supa_url = _supabase_url()
-    key      = _supabase_service_role_key()
-    upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/proyectos-imagenes/{path}"
-
-    async with http_client(60) as client:
-        r = await client.post(upload_url,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": mime,
-                     "x-upsert": "true"},
-            content=contenido)
-        if r.status_code not in (200, 201):
-            return respuesta_error(RuntimeError(f"Storage respondió {r.status_code}: {r.text[:600]}"),
-                                   contexto="api_subir_imagen_proyecto")
-
-    public_url = f"{supa_url.rstrip('/')}/storage/v1/object/public/proyectos-imagenes/{path}"
+    try:
+        public_url = await subir_imagen_proyecto(path, contenido, mime)
+    except StorageError as e:
+        return respuesta_error(e, contexto="api_subir_imagen_proyecto")
     return {"imagen_url": public_url}
 
 

@@ -58,3 +58,28 @@ async def _eliminar_documento_storage(url_storage: str) -> None:
         r = await client.delete(url_storage, headers={"Authorization": f"Bearer {key}"})
         if r.status_code not in (200, 204, 404):
             r.raise_for_status()
+
+
+class StorageError(RuntimeError):
+    """Storage respondió con un estado distinto de 200/201 al subir un archivo."""
+
+
+async def subir_imagen_proyecto(path: str, contenido: bytes, mime: str) -> str:
+    """Sube la imagen de un proyecto al bucket público proyectos-imagenes y devuelve su URL pública.
+
+    Extraído de api_subir_imagen_proyecto (main.py): el código de la petición es el mismo; la única diferencia es
+    que un estado distinto de 200/201 ahora se lanza como StorageError y la ruta lo convierte en la misma respuesta.
+    """
+    supa_url = _supabase_url()
+    key      = _supabase_service_role_key()
+    upload_url = f"{supa_url.rstrip('/')}/storage/v1/object/proyectos-imagenes/{path}"
+
+    async with http_client(60) as client:
+        r = await client.post(upload_url,
+            headers={"Authorization": f"Bearer {key}", "Content-Type": mime,
+                     "x-upsert": "true"},
+            content=contenido)
+        if r.status_code not in (200, 201):
+            raise StorageError(f"Storage respondió {r.status_code}: {r.text[:600]}")
+
+    return f"{supa_url.rstrip('/')}/storage/v1/object/public/proyectos-imagenes/{path}"
