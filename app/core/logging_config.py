@@ -170,9 +170,15 @@ class RequestContextMiddleware:
 
         try:
             await self.app(scope, receive, enviar)
-        except Exception:
-            _log.exception("Excepción no controlada", extra={"method": scope.get("method"), "path": _ruta(scope)})
-            raise
+        except Exception as exc:
+            from app.core.errors import respuesta_no_controlada     # import tardío: errors → config, sin ciclos
+            ruta = _ruta(scope)
+            if estado["codigo"] is not None:
+                # La respuesta ya empezó (p. ej. un stream): no se puede cambiar; se registra y se corta.
+                _log.exception("Excepción no controlada", extra={"method": scope.get("method"), "path": ruta})
+                raise
+            respuesta = respuesta_no_controlada(exc, f"{scope.get('method')} {ruta}")
+            await respuesta(scope, receive, enviar)
         finally:
             ruta = _ruta(scope)
             if ruta not in _SIN_LOG_DE_ACCESO:
