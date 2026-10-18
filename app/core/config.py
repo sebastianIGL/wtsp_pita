@@ -22,6 +22,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 _HORA_INVALIDA = -1
+RECOVERY_MAX_ANTIGUEDAD_DEFECTO = 24
 
 
 def _parse_hora(valor, minimo: int, maximo: int) -> Optional[int]:
@@ -75,6 +76,9 @@ class Settings(BaseSettings):
     # No afecta a los avisos a ejecutivos, que tienen sus propios horarios fijos.
     horario_bot_inicio: int = Field(0, validation_alias=_alias("HORARIO_BOT_INICIO"))
     horario_bot_fin: int = Field(24, validation_alias=_alias("HORARIO_BOT_FIN"))
+    # _recovery_loop ignora pendientes cuyo último mensaje entrante tenga más de estas horas (0 = sin tope).
+    # 24 = ventana de WhatsApp para mensajes libres: pasado ese plazo Meta rechaza la respuesta.
+    recovery_max_antiguedad_horas: int = Field(24, validation_alias=_alias("RECOVERY_MAX_ANTIGUEDAD_HORAS"))
 
     # ── Bot (Anthropic) ─────────────────────────────────────────────────────
     anthropic_api_key: Optional[str] = Field(None, validation_alias=_alias("ANTHROPIC_API_KEY"))
@@ -114,6 +118,12 @@ class Settings(BaseSettings):
     @classmethod
     def _fin_valido(cls, v):
         return _hora_o_marca(v, 1, 24)
+
+    @field_validator("recovery_max_antiguedad_horas", mode="before")
+    @classmethod
+    def _antiguedad_valida(cls, v):
+        n = _parse_hora(v, 0, 8760)
+        return RECOVERY_MAX_ANTIGUEDAD_DEFECTO if n is None else n
 
     @model_validator(mode="after")
     def _ventana_coherente(self):
@@ -246,6 +256,11 @@ def registrar_configuracion(logger) -> None:
         logger.warning("Configuración: %s tiene un valor no válido (debe ser un entero 0–23 para el inicio y 1–24 "
                        "para el fin, con inicio < fin): se usa el horario por defecto 24/7", nombre)
     logger.info("Horario en que el bot responde mensajes de texto: %s", describir_horario_bot())
+    if os.environ.get("RECOVERY_MAX_ANTIGUEDAD_HORAS") and _parse_hora(os.environ["RECOVERY_MAX_ANTIGUEDAD_HORAS"], 0, 8760) is None:
+        logger.warning("Configuración: RECOVERY_MAX_ANTIGUEDAD_HORAS no es válida (entero 0–8760): se usa %d h",
+                       RECOVERY_MAX_ANTIGUEDAD_DEFECTO)
+    horas = get_settings().recovery_max_antiguedad_horas
+    logger.info("Recovery: %s", f"ignora pendientes de más de {horas} h" if horas else "sin tope de antigüedad")
     if d["faltan_obligatorias"]:
         logger.error("Configuración: faltan variables obligatorias: %s", "; ".join(d["faltan_obligatorias"]))
     validar_obligatorias()

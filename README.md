@@ -116,6 +116,11 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   `HORARIO_BOT_FIN=19` en Railway (sin tocar código). Un valor no válido (texto, fuera de rango o inicio ≥ fin) no
   tumba el servicio: se usa 24/7 y el arranque lo avisa. No afecta a los avisos a ejecutivos, que conservan sus
   horarios fijos: "primer documento" y "documentos completos" de 9 a 19, y "necesita ayuda" de 8 a 24.
+- **Recuperación de mensajes sin respuesta** (`_recovery_loop`, cada 3 min): reprocesa conversaciones cuyo último
+  mensaje entrante tiene entre 3 min y `RECOVERY_MAX_ANTIGUEDAD_HORAS` horas (por defecto **24**, la ventana de WhatsApp
+  para mensajes libres; `0` = sin tope), los más antiguos primero y hasta 10 por ciclo. Los más antiguos se ignoran y
+  quedan en el log (un aviso al arrancar y luego cada ~1 h, con id, horas y teléfono enmascarado); no se modifican en
+  la base de datos.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto

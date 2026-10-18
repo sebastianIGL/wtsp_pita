@@ -11,7 +11,7 @@ import httpx
 import csv
 import io
 import unicodedata
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from collections import defaultdict
@@ -38,7 +38,7 @@ except Exception:
 
 from app.core.config import get_settings, registrar_configuracion
 from app.routers.health import router as health_router
-from app.core.logging_config import RequestContextMiddleware, configurar_logging
+from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, cliente_anthropic, margen_frente_a_recovery
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
@@ -294,9 +294,47 @@ def _segundos_hasta_horario_urgente() -> float:
     return max(0.0, (objetivo - ahora_cl).total_seconds())
 
 
+_RECOVERY_CICLOS_ENTRE_AVISOS = 20   # un aviso de pendientes vencidos al arrancar y luego cada ~1 h (20 × 3 min)
+
+
+def _horas_desde(iso: Optional[str]) -> Optional[float]:
+    try:
+        return (datetime.now(timezone.utc) - datetime.fromisoformat(str(iso))).total_seconds() / 3600
+    except (TypeError, ValueError):
+        return None
+
+
+async def _registrar_pendientes_vencidos(limite_iso: str, max_horas: int) -> None:
+    """Deja en el log los pendientes más antiguos que el tope (no se reprocesan). Solo lectura."""
+    try:
+        vencidos = await _supabase_request("GET", "/Prospecto", params=[
+            ("pendiente_respuesta", "eq.true"),
+            ("ultimo_entrante_en", f"lt.{limite_iso}"),
+            ("select", "id,telefono_e164,ultimo_entrante_en"),
+            ("order", "ultimo_entrante_en.asc"),
+            ("limit", "50"),
+        ]) or []
+        if not vencidos:
+            return
+        detalle = "; ".join(
+            f"{v.get('id')}:{enmascarar(v.get('telefono_e164') or '')}:{(_horas_desde(v.get('ultimo_entrante_en')) or 0):.0f}h"
+            for v in vencidos[:20])
+        logger.warning(
+            "Recovery: %d%s pendiente(s) con más de %d h ignorados (fuera de la ventana de 24 h de WhatsApp, "
+            "no se les puede responder con un mensaje libre): %s",
+            len(vencidos), "+" if len(vencidos) == 50 else "", max_horas, detalle)
+    except Exception:
+        logger.exception("Recovery: no se pudo listar los pendientes vencidos")
+
+
 async def _recovery_loop():
-    """Cada 3 min reintenta conversaciones donde el cliente escribió y el bot no respondió."""
+    """Cada 3 min reintenta conversaciones donde el cliente escribió y el bot no respondió.
+
+    Solo toma pendientes con más de 3 min y menos de RECOVERY_MAX_ANTIGUEDAD_HORAS (24 por defecto, la
+    ventana de WhatsApp para mensajes libres), los más antiguos primero. Los demás se ignoran y se dejan
+    registrados en el log."""
     await asyncio.sleep(60)  # 1 min de gracia al arrancar
+    ciclo = 0
     while True:
         try:
             if not _dentro_horario_bot():
@@ -306,14 +344,21 @@ async def _recovery_loop():
                 # "respuesta pospuesta". Se retoma solo al abrir el horario.
                 await asyncio.sleep(_segundos_hasta_horario_bot())
                 continue
-            hace_3_min = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
-            pendientes = await _supabase_request("GET", "/Prospecto",
-                params={
-                    "pendiente_respuesta": "eq.true",
-                    "ultimo_entrante_en":  f"lt.{hace_3_min}",
-                    "select": "id,telefono_e164,ultimo_texto_entrante",
-                    "limit": "10",
-                }) or []
+            ahora = datetime.now(timezone.utc)
+            hace_3_min = (ahora - timedelta(minutes=3)).isoformat()
+            max_horas = get_settings().recovery_max_antiguedad_horas
+            filtros = [
+                ("pendiente_respuesta", "eq.true"),
+                ("ultimo_entrante_en", f"lt.{hace_3_min}"),
+                ("select", "id,telefono_e164,ultimo_texto_entrante"),
+                ("order", "ultimo_entrante_en.asc"),   # primero los más antiguos (los que antes vencen)
+                ("limit", "10"),
+            ]
+            limite_antiguedad = None
+            if max_horas > 0:
+                limite_antiguedad = (ahora - timedelta(hours=max_horas)).isoformat()
+                filtros.append(("ultimo_entrante_en", f"gte.{limite_antiguedad}"))
+            pendientes = await _supabase_request("GET", "/Prospecto", params=filtros) or []
             for p in pendientes:
                 telefono   = p.get("telefono_e164") or ""
                 ultimo_txt = p.get("ultimo_texto_entrante") or ""
@@ -326,6 +371,9 @@ async def _recovery_loop():
                     "text": {"body": ultimo_txt},
                     "id":   f"recovery_{p['id']}",
                 }, es_reintento=True))
+            if limite_antiguedad and ciclo % _RECOVERY_CICLOS_ENTRE_AVISOS == 0:
+                await _registrar_pendientes_vencidos(limite_antiguedad, max_horas)
+            ciclo += 1
         except Exception:
             logger.exception("Error en _recovery_loop")
         await asyncio.sleep(180)  # revisar cada 3 minutos
@@ -1594,7 +1642,7 @@ async def _supabase_request(
     method: str,
     path: str,
     *,
-    params: Optional[Dict[str, str]] = None,
+    params: Optional[Union[Dict[str, str], List[Tuple[str, str]]]] = None,   # lista de pares = mismo filtro repetido
     json: Optional[Union[Dict[str, Any], List[Any]]] = None,
     extra_headers: Optional[Dict[str, str]] = None,
 ):
