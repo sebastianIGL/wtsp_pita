@@ -1774,6 +1774,15 @@ async def actualizar_datos_prospecto(
         asyncio.create_task(_notificar_interesado(prospecto_id))
 
 
+def _normalizar_wamid(valor: Any) -> Optional[str]:
+    """Identificador de WhatsApp tal como debe guardarse: sin espacios sobrantes y, si no hay uno real
+    (None, vacío o solo espacios), NULL. Un texto vacío o un valor fijo chocaría con el índice único."""
+    if valor is None:
+        return None
+    texto = valor.strip() if isinstance(valor, str) else str(valor).strip()
+    return texto or None
+
+
 def _es_violacion_unica(e: "httpx.HTTPStatusError") -> bool:
     """PostgREST responde 409 con code 23505 cuando se viola un índice único."""
     if getattr(e.response, "status_code", None) != 409:
@@ -1796,7 +1805,7 @@ async def insertar_mensaje(
         "prospecto_id": prospecto_id,
         "direccion":    direccion,
         "texto":        text,
-        "wa_id_mensaje": wa_message_id,
+        "wa_id_mensaje": _normalizar_wamid(wa_message_id),
     }
     if cliente_id is not None:
         row["cliente_id"] = cliente_id
