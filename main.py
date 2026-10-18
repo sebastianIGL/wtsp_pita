@@ -2635,7 +2635,10 @@ async def _procesar_status(status: Dict) -> None:
     rows = await _supabase_request("GET", "/Cliente",
         params={"wamid_plantilla": f"eq.{wamid}", "select": "id,estado_plantilla", "limit": "1"}) or []
     if not rows:
-        logger.warning("WA status '%s' sin cliente para wamid=%s", meta_estado, wamid)
+        # Solo la plantilla manual del CRM guarda su wamid; los demás envíos (respuestas del bot, avisos) no tienen
+        # cliente asociado y es lo normal. Se avisa como advertencia únicamente si el envío falló.
+        logger.log(logging.WARNING if estado_crm == "fallido" else logging.INFO,
+                   "WA status '%s' sin cliente para wamid=%s", meta_estado, wamid)
         return
     c = rows[0]
     actual = c.get("estado_plantilla") or ""
