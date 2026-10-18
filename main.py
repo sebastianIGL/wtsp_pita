@@ -1583,6 +1583,9 @@ async def insertar_documento(
 
 # Minutos hasta los que un archivo sin tipo ("otro") puede recibir tipo por lo que el cliente escriba después.
 VENTANA_TIPO_POR_TEXTO_MIN = 15
+# Los avisos de Meta pueden llegar en otro orden y su reloj no es el de este servidor: un texto recibido unos segundos
+# "antes" de la hora de envío del archivo igual cuenta como escrito junto con él.
+TOLERANCIA_RELOJ_S = 5
 
 
 async def _tipo_segun_textos(prospecto_id: str, operador: str, instante: str) -> Optional[str]:
@@ -1623,7 +1626,8 @@ async def tipo_por_texto_desde_envio(prospecto_id: str, timestamp_envio: Any) ->
         envio = datetime.fromtimestamp(int(timestamp_envio), tz=timezone.utc)
     except (TypeError, ValueError, OverflowError, OSError):
         return None
-    desde = max(envio, datetime.now(timezone.utc) - timedelta(minutes=VENTANA_TIPO_POR_TEXTO_MIN))
+    desde = max(envio - timedelta(seconds=TOLERANCIA_RELOJ_S),
+                datetime.now(timezone.utc) - timedelta(minutes=VENTANA_TIPO_POR_TEXTO_MIN))
     return await _tipo_segun_textos(prospecto_id, "gte", desde.isoformat())
 
 
@@ -2550,6 +2554,7 @@ async def _procesar_media(
 
         # Clasificar tipo de documento
         tipo = clasificar_documento(nombre_archivo, mime_type)
+        tipo_por_nombre = tipo
         if tipo == "otro" and prospecto_id:
             try:
                 tipo = await tipo_por_texto_desde_envio(prospecto_id, msg.get("timestamp")) or tipo
@@ -2557,6 +2562,8 @@ async def _procesar_media(
                 registrar_error(e_tipo, "_procesar_media: tipo según lo que el cliente escribió antes de que llegara el archivo",
                                 mensaje="No se pudo leer lo que escribió el cliente; el archivo queda sin clasificar",
                                 nivel=logging.WARNING)
+        logger.info("Archivo recibido | tipo por nombre: %s | tipo final: %s | enviado (hora WhatsApp): %s",
+                    tipo_por_nombre, tipo, msg.get("timestamp"), extra={"wa_media_id": media_id})
 
         url_storage = None
         if prospecto_id:
