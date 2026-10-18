@@ -29,12 +29,13 @@ try:
 except ImportError:
     anthropic = None
 
+_error_dotenv: Optional[Exception] = None   # se registra en cuanto existe el logger (más abajo)
 try:
     from dotenv import load_dotenv
     import pathlib
     load_dotenv(dotenv_path=pathlib.Path(__file__).parent / ".env", override=True)
-except Exception:
-    pass
+except Exception as _e_dotenv:
+    _error_dotenv = _e_dotenv
 
 from app.core.config import get_settings, registrar_configuracion
 from app.routers.health import router as health_router
@@ -223,7 +224,8 @@ async def _gmail_send(
 logger = logging.getLogger("wtsp_pita")
 if not logger.handlers:
     configurar_logging(get_settings().log_level)
-
+if _error_dotenv is not None:
+    registrar_error(_error_dotenv, "carga de .env al importar main", mensaje="No se pudo cargar el .env (se sigue con el entorno)")
 
 # Debounce: una tarea pendiente por número — la nueva cancela la anterior
 _pending_tasks: Dict[str, asyncio.Task] = {}
@@ -394,6 +396,14 @@ _WAMID_MAX = 500
 # ---------------------------------------------------------------------------
 # Helpers genéricos
 # ---------------------------------------------------------------------------
+
+def _cuerpo_opcional_ilegible(request: Request, contexto: str, e: Exception) -> None:
+    """El cuerpo JSON de estos endpoints es opcional: sin cuerpo no es un error. Si vino un cuerpo y no se
+    pudo leer, se avisa en el log (y se sigue sin él, como siempre)."""
+    if request.headers.get("content-length") not in (None, "0"):
+        logger.warning("%s: el cuerpo no es JSON válido y se ignora (%s)", contexto, type(e).__name__,
+                       extra={"contexto": contexto})
+
 
 def _safe_httpx_error(e: Exception) -> str:
     """Resumen del error para el log o para diagnóstico de administradores (nunca para el navegador:
@@ -2502,8 +2512,10 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
             try:
                 historial = await obtener_historial_mensajes(prospecto_id)
                 docs_recibidos = await obtener_documentos_prospecto(prospecto_id)
-            except Exception:
-                pass
+            except Exception as e_ctx:
+                registrar_error(e_ctx, "_procesar_webhook: historial y documentos",
+                                mensaje="No se pudo cargar el historial/documentos; el bot responde sin ese contexto",
+                                nivel=logging.WARNING)
 
         # Cargar otros proyectos de la misma empresa para contexto del bot
         otros_proyectos: List[Dict] = []
@@ -2512,8 +2524,10 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False):
             if empresa_id_ctx:
                 try:
                     otros_proyectos = await _obtener_otros_proyectos(empresa_id_ctx, proyecto.get("id"))
-                except Exception:
-                    pass
+                except Exception as e_ctx:
+                    registrar_error(e_ctx, "_procesar_webhook: otros proyectos de la empresa",
+                                    mensaje="No se pudo cargar otros proyectos; el bot responde sin ese contexto",
+                                    nivel=logging.WARNING)
 
         resultado = await generar_respuesta_ia(
             prospecto=prospecto or {},
@@ -2806,8 +2820,9 @@ async def _procesar_media(
                 to=from_number,
                 text="Recibí tu archivo, pero tuve un problema al procesarlo. Por favor intenta enviarlo nuevamente 🙏",
             )
-        except Exception:
-            pass
+        except Exception as e_aviso:
+            registrar_error(e_aviso, "_procesar_media: aviso de fallo al cliente",
+                            mensaje="Tampoco se pudo avisar al cliente del problema con su archivo", nivel=logging.WARNING)
 
 
 # ---------------------------------------------------------------------------
@@ -3979,8 +3994,11 @@ def _aplicar_campos_proyecto(body: Dict, payload: Dict, *, es_admin: bool) -> No
     for campo in ("ahorro_minimo_uf", "valor_reserva_clp", "valor_reserva_uf",
                   "valor_estacionamiento_uf"):
         if campo in body:
-            try:    payload[campo] = float(body[campo]) if body[campo] not in (None, "") else None
-            except: pass
+            try:
+                payload[campo] = float(body[campo]) if body[campo] not in (None, "") else None
+            except (TypeError, ValueError):
+                # se ignora el valor no numérico (como antes), pero ya no en silencio
+                logger.warning("Proyecto: el campo %s no es numérico y se ignora", campo, extra={"contexto": "_aplicar_campos_proyecto"})
     for campo in ("tiene_piloto", "estacionamiento_obligatorio", "acepta_ds19", "acepta_ds1_t23"):
         if campo in body:
             payload[campo] = bool(body[campo])
@@ -5885,8 +5903,8 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
         body: dict = {}
         try:
             body = await request.json()
-        except Exception:
-            pass
+        except Exception as e_body:
+            _cuerpo_opcional_ilegible(request, "api_enviar_evaluacion", e_body)
         ejecutivos_emails = body.get("ejecutivos") or None
         nota = (body.get("nota") or "").strip()[:500] or None
         result = await _enviar_email_evaluacion(
@@ -6602,8 +6620,8 @@ async def api_convertir_formulario(token: str, request: Request):
         body: Dict[str, Any] = {}
         try:
             body = await request.json()
-        except Exception:
-            pass
+        except Exception as e_body:
+            _cuerpo_opcional_ilegible(request, "api_convertir_formulario", e_body)
 
         proyecto_id = body.get("proyecto_id") or f.get("proyecto_id")
         usuario_id  = body.get("usuario_id") or perfil.get("id")
