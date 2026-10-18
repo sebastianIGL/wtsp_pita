@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     # _recovery_loop ignora pendientes cuyo último mensaje entrante tenga más de estas horas (0 = sin tope).
     # 24 = ventana de WhatsApp para mensajes libres: pasado ese plazo Meta rechaza la respuesta.
     recovery_max_antiguedad_horas: int = Field(24, validation_alias=_alias("RECOVERY_MAX_ANTIGUEDAD_HORAS"))
+    # Caché de usuario autenticado (app/core/user_cache.py). TTL 0 = desactivada.
+    user_cache_ttl_segundos: int = Field(30, validation_alias=_alias("USER_CACHE_TTL_SEGUNDOS"))
+    user_cache_max_entradas: int = Field(1000, validation_alias=_alias("USER_CACHE_MAX_ENTRADAS"))
 
     # ── Bot (Anthropic) ─────────────────────────────────────────────────────
     anthropic_api_key: Optional[str] = Field(None, validation_alias=_alias("ANTHROPIC_API_KEY"))
@@ -118,6 +121,18 @@ class Settings(BaseSettings):
     @classmethod
     def _fin_valido(cls, v):
         return _hora_o_marca(v, 1, 24)
+
+    @field_validator("user_cache_ttl_segundos", mode="before")
+    @classmethod
+    def _ttl_valido(cls, v):
+        n = _parse_hora(v, 0, 600)
+        return 30 if n is None else n
+
+    @field_validator("user_cache_max_entradas", mode="before")
+    @classmethod
+    def _max_valido(cls, v):
+        n = _parse_hora(v, 1, 100000)
+        return 1000 if n is None else n
 
     @field_validator("recovery_max_antiguedad_horas", mode="before")
     @classmethod
@@ -261,6 +276,12 @@ def registrar_configuracion(logger) -> None:
                        RECOVERY_MAX_ANTIGUEDAD_DEFECTO)
     horas = get_settings().recovery_max_antiguedad_horas
     logger.info("Recovery: %s", f"ignora pendientes de más de {horas} h" if horas else "sin tope de antigüedad")
+    for nombre, lo, hi in (("USER_CACHE_TTL_SEGUNDOS", 0, 600), ("USER_CACHE_MAX_ENTRADAS", 1, 100000)):
+        if os.environ.get(nombre) and _parse_hora(os.environ[nombre], lo, hi) is None:
+            logger.warning("Configuración: %s no es válida (entero %d–%d): se usa el valor por defecto", nombre, lo, hi)
+    s_ = get_settings()
+    logger.info("Caché de usuario: %s", f"TTL {s_.user_cache_ttl_segundos} s, máx. {s_.user_cache_max_entradas} entradas"
+                if s_.user_cache_ttl_segundos else "desactivada")
     if d["faltan_obligatorias"]:
         logger.error("Configuración: faltan variables obligatorias: %s", "; ".join(d["faltan_obligatorias"]))
     validar_obligatorias()

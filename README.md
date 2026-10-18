@@ -121,6 +121,12 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   para mensajes libres; `0` = sin tope), los más antiguos primero y hasta 10 por ciclo. Los más antiguos se ignoran y
   quedan en el log (un aviso al arrancar y luego cada ~1 h, con id, horas y teléfono enmascarado); no se modifican en
   la base de datos.
+- **Caché de usuario autenticado** (`app/core/user_cache.py`): recuerda 30 s el resultado de verificar un token
+  (`USER_CACHE_TTL_SEGUNDOS`, `0` = desactivada; `USER_CACHE_MAX_ENTRADAS`, 1000 por defecto) para no repetir en cada
+  petición los 2 viajes a Supabase. La clave es el hash del token (el token no se guarda), solo se guardan los campos
+  necesarios del perfil y solo las consultas exitosas. Cuando este proceso cambia a un usuario (rol, estado, nombre,
+  contraseña) la entrada se borra al instante. **Límite conocido:** un cambio hecho fuera del proceso (panel de Supabase,
+  otra réplica) o un token revocado puede seguir aceptándose hasta 30 s. El JWT no se valida localmente.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto

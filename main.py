@@ -39,6 +39,7 @@ except Exception:
 from app.core.config import get_settings, registrar_configuracion
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
+from app.core.user_cache import reducir_perfil, user_cache
 from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, cliente_anthropic, margen_frente_a_recovery
 from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
 
@@ -61,6 +62,7 @@ async def _lifespan(app: FastAPI):
     finally:
         await cerrar_http()
         await cerrar_anthropic()
+        user_cache.vaciar()
 
 # Documentación automática (/docs, /redoc, /openapi.json): cerrada por defecto porque
 # publica el mapa completo de la API. En desarrollo se activa con ENABLE_DOCS=true.
@@ -2977,15 +2979,23 @@ async def send_whatsapp_template(
 # ---------------------------------------------------------------------------
 
 async def _get_usuario_actual(request: Request) -> Optional[Dict]:
-    """Verifica el JWT de Supabase y retorna el perfil del usuario, o None."""
+    """Verifica el JWT de Supabase y retorna el perfil del usuario, o None.
+
+    El resultado EXITOSO se recuerda hasta 30 s (app/core/user_cache.py): clave = hash del token, solo los
+    campos necesarios del perfil. Los fallos no se cachean. El JWT lo sigue verificando Supabase."""
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return None
     token = auth[7:]
+    en_cache = user_cache.obtener(token)
+    if en_cache is not None:
+        user_cache.registrar_periodicamente()
+        return en_cache
     supa_url = _supabase_url()
     key = _supabase_service_role_key()
     if not supa_url or not key:
         return None
+    generacion = user_cache.generacion()   # antes de consultar: si mientras tanto cambia el usuario, no se guarda
     try:
         async with http_client(10) as client:
             r = await request_con_reintentos_get(
@@ -3001,7 +3011,12 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
             "GET", "/Usuario",
             params={"id": f"eq.{user_id}", "select": "*", "limit": "1"},
         )
-        return perfiles[0] if perfiles else None
+        if not perfiles:
+            return None
+        perfil = reducir_perfil(perfiles[0])
+        user_cache.guardar(token, user_id, perfil, generacion)
+        user_cache.registrar_periodicamente()
+        return perfil
     except Exception:
         return None
 
@@ -3213,7 +3228,11 @@ async def api_actualizar_usuario(usuario_id: str, request: Request):
                 if not update:
                     return Response(content="El rol Owner no se puede modificar", status_code=400)
 
-        await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{usuario_id}"}, json=update)
+        try:
+            await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{usuario_id}"}, json=update)
+        finally:
+            # aunque el PATCH falle a medias, no se deja un perfil anterior en caché
+            user_cache.invalidar_usuario(usuario_id)
         return {"ok": True}
     except Exception as e:
         return Response(content=str(e), status_code=500, media_type="text/plain")
@@ -3239,9 +3258,12 @@ async def api_cambiar_password(request: Request):
                 json={"password": nueva},
             )
             r.raise_for_status()
-        await _supabase_request("PATCH", "/Usuario",
-            params={"id": f"eq.{perfil['id']}"},
-            json={"password_provisional": False})
+        try:
+            await _supabase_request("PATCH", "/Usuario",
+                params={"id": f"eq.{perfil['id']}"},
+                json={"password_provisional": False})
+        finally:
+            user_cache.invalidar_usuario(perfil["id"])
         return {"ok": True}
     except Exception as e:
         return Response(content=str(e), status_code=500, media_type="text/plain")
