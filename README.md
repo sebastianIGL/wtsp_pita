@@ -127,6 +127,14 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   necesarios del perfil y solo las consultas exitosas. Cuando este proceso cambia a un usuario (rol, estado, nombre,
   contraseña) la entrada se borra al instante. **Límite conocido:** un cambio hecho fuera del proceso (panel de Supabase,
   otra réplica) o un token revocado puede seguir aceptándose hasta 30 s. El JWT no se valida localmente.
+- **Errores** (`app/core/errors.py`): los mensajes de negocio (`AppError` o `ValueError` capturado en un endpoint, p. ej.
+  "El campo Ahorro (UF) es requerido") llegan tal cual al navegador, en texto plano y con el mismo código de estado de
+  siempre. Cualquier otro error (Supabase, Meta, Gmail, bugs) devuelve **`Ocurrió un error. Código: A1B2C3`**: el detalle
+  completo (estado y cuerpo del error remoto, traza) queda solo en el log, con ese código en el campo `error_code` y el
+  `request_id` de la petición. Para investigar un reporte: buscar el código en los logs de Railway (`@error_code:A1B2C3`
+  o el texto del código). Un error que ningún endpoint capturó también devuelve el mensaje genérico (y `X-Request-ID`).
+  `EXPOSE_ERROR_DETAIL=true` (apagada por defecto, **solo para desarrollo**) agrega el detalle a la respuesta; el arranque
+  avisa si está activa. Los `except` que antes tragaban el error en silencio ahora lo registran con contexto y código.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto
