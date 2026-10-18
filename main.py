@@ -2153,7 +2153,9 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False, responder: bo
 
         # ── Manejo de DOCUMENTOS (imagen o archivo) ───────────────────────
         if msg_type in ("image", "document"):
-            await _procesar_media(msg, msg_type, from_number, prospecto, prospecto_id)
+            # En su propia tarea y protegida: si el mismo número escribe otro mensaje mientras se descarga, el debounce
+            # cancela esta tarea y la foto/documento se perdería a medias. Así la descarga termina igual.
+            await asyncio.shield(_lanzar(_procesar_media(msg, msg_type, from_number, prospecto, prospecto_id)))
             return
 
         # ── Manejo de TEXTO ───────────────────────────────────────────────
