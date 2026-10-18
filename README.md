@@ -135,6 +135,12 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   o el texto del código). Un error que ningún endpoint capturó también devuelve el mensaje genérico (y `X-Request-ID`).
   `EXPOSE_ERROR_DETAIL=true` (apagada por defecto, **solo para desarrollo**) agrega el detalle a la respuesta; el arranque
   avisa si está activa. Los `except` que antes tragaban el error en silencio ahora lo registran con contexto y código.
+- **Firma del webhook de WhatsApp** (`app/core/webhook_signature.py`): Meta firma cada mensaje con el *App Secret* de la
+  app (cabecera `X-Hub-Signature-256`). Sin `WA_APP_SECRET` no se comprueba nada y el arranque lo avisa. Con
+  `WA_APP_SECRET` definido, cada POST se registra en el log como `Webhook: firma válida` / `firma invalida` / `firma
+  ausente` (campo `firma_webhook`) y **no se rechaza nada** (modo vigilar). Con `WA_SIGNATURE_ENFORCE=true` se rechazan (403)
+  los mensajes sin firma válida; si falta `WA_APP_SECRET` no se rechaza nada y el arranque lo marca como error. Dónde
+  sacar el secreto: developers.facebook.com → tu app → Configuración de la app → Básica → Clave secreta de la app.
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto
