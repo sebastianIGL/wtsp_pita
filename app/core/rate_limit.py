@@ -3,12 +3,9 @@
 Movido sin cambios desde main.py (Fase 6, tramo 2, lote A). El estado (``_rl_store``) se modifica siempre en el mismo
 objeto; main.py lo re-exporta (mismo objeto) para que los tests puedan reiniciarlo. Con una sola réplica es suficiente.
 """
-import logging
 import time
 from collections import defaultdict
 from typing import Dict, List
-
-logger = logging.getLogger(__name__)
 
 
 # ── Rate limiting (en memoria, single-instance) ───────────────────────────────
@@ -27,15 +24,15 @@ def _rate_limit_ok(key: str, max_req: int = 5, window: int = 60) -> bool:
 
 
 def ip_cliente(request) -> str:
-    """IP real del visitante. Detrás del proxy de Railway ``request.client.host`` es la del proxy (no la del visitante),
-    así que todos los visitantes compartían contador (o ninguno lo alcanzaba). Railway agrega la IP que vio al FINAL de
-    X-Forwarded-For: se usa esa última entrada, porque las anteriores las puede inventar quien llama."""
-    reenviada = request.headers.get("x-forwarded-for", "")
-    if request.headers.get("x-diagnostico-ip"):          # TEMPORAL: ver qué IP entrega el proxy (solo si la petición lo pide)
-        logger.info("Diagnóstico IP | x-forwarded-for=%r | x-real-ip=%r | conexión=%r",
-                    reenviada, request.headers.get("x-real-ip"), request.client.host if request.client else None)
-    if reenviada:
-        ultima = reenviada.split(",")[-1].strip()
-        if ultima:
-            return ultima
+    """IP real del visitante. Detrás del proxy de Railway ``request.client.host`` es una IP interna distinta en cada
+    petición (100.64.0.x). El borde de Railway SOBRESCRIBE X-Forwarded-For y X-Real-IP (verificado en producción: lo que
+    el visitante envíe en esas cabeceras no llega), y deja X-Forwarded-For como "IP del visitante, IP del servidor de
+    borde": la primera entrada es el visitante y la última es un servidor de borde que cambia entre peticiones (por eso
+    no sirve). Orden: primera entrada de X-Forwarded-For, luego X-Real-IP, luego la IP de la conexión (desarrollo local)."""
+    primera = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    if primera:
+        return primera
+    real = request.headers.get("x-real-ip", "").strip()
+    if real:
+        return real
     return request.client.host if request.client else "unknown"
