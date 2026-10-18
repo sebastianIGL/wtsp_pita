@@ -114,6 +114,6 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
 - **HTTP saliente**: un único cliente `httpx` compartido (`app/core/http.py`) con timeouts explícitos. Solo los GET a
   Supabase se reintentan (máx. 2); nada hacia Meta ni Gmail. Anthropic tiene su propio cliente (`app/core/llm.py`):
   timeout por intento (5 s de conexión + 35 s de lectura), los 2 reintentos por defecto del SDK y un presupuesto
-  total de 125 s por respuesta. Con el debounce de 30 s (`BOT_REPLY_DELAY`) suma 155 s, por debajo de los 180 s tras
+  total de 125 s por respuesta (al agotarse se registra un warning con el `request_id`; cada respuesta registra su duración). Con el debounce de 30 s (`BOT_REPLY_DELAY`) suma 155 s, por debajo de los 180 s tras
   los que `_recovery_loop` reprocesa un mensaje pendiente; si se sube `BOT_REPLY_DELAY` por encima de 55 s el
   arranque lo avisa (riesgo de responder dos veces).

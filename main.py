@@ -2274,12 +2274,27 @@ En datos_extraidos puedes incluir además: "nuevo_proyecto_id": "<uuid>" cuando 
 
     client = cliente_anthropic(ANTHROPIC_API_KEY)
     # El presupuesto total incluye los reintentos del SDK y cualquier Retry-After (ver app/core/llm.py)
-    response = await asyncio.wait_for(client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=700,
-        system=system_prompt,
-        messages=messages,
-    ), timeout=PRESUPUESTO_TOTAL_S)
+    _modelo = "claude-haiku-4-5-20251001"
+    _t0 = time.perf_counter()
+    try:
+        response = await asyncio.wait_for(client.messages.create(
+            model=_modelo,
+            max_tokens=700,
+            system=system_prompt,
+            messages=messages,
+        ), timeout=PRESUPUESTO_TOTAL_S)
+    except (asyncio.TimeoutError, anthropic.APITimeoutError) as _e:
+        # request_id lo añade el formateador JSON (contextvar de la petición de origen)
+        logger.warning(
+            "Tiempo agotado llamando al modelo (presupuesto %.0f s, reintentos incluidos): "
+            "el mensaje queda pendiente para _recovery_loop",
+            PRESUPUESTO_TOTAL_S,
+            extra={"modelo": _modelo, "motivo": type(_e).__name__,
+                   "duration_ms": round((time.perf_counter() - _t0) * 1000, 1)},
+        )
+        raise
+    logger.info("Respuesta del modelo", extra={"modelo": _modelo,
+                                               "duration_ms": round((time.perf_counter() - _t0) * 1000, 1)})
 
     raw = "{" + response.content[0].text.strip()
     # Limpiar si viene con markdown igual
