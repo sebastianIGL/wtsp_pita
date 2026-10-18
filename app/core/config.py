@@ -102,11 +102,13 @@ class Settings(BaseSettings):
     # ── Sitio y servidor ────────────────────────────────────────────────────
     site_url: Optional[str] = Field(None, validation_alias=_alias("SITE_URL"))
     enable_docs: bool = Field(False, validation_alias=_alias("ENABLE_DOCS"))
+    # Solo desarrollo: las respuestas de error incluyen el detalle (por defecto el navegador solo ve un código).
+    expose_error_detail: bool = Field(False, validation_alias=_alias("EXPOSE_ERROR_DETAIL"))
     log_level: str = Field("INFO", validation_alias=_alias("LOG_LEVEL"))
     host: str = Field("0.0.0.0", validation_alias=_alias("HOST"))
     port: int = Field(8000, validation_alias=_alias("PORT"))
 
-    @field_validator("enable_docs", mode="before")
+    @field_validator("enable_docs", "expose_error_detail", mode="before")
     @classmethod
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)
@@ -270,6 +272,9 @@ def registrar_configuracion(logger) -> None:
     for nombre in horario_bot_invalido():
         logger.warning("Configuración: %s tiene un valor no válido (debe ser un entero 0–23 para el inicio y 1–24 "
                        "para el fin, con inicio < fin): se usa el horario por defecto 24/7", nombre)
+    if get_settings().expose_error_detail:
+        logger.warning("EXPOSE_ERROR_DETAIL está activa: las respuestas de error incluyen el detalle interno. "
+                       "Es solo para desarrollo; desactívala en producción")
     logger.info("Horario en que el bot responde mensajes de texto: %s", describir_horario_bot())
     if os.environ.get("RECOVERY_MAX_ANTIGUEDAD_HORAS") and _parse_hora(os.environ["RECOVERY_MAX_ANTIGUEDAD_HORAS"], 0, 8760) is None:
         logger.warning("Configuración: RECOVERY_MAX_ANTIGUEDAD_HORAS no es válida (entero 0–8760): se usa %d h",
