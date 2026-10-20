@@ -1,4 +1,4 @@
-"""Avisos al ejecutivo asignado por WhatsApp (plantilla ``recordatorio_wtsp``) y al admin.
+"""Avisos al ejecutivo asignado por WhatsApp (plantilla ``recordatorio_wtsp``) y al admin (WhatsApp y correo).
 
 Los avisos de ``_notificar_ejecutivo_wa`` (08:00–24:00) y ``_notificar_recordatorio_estado`` (09:00–19:00, hora de Chile)
 esperan dentro de la propia función, con ``asyncio.sleep``, hasta que abre el horario. Esa espera vive solo en la memoria
@@ -9,10 +9,12 @@ Movido sin cambios desde main.py (Fase 6, tramo 2, lote C2).
 """
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from app.clients.gmail import _gmail_send
 from app.clients.supabase import _supabase_request
-from app.clients.whatsapp import send_whatsapp_template
+from app.clients.whatsapp import send_whatsapp_message, send_whatsapp_template
+from app.core.config import get_settings
 from app.core.utilidades import _normalize_phone
 from app.services.horarios import (
     _dentro_horario_avisos,
@@ -20,6 +22,7 @@ from app.services.horarios import (
     _segundos_hasta_horario_avisos,
     _segundos_hasta_horario_urgente,
 )
+from app.services.proyectos import obtener_proyecto_por_id
 
 logger = logging.getLogger("wtsp_pita")
 
@@ -117,3 +120,83 @@ async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, t
     except Exception as e:
         logger.warning("No se pudo enviar recordatorio WA: %s", e)
         return {"ok": False, "motivo": str(e)}
+
+
+async def _notificar_interesado(prospecto_id: str) -> None:
+    """Avisa al admin/ejecutivo asignado cuando un prospecto confirma interés (llega a DOCUMENTACION)."""
+    try:
+        rows = await _supabase_request("GET", "/Prospecto",
+            params={"id": f"eq.{prospecto_id}", "select": "nombre,telefono_e164,cliente_id", "limit": "1"}) or []
+        if not rows:
+            return
+        p = rows[0]
+        nombre   = p.get("nombre") or "Cliente"
+        telefono = p.get("telefono_e164") or ""
+        # Buscar proyecto desde el cliente si existe
+        proyecto_nombre = ""
+        if p.get("cliente_id"):
+            cli = await _supabase_request("GET", "/Cliente",
+                params={"id": f"eq.{p['cliente_id']}", "select": "proyecto_id", "limit": "1"}) or []
+            if cli and cli[0].get("proyecto_id"):
+                proy = await obtener_proyecto_por_id(cli[0]["proyecto_id"])
+                proyecto_nombre = (proy or {}).get("nombre", "")
+
+        texto = (
+            f"🔥 *Cliente listo para contactar*\n"
+            f"👤 {nombre}\n"
+            f"📱 {telefono}\n"
+            f"🏗️ {proyecto_nombre or 'Sin proyecto'}\n"
+            f"✅ Confirmó interés y está reuniendo documentos."
+        )
+        notify_phone = get_settings().admin_notify_phone
+        if notify_phone:
+            try:
+                await send_whatsapp_message(to=notify_phone, text=texto)
+            except Exception as e:
+                logger.warning("Notificación interesado WA fallida: %s", e)
+    except Exception:
+        logger.exception("Error en _notificar_interesado")
+
+
+async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str, correo_admin: Optional[str]) -> None:
+    """Envía aviso por WhatsApp y correo al admin cuando llega un nuevo lead de Movendo."""
+    texto = (
+        f"🆕 *Nuevo lead recibido*\n"
+        f"👤 {nombre}\n"
+        f"📱 {telefono}\n"
+        f"🏗️ Proyecto: {proyecto_nombre}"
+    )
+    notify_phone = get_settings().admin_notify_phone
+    if notify_phone:
+        try:
+            await send_whatsapp_message(to=notify_phone, text=texto)
+        except Exception as e:
+            logger.warning("Notificación WA fallida: %s", e)
+
+    if correo_admin:
+        try:
+            body_html = f"""
+            <div style="font-family:Arial,sans-serif;max-width:500px;">
+              <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">Nuevo lead recibido</h2>
+              <table style="font-size:14px;width:100%;border-collapse:collapse;">
+                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;width:120px;">Nombre</td>
+                    <td style="padding:8px 12px;">{nombre}</td></tr>
+                <tr style="background:#f5f7fa;">
+                    <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
+                    <td style="padding:8px 12px;">{telefono}</td></tr>
+                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
+                    <td style="padding:8px 12px;">{proyecto_nombre}</td></tr>
+              </table>
+              <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
+            </div>"""
+            email_from = (get_settings().email_admin or "")
+            if not email_from:
+                raise RuntimeError("EMAIL_ADMIN no configurada")
+            await _gmail_send(
+                from_addr=email_from,
+                to=[correo_admin],
+                subject=f"Nuevo lead — {nombre}",
+                html=body_html,
+            )
+        except Exception as e:
+            logger.warning("Notificación email fallida: %s", e)

@@ -169,6 +169,8 @@ from app.services.bot import (  # noqa: F401  (se re-exportan con los mismos nom
 from app.services.avisos import (  # noqa: F401  (se re-exportan con los mismos nombres)
     _TEXTOS_RECORDATORIO,
     _notificar_ejecutivo_wa,
+    _notificar_interesado,
+    _notificar_nuevo_lead,
     _notificar_recordatorio_estado,
 )
 from app.routers.health import router as health_router
@@ -3629,86 +3631,6 @@ async def _get_default_user() -> Optional[Dict]:
 
 
 # ── Recordatorios puntuales por avance del bot (event-driven) ─────────────────
-
-
-async def _notificar_interesado(prospecto_id: str) -> None:
-    """Avisa al admin/ejecutivo asignado cuando un prospecto confirma interés (llega a DOCUMENTACION)."""
-    try:
-        rows = await _supabase_request("GET", "/Prospecto",
-            params={"id": f"eq.{prospecto_id}", "select": "nombre,telefono_e164,cliente_id", "limit": "1"}) or []
-        if not rows:
-            return
-        p = rows[0]
-        nombre   = p.get("nombre") or "Cliente"
-        telefono = p.get("telefono_e164") or ""
-        # Buscar proyecto desde el cliente si existe
-        proyecto_nombre = ""
-        if p.get("cliente_id"):
-            cli = await _supabase_request("GET", "/Cliente",
-                params={"id": f"eq.{p['cliente_id']}", "select": "proyecto_id", "limit": "1"}) or []
-            if cli and cli[0].get("proyecto_id"):
-                proy = await obtener_proyecto_por_id(cli[0]["proyecto_id"])
-                proyecto_nombre = (proy or {}).get("nombre", "")
-
-        texto = (
-            f"🔥 *Cliente listo para contactar*\n"
-            f"👤 {nombre}\n"
-            f"📱 {telefono}\n"
-            f"🏗️ {proyecto_nombre or 'Sin proyecto'}\n"
-            f"✅ Confirmó interés y está reuniendo documentos."
-        )
-        notify_phone = get_settings().admin_notify_phone
-        if notify_phone:
-            try:
-                await send_whatsapp_message(to=notify_phone, text=texto)
-            except Exception as e:
-                logger.warning("Notificación interesado WA fallida: %s", e)
-    except Exception:
-        logger.exception("Error en _notificar_interesado")
-
-
-async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str, correo_admin: Optional[str]) -> None:
-    """Envía aviso por WhatsApp y correo al admin cuando llega un nuevo lead de Movendo."""
-    texto = (
-        f"🆕 *Nuevo lead recibido*\n"
-        f"👤 {nombre}\n"
-        f"📱 {telefono}\n"
-        f"🏗️ Proyecto: {proyecto_nombre}"
-    )
-    notify_phone = get_settings().admin_notify_phone
-    if notify_phone:
-        try:
-            await send_whatsapp_message(to=notify_phone, text=texto)
-        except Exception as e:
-            logger.warning("Notificación WA fallida: %s", e)
-
-    if correo_admin:
-        try:
-            body_html = f"""
-            <div style="font-family:Arial,sans-serif;max-width:500px;">
-              <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">Nuevo lead recibido</h2>
-              <table style="font-size:14px;width:100%;border-collapse:collapse;">
-                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;width:120px;">Nombre</td>
-                    <td style="padding:8px 12px;">{nombre}</td></tr>
-                <tr style="background:#f5f7fa;">
-                    <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
-                    <td style="padding:8px 12px;">{telefono}</td></tr>
-                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
-                    <td style="padding:8px 12px;">{proyecto_nombre}</td></tr>
-              </table>
-              <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
-            </div>"""
-            email_from = (get_settings().email_admin or "")
-            if not email_from:
-                raise RuntimeError("EMAIL_ADMIN no configurada")
-            await _gmail_send(
-                from_addr=email_from,
-                to=[correo_admin],
-                subject=f"Nuevo lead — {nombre}",
-                html=body_html,
-            )
-        except Exception as e:
-            logger.warning("Notificación email fallida: %s", e)
 
 
 # ── Landing pública ───────────────────────────────────────────────────────────
