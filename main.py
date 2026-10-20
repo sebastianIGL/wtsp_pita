@@ -166,6 +166,11 @@ from app.services.bot import (  # noqa: F401  (se re-exportan con los mismos nom
     _resumir_proyecto,
     generar_respuesta_ia,
 )
+from app.services.avisos import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    _TEXTOS_RECORDATORIO,
+    _notificar_ejecutivo_wa,
+    _notificar_recordatorio_estado,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -3623,102 +3628,7 @@ async def _get_default_user() -> Optional[Dict]:
     return rows[0] if rows else None
 
 
-
-async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> Dict[str, Any]:
-    """Envía notificación WA al ejecutivo asignado al cliente (template recordatorio_wtsp).
-    Retorna {"ok": True} si se envió, o {"ok": False, "motivo": "..."} si no se pudo."""
-    if not _dentro_horario_urgente():
-        # Horario ampliado (08:00–24:00 hora Chile) para no despertar al ejecutivo de madrugada,
-        # pero sin retrasarlo tanto como los avisos rutinarios.
-        await asyncio.sleep(_segundos_hasta_horario_urgente())
-    try:
-        clientes = await _supabase_request("GET", "/Cliente",
-            params={"id": f"eq.{cliente_id}", "select": "usuario_id,Proyecto(nombre)", "limit": "1"}) or []
-        if not clientes or not clientes[0].get("usuario_id"):
-            return {"ok": False, "motivo": "sin ejecutivo asignado"}
-        proyecto_nombre = (clientes[0].get("Proyecto") or {}).get("nombre") or "Sin proyecto"
-        usuarios = await _supabase_request("GET", "/Usuario",
-            params={"id": f"eq.{clientes[0]['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
-        if not usuarios:
-            return {"ok": False, "motivo": "ejecutivo no encontrado"}
-        celular = _normalize_phone(usuarios[0].get("celular") or "")
-        if not celular:
-            return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}
-        await send_whatsapp_template(
-            to=celular,
-            template_name="recordatorio_wtsp",
-            language_code="es_CL",
-            body_text_params=[nombre_cliente, accion, proyecto_nombre],
-        )
-        logger.info("WA notif ejecutivo → %s | cliente=%s | accion=%s | proyecto=%s",
-                    celular, nombre_cliente, accion, proyecto_nombre)
-        return {"ok": True}
-    except Exception as e:
-        logger.warning("No se pudo notificar ejecutivo WA: %s", e)
-        return {"ok": False, "motivo": str(e)}
-
-
 # ── Recordatorios puntuales por avance del bot (event-driven) ─────────────────
-
-_TEXTOS_RECORDATORIO = {
-    "primer_documento": "Recibió su primer documento",
-    "docs_completos":   "Documentos completos, listo para llamar",
-}
-
-
-async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, tipo: str) -> Dict[str, Any]:
-    """Avisa al ejecutivo asignado cuando el bot mueve al cliente a un estado puntual
-    ('primer_documento' | 'docs_completos'). No vuelve a enviar el mismo tipo de aviso
-    hasta que el ejecutivo cambie estado_gestion (reconociendo que ya actuó)."""
-    if not _dentro_horario_avisos():
-        # No despertar al ejecutivo fuera de horario — esperar a que abra 9:00 hora Chile
-        # (horario fijo de avisos, independiente del horario del bot).
-        await asyncio.sleep(_segundos_hasta_horario_avisos())
-    texto = _TEXTOS_RECORDATORIO.get(tipo)
-    if not texto:
-        return {"ok": False, "motivo": f"tipo '{tipo}' inválido"}
-    try:
-        clientes = await _supabase_request("GET", "/Cliente",
-            params={"id": f"eq.{cliente_id}",
-                    "select": "usuario_id,estado_gestion,ultimo_recordatorio_tipo,"
-                              "ultimo_recordatorio_estado_gestion,Proyecto(nombre)",
-                    "limit": "1"}) or []
-        if not clientes:
-            return {"ok": False, "motivo": "cliente no encontrado"}
-        c = clientes[0]
-        if not c.get("usuario_id"):
-            return {"ok": False, "motivo": "sin ejecutivo asignado"}
-
-        estado_gestion_actual = c.get("estado_gestion")
-        if (c.get("ultimo_recordatorio_tipo") == tipo
-                and c.get("ultimo_recordatorio_estado_gestion") == estado_gestion_actual):
-            return {"ok": False, "motivo": "ya notificado — pendiente de que el ejecutivo cambie el estado de gestión"}
-
-        proyecto_nombre = (c.get("Proyecto") or {}).get("nombre") or "Sin proyecto"
-        usuarios = await _supabase_request("GET", "/Usuario",
-            params={"id": f"eq.{c['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
-        if not usuarios:
-            return {"ok": False, "motivo": "ejecutivo no encontrado"}
-        celular = _normalize_phone(usuarios[0].get("celular") or "")
-        if not celular:
-            return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}
-
-        await send_whatsapp_template(
-            to=celular,
-            template_name="recordatorio_wtsp",
-            language_code="es_CL",
-            body_text_params=[nombre_cliente, texto, proyecto_nombre],
-        )
-        await _supabase_request("PATCH", "/Cliente",
-            params={"id": f"eq.{cliente_id}"},
-            json={"ultimo_recordatorio_tipo": tipo, "ultimo_recordatorio_estado_gestion": estado_gestion_actual},
-            extra_headers={"Prefer": "return=minimal"})
-        logger.info("WA recordatorio → %s | cliente=%s | tipo=%s | proyecto=%s",
-                    celular, nombre_cliente, tipo, proyecto_nombre)
-        return {"ok": True}
-    except Exception as e:
-        logger.warning("No se pudo enviar recordatorio WA: %s", e)
-        return {"ok": False, "motivo": str(e)}
 
 
 async def _notificar_interesado(prospecto_id: str) -> None:
