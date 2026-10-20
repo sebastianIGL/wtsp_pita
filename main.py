@@ -173,6 +173,10 @@ from app.services.avisos import (  # noqa: F401  (se re-exportan con los mismos 
     _notificar_nuevo_lead,
     _notificar_recordatorio_estado,
 )
+from app.services.mensajes import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    insertar_mensaje,
+    obtener_historial_mensajes,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -511,33 +515,6 @@ async def actualizar_datos_prospecto(
         asyncio.create_task(_notificar_interesado(prospecto_id))
 
 
-async def insertar_mensaje(
-    *,
-    prospecto_id: str,
-    direccion: str,
-    text: Optional[str],
-    wa_message_id: Optional[str] = None,
-    cliente_id: Optional[int] = None,
-):
-    row: Dict[str, Any] = {
-        "prospecto_id": prospecto_id,
-        "direccion":    direccion,
-        "texto":        text,
-        "wa_id_mensaje": _normalizar_wamid(wa_message_id),
-    }
-    if cliente_id is not None:
-        row["cliente_id"] = cliente_id
-    try:
-        await _supabase_request("POST", "/Mensaje", json=row)
-    except httpx.HTTPStatusError as e:
-        # Con el índice único sobre Mensaje.wa_id_mensaje, un wamid repetido es un mensaje duplicado de Meta:
-        # no es un error. Cualquier otro fallo (incluida una violación distinta, como una clave foránea) sigue lanzándose.
-        if _es_violacion_unica(e):
-            return False
-        raise
-    return True
-
-
 async def insertar_documento(
     *,
     prospecto_id: str,
@@ -630,20 +607,6 @@ async def obtener_documentos_prospecto(prospecto_id: str) -> List[Dict]:
         },
     )
     return rows or []
-
-
-async def obtener_historial_mensajes(prospecto_id: str, limite: int = 12) -> List[Dict]:
-    rows = await _supabase_request(
-        "GET",
-        "/Mensaje",
-        params={
-            "prospecto_id": f"eq.{prospecto_id}",
-            "order": "creado_en.desc",
-            "limit": str(limite),
-            "select": "direccion,texto",
-        },
-    )
-    return list(reversed(rows or []))
 
 
 # ---------------------------------------------------------------------------
