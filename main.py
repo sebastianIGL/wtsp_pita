@@ -243,6 +243,7 @@ from app.routers.progreso import (  # noqa: F401  (se re-exportan con los mismos
     api_set_progreso,
 )
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos  # noqa: F401  (se re-exportan con los mismos nombres)
+from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible  # noqa: F401  (se re-exporta con el mismo nombre)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -336,13 +337,6 @@ _pending_tasks: Dict[str, asyncio.Task] = {}
 # ---------------------------------------------------------------------------
 # Helpers genéricos
 # ---------------------------------------------------------------------------
-
-def _cuerpo_opcional_ilegible(request: Request, contexto: str, e: Exception) -> None:
-    """El cuerpo JSON de estos endpoints es opcional: sin cuerpo no es un error. Si vino un cuerpo y no se
-    pudo leer, se avisa en el log (y se sigue sin él, como siempre)."""
-    if request.headers.get("content-length") not in (None, "0"):
-        logger.warning("%s: el cuerpo no es JSON válido y se ignora (%s)", contexto, type(e).__name__,
-                       extra={"contexto": contexto})
 
 
 # ---------------------------------------------------------------------------
