@@ -237,6 +237,11 @@ from app.routers.paginas import (  # noqa: F401  (se re-exportan con los mismos 
     page_viviendas,
     templates,
 )
+from app.routers.progreso import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    router as progreso_router,
+    api_get_progreso,
+    api_set_progreso,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -3157,40 +3162,7 @@ async def api_newsletter(request: Request):
 # ── API Progreso usuario (requiere JWT de Supabase en Authorization header) ──
 
 
-@app.get("/api/progreso")
-async def api_get_progreso(request: Request):
-    uid = await _uid_desde_jwt(request)
-    if not uid:
-        return Response(content="no autorizado", status_code=401)
-    rows = await _supabase_request("GET", "/progreso_usuario",
-        params={"user_id": f"eq.{uid}", "select": "mundo,req_id,completado"},
-    ) or []
-    resultado: Dict[str, List[str]] = {"s": [], "h": []}
-    for row in rows:
-        if row.get("completado"):
-            m = row.get("mundo", "")
-            if m in resultado:
-                resultado[m].append(row.get("req_id", ""))
-    return resultado
-
-
-@app.post("/api/progreso")
-async def api_set_progreso(request: Request):
-    uid = await _uid_desde_jwt(request)
-    if not uid:
-        return Response(content="no autorizado", status_code=401)
-    body = await request.json()
-    mundo  = (body.get("mundo")  or "").strip()
-    req_id = (body.get("req_id") or "").strip()
-    completado = bool(body.get("completado", True))
-    if not mundo or not req_id:
-        return Response(content="mundo y req_id son requeridos", status_code=422)
-    await _supabase_request(
-        "POST", "/progreso_usuario",
-        json={"user_id": uid, "mundo": mundo, "req_id": req_id, "completado": completado},
-        extra_headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
-    )
-    return {"ok": True}
+app.include_router(progreso_router)
 
 
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
