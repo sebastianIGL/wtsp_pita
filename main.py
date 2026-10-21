@@ -242,6 +242,7 @@ from app.routers.progreso import (  # noqa: F401  (se re-exportan con los mismos
     api_get_progreso,
     api_set_progreso,
 )
+from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos  # noqa: F401  (se re-exportan con los mismos nombres)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -320,11 +321,6 @@ app.add_middleware(
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(RequestContextMiddleware)   # el más externo: request_id, X-Request-ID y log de acceso
-
-
-# ── Caché en memoria para endpoints públicos de la landing ────────────────────
-_cache_proyectos: Dict = {"data": None, "ts": 0.0}
-_CACHE_TTL = 300  # 5 minutos
 
 
 logger = logging.getLogger("wtsp_pita")
