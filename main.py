@@ -324,6 +324,11 @@ from app.routers.ejecutivos import (  # noqa: F401  (se re-exportan con los mism
     api_listar_proyecto_ejecutivos,
     api_quitar_ejecutivo,
 )
+from app.routers.ingesta import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    router as ingesta_router,
+    _ingest_api_key,
+    ingestar_prospecto,
+)
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
 from app.core.user_cache import reducir_perfil, user_cache
@@ -435,9 +440,6 @@ TOKEN_VERIFICACION = get_settings().wa_verify_token
 # Supabase REST
 # ---------------------------------------------------------------------------
 
-def _ingest_api_key() -> Optional[str]:
-    return get_settings().ingest_api_key
-
 
 # Acceso a Supabase: movido a app/clients/supabase.py (se importa arriba con los mismos nombres).
 
@@ -524,66 +526,8 @@ async def receive_webhook(request: Request, background_tasks: BackgroundTasks):
 # Ingesta de prospectos (primer mensaje)
 # ---------------------------------------------------------------------------
 
-@app.post("/prospectos/ingesta")
-async def ingestar_prospecto(request: Request):
-    try:
-        ingest_api_key = _ingest_api_key()
-        if ingest_api_key:
-            provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
-            if not provided or provided != ingest_api_key:
-                return Response(content="Unauthorized", status_code=401)
 
-        if not _supabase_url() or not _supabase_service_role_key():
-            return Response(content="Supabase no está configurado", status_code=500)
-
-        body = await request.json()
-        phone = _normalize_phone(
-            body.get("telefono_e164") or body.get("phone_e164")
-            or body.get("telefono") or body.get("phone") or ""
-        )
-        nombre          = (body.get("nombre") or body.get("first_name") or "").strip() or None
-        rut             = (body.get("rut") or "").strip() or None
-        rango_sueldo    = (body.get("rango_sueldo") or "").strip() or None
-        proyecto_id = (body.get("proyecto_id") or body.get("project_id") or "").strip() or None
-
-        if not phone:
-            return Response(content="Falta telefono_e164", status_code=400)
-        if not proyecto_id:
-            return Response(content="Falta proyecto_id", status_code=400)
-
-        proyecto = await obtener_proyecto_por_id(proyecto_id)
-        if not proyecto:
-            return Response(content="proyecto_id no existe en proyectos", status_code=400)
-
-        prospecto = await upsert_prospecto(
-            telefono_e164=phone,
-            nombre=nombre,
-            rut=rut,
-            rango_sueldo=rango_sueldo,
-            proyecto_id=proyecto_id,
-            estado="PLANTILLA_ENVIADA",
-            paso="BIENVENIDA",
-        )
-
-        # Auto-envío deshabilitado: nombre_plantilla eliminado (rediseño pendiente)
-        wa_resp = None
-        logger.warning("Auto-envío de plantilla omitido — pendiente rediseño de flujo")
-
-        if prospecto and prospecto.get("id"):
-            await insertar_mensaje(
-                prospecto_id=prospecto["id"],
-                direccion="saliente",
-                text="[PLANTILLA] pendiente selección manual",
-                wa_message_id=(
-                    (wa_resp or {}).get("messages", [{}])[0].get("id")
-                    if isinstance(wa_resp, dict) else None
-                ),
-            )
-
-        return {"ok": True, "prospecto_id": (prospecto or {}).get("id")}
-
-    except Exception as e:
-        return respuesta_error(e, contexto="ingestar_prospecto")
+app.include_router(ingesta_router)
 
 
 # ---------------------------------------------------------------------------
