@@ -382,7 +382,8 @@ from app.core.http import cerrar_http, http_client, iniciar_http, request_con_re
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from starlette.middleware.base import BaseHTTPMiddleware
+from app.core.security_headers import _SecurityHeadersMiddleware  # noqa: F401  (se re-exporta con el mismo nombre)
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: F401
 from starlette.middleware.gzip import GZipMiddleware
 
 @asynccontextmanager
@@ -414,16 +415,6 @@ app.include_router(health_router)   # /health: solo el proceso, sin Supabase ni 
 
 
 # ── Security headers ──────────────────────────────────────────────────────────
-class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers["X-Content-Type-Options"]  = "nosniff"
-        response.headers["X-Frame-Options"]          = "DENY"
-        response.headers["Referrer-Policy"]          = "strict-origin-when-cross-origin"
-        response.headers["X-XSS-Protection"]         = "1; mode=block"
-        if request.url.scheme == "https":
-            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        return response
 
 # Orden de add_middleware: el último en agregarse queda más externo (primer en procesar).
 # RequestContext → GZip → CORS → SecurityHeaders → App
