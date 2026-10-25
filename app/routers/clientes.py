@@ -188,6 +188,9 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "etapa_tipologia_id", "estado_gestion"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id", "archivado"}

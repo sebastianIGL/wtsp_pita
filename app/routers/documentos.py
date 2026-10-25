@@ -125,8 +125,12 @@ TIPOS_DOCUMENTO_RECLASIFICABLES: Dict[str, str] = {
 
 @router.patch("/api/clientes/{cliente_id}/documentos/{doc_id}/tipo")
 async def api_reclasificar_documento(cliente_id: int, doc_id: str, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     try:
         body = await request.json()
         nuevo_tipo = (body.get("tipo") or "").strip()
@@ -184,8 +188,12 @@ async def api_upload_documento(
     file: UploadFile = File(...),
     tipo: str = Form(...),
 ):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     if tipo not in TIPOS_VALIDOS:
         return Response(content=f"Tipo inválido: {tipo}", status_code=400)
 
@@ -283,11 +291,13 @@ async def api_eliminar_documento(cliente_id: int, doc_id: str, request: Request)
         prospectos = await _supabase_request("GET", "/Prospecto",
             params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"}) or []
         prospecto_id = prospectos[0]["id"] if prospectos else None
+        if not prospecto_id:
+            return Response(content="Documento no encontrado", status_code=404)
 
         docs = await _supabase_request("GET", "/Documento",
             params={
                 "id": f"eq.{doc_id}",
-                **({"prospecto_id": f"eq.{prospecto_id}"} if prospecto_id else {}),
+                "prospecto_id": f"eq.{prospecto_id}",
                 "select": "id,url_storage",
                 "limit": "1",
             }) or []
