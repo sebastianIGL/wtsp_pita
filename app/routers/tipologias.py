@@ -263,6 +263,16 @@ async def api_find_or_create_etapa_tipologia(request: Request):
                     "select": "id", "limit": "1"}) or []
         if existing:
             return {"id": existing[0]["id"]}
+        # Antes de crear un vínculo nuevo: la tipología y la etapa deben existir y ser del MISMO proyecto (para todos los roles)
+        tip = await _supabase_request("GET", "/Tipologia",
+            params={"id": f"eq.{tipologia_id}", "select": "id,proyecto_id", "limit": "1"}) or []
+        etapa = await _supabase_request("GET", "/Etapa",
+            params={"id": f"eq.{etapa_id}", "select": "id,proyecto_id", "limit": "1"}) or []
+        if not tip or not etapa:
+            return Response(content="Tipología o etapa no encontrada", status_code=404)
+        proyecto_tip = tip[0].get("proyecto_id")
+        if not proyecto_tip or str(proyecto_tip) != str(etapa[0].get("proyecto_id")):
+            return Response(content="La tipología y la etapa deben ser del mismo proyecto", status_code=400)
         row = await _supabase_request("POST", "/EtapaTipologia",
             json={"etapa_id": int(etapa_id), "tipologia_id": int(tipologia_id), "stock": 1},
             extra_headers={"Prefer": "return=representation"})
