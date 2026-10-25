@@ -479,6 +479,9 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
 
     ahora = time.monotonic()
     en_curso_desde = _evaluaciones_en_curso.get(cliente_id)
@@ -515,6 +518,9 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     celular = _normalize_phone(perfil.get("celular") or "")
     if not celular:
         return Response(content="Tu perfil no tiene número celular configurado", status_code=400)

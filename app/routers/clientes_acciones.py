@@ -8,6 +8,7 @@ import io
 import re
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
+from app.core.autorizacion import exigir_cliente
 from app.clients.whatsapp import _build_body_params, send_whatsapp_template
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
@@ -80,6 +81,9 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     try:
         body          = await request.json()
         template_name = (body.get("template_name") or "").strip()
