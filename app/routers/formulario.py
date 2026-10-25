@@ -1,13 +1,14 @@
 """Formulario de perfilamiento público (sin sesión): crear, leer y actualizar por token, y convertir un formulario completado
 en cliente del CRM (esta última sí exige sesión).
 
-Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
+Movido desde main.py (Fase 6, tramo 3). Fase 7, grupo 2: crear (10 por minuto) y actualizar (60 por minuto) tienen límite por IP.
 """
 import logging
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible
 from app.core.errors import respuesta_error
+from app.core.rate_limit import _rate_limit_ok, ip_cliente
 from app.core.utilidades import _normalize_phone, _utc_now_iso
 from app.services.prospectos import upsert_prospecto
 from fastapi import APIRouter, Request, Response
@@ -31,6 +32,8 @@ _FORMULARIO_CAMPOS = (
 
 @router.post("/api/formulario")
 async def api_crear_formulario(request: Request):
+    if not _rate_limit_ok(f"formulario_crear:{ip_cliente(request)}", max_req=10, window=60):
+        return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
     body = await request.json()
     payload = {k: v for k, v in body.items() if k in _FORMULARIO_CAMPOS and v is not None}
     try:
@@ -61,6 +64,8 @@ async def api_obtener_formulario(token: str):
 
 @router.patch("/api/formulario/{token}")
 async def api_actualizar_formulario(token: str, request: Request):
+    if not _rate_limit_ok(f"formulario_actualizar:{ip_cliente(request)}", max_req=60, window=60):
+        return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
     body = await request.json()
     payload = {k: v for k, v in body.items() if k in _FORMULARIO_CAMPOS}
     if not payload:
