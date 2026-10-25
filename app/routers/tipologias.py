@@ -6,6 +6,7 @@ Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.errors import respuesta_error
+from app.core.permisos import _solo_admin
 from app.services.proyectos import obtener_proyecto_por_id
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict
@@ -56,8 +57,11 @@ _CAMPOS_TIPOLOGIA = ("dormitorios", "banos", "superficie_util_m2", "terreno_m2",
 
 @router.post("/api/tipologias")
 async def api_crear_tipologia(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     try:
         body = await request.json()
         proyecto_id = body.get("proyecto_id")
@@ -79,8 +83,11 @@ async def api_crear_tipologia(request: Request):
 
 @router.patch("/api/tipologias/{tip_id}")
 async def api_editar_tipologia(tip_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     try:
         body = await request.json()
         payload: Dict[str, Any] = {}
@@ -99,8 +106,11 @@ async def api_editar_tipologia(tip_id: int, request: Request):
 
 @router.delete("/api/tipologias/{tip_id}")
 async def api_eliminar_tipologia(tip_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     await _supabase_request("DELETE", "/Tipologia",
         params={"id": f"eq.{tip_id}"},
         extra_headers={"Prefer": "return=minimal"})
@@ -150,8 +160,11 @@ async def api_listar_etapas(request: Request):
 
 @router.post("/api/etapas")
 async def api_crear_etapa(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     try:
         body = await request.json()
         proyecto_id = body.get("proyecto_id")
@@ -172,8 +185,11 @@ async def api_crear_etapa(request: Request):
 
 @router.patch("/api/etapas/{etapa_id}")
 async def api_editar_etapa(etapa_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     try:
         body = await request.json()
         payload: Dict[str, Any] = {}
@@ -192,8 +208,11 @@ async def api_editar_etapa(etapa_id: int, request: Request):
 
 @router.delete("/api/etapas/{etapa_id}")
 async def api_eliminar_etapa(etapa_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     await _supabase_request("DELETE", "/Etapa",
         params={"id": f"eq.{etapa_id}"},
         extra_headers={"Prefer": "return=minimal"})
@@ -254,8 +273,11 @@ async def api_find_or_create_etapa_tipologia(request: Request):
 
 @router.post("/api/etapa-tipologia")
 async def api_crear_etapa_tipologia(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     try:
         body = await request.json()
         etapa_id     = body.get("etapa_id")
@@ -273,8 +295,11 @@ async def api_crear_etapa_tipologia(request: Request):
 
 @router.patch("/api/etapa-tipologia/{et_id}")
 async def api_editar_etapa_tipologia(et_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     try:
         body = await request.json()
         stock = body.get("stock", 0)
@@ -289,8 +314,11 @@ async def api_editar_etapa_tipologia(et_id: int, request: Request):
 
 @router.delete("/api/etapa-tipologia/{et_id}")
 async def api_eliminar_etapa_tipologia(et_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     await _supabase_request("DELETE", "/EtapaTipologia",
         params={"id": f"eq.{et_id}"},
         extra_headers={"Prefer": "return=minimal"})

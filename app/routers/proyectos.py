@@ -85,6 +85,8 @@ async def api_editar_proyecto(proyecto_id: str, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     body = await request.json()
     payload: Dict[str, Any] = {}
     for f in ("nombre", "codigo", "ubicacion"):

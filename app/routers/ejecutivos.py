@@ -149,8 +149,11 @@ async def api_listar_proyecto_ejecutivos(request: Request):
 
 @router.post("/api/proyecto-ejecutivos")
 async def api_asignar_ejecutivo(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     body = await request.json()
     proyecto_id  = body.get("proyecto_id")
     ejecutivo_id = body.get("ejecutivo_id")
@@ -167,8 +170,11 @@ async def api_asignar_ejecutivo(request: Request):
 
 @router.delete("/api/proyecto-ejecutivos")
 async def api_quitar_ejecutivo(request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
     proyecto_id  = request.query_params.get("proyecto_id")
     ejecutivo_id = request.query_params.get("ejecutivo_id")
     if not proyecto_id or not ejecutivo_id:
