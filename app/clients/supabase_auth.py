@@ -15,11 +15,17 @@ from app.core.http import http_client, request_con_reintentos_get
 from app.core.user_cache import reducir_perfil, user_cache
 
 
+def _dado_de_baja(perfil: Dict) -> bool:
+    """Solo ``estado`` = 0 es baja; 1, nulo o ausente siguen entrando (no se deja fuera a nadie por un dato incompleto)."""
+    return perfil.get("estado") == 0
+
+
 async def _get_usuario_actual(request: Request) -> Optional[Dict]:
     """Verifica el JWT de Supabase y retorna el perfil del usuario, o None.
 
     El resultado EXITOSO se recuerda hasta 30 s (app/core/user_cache.py): clave = hash del token, solo los
-    campos necesarios del perfil. Los fallos no se cachean. El JWT lo sigue verificando Supabase."""
+    campos necesarios del perfil. Los fallos no se cachean. El JWT lo sigue verificando Supabase.
+    Un usuario dado de baja (``Usuario.estado`` = 0) recibe ``None`` aunque su sesión siga vigente (Fase 7, grupo 1)."""
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         return None
@@ -27,7 +33,7 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
     en_cache = user_cache.obtener(token)
     if en_cache is not None:
         user_cache.registrar_periodicamente()
-        return en_cache
+        return None if _dado_de_baja(en_cache) else en_cache
     supa_url = _supabase_url()
     key = _supabase_service_role_key()
     if not supa_url or not key:
@@ -51,6 +57,8 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
         if not perfiles:
             return None
         perfil = reducir_perfil(perfiles[0])
+        if _dado_de_baja(perfil):
+            return None                    # una baja no se guarda en la caché: cada intento vuelve a consultar
         user_cache.guardar(token, user_id, perfil, generacion)
         user_cache.registrar_periodicamente()
         return perfil
