@@ -9,6 +9,7 @@ import time
 import logging
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
+from app.core.autorizacion import exigir_cliente
 from app.clients.supabase_storage import _descargar_documento_storage, _eliminar_documento_storage, subir_a_storage
 from app.clients.whatsapp import send_whatsapp_template
 from app.core.config import get_settings
@@ -66,8 +67,12 @@ async def _obtener_o_crear_prospecto(cliente_id: int) -> Optional[Dict]:
 
 @router.get("/api/clientes/{cliente_id}/documentos")
 async def api_documentos_cliente(cliente_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     try:
         prospectos = await _supabase_request(
             "GET", "/Prospecto",
@@ -232,17 +237,23 @@ async def api_upload_documento(
 
 @router.get("/api/clientes/{cliente_id}/documentos/{doc_id}/descargar")
 async def api_descargar_documento(cliente_id: int, doc_id: str, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     try:
         # Verificar que el doc pertenece al cliente correcto
         prospectos = await _supabase_request("GET", "/Prospecto",
             params={"cliente_id": f"eq.{cliente_id}", "select": "id", "limit": "1"})
         prospecto_id = prospectos[0]["id"] if prospectos else None
+        if not prospecto_id:
+            return Response(content="Documento no encontrado", status_code=404)
         docs = await _supabase_request("GET", "/Documento",
             params={
                 "id": f"eq.{doc_id}",
-                **({"prospecto_id": f"eq.{prospecto_id}"} if prospecto_id else {}),
+                "prospecto_id": f"eq.{prospecto_id}",
                 "select": "id,nombre_archivo,url_storage,mime_type",
                 "limit": "1",
             })
@@ -303,6 +314,9 @@ async def api_preview_evaluacion(cliente_id: int, request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
 
     clientes = await _supabase_request("GET", "/Cliente",
         params={"id": f"eq.{cliente_id}", "select": "*", "limit": "1"})

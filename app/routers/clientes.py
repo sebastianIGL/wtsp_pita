@@ -6,6 +6,7 @@ Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada
 import logging
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
+from app.core.autorizacion import exigir_cliente, exigir_prospecto
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
@@ -308,8 +309,12 @@ async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
 
 @router.get("/api/clientes/{cliente_id}/conversacion")
 async def api_conversacion_cliente(cliente_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     prospectos = await _supabase_request(
         "GET", "/Prospecto",
         params={"cliente_id": f"eq.{cliente_id}", "select": "id,paso,estado", "limit": "1"},
@@ -331,8 +336,12 @@ async def api_conversacion_cliente(cliente_id: int, request: Request):
 
 @router.get("/api/prospectos/{prospecto_id}/conversacion")
 async def api_conversacion_prospecto(prospecto_id: str, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_prospecto(perfil, prospecto_id)
+    if denegado:
+        return denegado
     mensajes = await _supabase_request(
         "GET", "/Mensaje",
         params={
@@ -352,8 +361,12 @@ async def api_conversacion_prospecto(prospecto_id: str, request: Request):
 
 @router.get("/api/clientes/{cliente_id}/contexto")
 async def api_contexto_cliente(cliente_id: int, request: Request):
-    if not await _get_usuario_actual(request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
         return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
     select_fields = ",".join([
         "paso", "estado", "datos",
         *_CAMPOS_CALIFICACION,
