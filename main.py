@@ -381,6 +381,7 @@ from app.core.http import cerrar_http, http_client, iniciar_http, request_con_re
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from app.core.estaticos import FrontendEstatico
 from fastapi.templating import Jinja2Templates
 from app.core.security_headers import _SecurityHeadersMiddleware  # noqa: F401  (se re-exporta con el mismo nombre)
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: F401
@@ -594,7 +595,7 @@ app.include_router(formulario_router)
 app.include_router(progreso_router)
 
 
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+app.mount("/", FrontendEstatico(directory="frontend", html=True), name="frontend")   # sin las plantillas internas (app/core/estaticos.py)
 
 if __name__ == "__main__":
     import uvicorn
