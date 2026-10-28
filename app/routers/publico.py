@@ -6,6 +6,7 @@ Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada
 import random
 import time
 import logging
+from html import escape as html_escape
 from app.clients.gmail import _gmail_send
 from app.clients.supabase import _supabase_request
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
@@ -93,11 +94,11 @@ async def api_contacto(request: Request):
     if destino:
         try:
             cuerpo = f"""<h2>Nuevo contacto desde la landing</h2>
-<p><b>Nombre:</b> {nombre}<br>
-<b>Correo:</b> {correo}<br>
-<b>Teléfono:</b> {telefono or '—'}<br>
-<b>Empresa:</b> {empresa or '—'}</p>
-<p><b>Mensaje:</b><br>{mensaje or '—'}</p>"""
+<p><b>Nombre:</b> {html_escape(nombre)}<br>
+<b>Correo:</b> {html_escape(correo)}<br>
+<b>Teléfono:</b> {html_escape(telefono or '—')}<br>
+<b>Empresa:</b> {html_escape(empresa or '—')}</p>
+<p><b>Mensaje:</b><br>{html_escape(mensaje or '—')}</p>"""
             await _gmail_send(
                 from_addr=(get_settings().email_admin or ""),
                 to=[destino],

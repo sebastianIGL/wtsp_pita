@@ -9,6 +9,7 @@ Movido sin cambios desde main.py (Fase 6, tramo 2, lote C2).
 """
 import asyncio
 import logging
+from html import escape as html_escape
 from typing import Any, Dict, Optional
 
 from app.clients.gmail import _gmail_send
@@ -180,12 +181,12 @@ async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str
               <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">Nuevo lead recibido</h2>
               <table style="font-size:14px;width:100%;border-collapse:collapse;">
                 <tr><td style="padding:8px 12px;font-weight:bold;color:#555;width:120px;">Nombre</td>
-                    <td style="padding:8px 12px;">{nombre}</td></tr>
+                    <td style="padding:8px 12px;">{html_escape(nombre)}</td></tr>
                 <tr style="background:#f5f7fa;">
                     <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
-                    <td style="padding:8px 12px;">{telefono}</td></tr>
+                    <td style="padding:8px 12px;">{html_escape(telefono)}</td></tr>
                 <tr><td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
-                    <td style="padding:8px 12px;">{proyecto_nombre}</td></tr>
+                    <td style="padding:8px 12px;">{html_escape(proyecto_nombre)}</td></tr>
               </table>
               <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
             </div>"""

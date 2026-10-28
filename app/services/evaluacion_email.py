@@ -16,6 +16,11 @@ from app.core.errors import AppError
 logger = logging.getLogger("wtsp_pita")
 
 
+def _esc(valor) -> str:
+    """Texto para poner dentro del HTML del correo: todo dato que viene de fuera se escapa (Fase 7b)."""
+    return html_escape(str(valor))
+
+
 CONDICION_LABEL = {
     "nueva": "Nueva",
     "semi-nueva": "Semi-nueva",
@@ -177,35 +182,35 @@ async def _enviar_email_evaluacion(
       <table style="border-collapse:collapse;font-size:14px;width:100%;">
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;width:210px;">Nombre</td>
-          <td style="padding:8px 12px;">{nombre}</td>
+          <td style="padding:8px 12px;">{_esc(nombre)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">RUT</td>
-          <td style="padding:8px 12px;">{rut}</td>
+          <td style="padding:8px 12px;">{_esc(rut)}</td>
         </tr>
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
-          <td style="padding:8px 12px;">{telefono}</td>
+          <td style="padding:8px 12px;">{_esc(telefono)}</td>
         </tr>{fila_correo}
         <tr{bg_tramo}>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Tramo de renta</td>
-          <td style="padding:8px 12px;">{renta}</td>
+          <td style="padding:8px 12px;">{_esc(renta)}</td>
         </tr>
         <tr style="background:#e8eef7;border-top:2px solid #1e3a5f;">
           <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">Proyecto</td>
-          <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">{proyecto_nombre}</td>
+          <td style="padding:10px 12px;font-weight:bold;color:#1e3a5f;">{_esc(proyecto_nombre)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Condición</td>
-          <td style="padding:8px 12px;">{CONDICION_LABEL.get(condicion_propiedad, condicion_propiedad)}</td>
+          <td style="padding:8px 12px;">{_esc(CONDICION_LABEL.get(condicion_propiedad, condicion_propiedad))}</td>
         </tr>
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Dirección</td>
-          <td style="padding:8px 12px;">{proyecto_ubicacion}</td>
+          <td style="padding:8px 12px;">{_esc(proyecto_ubicacion)}</td>
         </tr>
         <tr>
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Inmobiliaria</td>
-          <td style="padding:8px 12px;">{inmobiliaria_nombre}</td>
+          <td style="padding:8px 12px;">{_esc(inmobiliaria_nombre)}</td>
         </tr>
         <tr style="background:#f5f7fa;">
           <td style="padding:8px 12px;font-weight:bold;color:#555;">Entrega</td>
@@ -229,7 +234,7 @@ async def _enviar_email_evaluacion(
         </tr>
       </table>{bloque_nota}
       <h3 style="color:#1e3a5f;margin-top:24px;">Documentos adjuntos ({len(docs)})</h3>
-      <p style="font-size:13px;color:#444;margin:4px 0 0;">{resumen_docs}</p>
+      <p style="font-size:13px;color:#444;margin:4px 0 0;">{_esc(resumen_docs)}</p>
     </div>
     """
 
