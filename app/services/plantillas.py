@@ -102,7 +102,7 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
         "proyecto_nombre":    p.get("nombre")             or "nuestro proyecto",
         "proyecto_ubicacion": p.get("ubicacion")          or "Santiago",
         "subsidio_tipo":      subsidio_tipo,
-        "monto_subsidio_uf":  f"{monto_subsidio_uf_val} UF",
+        "monto_subsidio_uf":  f"{int(monto_subsidio_uf_val) if float(monto_subsidio_uf_val).is_integer() else monto_subsidio_uf_val} UF",
         "valor_reserva_clp":  reserva_fmt,
         "precio_desde_uf":    precio_desde,
         "fecha_entrega":      fecha_entrega_pool,
