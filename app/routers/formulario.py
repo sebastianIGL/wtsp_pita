@@ -8,6 +8,7 @@ from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible
 from app.core.errors import respuesta_error
+from app.core.permisos import _solo_admin
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
 from app.core.utilidades import _normalize_phone, _utc_now_iso
 from app.services.prospectos import upsert_prospecto
@@ -114,6 +115,8 @@ async def api_convertir_formulario(token: str, request: Request):
 
         proyecto_id = body.get("proyecto_id") or f.get("proyecto_id")
         usuario_id  = body.get("usuario_id") or perfil.get("id")
+        if usuario_id != perfil.get("id") and not _solo_admin(perfil):
+            return Response(content="Solo administradores pueden asignar el cliente a otro usuario", status_code=403)
 
         cliente_payload: Dict[str, Any] = {
             "Contacto":    nombre,
