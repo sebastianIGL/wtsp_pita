@@ -825,6 +825,7 @@ const CONFIG = {
 let _token    = null
 let _perfil   = null
 let _filtroTab = 'mis'  // 'mis' | 'todos' | 'inbox'
+let _clientesPorId = {}  // clientes de la página visible, por id (los botones leen de aquí en vez de llevar el objeto dentro del HTML)
 let _idsPorGrupoFunnel = {}  // ids de clientes filtrados, agrupados por etapa del funnel (para remarketing masivo)
 let _preservarPagina = false
 let clientes  = []
@@ -1125,12 +1126,12 @@ async function cargarUsuarios() {
     const sel = document.getElementById('filtro-usuario')
     if (sel) {
       sel.innerHTML = '<option value="">Todos los ejecutivos</option>'
-        + _usuarios.map(u => `<option value="${u.id}">${u.nombre || u.correo}</option>`).join('')
+        + _usuarios.map(u => `<option value="${u.id}">${esc(u.nombre || u.correo)}</option>`).join('')
     }
     const selImport = document.getElementById('import-usuario')
     if (selImport) {
       selImport.innerHTML = '<option value="">Yo mismo</option>'
-        + _usuarios.map(u => `<option value="${u.id}">${u.nombre || u.correo}</option>`).join('')
+        + _usuarios.map(u => `<option value="${u.id}">${esc(u.nombre || u.correo)}</option>`).join('')
     }
   } catch(e) { console.warn('Usuarios:', e) }
 }
@@ -1417,6 +1418,8 @@ function renderTabla(data) {
   // Paginar
   const inicio = (paginaActual - 1) * POR_PAGINA
   const pagina = data.slice(inicio, inicio + POR_PAGINA)
+  _clientesPorId = {}
+  pagina.forEach(c => { _clientesPorId[String(c.id)] = c })
 
   // Conteo e IDs por grupo del funnel sobre TODO lo filtrado (no solo la página visible)
   const conteoGrupo = {}
@@ -1495,7 +1498,7 @@ function renderTabla(data) {
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
         </svg>
       </button>` : ''}
-      <button onclick='abrirEditarCliente(${JSON.stringify(c).replace(/'/g,"&#39;")})' title="Editar cliente"
+      <button data-id="${esc(c.id)}" onclick="abrirEditarCliente(_clientesPorId[this.dataset.id])" title="Editar cliente"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-orange-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1883,7 +1886,7 @@ async function onProyectoChange(proyectoId) {
       return
     }
     sel.innerHTML = tips.map((t, i) =>
-      `<option value="${t.id}" ${i===0?'selected':''}>${t.nombre || t.tipo || 'Tipología ' + (i+1)}${t.valor_uf ? ' — ' + t.valor_uf + ' UF' : ''}</option>`
+      `<option value="${t.id}" ${i===0?'selected':''}>${esc(t.nombre || t.tipo || 'Tipología ' + (i+1))}${t.valor_uf ? ' — ' + esc(t.valor_uf) + ' UF' : ''}</option>`
     ).join('')
     if (sel.value) await onFTipologiaChange(sel.value)
   } catch(e) {
@@ -2222,31 +2225,30 @@ async function abrirEvaluacion(id) {
 // Orden fijo de los iconos de acción de un slot: visualizar → descargar → [ver todos, solo "otro"] → reclasificar
 function accionesSlotHTML(doc, tipo) {
   const id     = doc.id
-  const nombre = (doc.nombre_archivo || '').replace(/'/g, "\\'")
-  const mime   = (doc.mime_type || '').replace(/'/g, "\\'")
+  const datos  = `data-id="${esc(id)}" data-nombre="${esc(doc.nombre_archivo || '')}" data-mime="${esc(doc.mime_type || '')}"`
   const verTodosHTML = tipo === 'otro' ? `
     <button type="button" class="p-1 rounded text-indigo-400 hover:text-indigo-300 transition flex-shrink-0" title="Ver todos los documentos sin clasificar"
       onclick="event.preventDefault();event.stopPropagation();abrirDocsOtros()">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
     </button>` : ''
   return `
-    <button type="button" class="p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0" title="Visualizar"
-      onclick="event.preventDefault();event.stopPropagation();previsualizarDocEval('${id}','${mime}','${nombre}')">
+    <button type="button" class="p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0" title="Visualizar" ${datos}
+      onclick="event.preventDefault();event.stopPropagation();previsualizarDocEval(this.dataset.id,this.dataset.mime,this.dataset.nombre)">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
     </button>
-    <button type="button" class="p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0" title="Descargar"
-      onclick="event.preventDefault();event.stopPropagation();descargarDocEval('${id}','${nombre}')">
+    <button type="button" class="p-1 rounded text-sky-400 hover:text-sky-300 transition flex-shrink-0" title="Descargar" ${datos}
+      onclick="event.preventDefault();event.stopPropagation();descargarDocEval(this.dataset.id,this.dataset.nombre)">
       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
     </button>
     ${verTodosHTML}
     <button type="button" class="p-1 rounded text-slate-500 hover:text-slate-300 transition flex-shrink-0" title="Reclasificar"
-      data-doc-id="${id}" data-tipo="${tipo}"
+      data-doc-id="${esc(id)}" data-tipo="${esc(tipo)}"
       onclick="event.preventDefault();event.stopPropagation();toggleReclasificarSlot(this)">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5.586a1 1 0 01.707.293l6.414 6.414a1 1 0 010 1.414l-7.586 7.586a1 1 0 01-1.414 0L4.293 12.293A1 1 0 014 11.586V6a3 3 0 013-3z"/></svg>
     </button>
     ${_esAdmin(_perfil?.rol) ? `
-    <button type="button" class="p-1 rounded text-slate-500 hover:text-red-400 transition flex-shrink-0" title="Eliminar documento"
-      onclick="event.preventDefault();event.stopPropagation();eliminarDocumentoEval('${id}','${nombre}')">
+    <button type="button" class="p-1 rounded text-slate-500 hover:text-red-400 transition flex-shrink-0" title="Eliminar documento" ${datos}
+      onclick="event.preventDefault();event.stopPropagation();eliminarDocumentoEval(this.dataset.id,this.dataset.nombre)">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
     </button>` : ''}`
 }
@@ -2320,18 +2322,20 @@ function renderListaDocs(containerId, docs, esSinClasificar) {
       : (d.nombre_archivo || 'Documento')
     return `
       <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-800/60 text-xs">
-        <p class="flex-1 min-w-0 val-text truncate" title="${(d.nombre_archivo || '').replace(/"/g, '&quot;')}">${nombre}</p>
+        <p class="flex-1 min-w-0 val-text truncate" title="${esc(d.nombre_archivo || '')}">${esc(nombre)}</p>
         <button type="button" class="p-1 rounded text-slate-400 hover:text-slate-200 transition flex-shrink-0" title="Visualizar"
-          onclick="previsualizarDocEval('${d.id}', '${(d.mime_type || '').replace(/'/g, "\\'")}', '${(d.nombre_archivo || '').replace(/'/g, "\\'")}')">
+          data-id="${esc(d.id)}" data-mime="${esc(d.mime_type || '')}" data-nombre="${esc(d.nombre_archivo || '')}"
+          onclick="previsualizarDocEval(this.dataset.id, this.dataset.mime, this.dataset.nombre)">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
         </button>
         <select class="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[11px] val-text flex-shrink-0"
-          data-doc-id="${d.id}" onchange="reclasificarDocumento(this)">
+          data-doc-id="${esc(d.id)}" onchange="reclasificarDocumento(this)">
           ${opcionesHTML(d.tipo)}
         </select>
         ${_esAdmin(_perfil?.rol) ? `
         <button type="button" class="p-1 rounded text-slate-500 hover:text-red-400 transition flex-shrink-0" title="Eliminar documento"
-          onclick="eliminarDocumentoEval('${d.id}', '${(d.nombre_archivo || '').replace(/'/g, "\\'")}')">
+          data-id="${esc(d.id)}" data-nombre="${esc(d.nombre_archivo || '')}"
+          onclick="eliminarDocumentoEval(this.dataset.id, this.dataset.nombre)">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
         </button>` : ''}
       </div>`
@@ -2610,7 +2614,7 @@ async function mostrarPreviewEval() {
       .map(([slot]) => LABEL_TIPO[TIPOS_DOC[slot]] || 'Documento')
 
     const docsHTML = data.documentos.length || nuevos.length
-      ? [...data.documentos.map(d => `<li>${d.cantidad > 1 ? d.cantidad + '× ' : ''}${d.tipo}</li>`),
+      ? [...data.documentos.map(d => `<li>${d.cantidad > 1 ? esc(d.cantidad) + '× ' : ''}${esc(d.tipo)}</li>`),
          ...nuevos.map(n => `<li class="text-violet-300">${n} <span class="text-xs opacity-60">(nuevo)</span></li>`)
         ].join('')
       : '<li class="opacity-50">Sin documentos cargados</li>'
@@ -2620,11 +2624,11 @@ async function mostrarPreviewEval() {
           <div class="flex items-center justify-between gap-2 py-1 hover:bg-slate-50 rounded-lg px-1 transition">
             <label class="flex items-center gap-2 cursor-pointer min-w-0">
               <input type="checkbox" class="accent-violet-600 w-4 h-4 rounded shrink-0"
-                value="${e.email}" checked
+                value="${esc(e.email)}" checked
                 onchange="evalToggleEjecutivo(this)">
-              <span class="text-xs leading-tight min-w-0"><span class="font-semibold text-slate-800">${e.nombre}</span><br><span class="text-slate-400">${e.email}</span></span>
+              <span class="text-xs leading-tight min-w-0"><span class="font-semibold text-slate-800">${esc(e.nombre)}</span><br><span class="text-slate-400">${esc(e.email)}</span></span>
             </label>
-            <button type="button" onclick="evalSoloEjecutivo('${e.email}')"
+            <button type="button" data-email="${esc(e.email)}" onclick="evalSoloEjecutivo(this.dataset.email)"
               class="text-[10px] uppercase tracking-wide font-semibold text-violet-500 hover:text-violet-700 transition shrink-0">Solamente</button>
           </div>`).join('')
       : '<span class="text-slate-400 text-xs">Sin ejecutivos disponibles</span>'
@@ -2651,7 +2655,7 @@ async function mostrarPreviewEval() {
         </div>
         <div class="${_sec}">
           <p ${_lbl}>Asunto</p>
-          <p class="text-xs text-slate-700">${data.asunto}</p>
+          <p class="text-xs text-slate-700">${esc(data.asunto)}</p>
         </div>
         <div class="${_sec} border-violet-300 bg-violet-50/40">
           <p ${_lbl}>Nota para el ejecutivo <span style="text-transform:none;letter-spacing:0;font-weight:400;color:#94a3b8">(opcional, se agrega al correo)</span></p>
@@ -2664,17 +2668,17 @@ async function mostrarPreviewEval() {
         <div class="${_sec}">
           <p ${_lbl}>Datos del cliente</p>
           <div class="grid grid-cols-2 gap-y-1.5 text-xs">
-            <span class="text-slate-500">Nombre</span><span class="font-medium text-slate-800">${cl.nombre}</span>
-            <span class="text-slate-500">RUT</span><span class="text-slate-700">${cl.rut}</span>
-            <span class="text-slate-500">Teléfono</span><span class="text-slate-700">${cl.telefono}</span>
-            ${cl.correo ? `<span class="text-slate-500">Correo</span><span class="text-slate-700 break-all">${cl.correo}</span>` : ''}
-            <span class="text-slate-500">Tramo de renta</span><span class="text-slate-700">${cl.renta}</span>
+            <span class="text-slate-500">Nombre</span><span class="font-medium text-slate-800">${esc(cl.nombre)}</span>
+            <span class="text-slate-500">RUT</span><span class="text-slate-700">${esc(cl.rut)}</span>
+            <span class="text-slate-500">Teléfono</span><span class="text-slate-700">${esc(cl.telefono)}</span>
+            ${cl.correo ? `<span class="text-slate-500">Correo</span><span class="text-slate-700 break-all">${esc(cl.correo)}</span>` : ''}
+            <span class="text-slate-500">Tramo de renta</span><span class="text-slate-700">${esc(cl.renta)}</span>
             <span ${_div}></span>
-            <span class="text-slate-500">Proyecto</span><span class="font-semibold text-indigo-700">${cl.proyecto}</span>
-            <span class="text-slate-500">Condición</span><span class="text-slate-700">${cl.condicion}</span>
-            <span class="text-slate-500">Dirección</span><span class="text-slate-700">${cl.direccion}</span>
-            <span class="text-slate-500">Inmobiliaria</span><span class="text-slate-700">${cl.inmobiliaria}</span>
-            <span class="text-slate-500">Entrega</span><span class="text-slate-700">${cl.entrega}</span>
+            <span class="text-slate-500">Proyecto</span><span class="font-semibold text-indigo-700">${esc(cl.proyecto)}</span>
+            <span class="text-slate-500">Condición</span><span class="text-slate-700">${esc(cl.condicion)}</span>
+            <span class="text-slate-500">Dirección</span><span class="text-slate-700">${esc(cl.direccion)}</span>
+            <span class="text-slate-500">Inmobiliaria</span><span class="text-slate-700">${esc(cl.inmobiliaria)}</span>
+            <span class="text-slate-500">Entrega</span><span class="text-slate-700">${esc(cl.entrega)}</span>
             <span ${_div}></span>
             <span class="text-slate-500">Valor propiedad</span><span class="text-slate-700">${fmtUF(cl.valor_uf)}</span>
             <span class="text-slate-500">Subsidio</span><span class="text-slate-700">${fmtUF(cl.monto_subsidio)}</span>
@@ -2690,7 +2694,7 @@ async function mostrarPreviewEval() {
     document.getElementById('btn-confirmar-envio').disabled = _evalEjecutivosSeleccionados.length === 0
   } catch(e) {
     document.getElementById('preview-eval-cuerpo').innerHTML =
-      `<p class="text-red-400 text-sm text-center py-4">Error al cargar preview: ${e.message}</p>`
+      `<p class="text-red-400 text-sm text-center py-4">Error al cargar preview: ${esc(e.message)}</p>`
   }
 }
 
@@ -2764,7 +2768,7 @@ async function abrirConversacion(clienteId, nombre) {
     const data = await api('GET', `/api/clientes/${clienteId}/conversacion`)
     renderConversacion(data)
   } catch(e) {
-    document.getElementById('conv-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${e.message}</p>`
+    document.getElementById('conv-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${esc(e.message)}</p>`
   }
 }
 
@@ -2781,7 +2785,7 @@ async function abrirContexto(clienteId, nombre) {
     const data = await api('GET', `/api/clientes/${clienteId}/contexto`)
     renderContexto(data)
   } catch(e) {
-    document.getElementById('ctx-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${e.message}</p>`
+    document.getElementById('ctx-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${esc(e.message)}</p>`
   }
 }
 
@@ -2876,7 +2880,7 @@ async function abrirEditarCliente(c) {
   const sel = document.getElementById('ec-proyecto')
   sel.innerHTML = '<option value="">— Sin proyecto —</option>'
     + proyectos.map(p =>
-      `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${p.nombre}</option>`
+      `<option value="${p.id}" ${p.id === c.proyecto_id ? 'selected' : ''}>${esc(p.nombre)}</option>`
     ).join('')
 
   // Mostrar el modal de inmediato — tipología/etapa se cargan en segundo plano
@@ -3265,8 +3269,8 @@ function renderTablaTipologias() {
   }
   tbody.innerHTML = _tipologias.map(t => `
     <tr class="trow border-b text-sm">
-      ${esTodos ? `<td class="px-3 py-2 sidebar-text text-xs">${(t.Proyecto?.nombre||'—')}</td>` : ''}
-      <td class="px-3 py-2 val-text font-medium">${t.nombre||'—'}</td>
+      ${esTodos ? `<td class="px-3 py-2 sidebar-text text-xs">${esc(t.Proyecto?.nombre||'—')}</td>` : ''}
+      <td class="px-3 py-2 val-text font-medium">${esc(t.nombre||'—')}</td>
       <td class="px-3 py-2 sidebar-text text-center">${t.dormitorios??'—'}</td>
       <td class="px-3 py-2 sidebar-text text-center">${t.banos??'—'}</td>
       <td class="px-3 py-2 sidebar-text text-center">${t.superficie_util_m2??'—'}</td>
@@ -3276,9 +3280,9 @@ function renderTablaTipologias() {
       <td class="px-3 py-2 text-center">${_badgeEstado(t.estado)}</td>
       <td class="px-3 py-2 text-center">
         <div class="flex gap-1.5 justify-center">
-          <button onclick="abrirAsignarStock('tipologia', ${t.id}, '${(t.nombre||'').replace(/'/g,"\\'")}')" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Asignar</button>
-          <button onclick='editarTipologia(${JSON.stringify(t).replace(/'/g,"&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
-          <button onclick="confirmarEliminarTipologia(${t.id},'${(t.nombre||'').replace(/'/g,"\\'")}')' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
+          <button data-id="${esc(t.id)}" data-nombre="${esc(t.nombre||'')}" onclick="abrirAsignarStock('tipologia', Number(this.dataset.id), this.dataset.nombre)" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Asignar</button>
+          <button data-id="${esc(t.id)}" onclick="editarTipologia(_tipologias.find(x => String(x.id) === this.dataset.id))" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
+          <button data-id="${esc(t.id)}" data-nombre="${esc(t.nombre||'')}" onclick="confirmarEliminarTipologia(Number(this.dataset.id), this.dataset.nombre)" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
         </div>
       </td>
     </tr>`).join('')
@@ -3307,14 +3311,14 @@ function abrirFormTipologia(tip = null) {
   const sel = document.getElementById('tf-proyecto-id')
   if (proyecto?.id) {
     wrapProyecto.classList.add('hidden')
-    sel.innerHTML = `<option value="${proyecto.id}" selected>${proyecto.nombre || proyecto.id}</option>`
+    sel.innerHTML = `<option value="${proyecto.id}" selected>${esc(proyecto.nombre || proyecto.id)}</option>`
   } else {
     const lista = inmobiliaria?.id && !inmobiliaria._todos
       ? proyectos.filter(p => p.inmobiliaria_id === inmobiliaria.id)
       : proyectos
     wrapProyecto.classList.remove('hidden')
     sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>'
-      + lista.map(p => `<option value="${p.id}" ${tip?.proyecto_id===p.id?'selected':''}>${p.nombre}</option>`).join('')
+      + lista.map(p => `<option value="${p.id}" ${tip?.proyecto_id===p.id?'selected':''}>${esc(p.nombre)}</option>`).join('')
   }
 
   document.getElementById('modal-tip-form').classList.remove('hidden')
@@ -3442,8 +3446,8 @@ function renderTablaEtapas() {
       <td class="px-3 py-2">${_badgeEstadoEntrega(e.estado)}</td>
       <td class="px-3 py-2 text-center">
         <div class="flex gap-1.5 justify-center">
-          <button onclick="abrirAsignarStock('etapa', ${e.id}, '${(e.nombre||'').replace(/'/g,"\\'")}')" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Asignar</button>
-          <button onclick='editarEtapa(${JSON.stringify(e).replace(/'/g, "&#39;")})' class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Editar</button>
+          <button data-id="${esc(e.id)}" data-nombre="${esc(e.nombre||'')}" onclick="abrirAsignarStock('etapa', Number(this.dataset.id), this.dataset.nombre)" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Asignar</button>
+          <button data-id="${esc(e.id)}" onclick="editarEtapa(_etapas.find(x => String(x.id) === this.dataset.id))" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-teal-400 transition">Editar</button>
           <button onclick="eliminarEtapa(${e.id})" class="text-xs px-2.5 py-1 rounded-lg glass sidebar-text hover:text-red-400 transition">✕</button>
         </div>
       </td>
@@ -3573,14 +3577,14 @@ function abrirFormEtapa(etapa = null) {
   const sel = document.getElementById('ef-proyecto-id')
   if (proyecto?.id) {
     wrapProyecto.classList.add('hidden')
-    sel.innerHTML = `<option value="${proyecto.id}" selected>${proyecto.nombre || proyecto.id}</option>`
+    sel.innerHTML = `<option value="${proyecto.id}" selected>${esc(proyecto.nombre || proyecto.id)}</option>`
   } else {
     const lista2 = inmobiliaria2?.id && !inmobiliaria2._todos
       ? proyectos.filter(p => p.inmobiliaria_id === inmobiliaria2.id)
       : proyectos
     wrapProyecto.classList.remove('hidden')
     sel.innerHTML = '<option value="">— Seleccionar proyecto —</option>'
-      + lista2.map(p => `<option value="${p.id}" ${etapa?.proyecto_id === p.id ? 'selected' : ''}>${p.nombre}</option>`).join('')
+      + lista2.map(p => `<option value="${p.id}" ${etapa?.proyecto_id === p.id ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')
   }
 
   document.getElementById('modal-etapa-form').classList.remove('hidden')
@@ -3723,7 +3727,7 @@ async function abrirConversacionProspecto(prospectoId, nombre) {
     const data = await api('GET', `/api/prospectos/${prospectoId}/conversacion`)
     renderConversacion(data)
   } catch(e) {
-    document.getElementById('conv-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${e.message}</p>`
+    document.getElementById('conv-body').innerHTML = `<p class="text-center err-text py-8 text-sm">${esc(e.message)}</p>`
   }
 }
 

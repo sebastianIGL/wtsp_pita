@@ -679,9 +679,9 @@
     if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Sin ejecutivos registrados</td></tr>'; return }
     tbody.innerHTML = rows.map(e => `
       <tr class="trow border-b transition">
-        <td class="px-5 py-3 font-medium val-text">${e.ejecutivo || '—'}</td>
-        <td class="px-5 py-3 val-text">${e.entidad || '—'}</td>
-        <td class="px-5 py-3 val-text">${e.email || '—'}</td>
+        <td class="px-5 py-3 font-medium val-text">${esc(e.ejecutivo || '—')}</td>
+        <td class="px-5 py-3 val-text">${esc(e.entidad || '—')}</td>
+        <td class="px-5 py-3 val-text">${esc(e.email || '—')}</td>
         <td class="px-5 py-3">
           <span class="px-2 py-0.5 rounded-full text-xs font-semibold ${e.disponible ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-slate-400'}">
             ${e.disponible ? 'Disponible' : 'Inactivo'}
@@ -689,7 +689,7 @@
         </td>
         <td class="px-5 py-3">
           <div class="flex gap-2">
-            <button onclick='editarEjecutivo(${JSON.stringify(e)})'
+            <button onclick='editarEjecutivo(${esc(JSON.stringify(e))})'
               class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>
             <button onclick="eliminarEjecutivo(${e.id})"
               class="text-xs px-3 py-1 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Eliminar</button>
@@ -831,8 +831,8 @@
     _ultimasInmobiliarias = inmobiliarias;
     tbody.innerHTML = inmobiliarias.map(i => `
       <tr class="trow border-b transition">
-        <td class="px-5 py-3 font-medium val-text">${i.nombre}</td>
-        <td class="px-5 py-3 sidebar-text">${(i.Empresa || {}).nombre || '—'}</td>
+        <td class="px-5 py-3 font-medium val-text">${esc(i.nombre)}</td>
+        <td class="px-5 py-3 sidebar-text">${esc((i.Empresa || {}).nombre || '—')}</td>
         <td class="px-5 py-3 val-text">${conteoProyectos[i.id] || 0}</td>
         <td class="px-5 py-3">
           <button onclick="irAGestionarInmobiliaria(${i.empresa_id})"
@@ -878,7 +878,7 @@
     const tbody = document.getElementById('tablaScraping');
     tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-text py-10">Cargando…</td></tr>';
     const res = await fetch('/api/scraping/logs', { headers: authHeaders() });
-    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-400 py-10">${await res.text()}</td></tr>`; return; }
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="text-center text-red-400 py-10">${esc(await res.text())}</td></tr>`; return; }
     const rows = await res.json();
     if (!rows.length) {
       tbody.innerHTML = '<tr><td colspan="7" class="text-center empty-text py-10">Nunca se ha ejecutado</td></tr>';
@@ -899,13 +899,13 @@
       const filaDetalle = detalle.length
         ? `<tr id="scraping-detalle-${r.id}" class="hidden trow border-b">
              <td colspan="7" class="px-5 py-3 text-xs text-red-300 space-y-1 max-h-48 overflow-y-auto">
-               ${detalle.map(e => `<p>• ${e.direccion || e.fuente_externo_id || '?'}: ${e.motivo}</p>`).join('')}
+               ${detalle.map(e => `<p>• ${esc(e.direccion || e.fuente_externo_id || '?')}: ${esc(e.motivo)}</p>`).join('')}
              </td>
            </tr>`
         : '';
       return `<tr class="trow border-b transition">
         <td class="px-5 py-3 sidebar-text text-xs font-mono">${fecha}</td>
-        <td class="px-5 py-3 val-text">${r.Usuario?.nombre || '—'}</td>
+        <td class="px-5 py-3 val-text">${esc(r.Usuario?.nombre || '—')}</td>
         <td class="px-5 py-3 text-emerald-400">${r.creados}</td>
         <td class="px-5 py-3 text-sky-400">${r.actualizados}</td>
         <td class="px-5 py-3 text-amber-400">${r.desactivados}</td>
@@ -925,7 +925,7 @@
         <span class="inline-block w-2.5 h-2.5 rounded-full bg-violet-500 animate-pulse"></span>
         <span class="font-medium">Procesando ${evt.n}/${evt.total}…</span>
       </div>
-      <div class="text-xs sidebar-text font-mono truncate">${SCRAPING_ICONOS[evt.accion] || '⚪'} ${evt.direccion}</div>
+      <div class="text-xs sidebar-text font-mono truncate">${SCRAPING_ICONOS[evt.accion] || '⚪'} ${esc(evt.direccion)}</div>
       <div class="text-xs sub-text mt-1.5">🟢 ${evt.creados} creados · 🔵 ${evt.actualizados} actualizados · ⚪ ${evt.desactivados} desactivados · 🔴 ${evt.errores} errores</div>`;
     resultadoEl.classList.remove('hidden');
   }
@@ -937,7 +937,7 @@
     let html = `<p class="font-medium">Listo — ${data.creados||0} creados, ${data.actualizados||0} actualizados, ${data.desactivados||0} desactivados${data.errores ? `, ${data.errores} errores` : ''}.</p>`;
     if ((data.detalle_errores || []).length) {
       html += `<div class="mt-2 max-h-40 overflow-y-auto space-y-1 text-xs text-red-300">` +
-        data.detalle_errores.map(e => `<p>• ${e.direccion || e.fuente_externo_id || '?'}: ${e.motivo}</p>`).join('') +
+        data.detalle_errores.map(e => `<p>• ${esc(e.direccion || e.fuente_externo_id || '?')}: ${esc(e.motivo)}</p>`).join('') +
         `</div>`;
     }
     resultadoEl.innerHTML = html;
@@ -990,6 +990,11 @@
   }
 
   // ── Toast ──────────────────────────────────────────────────────────────
+  // Escapa texto antes de ponerlo dentro de HTML (innerHTML): mensajes de error del servidor, nombres, etc.
+  function esc(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]))
+  }
+
   function toast(msg, tipo = 'ok') {
     const el = document.getElementById('toast');
     el.className = `fixed top-5 right-5 z-50 max-w-xs px-4 py-3 rounded-xl shadow-xl text-sm font-medium transition
@@ -1011,9 +1016,9 @@
     }
     tbody.innerHTML = rows.map(u => `
       <tr class="trow border-b transition">
-        <td class="px-5 py-3 font-medium val-text">${u.nombre}</td>
-        <td class="px-5 py-3 sidebar-text font-mono text-xs">${u.rut}</td>
-        <td class="px-5 py-3 val-text">${u.correo}</td>
+        <td class="px-5 py-3 font-medium val-text">${esc(u.nombre)}</td>
+        <td class="px-5 py-3 sidebar-text font-mono text-xs">${esc(u.rut)}</td>
+        <td class="px-5 py-3 val-text">${esc(u.correo)}</td>
         <td class="px-5 py-3">
           <span class="px-2.5 py-1 rounded-full text-xs font-medium
             ${u.rol === 'owner' ? 'bg-amber-900/50 text-amber-300' : u.rol === 'administrador' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-700 text-slate-300'}">
@@ -1027,7 +1032,7 @@
           </span>
         </td>
         <td class="px-5 py-3">
-          <button onclick='abrirModalEditar(${JSON.stringify(u)})'
+          <button onclick='abrirModalEditar(${esc(JSON.stringify(u))})'
             class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">
             Editar
           </button>
@@ -1277,7 +1282,7 @@
 
       renderPlantillas(_templatesMeta);
     } catch (err) {
-      contenedor.innerHTML = `<p class="text-red-400 text-sm">${err.message}</p>`;
+      contenedor.innerHTML = `<p class="text-red-400 text-sm">${esc(err.message)}</p>`;
     }
   }
 
