@@ -27,10 +27,13 @@ def _ingest_api_key() -> Optional[str]:
 async def ingestar_prospecto(request: Request):
     try:
         ingest_api_key = _ingest_api_key()
-        if ingest_api_key:
-            provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
-            if not provided or provided != ingest_api_key:
-                return Response(content="Unauthorized", status_code=401)
+        if not ingest_api_key:
+            # Sin clave configurada la ruta se cierra (antes quedaba abierta a cualquiera)
+            logger.error("INGEST_API_KEY no está configurada: se rechaza la ingesta de prospectos")
+            return Response(content="Ingesta no configurada en el servidor", status_code=503)
+        provided = request.headers.get("x-api-key") or request.headers.get("X-API-Key")
+        if not provided or provided != ingest_api_key:
+            return Response(content="Unauthorized", status_code=401)
 
         if not _supabase_url() or not _supabase_service_role_key():
             return Response(content="Supabase no está configurado", status_code=500)

@@ -96,12 +96,6 @@ class Settings(BaseSettings):
 
     # ── Integraciones entrantes / salientes ─────────────────────────────────
     ingest_api_key: Optional[str] = Field(None, validation_alias=_alias("INGEST_API_KEY"))
-    movendo_webhook_key: Optional[str] = Field(None, validation_alias=_alias("MOVENDO_WEBHOOK_KEY"))
-    movendo_client_id: Optional[str] = Field(None, validation_alias=_alias("MOVENDO_CLIENT_ID"))
-    movendo_client_secret: Optional[str] = Field(None, validation_alias=_alias("MOVENDO_CLIENT_SECRET"))
-    movendo_username: Optional[str] = Field(None, validation_alias=_alias("MOVENDO_USERNAME"))
-    movendo_password: Optional[str] = Field(None, validation_alias=_alias("MOVENDO_PASSWORD"))
-    movendo_default_user_id: Optional[str] = Field(None, validation_alias=_alias("MOVENDO_DEFAULT_USER_ID"))
 
     # ── Sitio y servidor ────────────────────────────────────────────────────
     site_url: Optional[str] = Field(None, validation_alias=_alias("SITE_URL"))
@@ -187,8 +181,6 @@ MODULOS: Dict[str, Tuple[Tuple[str, ...], str]] = {
     "correo_admin": (("email_admin",), "no se enviarán avisos al correo del administrador"),
     "progreso_mi_camino": (("supabase_anon_key",), "/api/progreso responderá 401 a todos"),
     "ingesta": (("ingest_api_key",), "POST /prospectos/ingesta queda ABIERTO a cualquiera"),
-    "movendo_entrante": (("movendo_webhook_key",), "las rutas /api/movendo/* y de contactos quedan ABIERTAS a cualquiera"),
-    "movendo_saliente": (("movendo_username", "movendo_password"), "no se podrá autenticar contra la API de Movendo"),
     "sitio": (("site_url",), "CORS solo admite localhost y los enlaces de invitación apuntan a localhost"),
 }
 

@@ -9,10 +9,8 @@ Movido sin cambios desde main.py (Fase 6, tramo 2, lote C2).
 """
 import asyncio
 import logging
-from html import escape as html_escape
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from app.clients.gmail import _gmail_send
 from app.clients.supabase import _supabase_request
 from app.clients.whatsapp import send_whatsapp_message, send_whatsapp_template
 from app.core.config import get_settings
@@ -157,47 +155,3 @@ async def _notificar_interesado(prospecto_id: str) -> None:
                 logger.warning("Notificación interesado WA fallida: %s", e)
     except Exception:
         logger.exception("Error en _notificar_interesado")
-
-
-async def _notificar_nuevo_lead(nombre: str, telefono: str, proyecto_nombre: str, correo_admin: Optional[str]) -> None:
-    """Envía aviso por WhatsApp y correo al admin cuando llega un nuevo lead de Movendo."""
-    texto = (
-        f"🆕 *Nuevo lead recibido*\n"
-        f"👤 {nombre}\n"
-        f"📱 {telefono}\n"
-        f"🏗️ Proyecto: {proyecto_nombre}"
-    )
-    notify_phone = get_settings().admin_notify_phone
-    if notify_phone:
-        try:
-            await send_whatsapp_message(to=notify_phone, text=texto)
-        except Exception as e:
-            logger.warning("Notificación WA fallida: %s", e)
-
-    if correo_admin:
-        try:
-            body_html = f"""
-            <div style="font-family:Arial,sans-serif;max-width:500px;">
-              <h2 style="color:#1e3a5f;border-bottom:2px solid #1e3a5f;padding-bottom:8px;">Nuevo lead recibido</h2>
-              <table style="font-size:14px;width:100%;border-collapse:collapse;">
-                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;width:120px;">Nombre</td>
-                    <td style="padding:8px 12px;">{html_escape(nombre)}</td></tr>
-                <tr style="background:#f5f7fa;">
-                    <td style="padding:8px 12px;font-weight:bold;color:#555;">Teléfono</td>
-                    <td style="padding:8px 12px;">{html_escape(telefono)}</td></tr>
-                <tr><td style="padding:8px 12px;font-weight:bold;color:#555;">Proyecto</td>
-                    <td style="padding:8px 12px;">{html_escape(proyecto_nombre)}</td></tr>
-              </table>
-              <p style="font-size:12px;color:#aaa;margin-top:20px;">Generado automáticamente por CRM QueSubsidio.</p>
-            </div>"""
-            email_from = (get_settings().email_admin or "")
-            if not email_from:
-                raise RuntimeError("EMAIL_ADMIN no configurada")
-            await _gmail_send(
-                from_addr=email_from,
-                to=[correo_admin],
-                subject=f"Nuevo lead — {nombre}",
-                html=body_html,
-            )
-        except Exception as e:
-            logger.warning("Notificación email fallida: %s", e)

@@ -170,7 +170,6 @@ from app.services.avisos import (  # noqa: F401  (se re-exportan con los mismos 
     _TEXTOS_RECORDATORIO,
     _notificar_ejecutivo_wa,
     _notificar_interesado,
-    _notificar_nuevo_lead,
     _notificar_recordatorio_estado,
 )
 from app.services.mensajes import (  # noqa: F401  (se re-exportan con los mismos nombres)
@@ -328,14 +327,6 @@ from app.routers.ingesta import (  # noqa: F401  (se re-exportan con los mismos 
     router as ingesta_router,
     _ingest_api_key,
     ingestar_prospecto,
-)
-from app.routers.movendo import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as movendo_router,
-    _get_default_user,
-    _movendo_webhook_key,
-    _verificar_movendo_auth,
-    api_movendo_actualizar_contacto,
-    api_movendo_nuevo_cliente,
 )
 from app.routers.documentos import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as documentos_router,
@@ -572,12 +563,6 @@ app.include_router(clientes_router)
 
 
 app.include_router(documentos_router)
-
-
-# ── Movendo / Zonapropia Integration ─────────────────────────────────────────
-
-
-app.include_router(movendo_router)
 
 
 app.include_router(paginas_router)
