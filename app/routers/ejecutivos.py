@@ -81,7 +81,8 @@ async def api_crear_ejecutivo(request: Request):
         payload["telefono"] = body["telefono"]
     if not payload["ejecutivo"] or not payload["entidad"] or not payload["email"]:
         return Response(content="Nombre, entidad y email son obligatorios", status_code=400)
-    row = await _supabase_request("POST", "/EjecutivoBancario", json=payload)
+    row = await _supabase_request("POST", "/EjecutivoBancario", json=payload,
+                                  extra_headers={"Prefer": "return=representation"})
     creado = row[0] if isinstance(row, list) else row
 
     proyecto_ids = body.get("proyecto_ids") or []
