@@ -36,6 +36,8 @@ _PROYECTO_SELECT_LIGHT = (
 
 async def _buscar_id_proyecto(nombre_csv: str, proyectos_cache: List[Dict]) -> Optional[Dict]:
     nombre_norm = _normalizar_nombre(nombre_csv)
+    if not nombre_norm:
+        return None   # un nombre vacío no identifica a ningún proyecto (antes calzaba con uno sin nombre)
     for p in proyectos_cache:
         if _normalizar_nombre(p.get("nombre", "")) == nombre_norm:
             return p
