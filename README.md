@@ -96,9 +96,6 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
 - **Tailwind**: CLI standalone v3.4 (equivale al CDN actual). La migración a v4 es una tarea aparte.
 - **Caché de usuario (Fase 2)**: TTL de 30 s, tamaño acotado e invalidación inmediata cuando el propio proceso
   cambia el rol o el estado de un usuario. Sin validación local del JWT por ahora.
-- **`BOT_ENGINE=legacy|nuevo` (Fase 8)**: el motor legacy queda congelado y **se elimina tras ~2 semanas estables
-  del motor nuevo en producción**. Fecha límite: se anota aquí el día del despliegue del motor nuevo
-  (fecha de despliegue + 14 días).
 
 ## Operación: configuración, logs y salud (Fase 2a)
 
