@@ -20,7 +20,7 @@ except ImportError:
 from app.clients.supabase import _supabase_request
 from app.core.config import get_settings
 from app.core.llm import PRESUPUESTO_TOTAL_S, cliente_anthropic
-from app.services.bot_prompts import PASOS_CONFIG
+from app.services.bot.prompts import PASOS_CONFIG
 from app.services.documentos import _CAMPOS_CALIFICACION, _lista_documentos_requeridos_texto, resumen_documentos
 from app.services.proyectos import _PROYECTO_SELECT_LIGHT
 

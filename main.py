@@ -158,7 +158,7 @@ from app.services.proyectos import (  # noqa: F401  (se re-exportan con los mism
     _buscar_id_proyecto,
     obtener_proyecto_por_id,
 )
-from app.services.bot_prompts import PASOS_CONFIG  # noqa: F401  (se re-exporta con el mismo nombre)
+from app.services.bot.prompts import PASOS_CONFIG  # noqa: F401  (se re-exporta con el mismo nombre)
 from app.services.bot import (  # noqa: F401  (se re-exportan con los mismos nombres)
     ANTHROPIC_API_KEY,
     _construir_mind,
