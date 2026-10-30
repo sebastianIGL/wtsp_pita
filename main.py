@@ -1,28 +1,11 @@
 from __future__ import annotations
-from fastapi import FastAPI, Request, Response, BackgroundTasks, UploadFile, File, Form
+from fastapi import FastAPI, Request, Response, BackgroundTasks
 from contextlib import asynccontextmanager
-from fastapi.responses import FileResponse, RedirectResponse
 import asyncio
-import os
-import json
-import random
-import re
-import httpx
-import csv
-import io
-import unicodedata
-from typing import Any, Dict, List, Optional, Tuple, Union
-from datetime import datetime, timezone, timedelta
-from zoneinfo import ZoneInfo
-from collections import defaultdict
+from typing import Dict, List, Optional
+from datetime import datetime
 import logging
 import time
-import base64
-from html import escape as html_escape
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders as _email_encoders
 
 try:
     import anthropic
@@ -97,7 +80,6 @@ from app.services.documentos import (  # noqa: F401  (se re-exportan con los mis
     _docs_requeridos,
     _lista_documentos_requeridos_texto,
     clasificar_documento,
-    clasificar_texto_documento,
     documentos_pendientes,
     resumen_documentos,
 )
@@ -121,7 +103,7 @@ from app.clients.whatsapp import (  # noqa: F401  (se re-exportan con los mismos
     send_whatsapp_template,
 )
 from app.core.permisos import _solo_admin, _solo_owner  # noqa: F401  (se re-exportan con los mismos nombres)
-from app.core.rate_limit import _rate_limit_ok, _rl_store, ip_cliente  # noqa: F401  (se re-exportan con los mismos nombres)
+from app.core.rate_limit import _rate_limit_ok, _rl_store  # noqa: F401  (se re-exportan con los mismos nombres)
 from app.services.evaluacion_email import (  # noqa: F401  (se re-exportan con los mismos nombres)
     CONDICION_LABEL,
     _enviar_email_evaluacion,
@@ -219,163 +201,64 @@ from app.services.recovery import (  # noqa: F401  (se re-exportan con los mismo
 )
 from app.routers.paginas import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as paginas_router,
-    page_blog,
-    page_como_funciona,
-    page_empresas,
-    page_empresas_html,
-    page_home,
-    page_inmobiliaria,
-    page_inmobiliaria_html,
-    page_login,
-    page_panel,
-    page_perfil,
-    page_proyecto,
-    page_proyecto_html,
-    page_reset_password,
-    page_subsidios,
-    page_viviendas,
-    templates,
 )
 from app.routers.progreso import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as progreso_router,
-    api_get_progreso,
-    api_set_progreso,
 )
-from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos  # noqa: F401  (se re-exportan con los mismos nombres)
+from app.core.cache_proyectos import _cache_proyectos  # noqa: F401  (se re-exportan con los mismos nombres)
 from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible  # noqa: F401  (se re-exporta con el mismo nombre)
 from app.routers.publico import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as publico_router,
-    api_contacto,
-    api_newsletter,
-    api_proyectos_landing,
 )
 from app.routers.formulario import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as formulario_router,
-    _FORMULARIO_CAMPOS,
-    api_actualizar_formulario,
-    api_convertir_formulario,
-    api_crear_formulario,
-    api_obtener_formulario,
 )
 from app.routers.usuarios import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as usuarios_router,
     WA_WABA_ID,
-    _log_correo,
-    api_actualizar_usuario,
-    api_cambiar_password,
-    api_crear_usuario,
-    api_listar_plantillas_config,
-    api_listar_templates,
-    api_listar_usuarios,
-    api_log_correos,
-    api_log_whatsapp,
-    api_upsert_plantilla_config,
-    api_usuario_actual,
 )
 from app.routers.empresas import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as empresas_router,
-    api_crear_empresa,
-    api_crear_inmobiliaria,
-    api_editar_empresa,
-    api_editar_inmobiliaria,
-    api_listar_empresas,
-    api_listar_industrias,
-    api_listar_inmobiliarias,
 )
 from app.routers.proyectos import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as proyectos_router,
-    api_crear_proyecto,
-    api_editar_proyecto,
-    api_listar_proyectos,
-    api_subir_imagen_proyecto,
 )
 from app.routers.tipologias import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as tipologias_router,
-    _CAMPOS_ETAPA,
-    _CAMPOS_TIPOLOGIA,
     _ETAPA_SELECT,
     _ETAPA_TIP_SELECT,
     _TIPOLOGIA_SELECT,
-    api_crear_etapa,
-    api_crear_etapa_tipologia,
-    api_crear_tipologia,
-    api_editar_etapa,
-    api_editar_etapa_tipologia,
-    api_editar_tipologia,
-    api_eliminar_etapa,
-    api_eliminar_etapa_tipologia,
-    api_eliminar_tipologia,
-    api_find_or_create_etapa_tipologia,
-    api_get_etapa_tipologia,
-    api_listar_etapa_tipologia,
-    api_listar_etapas,
-    api_listar_tipologias,
 )
 from app.routers.ejecutivos import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as ejecutivos_router,
-    api_asignar_ejecutivo,
-    api_crear_ejecutivo,
-    api_editar_ejecutivo,
-    api_ejecutar_scraping_buydepa,
-    api_eliminar_ejecutivo,
-    api_listar_ejecutivos,
-    api_listar_logs_scraping,
-    api_listar_proyecto_ejecutivos,
-    api_quitar_ejecutivo,
 )
 from app.routers.ingesta import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as ingesta_router,
-    _ingest_api_key,
-    ingestar_prospecto,
 )
 from app.routers.documentos import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as documentos_router,
-    TEMPLATE_RECORDATORIO_WA,
     TIPOS_DOCUMENTO_RECLASIFICABLES,
     TIPOS_VALIDOS,
-    _EVAL_LOCK_TIMEOUT_SEG,
     _evaluaciones_en_curso,
-    _obtener_o_crear_prospecto,
-    api_descargar_documento,
-    api_documentos_cliente,
-    api_eliminar_documento,
-    api_enviar_evaluacion,
-    api_preview_evaluacion,
-    api_reclasificar_documento,
-    api_recordatorio_wa,
-    api_upload_documento,
 )
 from app.routers.clientes import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as clientes_router,
     _INBOX_SELECT,
-    api_actualizar_cliente,
-    api_contexto_cliente,
-    api_conversacion_cliente,
-    api_conversacion_prospecto,
-    api_crear_cliente,
-    api_inbox,
-    api_listar_clientes,
-    api_registrar_desde_inbox,
 )
 from app.routers.clientes_acciones import (  # noqa: F401  (se re-exportan con los mismos nombres)
     router as clientes_acciones_router,
-    api_enviar_primer_wtsp,
-    api_importar_clientes,
 )
 from app.routers.health import router as health_router
-from app.core.logging_config import RequestContextMiddleware, configurar_logging, enmascarar
-from app.core.user_cache import reducir_perfil, user_cache
-from app.core.errors import AppError, detalle_error, mensaje_publico, registrar_error, respuesta_error
-from app.core.webhook_signature import debe_rechazar, verificar_firma
-from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, cliente_anthropic, margen_frente_a_recovery
-from app.core.http import cerrar_http, http_client, iniciar_http, request_con_reintentos_get
+from app.core.logging_config import RequestContextMiddleware, configurar_logging
+from app.core.user_cache import user_cache
+from app.core.errors import registrar_error
+from app.core.webhook_signature import verificar_firma
+from app.core.llm import PRESUPUESTO_TOTAL_S, cerrar_anthropic, margen_frente_a_recovery
+from app.core.http import cerrar_http, iniciar_http
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from app.core.estaticos import FrontendEstatico
-from fastapi.templating import Jinja2Templates
 from app.core.security_headers import _SecurityHeadersMiddleware  # noqa: F401  (se re-exporta con el mismo nombre)
-from starlette.middleware.base import BaseHTTPMiddleware  # noqa: F401
 from starlette.middleware.gzip import GZipMiddleware
 
 @asynccontextmanager
