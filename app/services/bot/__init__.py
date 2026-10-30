@@ -1,6 +1,6 @@
-"""Bot de WhatsApp: contexto que se le da al modelo (cadena Proyecto → Inmobiliaria → Empresa → Industria, otros proyectos de la
-misma empresa y su resumen) y ``generar_respuesta_ia``, que arma el prompt del paso actual, llama a Claude y devuelve la
-respuesta, el siguiente paso y los datos extraídos.
+"""Bot de WhatsApp. ``generar_respuesta_ia`` arma el prompt del paso actual, llama a Claude y devuelve la respuesta, el siguiente
+paso y los datos extraídos. El contexto del proyecto vive en ``contexto``, la interpretación de lo que contesta el modelo en
+``respuesta`` y los prompts por paso en ``prompts``.
 
 Movido sin cambios desde main.py (Fase 6, tramo 2, lote C1). Los parámetros de la llamada al modelo (modelo, max_tokens,
 presupuesto de tiempo, cliente con sus timeouts y reintentos) no cambian: el cliente vive en app/core/llm.py.
@@ -8,7 +8,6 @@ presupuesto de tiempo, cliente con sus timeouts y reintentos) no cambian: el cli
 import asyncio
 import json
 import logging
-import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -22,116 +21,18 @@ from app.core.config import get_settings
 from app.core.llm import PRESUPUESTO_TOTAL_S, cliente_anthropic
 from app.services.bot.prompts import PASOS_CONFIG
 from app.services.documentos import _CAMPOS_CALIFICACION, _lista_documentos_requeridos_texto, resumen_documentos
-from app.services.proyectos import _PROYECTO_SELECT_LIGHT
+from app.services.bot.contexto import _construir_mind, _obtener_otros_proyectos, _resumir_proyecto  # noqa: F401  (se re-exportan)
+from app.services.bot.respuesta import (  # noqa: F401  (se re-exportan con los mismos nombres)
+    MENSAJE_RESPALDO_BOT,
+    _RE_PARECE_JSON,
+    _RE_RESPUESTA_CAMPO,
+    _con_lista_de_documentos,
+    _interpretar_respuesta,
+)
 
 logger = logging.getLogger("wtsp_pita")
 
-
-def _construir_mind(proyecto: Optional[Dict]) -> Dict[str, str]:
-    """
-    Extrae la cadena contextual completa desde el proyecto hacia arriba:
-    Proyecto → Inmobiliaria → Empresa → Industria.
-    Retorna un dict con los nombres de cada nivel (vacío si no existe).
-    """
-    p    = proyecto or {}
-    inm  = p.get("Inmobiliaria") or {}
-    emp  = inm.get("Empresa") or {}
-    ind  = emp.get("Industria") or {}
-    return {
-        "industria":    ind.get("nombre") or "Inmobiliaria",
-        "empresa":      emp.get("nombre") or "",
-        "inmobiliaria": inm.get("nombre") or "",
-        "proyecto":     p.get("nombre")   or "",
-    }
-
-
-async def _obtener_otros_proyectos(empresa_id: int, proyecto_id_actual: Optional[str]) -> List[Dict]:
-    """Devuelve todos los proyectos de la empresa excepto el actual."""
-    inms = await _supabase_request("GET", "/Inmobiliaria",
-        params={"empresa_id": f"eq.{empresa_id}", "select": "id"}) or []
-    if not inms:
-        return []
-    inm_ids = ",".join(str(i["id"]) for i in inms)
-    rows = await _supabase_request("GET", "/Proyecto",
-        params={"inmobiliaria_id": f"in.({inm_ids})", "activo": "eq.true", "select": _PROYECTO_SELECT_LIGHT}) or []
-    return [p for p in rows if str(p.get("id")) != str(proyecto_id_actual)]
-
-
-def _resumir_proyecto(p: Dict) -> str:
-    """Genera una línea de resumen de un proyecto para el contexto del bot (otros proyectos disponibles)."""
-    subsidios = []
-    if p.get("acepta_ds19"):
-        subsidios.append("DS19")
-    if p.get("acepta_ds1_t23"):
-        subsidios.append(f"DS1T23 {p.get('subsidio_ds1_t23_uf','')}UF".strip())
-    sub_str = " | ".join(subsidios) or "sin subsidio"
-    return f"• [{p['id']}] {p.get('nombre','?')} — {p.get('ubicacion','?')} | {sub_str}"
-
-
 ANTHROPIC_API_KEY  = get_settings().anthropic_api_key
-
-
-
-# Mensaje que recibe el cliente cuando la respuesta del modelo no se puede usar. No promete que alguien lo contactará: no se avisa a nadie.
-MENSAJE_RESPALDO_BOT = "Disculpa, tuve un problema para procesar tu mensaje. ¿Podrías escribirlo de nuevo? 🙏"
-
-_RE_RESPUESTA_CAMPO = re.compile(r'"respuesta"\s*:\s*"((?:[^"\\]|\\.)*)"', re.S)
-_RE_PARECE_JSON = re.compile(r'"(?:respuesta|siguiente_paso|datos_extraidos)"|"\s*:|[{}\[\]]')
-
-
-def _con_lista_de_documentos(texto: str, lista_documentos_requeridos: str) -> str:
-    # Reemplazo estático: garantiza que la lista de documentos que llega al cliente sea exactamente la que valida el backend,
-    # sin que el modelo pueda parafrasear nombres, cambiar cantidades o inventar documentos.
-    return texto.replace("<<LISTA_DOCUMENTOS>>", lista_documentos_requeridos) if "<<LISTA_DOCUMENTOS>>" in texto else texto
-
-
-def _interpretar_respuesta(texto_modelo: str, lista_documentos_requeridos: str) -> Dict[str, Any]:
-    """Convierte lo que contestó el modelo en {respuesta, siguiente_paso, datos_extraidos}. ``texto_modelo`` es lo que viene DESPUÉS del
-    prefill «{» (el código lo antepone). El cliente nunca recibe sintaxis JSON ni texto técnico:
-      1. JSON válido con ``respuesta`` → se usa tal cual.
-      2. JSON roto pero con el campo ``respuesta`` completo → se envía solo esa frase.
-      3. Texto libre sin estructura JSON → se envía sin la «{» del prefill.
-      4. Cualquier otra cosa → MENSAJE_RESPALDO_BOT y un error en el log.
-    En 2, 3 y 4 no se avanza de paso ni se guardan datos."""
-    original = "{" + texto_modelo.strip()
-    raw = original
-    # Limpiar si viene con markdown igual
-    if "```" in raw:
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-        raw = raw.strip()
-
-    try:
-        result = json.loads(raw)
-    except Exception:
-        result = None
-    if isinstance(result, dict) and result.get("respuesta"):
-        return {
-            "respuesta":       _con_lista_de_documentos(str(result["respuesta"]), lista_documentos_requeridos),
-            "siguiente_paso":  result.get("siguiente_paso") or None,
-            "datos_extraidos": result.get("datos_extraidos") or {},
-        }
-
-    sin_datos: Dict[str, Any] = {"siguiente_paso": None, "datos_extraidos": {}}
-    rescatada = _RE_RESPUESTA_CAMPO.search(original)
-    if rescatada:
-        try:
-            frase = json.loads('"' + rescatada.group(1) + '"').strip()
-        except Exception:
-            frase = ""
-        if frase:
-            logger.warning("Claude no devolvió JSON válido: se rescató el campo respuesta")
-            return {"respuesta": _con_lista_de_documentos(frase, lista_documentos_requeridos), **sin_datos}
-
-    libre = original[1:].strip()
-    if libre and not _RE_PARECE_JSON.search(libre) and libre[0] not in '"`':
-        logger.warning("Claude respondió texto libre sin JSON: se envía sin el prefill")
-        return {"respuesta": _con_lista_de_documentos(libre, lista_documentos_requeridos), **sin_datos}
-
-    logger.error("Claude no devolvió una respuesta utilizable: se envía el mensaje de respaldo",
-                 extra={"largo_respuesta_modelo": len(texto_modelo)})
-    return {"respuesta": MENSAJE_RESPALDO_BOT, **sin_datos}
 
 
 async def generar_respuesta_ia(
