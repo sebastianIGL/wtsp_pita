@@ -9,7 +9,7 @@ module.exports = {
     './frontend/blog.html',
     './frontend/login.html',
     './frontend/reset-password.html',
-    './frontend/opcion_c.html',
+    './frontend/mi_camino.html',
     './frontend/partials/*.html',
   ],
   theme: { extend: {} },

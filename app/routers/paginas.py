@@ -113,4 +113,4 @@ async def page_proyecto_html():
 
 @router.get("/perfil")
 async def page_perfil():
-    return FileResponse("frontend/opcion_c.html")
+    return FileResponse("frontend/mi_camino.html")
