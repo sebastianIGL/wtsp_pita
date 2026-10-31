@@ -3,14 +3,7 @@ from fastapi import FastAPI, Request, Response, BackgroundTasks
 from contextlib import asynccontextmanager
 import asyncio
 from typing import Dict, List, Optional
-from datetime import datetime
 import logging
-import time
-
-try:
-    import anthropic
-except ImportError:
-    anthropic = None
 
 _error_dotenv: Optional[Exception] = None   # se registra en cuanto existe el logger (más abajo)
 try:
@@ -21,233 +14,24 @@ except Exception as _e_dotenv:
     _error_dotenv = _e_dotenv
 
 from app.core.config import get_settings, registrar_configuracion
-from app.clients.supabase import (  # noqa: F401  (se re-exportan: main.py y los tests los usan con estos nombres)
-    _supabase_headers,
-    _supabase_request,
-    _supabase_rest_base,
-    _supabase_service_role_key,
-    _supabase_url,
-)
-from app.clients.supabase_storage import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _descargar_documento_storage,
-    StorageError,
-    _eliminar_documento_storage,
-    subir_a_storage,
-    subir_imagen_proyecto,
-)
-from app.clients.supabase_auth import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _get_usuario_actual,
-    _invitar_usuario_supabase,
-    _uid_desde_jwt,
-    cambiar_password_supabase,
-)
-from app.core.utilidades import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _CSV_COL_MAP,
-    _es_violacion_unica,
-    _horas_desde,
-    _norm_col,
-    _norm_row,
-    _norm_row_keys,
-    _normalizar_nombre,
-    _normalizar_telefono_cl,
-    _normalizar_wamid,
-    _normalize_phone,
-    _safe_httpx_error,
-    _slugify,
-    _utc_now_iso,
-)
-from app.services.horarios import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _TZ_CHILE,
-    HORARIO_AVISOS_FIN,
-    HORARIO_AVISOS_INICIO,
-    HORARIO_URGENTE_INICIO,
-    _dentro_de,
-    _dentro_horario_avisos,
-    _dentro_horario_bot,
-    _dentro_horario_urgente,
-    _horas_bot,
-    _segundos_hasta_apertura,
-    _segundos_hasta_horario_avisos,
-    _segundos_hasta_horario_bot,
-    _segundos_hasta_horario_urgente,
-)
-from app.services.documentos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _CAMPOS_CALIFICACION,
-    _DOCS_BASE,
-    _DOCS_CONDICIONALES,
-    _KEYWORDS_TIPO,
-    _TIPO_ALIAS,
-    _docs_requeridos,
-    _lista_documentos_requeridos_texto,
-    clasificar_documento,
-    documentos_pendientes,
-    resumen_documentos,
-)
-from app.clients.mindicador import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _CACHE_UF_TTL,
-    _UF_VALOR_RESPALDO,
-    _cache_uf,
-    _obtener_valor_uf,
-)
-from app.clients.gmail import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _gmail_get_token_sync,
-    _gmail_send,
-)
-from app.clients.whatsapp import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    ID_NUMERO_TELEFONO,
-    TOKEN_ACCESO,
-    VERSION_GRAPH,
-    _build_body_params,
-    descargar_media_whatsapp,
-    send_whatsapp_message,
-    send_whatsapp_template,
-)
-from app.core.permisos import _solo_admin, _solo_owner  # noqa: F401  (se re-exportan con los mismos nombres)
-from app.core.rate_limit import _rate_limit_ok, _rl_store  # noqa: F401  (se re-exportan con los mismos nombres)
-from app.services.evaluacion_email import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    CONDICION_LABEL,
-    _enviar_email_evaluacion,
-)
-from app.services.buydepa import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _EXT_IMAGEN,
-    BUYDEPA_API_URL,
-    BUYDEPA_INMOBILIARIA_ID,
-    UF_UMBRAL_CLP,
-    _actualizar_stock_proyecto,
-    _completar_tipologia_depa,
-    _imagenes_buydepa,
-    _normalizar_codigo_depa,
-    _payload_tipologia_buydepa,
-    _precio_a_uf,
-    _registrar_cambio_depa,
-    _registrar_log_scraping,
-    _registrar_oferta_depa,
-    _revertir_proyecto_huerfano,
-    _sincronizar_buydepa_stream,
-    _sincronizar_imagenes_depa,
-    _sincronizar_precio_depa,
-    _urls_imagen,
-)
-from app.services.plantillas import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    TEMPLATE_VARS_MAP,
-    _pool_plantilla,
-)
-from app.services.proyectos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _PROYECTO_SELECT,
-    _PROYECTO_SELECT_LIGHT,
-    _PROYECTO_SELECT_PANEL,
-    _aplicar_campos_proyecto,
-    _buscar_id_proyecto,
-    obtener_proyecto_por_id,
-)
-from app.services.bot.prompts import PASOS_CONFIG  # noqa: F401  (se re-exporta con el mismo nombre)
-from app.services.bot import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    ANTHROPIC_API_KEY,
-    _construir_mind,
-    _obtener_otros_proyectos,
-    _resumir_proyecto,
-    generar_respuesta_ia,
-)
-from app.services.avisos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _TEXTOS_RECORDATORIO,
-    _notificar_ejecutivo_wa,
-    _notificar_interesado,
-    _notificar_recordatorio_estado,
-)
-from app.services.mensajes import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    insertar_mensaje,
-    obtener_historial_mensajes,
-)
-from app.services.documentos_prospecto import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    TOLERANCIA_RELOJ_S,
-    VENTANA_TIPO_POR_TEXTO_MIN,
-    _tipo_segun_textos,
-    etiquetar_documentos_sin_tipo,
-    insertar_documento,
-    obtener_documentos_prospecto,
-    tipo_por_texto_desde_envio,
-)
-from app.services.prospectos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _CAMPOS_COLUMNA_PROPIA,
-    _cambiar_proyecto_prospecto,
-    actualizar_datos_prospecto,
-    obtener_prospecto_por_id,
-    upsert_prospecto,
-)
-from app.services.webhook_entrada import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _WAMID_MAX,
-    _es_mensaje_nuevo,
-    _lanzar,
-    _registrar_firma_webhook,
-    _tareas_fondo,
-    _wamids_orden,
-    _wamids_procesados,
-)
-from app.services.webhook_estados import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _META_ESTADO_MAP,
-    _ORDEN_ESTADO_PLANTILLA,
-    _procesar_status,
-)
-from app.services.webhook_media import _procesar_media  # noqa: F401  (se re-exporta con el mismo nombre)
-from app.services.webhook import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    DELAY_RESPUESTA_SEGUNDOS,
-    _procesar_grupo,
-    _procesar_webhook,
-)
-from app.services.recovery import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    _RECOVERY_CICLOS_ENTRE_AVISOS,
-    _recovery_loop,
-    _registrar_pendientes_vencidos,
-)
-from app.routers.paginas import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as paginas_router,
-)
-from app.routers.progreso import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as progreso_router,
-)
-from app.core.cache_proyectos import _cache_proyectos  # noqa: F401  (se re-exportan con los mismos nombres)
-from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible  # noqa: F401  (se re-exporta con el mismo nombre)
-from app.routers.publico import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as publico_router,
-)
-from app.routers.formulario import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as formulario_router,
-)
-from app.routers.usuarios import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as usuarios_router,
-    WA_WABA_ID,
-)
-from app.routers.empresas import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as empresas_router,
-)
-from app.routers.proyectos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as proyectos_router,
-)
-from app.routers.tipologias import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as tipologias_router,
-    _ETAPA_SELECT,
-    _ETAPA_TIP_SELECT,
-    _TIPOLOGIA_SELECT,
-)
-from app.routers.ejecutivos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as ejecutivos_router,
-)
-from app.routers.ingesta import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as ingesta_router,
-)
-from app.routers.documentos import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as documentos_router,
-    TIPOS_DOCUMENTO_RECLASIFICABLES,
-    TIPOS_VALIDOS,
-    _evaluaciones_en_curso,
-)
-from app.routers.clientes import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as clientes_router,
-    _INBOX_SELECT,
-)
-from app.routers.clientes_acciones import (  # noqa: F401  (se re-exportan con los mismos nombres)
-    router as clientes_acciones_router,
-)
+from app.core.utilidades import _normalize_phone
+from app.services.webhook_entrada import _es_mensaje_nuevo, _lanzar, _registrar_firma_webhook
+from app.services.webhook_estados import _procesar_status
+from app.services.webhook import DELAY_RESPUESTA_SEGUNDOS, _procesar_grupo, _procesar_webhook
+from app.services.recovery import _recovery_loop
+from app.routers.paginas import router as paginas_router
+from app.routers.progreso import router as progreso_router
+from app.routers.publico import router as publico_router
+from app.routers.formulario import router as formulario_router
+from app.routers.usuarios import router as usuarios_router
+from app.routers.empresas import router as empresas_router
+from app.routers.proyectos import router as proyectos_router
+from app.routers.tipologias import router as tipologias_router
+from app.routers.ejecutivos import router as ejecutivos_router
+from app.routers.ingesta import router as ingesta_router
+from app.routers.documentos import router as documentos_router
+from app.routers.clientes import router as clientes_router
+from app.routers.clientes_acciones import router as clientes_acciones_router
 from app.routers.health import router as health_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging
 from app.core.user_cache import user_cache
@@ -258,7 +42,7 @@ from app.core.http import cerrar_http, iniciar_http
 
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.estaticos import FrontendEstatico
-from app.core.security_headers import _SecurityHeadersMiddleware  # noqa: F401  (se re-exporta con el mismo nombre)
+from app.core.security_headers import _SecurityHeadersMiddleware
 from starlette.middleware.gzip import GZipMiddleware
 
 @asynccontextmanager
