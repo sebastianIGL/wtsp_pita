@@ -129,7 +129,7 @@ CREATE TABLE public."Cliente" (
   etapa_tipologia_id   int4 REFERENCES public."EtapaTipologia"(id),  -- reemplaza tipologia_id; une tipología + etapa
   usuario_id           uuid REFERENCES public."Usuario"(id),
   "Tramo de renta"     text,
-  movendo_id           text,  -- ID externo Movendo/Zonapropia
+  movendo_id           text,  -- OBSOLETO, sin uso (integración Movendo eliminada; la columna se conserva en la base)
   rsh                  text,
   tipo_ingreso         text,  -- 'dependiente' | 'independiente' | etc.
   estado_plantilla     text,  -- 'enviado' | null
@@ -143,7 +143,7 @@ CREATE TABLE public."Cliente" (
   "Fecha Ult. Gestión" timestamptz
 );
 
-CREATE INDEX idx_cliente_movendo_id ON public."Cliente"(movendo_id);
+CREATE INDEX idx_cliente_movendo_id ON public."Cliente"(movendo_id);  -- OBSOLETO, sin uso
 CREATE INDEX idx_cliente_usuario_id ON public."Cliente"(usuario_id);
 
 -- ── Prospectos WhatsApp ──────────────────────────────────────────

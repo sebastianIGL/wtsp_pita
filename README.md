@@ -53,6 +53,19 @@ Opcional:
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+## Estructura del código
+- `main.py`: solo arma la aplicación (FastAPI, middleware, el webhook de WhatsApp y el montaje de los routers y del frontend).
+  Ya no re-exporta nada: el código vive en `app/`.
+- `app/routers/`: las rutas HTTP, una por área (clientes, documentos, empresas, proyectos, usuarios, ingesta, formulario, páginas…).
+- `app/services/`: la lógica de negocio (webhook, avisos, buydepa, plantillas, prospectos, documentos, importación CSV…).
+  `app/services/bot/` es el bot: `prompts.py` (las instrucciones por paso), `contexto.py`, `generacion.py` (llama al modelo) y
+  `respuesta.py` (interpreta lo que contesta el modelo).
+- `app/clients/`: acceso a servicios externos (Supabase, WhatsApp, Gmail, mindicador).
+- `app/core/`: configuración, autorización, límites de tasa, logging, cabeceras de seguridad y utilidades comunes.
+- `frontend/`: páginas HTML (las públicas con plantillas Jinja2 y `partials/`).
+- `supabase/schema.sql`: referencia del esquema de la base. Las columnas `movendo_*` figuran como obsoletas: se conservan en la
+  base pero ya no se usan.
+
 ## Endpoints
 - `GET /webhook`: verificación de Meta (usa `hub.mode`, `hub.verify_token`, `hub.challenge`)
 - `POST /webhook`: recepción de eventos; si llega un mensaje de texto, hace un echo por Graph API
