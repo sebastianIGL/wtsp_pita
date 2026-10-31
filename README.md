@@ -66,6 +66,17 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `supabase/schema.sql`: referencia del esquema de la base. Las columnas `movendo_*` figuran como obsoletas: se conservan en la
   base pero ya no se usan.
 
+## CSS de Tailwind (Fase 10)
+- Tailwind **3.4.17** (la versión que servía el CDN) con el CLI standalone: <https://github.com/tailwindlabs/tailwindcss/releases/tag/v3.4.17>.
+  El binario **no** va en el repo. El CSS compilado **sí** (`frontend/css/sitio.css` y `frontend/css/crm.css`); Railway no compila nada.
+- Regenerar: `TAILWIND_BIN=/ruta/a/tailwindcss ./tailwind/construir.sh` (configuración en `tailwind/`). El resultado es determinista.
+- `sitio.css`: sitio público, login, restablecer contraseña y Mi Camino. `crm.css`: CRM, panel y admin (modo oscuro por clase).
+- **Dónde se enlaza:** el `<link rel="stylesheet" href="/css/sitio.css">` va al **final del `<head>`**, después de los `<style>` de la
+  página. El CDN insertaba su CSS ahí, y el «preflight» de Tailwind debe ganarle a los estilos propios de la página: con el
+  enlace antes de esos estilos, las páginas cambian de tamaño y espaciado.
+- Si se agregan clases de Tailwind en una página, hay que volver a compilar (el escáner lee los HTML listados en cada
+  `tailwind.*.config.js`; las clases armadas por concatenación en JS no se detectan y irían en `safelist`).
+
 ## Endpoints
 - `GET /webhook`: verificación de Meta (usa `hub.mode`, `hub.verify_token`, `hub.challenge`)
 - `POST /webhook`: recepción de eventos; si llega un mensaje de texto, hace un echo por Graph API
