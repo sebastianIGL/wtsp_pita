@@ -16,6 +16,7 @@ Garantías:
 Limitación conocida: si el proceso muere justo después de que Meta aceptó el mensaje y antes de marcarlo ``enviado``, el aviso
 puede salir una segunda vez al volver a la cola. Se prefiere repetir a perder un aviso de un cliente.
 """
+import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
@@ -23,6 +24,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.clients.supabase import _supabase_request
+from app.core.config import get_settings
 from app.core.utilidades import _es_violacion_unica
 from app.services import avisos
 from app.services.horarios import (
@@ -39,6 +41,9 @@ MAX_INTENTOS = 3                      # el tercer fallo deja el aviso en «error
 ESPERA_REINTENTO_MIN = (5, 10)        # espera tras el 1.er y el 2.º fallo
 LEASE_MINUTOS = 10                    # un aviso «enviando» más antiguo que esto vuelve a la cola
 LOTE = 10                             # avisos que se reclaman por ciclo
+INICIO_S = 15                         # gracia al arrancar antes del primer ciclo
+INTERVALO_S = 60                      # un ciclo por minuto
+ESPERA_MAX_ERROR_S = 600              # tope de la espera creciente cuando la base falla
 
 
 def _enviar_desde(tipo: str, ahora: Optional[datetime] = None) -> datetime:
@@ -141,4 +146,23 @@ async def avisar(cliente_id: int, tipo: str, nombre_cliente: str) -> Dict[str, A
         except Exception:
             logger.exception("Avisos: no se pudo procesar la cola tras guardar el aviso (el bucle lo reintentará)")
     return resultado
+
+
+async def bucle_avisos() -> None:
+    """Cada minuto reclama y envía los avisos que ya pueden salir: lo que quedó esperando el horario, los reintentos y,
+    tras un reinicio, lo que dejó el proceso anterior. Con AVISOS_PERSISTENTES apagado no hace nada (ni consulta la base).
+    Si la base falla (por ejemplo, la tabla aún no existe) lo registra y espera cada vez más, hasta 10 minutos."""
+    await asyncio.sleep(INICIO_S)
+    fallos = 0
+    while True:
+        espera = INTERVALO_S
+        if get_settings().avisos_persistentes:
+            try:
+                await procesar_avisos()
+                fallos = 0
+            except Exception as e:
+                fallos += 1
+                espera = min(INTERVALO_S * 2 ** fallos, ESPERA_MAX_ERROR_S)
+                logger.warning("Avisos: no se pudo revisar la cola (falla %d, se reintenta en %d s): %s", fallos, espera, e)
+        await asyncio.sleep(espera)
 

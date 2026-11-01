@@ -281,6 +281,7 @@ def registrar_configuracion(logger) -> None:
         logger.error("Configuración: WA_SIGNATURE_ENFORCE está activa pero falta WA_APP_SECRET: no se puede comprobar "
                      "la firma, así que NO se rechaza nada hasta que se defina WA_APP_SECRET")
     logger.info("Horario en que el bot responde mensajes de texto: %s", describir_horario_bot())
+    logger.info("Avisos a ejecutivos: %s", describir_avisos())
     if os.environ.get("RECOVERY_MAX_ANTIGUEDAD_HORAS") and _parse_hora(os.environ["RECOVERY_MAX_ANTIGUEDAD_HORAS"], 0, 8760) is None:
         logger.warning("Configuración: RECOVERY_MAX_ANTIGUEDAD_HORAS no es válida (entero 0–8760): se usa %d h",
                        RECOVERY_MAX_ANTIGUEDAD_DEFECTO)
@@ -302,6 +303,12 @@ def describir_horario_bot() -> str:
     if (s.horario_bot_inicio, s.horario_bot_fin) == (0, 24):
         return "24/7 (sin restricción horaria)"
     return f"de {s.horario_bot_inicio}:00 a {s.horario_bot_fin}:00 hora de Chile"
+
+
+def describir_avisos() -> str:
+    if get_settings().avisos_persistentes:
+        return "cola persistente en la base de datos (AVISOS_PERSISTENTES encendido; requiere la tabla AvisoEjecutivo)"
+    return "espera en memoria hasta que abre el horario (AVISOS_PERSISTENTES apagado)"
 
 
 def describir_firma_webhook() -> str:

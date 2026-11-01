@@ -142,6 +142,17 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   para mensajes libres; `0` = sin tope), los más antiguos primero y hasta 10 por ciclo. Los más antiguos se ignoran y
   quedan en el log (un aviso al arrancar y luego cada ~1 h, con id, horas y teléfono enmascarado); no se modifican en
   la base de datos.
+- **Avisos a ejecutivos persistentes** (`app/services/avisos_cola.py`, variable `AVISOS_PERSISTENTES`, apagada por defecto):
+  los tres avisos por WhatsApp al ejecutivo asignado («necesita ayuda», «primer documento» y «documentos completos»)
+  esperan por defecto **dormidos en la memoria** hasta que abre su horario, así que un reinicio del servidor los pierde y
+  dos avisos iguales esperando salen dos veces. Con `AVISOS_PERSISTENTES=true` se guardan en la tabla `AvisoEjecutivo`
+  (migración en `supabase/migraciones/2026-10-31_aviso_ejecutivo.sql`, ya ejecutada) y un bucle (cada minuto, y de
+  inmediato si ya es hora) los reclama con la función `reclamar_avisos` (un solo proceso por aviso), los envía, y los
+  deja `enviado`, `omitido` (con su motivo: sin ejecutivo, sin celular, ya notificado…) o `error` tras 3 intentos (los
+  reintentos esperan 5 y 10 min). Un aviso reclamado cuyo proceso murió vuelve a la cola a los 10 min. Para encenderlo:
+  la tabla y la función deben existir; para apagarlo basta quitar la variable (vuelve a la espera en memoria). Si no se
+  puede guardar un aviso, se usa la espera en memoria y queda un aviso en el log. Límite conocido: si el proceso muere
+  justo después de que Meta aceptó el mensaje y antes de marcarlo `enviado`, el aviso puede salir una segunda vez.
 - **Caché de usuario autenticado** (`app/core/user_cache.py`): recuerda 30 s el resultado de verificar un token
   (`USER_CACHE_TTL_SEGUNDOS`, `0` = desactivada; `USER_CACHE_MAX_ENTRADAS`, 1000 por defecto) para no repetir en cada
   petición los 2 viajes a Supabase. La clave es el hash del token (el token no se guarda), solo se guardan los campos

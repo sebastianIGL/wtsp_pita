@@ -19,6 +19,7 @@ from app.services.webhook_entrada import _es_mensaje_nuevo, _lanzar, _registrar_
 from app.services.webhook_estados import _procesar_status
 from app.services.webhook import DELAY_RESPUESTA_SEGUNDOS, _procesar_grupo, _procesar_webhook
 from app.services.recovery import _recovery_loop
+from app.services.avisos_cola import bucle_avisos
 from app.routers.paginas import router as paginas_router
 from app.routers.progreso import router as progreso_router
 from app.routers.publico import router as publico_router
@@ -53,9 +54,12 @@ async def _lifespan(app: FastAPI):
                        "una respuesta lenta podría enviarse dos veces", DELAY_RESPUESTA_SEGUNDOS, PRESUPUESTO_TOTAL_S)
     await iniciar_http()              # cliente httpx compartido (se cierra al apagar)
     asyncio.create_task(_recovery_loop())
+    tarea_avisos = asyncio.create_task(bucle_avisos())   # cola persistente de avisos (inactiva con AVISOS_PERSISTENTES apagado)
     try:
         yield
     finally:
+        tarea_avisos.cancel()
+        await asyncio.gather(tarea_avisos, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
         await cerrar_http()
         await cerrar_anthropic()
         user_cache.vaciar()
