@@ -129,3 +129,16 @@ async def procesar_avisos(max_avisos: int = LOTE) -> int:
         except Exception:
             logger.exception("Aviso %s: no se pudo dejar registrado su estado", fila.get("id"))
     return len(filas)
+
+
+async def avisar(cliente_id: int, tipo: str, nombre_cliente: str) -> Dict[str, Any]:
+    """Punto de entrada de los avisos con la cola encendida: guarda el aviso y, si ya se puede enviar, lo envía enseguida
+    (sin esperar al ciclo del bucle). Si guardarlo falla, la excepción sube para que avisos.py use la espera en memoria."""
+    resultado = await encolar_aviso(cliente_id, tipo, nombre_cliente)
+    if resultado.get("encolado"):
+        try:
+            await procesar_avisos()
+        except Exception:
+            logger.exception("Avisos: no se pudo procesar la cola tras guardar el aviso (el bucle lo reintentará)")
+    return resultado
+

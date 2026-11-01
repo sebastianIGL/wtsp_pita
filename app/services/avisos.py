@@ -3,7 +3,11 @@
 Los avisos de ``_notificar_ejecutivo_wa`` (08:00–24:00) y ``_notificar_recordatorio_estado`` (09:00–19:00, hora de Chile)
 esperan dentro de la propia función, con ``asyncio.sleep``, hasta que abre el horario. Esa espera vive solo en la memoria
 del proceso: si el servidor se reinicia mientras un aviso duerme, el aviso se pierde (no se guarda nada). Es el comportamiento
-actual y se conserva tal cual; los tests lo dejan fijado.
+de siempre y sigue siendo el predeterminado; los tests lo dejan fijado.
+
+Con ``AVISOS_PERSISTENTES`` encendido, esas dos funciones guardan el aviso en la cola de la base de datos
+(``avisos_cola.py``) en vez de dormir: el aviso sobrevive a un reinicio y no sale dos veces. Si guardarlo falla (tabla sin
+crear, base caída) se usa la espera en memoria de siempre, para no perder el aviso.
 
 Movido sin cambios desde main.py (Fase 6, tramo 2, lote C2).
 """
@@ -61,9 +65,24 @@ async def _enviar_aviso_urgente(cliente_id: int, nombre_cliente: str, accion: st
     return {"ok": True}, _wamid_de(respuesta)
 
 
+async def _encolar(cliente_id: int, tipo: str, nombre_cliente: str) -> Optional[Dict[str, Any]]:
+    """Guarda el aviso en la cola persistente (y lo envía enseguida si ya es hora). Devuelve su resultado, o None si no se
+    pudo guardar: entonces quien llama usa la espera en memoria de siempre."""
+    from app.services import avisos_cola      # aquí y no arriba: avisos_cola importa este módulo
+    try:
+        return await avisos_cola.avisar(cliente_id, tipo, nombre_cliente)
+    except Exception as e:
+        logger.warning("Avisos persistentes: no se pudo guardar el aviso (%s): se usa la espera en memoria", e)
+        return None
+
+
 async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> Dict[str, Any]:
     """Envía notificación WA al ejecutivo asignado al cliente (template recordatorio_wtsp).
     Retorna {"ok": True} si se envió, o {"ok": False, "motivo": "..."} si no se pudo."""
+    if accion == "necesita_ayuda" and get_settings().avisos_persistentes:
+        encolado = await _encolar(cliente_id, "necesita_ayuda", nombre_cliente)
+        if encolado is not None:
+            return encolado
     if not _dentro_horario_urgente():
         # Horario ampliado (08:00–24:00 hora Chile) para no despertar al ejecutivo de madrugada,
         # pero sin retrasarlo tanto como los avisos rutinarios.
@@ -129,6 +148,10 @@ async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, t
     """Avisa al ejecutivo asignado cuando el bot mueve al cliente a un estado puntual
     ('primer_documento' | 'docs_completos'). No vuelve a enviar el mismo tipo de aviso
     hasta que el ejecutivo cambie estado_gestion (reconociendo que ya actuó)."""
+    if tipo in _TEXTOS_RECORDATORIO and get_settings().avisos_persistentes:
+        encolado = await _encolar(cliente_id, tipo, nombre_cliente)
+        if encolado is not None:
+            return encolado
     if not _dentro_horario_avisos():
         # No despertar al ejecutivo fuera de horario — esperar a que abra 9:00 hora Chile
         # (horario fijo de avisos, independiente del horario del bot).
