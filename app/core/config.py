@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     wa_signature_enforce: bool = Field(False, validation_alias=_alias("WA_SIGNATURE_ENFORCE"))
     template_recordatorio_wa: str = Field("recordatorio_cliente", validation_alias=_alias("TEMPLATE_RECORDATORIO_WA"))
     admin_notify_phone: Optional[str] = Field(None, validation_alias=_alias("ADMIN_NOTIFY_PHONE"))
+    # Avisos a ejecutivos con cola en la base (tabla AvisoEjecutivo): sobreviven a un reinicio y no salen dos veces.
+    # Apagado (por defecto) = el comportamiento de siempre: el aviso espera dormido en memoria hasta que abre el horario.
+    # Requiere haber ejecutado antes la migración (tabla AvisoEjecutivo y función reclamar_avisos).
+    avisos_persistentes: bool = Field(False, validation_alias=_alias("AVISOS_PERSISTENTES"))
     bot_reply_delay: int = Field(30, validation_alias=_alias("BOT_REPLY_DELAY"))
     # Horas (hora de Chile) entre las que el bot RESPONDE mensajes de texto. 0–24 = siempre (24/7).
     # No afecta a los avisos a ejecutivos, que tienen sus propios horarios fijos.
@@ -106,7 +110,7 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", validation_alias=_alias("HOST"))
     port: int = Field(8000, validation_alias=_alias("PORT"))
 
-    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", mode="before")
+    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", "avisos_persistentes", mode="before")
     @classmethod
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)

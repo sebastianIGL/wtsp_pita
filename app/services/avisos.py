@@ -9,12 +9,12 @@ Movido sin cambios desde main.py (Fase 6, tramo 2, lote C2).
 """
 import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 from app.clients.supabase import _supabase_request
 from app.clients.whatsapp import send_whatsapp_message, send_whatsapp_template
 from app.core.config import get_settings
-from app.core.utilidades import _normalize_phone
+from app.core.utilidades import _normalizar_wamid, _normalize_phone
 from app.services.horarios import (
     _dentro_horario_avisos,
     _dentro_horario_urgente,
@@ -26,6 +26,41 @@ from app.services.proyectos import obtener_proyecto_por_id
 logger = logging.getLogger("wtsp_pita")
 
 
+def _wamid_de(respuesta: Any) -> Optional[str]:
+    """Identificador que devuelve Meta al aceptar un mensaje (None si la respuesta no lo trae)."""
+    try:
+        return _normalizar_wamid(((respuesta or {}).get("messages") or [{}])[0].get("id"))
+    except Exception:
+        return None
+
+
+async def _enviar_aviso_urgente(cliente_id: int, nombre_cliente: str, accion: str) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Cuerpo del aviso urgente al ejecutivo asignado, sin la espera de horario ni el manejo de errores. Devuelve
+    (resultado, wamid); las excepciones (base, red, Meta) suben a quien llama: el camino de siempre las registra y
+    devuelve el motivo, y la cola persistente reintenta."""
+    clientes = await _supabase_request("GET", "/Cliente",
+        params={"id": f"eq.{cliente_id}", "select": "usuario_id,Proyecto(nombre)", "limit": "1"}) or []
+    if not clientes or not clientes[0].get("usuario_id"):
+        return {"ok": False, "motivo": "sin ejecutivo asignado"}, None
+    proyecto_nombre = (clientes[0].get("Proyecto") or {}).get("nombre") or "Sin proyecto"
+    usuarios = await _supabase_request("GET", "/Usuario",
+        params={"id": f"eq.{clientes[0]['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
+    if not usuarios:
+        return {"ok": False, "motivo": "ejecutivo no encontrado"}, None
+    celular = _normalize_phone(usuarios[0].get("celular") or "")
+    if not celular:
+        return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}, None
+    respuesta = await send_whatsapp_template(
+        to=celular,
+        template_name="recordatorio_wtsp",
+        language_code="es_CL",
+        body_text_params=[nombre_cliente, accion, proyecto_nombre],
+    )
+    logger.info("WA notif ejecutivo → %s | cliente=%s | accion=%s | proyecto=%s",
+                celular, nombre_cliente, accion, proyecto_nombre)
+    return {"ok": True}, _wamid_de(respuesta)
+
+
 async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: str) -> Dict[str, Any]:
     """Envía notificación WA al ejecutivo asignado al cliente (template recordatorio_wtsp).
     Retorna {"ok": True} si se envió, o {"ok": False, "motivo": "..."} si no se pudo."""
@@ -34,27 +69,8 @@ async def _notificar_ejecutivo_wa(cliente_id: int, nombre_cliente: str, accion: 
         # pero sin retrasarlo tanto como los avisos rutinarios.
         await asyncio.sleep(_segundos_hasta_horario_urgente())
     try:
-        clientes = await _supabase_request("GET", "/Cliente",
-            params={"id": f"eq.{cliente_id}", "select": "usuario_id,Proyecto(nombre)", "limit": "1"}) or []
-        if not clientes or not clientes[0].get("usuario_id"):
-            return {"ok": False, "motivo": "sin ejecutivo asignado"}
-        proyecto_nombre = (clientes[0].get("Proyecto") or {}).get("nombre") or "Sin proyecto"
-        usuarios = await _supabase_request("GET", "/Usuario",
-            params={"id": f"eq.{clientes[0]['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
-        if not usuarios:
-            return {"ok": False, "motivo": "ejecutivo no encontrado"}
-        celular = _normalize_phone(usuarios[0].get("celular") or "")
-        if not celular:
-            return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}
-        await send_whatsapp_template(
-            to=celular,
-            template_name="recordatorio_wtsp",
-            language_code="es_CL",
-            body_text_params=[nombre_cliente, accion, proyecto_nombre],
-        )
-        logger.info("WA notif ejecutivo → %s | cliente=%s | accion=%s | proyecto=%s",
-                    celular, nombre_cliente, accion, proyecto_nombre)
-        return {"ok": True}
+        resultado, _ = await _enviar_aviso_urgente(cliente_id, nombre_cliente, accion)
+        return resultado
     except Exception as e:
         logger.warning("No se pudo notificar ejecutivo WA: %s", e)
         return {"ok": False, "motivo": str(e)}
@@ -64,6 +80,49 @@ _TEXTOS_RECORDATORIO = {
     "primer_documento": "Recibió su primer documento",
     "docs_completos":   "Documentos completos, listo para llamar",
 }
+
+
+async def _enviar_recordatorio(cliente_id: int, nombre_cliente: str, tipo: str, texto: str) -> Tuple[Dict[str, Any], Optional[str]]:
+    """Cuerpo del aviso de documentos al ejecutivo asignado, sin la espera de horario ni el manejo de errores. Devuelve
+    (resultado, wamid); las excepciones suben a quien llama (ver _enviar_aviso_urgente)."""
+    clientes = await _supabase_request("GET", "/Cliente",
+        params={"id": f"eq.{cliente_id}",
+                "select": "usuario_id,estado_gestion,ultimo_recordatorio_tipo,"
+                          "ultimo_recordatorio_estado_gestion,Proyecto(nombre)",
+                "limit": "1"}) or []
+    if not clientes:
+        return {"ok": False, "motivo": "cliente no encontrado"}, None
+    c = clientes[0]
+    if not c.get("usuario_id"):
+        return {"ok": False, "motivo": "sin ejecutivo asignado"}, None
+
+    estado_gestion_actual = c.get("estado_gestion")
+    if (c.get("ultimo_recordatorio_tipo") == tipo
+            and c.get("ultimo_recordatorio_estado_gestion") == estado_gestion_actual):
+        return {"ok": False, "motivo": "ya notificado — pendiente de que el ejecutivo cambie el estado de gestión"}, None
+
+    proyecto_nombre = (c.get("Proyecto") or {}).get("nombre") or "Sin proyecto"
+    usuarios = await _supabase_request("GET", "/Usuario",
+        params={"id": f"eq.{c['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
+    if not usuarios:
+        return {"ok": False, "motivo": "ejecutivo no encontrado"}, None
+    celular = _normalize_phone(usuarios[0].get("celular") or "")
+    if not celular:
+        return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}, None
+
+    respuesta = await send_whatsapp_template(
+        to=celular,
+        template_name="recordatorio_wtsp",
+        language_code="es_CL",
+        body_text_params=[nombre_cliente, texto, proyecto_nombre],
+    )
+    await _supabase_request("PATCH", "/Cliente",
+        params={"id": f"eq.{cliente_id}"},
+        json={"ultimo_recordatorio_tipo": tipo, "ultimo_recordatorio_estado_gestion": estado_gestion_actual},
+        extra_headers={"Prefer": "return=minimal"})
+    logger.info("WA recordatorio → %s | cliente=%s | tipo=%s | proyecto=%s",
+                celular, nombre_cliente, tipo, proyecto_nombre)
+    return {"ok": True}, _wamid_de(respuesta)
 
 
 async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, tipo: str) -> Dict[str, Any]:
@@ -78,44 +137,8 @@ async def _notificar_recordatorio_estado(cliente_id: int, nombre_cliente: str, t
     if not texto:
         return {"ok": False, "motivo": f"tipo '{tipo}' inválido"}
     try:
-        clientes = await _supabase_request("GET", "/Cliente",
-            params={"id": f"eq.{cliente_id}",
-                    "select": "usuario_id,estado_gestion,ultimo_recordatorio_tipo,"
-                              "ultimo_recordatorio_estado_gestion,Proyecto(nombre)",
-                    "limit": "1"}) or []
-        if not clientes:
-            return {"ok": False, "motivo": "cliente no encontrado"}
-        c = clientes[0]
-        if not c.get("usuario_id"):
-            return {"ok": False, "motivo": "sin ejecutivo asignado"}
-
-        estado_gestion_actual = c.get("estado_gestion")
-        if (c.get("ultimo_recordatorio_tipo") == tipo
-                and c.get("ultimo_recordatorio_estado_gestion") == estado_gestion_actual):
-            return {"ok": False, "motivo": "ya notificado — pendiente de que el ejecutivo cambie el estado de gestión"}
-
-        proyecto_nombre = (c.get("Proyecto") or {}).get("nombre") or "Sin proyecto"
-        usuarios = await _supabase_request("GET", "/Usuario",
-            params={"id": f"eq.{c['usuario_id']}", "select": "nombre,celular", "limit": "1"}) or []
-        if not usuarios:
-            return {"ok": False, "motivo": "ejecutivo no encontrado"}
-        celular = _normalize_phone(usuarios[0].get("celular") or "")
-        if not celular:
-            return {"ok": False, "motivo": f"ejecutivo '{usuarios[0].get('nombre') or ''}' sin celular configurado"}
-
-        await send_whatsapp_template(
-            to=celular,
-            template_name="recordatorio_wtsp",
-            language_code="es_CL",
-            body_text_params=[nombre_cliente, texto, proyecto_nombre],
-        )
-        await _supabase_request("PATCH", "/Cliente",
-            params={"id": f"eq.{cliente_id}"},
-            json={"ultimo_recordatorio_tipo": tipo, "ultimo_recordatorio_estado_gestion": estado_gestion_actual},
-            extra_headers={"Prefer": "return=minimal"})
-        logger.info("WA recordatorio → %s | cliente=%s | tipo=%s | proyecto=%s",
-                    celular, nombre_cliente, tipo, proyecto_nombre)
-        return {"ok": True}
+        resultado, _ = await _enviar_recordatorio(cliente_id, nombre_cliente, tipo, texto)
+        return resultado
     except Exception as e:
         logger.warning("No se pudo enviar recordatorio WA: %s", e)
         return {"ok": False, "motivo": str(e)}
