@@ -5,20 +5,7 @@
   <link rel="icon" type="image/png" href="/img/favicon.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>QueSubsidio — CRM Inmobiliario</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: { 50:'#f0f9ff', 100:'#e0f2fe', 500:'#0ea5e9', 600:'#0284c7', 700:'#0369a1', 900:'#0c4a6e' }
-          }
-        }
-      }
-    }
-  </script>
   <style>
     /* ── Dark mode base ── */
     .dark body  { background:#0f172a; color:#e2e8f0; }
@@ -132,6 +119,7 @@
     .dark .doc-icon-wrap { background:#1e293b; }
     html:not(.dark) .doc-icon-wrap { background:#e2e8f0; }
   </style>
+<link rel="stylesheet" href="/css/crm.css" />
 </head>
 <body class="min-h-screen font-sans transition-colors duration-200">
 
