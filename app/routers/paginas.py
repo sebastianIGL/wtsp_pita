@@ -90,6 +90,12 @@ async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
     })
 
 
+@router.get("/favicon.ico", include_in_schema=False)
+async def favicon_ico():
+    """Navegadores y buscadores piden /favicon.ico aunque la página declare otro ícono: se les sirve el mismo (PNG, como en el <link>)."""
+    return FileResponse("frontend/img/favicon.png", media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
 @router.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml():
     """Páginas públicas + la ficha de cada proyecto nuevo activo (las de semi-nuevos llevan noindex y no van). Caché de 5 minutos en
