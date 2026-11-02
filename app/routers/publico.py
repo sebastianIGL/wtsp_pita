@@ -12,6 +12,7 @@ from app.clients.supabase import _supabase_request
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
 from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
+from app.services.ficha_proyecto import asignar_slugs
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict, List
 
@@ -28,11 +29,12 @@ async def api_proyectos_landing(limite: int = 12):
     now = time.time()
     if not (_cache_proyectos["data"] and now - _cache_proyectos["ts"] < _CACHE_TTL):
         rows = await _supabase_request("GET", "/Proyecto", params={
-            "select": "id,nombre,imagen_url,imagenes,ubicacion,activo,condicion_propiedad,"
+            "select": "id,nombre,imagen_url,imagenes,ubicacion,activo,condicion_propiedad,fuente_externo_id,"
                       "Tipologia(valor_uf,dormitorios,banos,superficie_util_m2)",
             "order": "nombre.asc",
             "limit": "1000",
         }) or []
+        slugs = asignar_slugs(rows)          # el mismo cálculo que usa la ficha (/viviendas/{slug}): el enlace siempre coincide
         nuevos: List[Dict[str, Any]] = []
         semi: List[Dict[str, Any]] = []
         for r in rows:
@@ -49,6 +51,7 @@ async def api_proyectos_landing(limite: int = 12):
                 "imagenes":  imagenes,
                 "ubicacion": r.get("ubicacion") or "",
                 "condicion": condicion,
+                "slug":      slugs.get(str(r.get("id"))),
             }
             if condicion == "nueva":
                 nuevos.append(item)
