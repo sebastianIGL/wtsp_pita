@@ -66,6 +66,17 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `supabase/schema.sql`: referencia del esquema de la base. Las columnas `movendo_*` figuran como obsoletas: se conservan en la
   base pero ya no se usan.
 
+## Ficha pública de un proyecto (`/viviendas/{slug}`)
+- `app/services/ficha_proyecto.py` + `frontend/proyecto.html`. Muestra galería, etiquetas (subsidios y entrega), las tipologías
+  **activas con stock** («Disponible» o «Últimas unidades» hasta 3 unidades; el número exacto nunca se muestra), «Cómo se paga»
+  (ahorro mínimo, reserva, estacionamiento, sala piloto, solo lo que tenga dato), la inmobiliaria y el aviso de valores
+  referenciales. Solo proyectos activos; si no existe o está inactivo responde 404 con página amable y `noindex`.
+- **El slug se calcula del nombre, sin columna nueva** (`mirador-del-sol`; en los semi-nuevos, la dirección + el identificador de la
+  fuente). Si dos proyectos dan el mismo slug, ambos llevan el comienzo de su id. **Límite conocido:** si se cambia el nombre de
+  un proyecto su URL cambia; la versión completa guardará el slug en la base.
+- Los datos se leen de Supabase con caché de 5 minutos (índice de slugs y ficha por proyecto). Cada visita deja una línea de log
+  `Ficha de proyecto | slug=… | origen=viviendas|bot|directo` (el origen sale de `?o=`, con lista cerrada).
+
 ## CSS de Tailwind (Fase 10)
 - Tailwind **3.4.17** (la versión que servía el CDN) con el CLI standalone: <https://github.com/tailwindlabs/tailwindcss/releases/tag/v3.4.17>.
   El binario **no** va en el repo. El CSS compilado **sí** (`frontend/css/sitio.css` y `frontend/css/crm.css`); Railway no compila nada.

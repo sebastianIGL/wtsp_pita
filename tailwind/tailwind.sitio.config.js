@@ -6,6 +6,7 @@ module.exports = {
     './frontend/como-funciona.html',
     './frontend/subsidios.html',
     './frontend/viviendas.html',
+    './frontend/proyecto.html',
     './frontend/blog.html',
     './frontend/login.html',
     './frontend/reset-password.html',

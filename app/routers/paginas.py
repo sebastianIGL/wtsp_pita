@@ -3,9 +3,15 @@ archivo del frontend (panel, perfil, restablecer contraseña) y las redireccione
 
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
+import logging
+
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+
+from app.services.ficha_proyecto import ORIGENES, obtener_ficha
+
+logger = logging.getLogger("wtsp_pita")
 
 router = APIRouter()
 
@@ -52,6 +58,32 @@ async def page_viviendas(request: Request):
         "page_title": "Viviendas con Subsidio — QueSubsidio",
         "page_description": "Explora proyectos inmobiliarios disponibles con subsidio habitacional en todo Chile.",
         "page_path": "/viviendas",
+    })
+
+
+@router.get("/viviendas/{slug}")
+async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
+    """Ficha pública de un proyecto (solo activos). ``?o=viviendas|bot`` dice desde dónde llegó la visita; solo se registra en el log."""
+    ficha = await obtener_ficha(slug)
+    origen = o if o in ORIGENES else "directo"
+    if ficha is None:
+        logger.info("Ficha de proyecto | slug=%s | origen=%s | no encontrada", slug[:90], origen)
+        return templates.TemplateResponse(request, "proyecto.html", {
+            "active": "viviendas", "ficha": None,
+            "page_title": "Proyecto no encontrado — QueSubsidio",
+            "page_description": "Este proyecto no está disponible. Mira las viviendas con subsidio que sí lo están.",
+            "page_path": "/viviendas",
+        }, status_code=404)
+    logger.info("Ficha de proyecto | slug=%s | origen=%s", ficha["slug"], origen)
+    sitio = "https://quesubsidio.cl"
+    return templates.TemplateResponse(request, "proyecto.html", {
+        "active": "viviendas", "ficha": ficha,
+        "page_title": ficha["titulo"], "page_description": ficha["descripcion"], "page_path": ficha["ruta"],
+        "json_ld": {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "Inicio", "item": f"{sitio}/"},
+            {"@type": "ListItem", "position": 2, "name": "Viviendas", "item": f"{sitio}/viviendas"},
+            {"@type": "ListItem", "position": 3, "name": ficha["nombre"], "item": f"{sitio}{ficha['ruta']}"},
+        ]},
     })
 
 

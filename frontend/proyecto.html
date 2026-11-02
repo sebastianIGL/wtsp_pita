@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+{% include "partials/_head.html" %}
+{% if not ficha %}<meta name="robots" content="noindex, follow" />
+{% else %}{% if ficha.og_image %}<meta property="og:image" content="{{ ficha.og_image }}" />
+<meta name="twitter:image" content="{{ ficha.og_image }}" />
+{% endif %}<script type="application/ld+json">{{ json_ld | tojson }}</script>
+{% endif %}<style>
+  .ficha-migas { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.85rem; color: var(--text-subtle); margin-bottom: 1.25rem; }
+  .ficha-migas a { color: var(--text-muted); text-decoration: none; }
+  .ficha-migas a:hover { color: var(--blue); }
+  .ficha-migas [aria-current] { color: var(--ink); font-weight: 600; }
+  .ficha-cabecera { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+  .ficha-galeria { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: 340px; grid-auto-rows: 96px; gap: 0.6rem; }
+  .ficha-foto { position: relative; display: block; padding: 0; border: 0; border-radius: 0.9rem; overflow: hidden; cursor: pointer;
+                background: linear-gradient(135deg, #1651d6, #0b2a6b); }
+  .ficha-foto:first-child { grid-column: 1 / -1; border-radius: 1.1rem; }
+  .ficha-foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .ficha-foto-n { position: absolute; right: 0.8rem; bottom: 0.8rem; font-size: 0.78rem; font-weight: 700; color: #fff;
+                  background: rgba(8,26,72,0.74); border-radius: 9999px; padding: 0.3rem 0.8rem; }
+  .ficha-sin-foto { grid-column: 1 / -1; grid-row: 1; border-radius: 1.1rem; min-height: 280px; display: flex; align-items: center; justify-content: center;
+                    color: #cfdcff; font-weight: 600; background: linear-gradient(135deg, #1651d6, #0b2a6b); }
+  .ficha-info h1 { font-size: clamp(1.8rem, 3.6vw, 2.5rem); font-weight: 800; line-height: 1.12; margin-bottom: 0.5rem; }
+  .ficha-ubic { color: var(--text-muted); font-size: 1rem; margin-bottom: 1.1rem; }
+  .ficha-etiquetas { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 1.4rem; }
+  .ficha-desde { margin-bottom: 1.5rem; }
+  .ficha-desde small { display: block; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-subtle); }
+  .ficha-desde strong { display: block; font-size: 2rem; font-weight: 800; color: var(--blue); letter-spacing: -0.02em; line-height: 1.2; }
+  .ficha-acciones { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .ficha-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.1rem; }
+  .ficha-tip { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+  .ficha-tip h3 { font-size: 1.05rem; font-weight: 700; }
+  .ficha-tip .badge { white-space: nowrap; flex-shrink: 0; }
+  .ficha-tip-datos { color: var(--text-muted); font-size: 0.9rem; }
+  .ficha-tip-precio { font-size: 1.3rem; font-weight: 800; color: var(--blue); }
+  .ficha-tip-entrega { font-size: 0.82rem; color: var(--text-subtle); }
+  .ficha-pago { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; }
+  .ficha-pago div { padding: 1rem 1.25rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+  .ficha-pago dt { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-subtle); }
+  .ficha-pago dd { font-size: 1.1rem; font-weight: 700; color: var(--ink); margin-top: 0.2rem; }
+  .ficha-nota { font-size: 0.82rem; color: var(--text-subtle); max-width: 760px; line-height: 1.6; }
+  .ficha-barra { display: none; }
+  @media (max-width: 860px) {
+    .ficha-cabecera { grid-template-columns: 1fr; gap: 1.5rem; }
+    .ficha-galeria { grid-template-rows: 240px; grid-auto-rows: 72px; }
+  }
+  @media (max-width: 640px) {
+    .ficha-acciones .btn { flex: 1 1 100%; }
+    body { padding-bottom: 5.25rem; }
+    .ficha-barra { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; gap: 0.75rem; align-items: center; justify-content: space-between;
+                   padding: 0.75rem 1rem; background: rgba(255,255,255,0.97); border-top: 1px solid var(--sep); box-shadow: 0 -8px 24px rgba(15,34,82,.08); }
+    .ficha-barra strong { display: block; font-size: 1.05rem; color: var(--blue); line-height: 1.2; }
+    .ficha-barra small { display: block; font-size: 0.72rem; color: var(--text-subtle); }
+    .ficha-barra .btn { padding: 0.7rem 1.2rem; white-space: nowrap; }
+  }
+</style>
+<link rel="stylesheet" href="/css/sitio.css" />
+</head>
+<body>
+
+{% include "partials/_navbar.html" %}
+
+<main>
+{% if not ficha %}
+  <section class="section">
+    <div class="container" style="text-align:center;max-width:640px">
+      <h1 style="font-size:clamp(1.8rem,4vw,2.4rem);font-weight:800;margin-bottom:1rem">No encontramos este proyecto</h1>
+      <p class="section-lead" style="margin:0 auto 2rem">Puede que ya no esté disponible o que el enlace haya cambiado. Mira los proyectos que sí están disponibles.</p>
+      <a href="/viviendas" class="btn btn-primary">Ver viviendas disponibles</a>
+    </div>
+  </section>
+{% else %}
+  <section class="section-sm">
+    <div class="container">
+      <nav class="ficha-migas" aria-label="Ruta de navegación">
+        <a href="/">Inicio</a><span aria-hidden="true">›</span><a href="/viviendas">Viviendas</a><span aria-hidden="true">›</span><span aria-current="page">{{ ficha.nombre }}</span>
+      </nav>
+
+      <div class="ficha-cabecera">
+        <div class="ficha-galeria">
+          {% if ficha.imagenes %}
+            {% for url in ficha.imagenes[:5] %}
+              <button type="button" class="ficha-foto" onclick="abrirFotos({{ loop.index0 }})" aria-label="Ver foto {{ loop.index }} de {{ ficha.imagenes | length }} de {{ ficha.nombre }}">
+                <img src="{{ url }}" alt="{{ ficha.nombre }}{% if loop.first %}{% else %} — foto {{ loop.index }}{% endif %}"{% if not loop.first %} loading="lazy"{% endif %} />
+                {% if loop.first and ficha.imagenes | length > 1 %}<span class="ficha-foto-n">{{ ficha.imagenes | length }} fotos</span>{% endif %}
+              </button>
+            {% endfor %}
+          {% else %}
+            <div class="ficha-sin-foto">Fotos próximamente</div>
+          {% endif %}
+        </div>
+
+        <div class="ficha-info">
+          <div class="chip">{{ "Proyecto nuevo" if ficha.nuevo else "Semi-nueva" }}</div>
+          <h1>{{ ficha.nombre }}</h1>
+          {% if ficha.ubicacion and ficha.ubicacion != ficha.nombre %}<p class="ficha-ubic">{{ ficha.ubicacion }}</p>{% endif %}
+          <div class="ficha-etiquetas">
+            {% for s in ficha.subsidios %}<span class="badge badge-teal">{{ s }}</span>{% endfor %}
+            {% for e in ficha.entregas %}<span class="badge badge-navy">{{ e }}</span>{% endfor %}
+          </div>
+          {% if ficha.desde %}<div class="ficha-desde"><small>Desde</small><strong>{{ ficha.desde }}</strong></div>{% endif %}
+          <div class="ficha-acciones">
+            <a href="/#registro" class="btn btn-red">Evaluar mi caso</a>
+            <a href="/viviendas" class="btn btn-outline">Ver más viviendas</a>
+          </div>
+          {% if ficha.inmobiliaria %}<p class="ficha-nota" style="margin-top:1.25rem">Inmobiliaria: <strong>{{ ficha.inmobiliaria }}</strong></p>{% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-sm" id="tipologias" style="background:var(--bg2)">
+    <div class="container">
+      <h2 class="section-h">Tipologías disponibles</h2>
+      {% if ficha.tipologias %}
+        <div class="ficha-grid">
+          {% for t in ficha.tipologias %}
+          <article class="card ficha-tip">
+            <div style="display:flex;justify-content:space-between;gap:0.75rem;align-items:flex-start">
+              <h3>{{ t.nombre }}</h3>
+              <span class="badge {{ 'badge-media' if t.ultimas else 'badge-alta' }}">{{ t.disponibilidad }}</span>
+            </div>
+            <p class="ficha-tip-datos">
+              {%- set datos = [] -%}
+              {%- if t.dormitorios is not none %}{% set _ = datos.append(t.dormitorios ~ (" dormitorio" if t.dormitorios == 1 else " dormitorios")) %}{% endif -%}
+              {%- if t.banos is not none %}{% set _ = datos.append(t.banos ~ (" baño" if t.banos == 1 else " baños")) %}{% endif -%}
+              {%- if t.m2 %}{% set _ = datos.append(t.m2) %}{% endif -%}
+              {{ datos | join(" · ") if datos else "Consulta los detalles" }}
+            </p>
+            {% if t.valor %}<p class="ficha-tip-precio"><span style="font-size:0.8rem;font-weight:600;color:var(--text-subtle);letter-spacing:0.05em;text-transform:uppercase">Desde </span>{{ t.valor }}</p>{% endif %}
+            {% if t.entregas %}<p class="ficha-tip-entrega">{{ t.entregas | join(" · ") }}</p>{% endif %}
+          </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="section-lead">Hoy no tenemos tipologías con unidades confirmadas en este proyecto. Evalúa tu caso y un ejecutivo te cuenta la disponibilidad actual.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if ficha.pago %}
+  <section class="section-sm" id="como-se-paga">
+    <div class="container">
+      <h2 class="section-h">Cómo se paga</h2>
+      <dl class="ficha-pago">
+        {% for etiqueta, valor in ficha.pago %}<div><dt>{{ etiqueta }}</dt><dd>{{ valor }}</dd></div>{% endfor %}
+      </dl>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section-sm" style="padding-top:0">
+    <div class="container">
+      <p class="ficha-nota">Valores referenciales en UF, sujetos a disponibilidad y a cambios sin previo aviso de la inmobiliaria. El subsidio y el crédito hipotecario dependen de tu situación y se evalúan caso a caso: en QueSubsidio te ayudamos a revisarlo, sin costo para ti.</p>
+    </div>
+  </section>
+
+  <div class="ficha-barra">
+    <div>{% if ficha.desde %}<small>Desde</small><strong>{{ ficha.desde }}</strong>{% else %}<strong>{{ ficha.nombre }}</strong>{% endif %}</div>
+    <a href="/#registro" class="btn btn-red">Evaluar mi caso</a>
+  </div>
+{% endif %}
+</main>
+
+{% include "partials/_footer.html" %}
+{% include "partials/_galeria.html" %}
+{% include "partials/_scripts_common.html" %}
+{% if ficha and ficha.imagenes %}
+<script>
+const QS_FOTOS = {{ ficha.imagenes | tojson }}
+function abrirFotos(i) { QSGaleria.abrir({{ ficha.nombre | tojson }}, {{ ficha.ubicacion | tojson }}, QS_FOTOS, i) }
+</script>
+{% endif %}
+
+</body>
+</html>
