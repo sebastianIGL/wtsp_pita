@@ -31,7 +31,7 @@ _SELECT_FICHA = (
     "EtapaTipologia(stock,Etapa(nombre,estado,fecha_entrega)))"
 )
 
-_indice: Dict[str, Any] = {"id_por_slug": None, "ts": 0.0}         # slug → id del proyecto, 5 min
+_indice: Dict[str, Any] = {"fichas": None, "ts": 0.0}               # slug → {"id", "nuevo"} de cada proyecto público, 5 min
 _fichas: Dict[str, Tuple[float, Dict[str, Any]]] = {}              # id → (hora, fila de la base), 5 min
 _MAX_FICHAS = 300
 
@@ -188,13 +188,19 @@ def armar_ficha(p: Dict[str, Any], slug: str) -> Dict[str, Any]:
 
 # ── lectura (con caché de 5 minutos) ─────────────────────────────────────────
 
-async def _id_por_slug() -> Dict[str, str]:
+async def _indice_fichas() -> Dict[str, Dict[str, Any]]:
     ahora = time.time()
-    if _indice["id_por_slug"] is None or ahora - _indice["ts"] >= _CACHE_TTL:
+    if _indice["fichas"] is None or ahora - _indice["ts"] >= _CACHE_TTL:
         filas = await _supabase_request("GET", "/Proyecto", params={"select": _SELECT_INDICE, "order": "nombre.asc", "limit": "1000"}) or []
-        _indice["id_por_slug"] = {slug: pid for pid, slug in asignar_slugs(filas).items()}
+        nuevo = {str(p.get("id")): (p.get("condicion_propiedad") or "nueva") == "nueva" for p in filas}
+        _indice["fichas"] = {slug: {"id": pid, "nuevo": nuevo[pid]} for pid, slug in asignar_slugs(filas).items()}
         _indice["ts"] = ahora
-    return _indice["id_por_slug"]
+    return _indice["fichas"]
+
+
+async def slugs_de_proyectos_nuevos() -> List[str]:
+    """Slug de la ficha de cada proyecto nuevo activo, ordenados (para el sitemap). Los semi-nuevos no se listan: su ficha lleva noindex."""
+    return sorted(slug for slug, e in (await _indice_fichas()).items() if e["nuevo"])
 
 
 async def _fila(proyecto_id: str) -> Optional[Dict[str, Any]]:
@@ -215,9 +221,10 @@ async def obtener_ficha(slug: str) -> Optional[Dict[str, Any]]:
     """Los datos de la página del proyecto, o None si el slug no existe o el proyecto no está activo."""
     if len(slug) > SLUG_MAX or not SLUG_VALIDO.match(slug):
         return None
-    proyecto_id = (await _id_por_slug()).get(slug)
-    if not proyecto_id:
+    entrada = (await _indice_fichas()).get(slug)
+    if not entrada:
         return None
+    proyecto_id = entrada["id"]
     fila = await _fila(proyecto_id)
     if not fila or fila.get("activo") is False or not fila.get("nombre"):
         return None

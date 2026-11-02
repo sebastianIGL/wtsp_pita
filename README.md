@@ -74,6 +74,13 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **El slug se calcula del nombre, sin columna nueva** (`mirador-del-sol`; en los semi-nuevos, la dirección + el identificador de la
   fuente). Si dos proyectos dan el mismo slug, ambos llevan el comienzo de su id. **Límite conocido:** si se cambia el nombre de
   un proyecto su URL cambia; la versión completa guardará el slug en la base.
+- **Indexación:** las fichas de proyectos nuevos se indexan; las de semi-nuevos (copias de publicaciones de terceros) llevan
+  `noindex, follow` y no van en el sitemap, pero **no** se bloquean en `robots.txt` (para que el buscador pueda leer el noindex).
+  La cabecera común acepta la variable `robots` (por defecto `index, follow`).
+- `GET /sitemap.xml` (`app/services/seo.py`): las páginas públicas (`/`, `/como-funciona`, `/subsidios`, `/viviendas`, `/blog`) y la
+  ficha de cada proyecto nuevo activo; si la base falla responde 503 en vez de un sitemap sin proyectos. `GET /robots.txt`: bloquea
+  `/api/` (salvo `/api/proyectos-landing`, con la que /viviendas arma sus tarjetas), el CRM, el login y el webhook, y apunta al sitemap.
+  robots.txt es una indicación para buscadores, no protege nada: lo privado se protege con sesión.
 - Los datos se leen de Supabase con caché de 5 minutos (índice de slugs y ficha por proyecto). Cada visita deja una línea de log
   `Ficha de proyecto | slug=… | origen=viviendas|bot|directo` (el origen sale de `?o=`, con lista cerrada).
 

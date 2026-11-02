@@ -5,11 +5,12 @@ Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada
 """
 import logging
 
-from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import APIRouter, Request, Response
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.services.ficha_proyecto import ORIGENES, obtener_ficha
+from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
+from app.services.seo import PAGINAS_PUBLICAS, SITIO_URL, construir_robots, construir_sitemap
 
 logger = logging.getLogger("wtsp_pita")
 
@@ -75,7 +76,7 @@ async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
             "page_path": "/viviendas",
         }, status_code=404)
     logger.info("Ficha de proyecto | slug=%s | origen=%s", ficha["slug"], origen)
-    sitio = "https://quesubsidio.cl"
+    sitio = SITIO_URL
     return templates.TemplateResponse(request, "proyecto.html", {
         "active": "viviendas", "ficha": ficha,
         # Solo los proyectos nuevos se indexan: las fichas de semi-nuevos (copias de publicaciones de terceros) llevan noindex.
@@ -87,6 +88,24 @@ async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
             {"@type": "ListItem", "position": 3, "name": ficha["nombre"], "item": f"{sitio}{ficha['ruta']}"},
         ]},
     })
+
+
+@router.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    """Páginas públicas + la ficha de cada proyecto nuevo activo (las de semi-nuevos llevan noindex y no van). Caché de 5 minutos en
+    el índice de proyectos. Si la base falla se responde 503 (no un sitemap sin proyectos que haría creer que desaparecieron)."""
+    try:
+        slugs = await slugs_de_proyectos_nuevos()
+    except Exception as e:
+        logger.warning("Sitemap: no se pudieron leer los proyectos (%s)", type(e).__name__)
+        return PlainTextResponse("Servicio no disponible", status_code=503, headers={"Retry-After": "300"})
+    xml = construir_sitemap(list(PAGINAS_PUBLICAS) + [f"/viviendas/{s}" for s in slugs])
+    return Response(content=xml, media_type="application/xml; charset=utf-8", headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    return PlainTextResponse(construir_robots(), headers={"Cache-Control": "public, max-age=3600"})
 
 
 @router.get("/blog")
