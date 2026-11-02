@@ -2,8 +2,7 @@
 <html lang="es">
 <head>
 {% include "partials/_head.html" %}
-{% if not ficha %}<meta name="robots" content="noindex, follow" />
-{% else %}{% if ficha.og_image %}<meta property="og:image" content="{{ ficha.og_image }}" />
+{% if ficha %}{% if ficha.og_image %}<meta property="og:image" content="{{ ficha.og_image }}" />
 <meta name="twitter:image" content="{{ ficha.og_image }}" />
 {% endif %}<script type="application/ld+json">{{ json_ld | tojson }}</script>
 {% endif %}<style>

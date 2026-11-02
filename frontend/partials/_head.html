@@ -2,7 +2,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ page_title | default("QueSubsidio — Subsidios Habitacionales en Chile") }}</title>
   <meta name="description" content="{{ page_description | default('QueSubsidio te ayuda a entender y acceder a subsidios habitacionales DS19, DS49 y DS1 T2/T3 en Chile.') }}" />
-  <meta name="robots" content="index, follow" />
+  <meta name="robots" content="{{ robots | default('index, follow') }}" />
   <link rel="canonical" href="https://quesubsidio.cl{{ page_path | default('/') }}" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="{{ page_title | default('QueSubsidio') }}" />

@@ -69,7 +69,7 @@ async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
     if ficha is None:
         logger.info("Ficha de proyecto | slug=%s | origen=%s | no encontrada", slug[:90], origen)
         return templates.TemplateResponse(request, "proyecto.html", {
-            "active": "viviendas", "ficha": None,
+            "active": "viviendas", "ficha": None, "robots": "noindex, follow",
             "page_title": "Proyecto no encontrado — QueSubsidio",
             "page_description": "Este proyecto no está disponible. Mira las viviendas con subsidio que sí lo están.",
             "page_path": "/viviendas",
@@ -78,6 +78,8 @@ async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
     sitio = "https://quesubsidio.cl"
     return templates.TemplateResponse(request, "proyecto.html", {
         "active": "viviendas", "ficha": ficha,
+        # Solo los proyectos nuevos se indexan: las fichas de semi-nuevos (copias de publicaciones de terceros) llevan noindex.
+        "robots": "index, follow" if ficha["nuevo"] else "noindex, follow",
         "page_title": ficha["titulo"], "page_description": ficha["descripcion"], "page_path": ficha["ruta"],
         "json_ld": {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": "Inicio", "item": f"{sitio}/"},
