@@ -105,7 +105,7 @@ function tarjeta(p, i) {
     p.m2 ? `${Number(p.m2).toLocaleString('es-CL', { maximumFractionDigits: 0 })} m²` : null,
   ].filter(Boolean).join(' · ') : ''
   return `
-    <div class="card" style="overflow:hidden;${imgs.length ? 'cursor:pointer' : ''}" ${imgs.length ? `onclick="abrirGaleria(${i})" tabindex="0" role="button" aria-label="Ver fotos de ${esc(p.nombre)}" onkeydown="if(event.key==='Enter'&&event.target===this)abrirGaleria(${i})"` : ''}>
+    <div class="card" style="overflow:hidden;${imgs.length ? 'cursor:pointer' : ''}" ${imgs.length ? `onclick="abrirGaleria(${i})" tabindex="0" role="button" aria-label="Ver fotos de ${esc(p.nombre)}" onkeydown="if(event.key==='Enter'&&event.target===this){event.preventDefault();abrirGaleria(${i})}"` : ''}>
       <div style="height:200px;background:linear-gradient(135deg,#1651d6,#0b2a6b);position:relative">
         ${p.imagen ? `<img src="${esc(p.imagen)}" alt="${esc(p.nombre)}" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" loading="lazy" />` : ''}
         <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(8,26,72,0.7),transparent)"></div>
