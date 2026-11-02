@@ -1470,6 +1470,13 @@ function renderTabla(data) {
             d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
         </svg>
       </button>` : ''}
+      <button onclick="abrirNotas(${c.id}, '${esc(c.Contacto)}')" title="Notas internas"
+        class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-yellow-400 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+        </svg>
+      </button>
       <button onclick="abrirRecordatorio(${c.id}, '${esc(c.Contacto)}', '${esc(c.recordatorio_at || '')}')" title="Recordatorio de contacto"
         class="text-xs p-1.5 rounded-lg glass transition ${c.recordatorio_at ? (_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400 hover:text-red-300' : 'text-amber-400 hover:text-amber-300') : 'sidebar-text hover:text-amber-400'}">
         <svg class="w-4 h-4" fill="${c.recordatorio_at ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
@@ -2052,7 +2059,7 @@ function esc(str) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
-  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio()
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas()
 })
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
@@ -2846,6 +2853,103 @@ async function guardarRecordatorio() {
     errEl.textContent = e.message; errEl.classList.remove('hidden')
   } finally {
     btn.disabled = false; btn.textContent = 'Guardar'
+  }
+}
+
+// ─── NOTAS INTERNAS ───────────────────────────────────
+// Historial de notas del equipo sobre un cliente (solo internas: no salen en ningún mensaje ni correo).
+const NOTA_MAX = 2000
+let _notasClienteId = null
+
+function _formatFechaNota(iso) {
+  const d = new Date(iso)
+  if (!iso || isNaN(d)) return ''
+  return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+function _errorNotas(msg) {
+  const el = document.getElementById('notas-error')
+  el.textContent = msg || ''
+  el.classList.toggle('hidden', !msg)
+}
+
+function actualizarContadorNota() {
+  const n = document.getElementById('nota-texto').value.length
+  const el = document.getElementById('nota-contador')
+  el.textContent = `${n}/${NOTA_MAX}`
+  el.classList.toggle('text-red-400', n > NOTA_MAX)
+}
+
+function alEscribirNota() {
+  actualizarContadorNota()
+  _errorNotas('')                                // al corregir, el aviso anterior ya no corresponde
+}
+
+function renderNotas(notas) {
+  const lista = document.getElementById('notas-lista')
+  if (!notas.length) {
+    lista.innerHTML = '<p class="text-center sidebar-text text-sm py-6">Aún no hay notas para este cliente.</p>'
+    return
+  }
+  lista.innerHTML = notas.map(n => `
+    <div class="rounded-xl px-3.5 py-2.5 border" style="border-color:rgba(148,163,184,0.25)">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <span class="text-xs font-semibold val-text">${esc(n.autor || 'Sin nombre')}</span>
+        <span class="text-xs sidebar-text">${esc(_formatFechaNota(n.creado_en))}</span>
+      </div>
+      <p class="text-sm val-text whitespace-pre-wrap break-words">${esc(n.texto)}</p>
+    </div>`).join('')
+}
+
+async function cargarNotas() {
+  const id = _notasClienteId
+  const lista = document.getElementById('notas-lista')
+  try {
+    const notas = await api('GET', `/api/clientes/${id}/notas`)
+    if (id !== _notasClienteId) return          // mientras cargaba se cerró o se abrió otro cliente
+    renderNotas(notas)
+  } catch(e) {
+    if (id !== _notasClienteId) return
+    lista.innerHTML = `<p class="text-center err-text text-sm py-6">${esc(e.message)}</p>`
+  }
+}
+
+async function abrirNotas(clienteId, nombre) {
+  _notasClienteId = clienteId
+  document.getElementById('notas-titulo').textContent = nombre
+  document.getElementById('nota-texto').value = ''
+  actualizarContadorNota()
+  _errorNotas('')
+  document.getElementById('notas-lista').innerHTML = '<div class="flex justify-center py-8"><div class="spinner"></div></div>'
+  document.getElementById('modal-notas').classList.remove('hidden')
+  await cargarNotas()
+}
+
+function cerrarNotas() {
+  document.getElementById('modal-notas').classList.add('hidden')
+  _notasClienteId = null
+}
+
+async function guardarNota() {
+  const id = _notasClienteId
+  const texto = document.getElementById('nota-texto').value.trim()
+  if (!texto) { _errorNotas('Escribe la nota antes de agregarla.'); return }
+  if (texto.length > NOTA_MAX) { _errorNotas(`La nota es demasiado larga (máximo ${NOTA_MAX} caracteres).`); return }
+  _errorNotas('')
+  const btn = document.getElementById('btn-nota-guardar')
+  btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    await api('POST', `/api/clientes/${id}/notas`, { texto })
+    toast('✅ Nota agregada', 'success')
+    if (id === _notasClienteId) {                // si siguen en el mismo cliente, se muestra al tiro
+      document.getElementById('nota-texto').value = ''
+      actualizarContadorNota()
+      await cargarNotas()
+    }
+  } catch(e) {
+    if (id === _notasClienteId) _errorNotas(e.message)
+  } finally {
+    btn.disabled = false; btn.textContent = 'Agregar nota'
   }
 }
 
@@ -3791,6 +3895,46 @@ async function guardarRegistrarInbox() {
       </div>
     </div>
     <div id="conv-body" class="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3" style="min-height:200px"></div>
+  </div>
+</div>
+
+<!-- ═══ MODAL NOTAS INTERNAS ═══ -->
+<div id="modal-notas" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="px-5 pt-5 pb-3 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <svg class="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+        </svg>
+        <div>
+          <p class="text-xs sidebar-text font-medium">Notas internas</p>
+          <p id="notas-titulo" class="text-sm font-semibold val-text"></p>
+        </div>
+      </div>
+      <button onclick="cerrarNotas()" class="sidebar-text hover:val-text transition text-xl leading-none">✕</button>
+    </div>
+    <div id="notas-lista" class="flex-1 overflow-y-auto px-5 flex flex-col gap-2.5" style="min-height:120px"></div>
+    <div class="px-5 pt-3 pb-5 space-y-2">
+      <textarea id="nota-texto" rows="3" maxlength="2000" oninput="alEscribirNota()" aria-label="Nueva nota" placeholder="Escribe una nota para el equipo…"
+        class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100
+               focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"></textarea>
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-xs sidebar-text">Solo la ve el equipo: no se envía al cliente ni al banco.</p>
+        <span id="nota-contador" class="text-xs sidebar-text whitespace-nowrap">0/2000</span>
+      </div>
+      <div id="notas-error" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div class="flex gap-2 pt-1">
+        <button onclick="cerrarNotas()"
+          class="flex-1 py-2 rounded-lg text-sm sidebar-text hover:val-text border border-slate-600 transition">
+          Cerrar
+        </button>
+        <button id="btn-nota-guardar" onclick="guardarNota()"
+          class="flex-1 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-medium transition">
+          Agregar nota
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
