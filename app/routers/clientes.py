@@ -4,6 +4,7 @@ cliente) y conversaciones y contexto del bot de un cliente o prospecto.
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
 import logging
+import httpx
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.autorizacion import exigir_cliente, exigir_prospecto
@@ -335,6 +336,82 @@ async def api_conversacion_cliente(cliente_id: int, request: Request):
         },
     ) or []
     return {"mensajes": mensajes, "paso": p.get("paso"), "estado": p.get("estado")}
+
+
+# ── Notas internas del equipo sobre un cliente ───────────────────────────────
+# Las ve y las escribe quien puede usar al cliente (mismo criterio que la conversación y los documentos: administrador y owner,
+# y el ejecutivo dueño). Solo son internas: no salen en ningún correo ni mensaje. Se guardan en la tabla NotaCliente.
+NOTA_MAX = 2000
+_NOTA_SELECT = "id,texto,usuario_id,autor_nombre,creado_en"
+
+
+def _nota_publica(fila: Dict[str, Any]) -> Dict[str, Any]:
+    return {"id": fila.get("id"), "texto": fila.get("texto") or "", "autor": fila.get("autor_nombre") or "",
+            "usuario_id": fila.get("usuario_id"), "creado_en": fila.get("creado_en")}
+
+
+@router.get("/api/clientes/{cliente_id}/notas")
+async def api_listar_notas(cliente_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
+    try:
+        filas = await _supabase_request(
+            "GET", "/NotaCliente",
+            params={"cliente_id": f"eq.{cliente_id}", "select": _NOTA_SELECT, "order": "creado_en.desc,id.desc", "limit": "200"},
+        ) or []
+        return [_nota_publica(f) for f in filas]
+    except Exception as e:
+        return respuesta_error(e, contexto="api_listar_notas")
+
+
+@router.post("/api/clientes/{cliente_id}/notas")
+async def api_crear_nota(cliente_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    texto = body.get("texto") if isinstance(body, dict) else None
+    texto = texto.strip() if isinstance(texto, str) else ""
+    if not texto:
+        return Response(content="La nota no puede estar vacía", status_code=422)
+    if len(texto) > NOTA_MAX:
+        return Response(content=f"La nota es demasiado larga (máximo {NOTA_MAX} caracteres)", status_code=422)
+    try:
+        # El autor y el cliente salen de la sesión y de la ruta, nunca del cuerpo de la petición.
+        filas = await _supabase_request(
+            "POST", "/NotaCliente",
+            json={"cliente_id": cliente_id, "usuario_id": perfil.get("id"),
+                  "autor_nombre": perfil.get("nombre") or perfil.get("correo") or "Usuario", "texto": texto},
+            extra_headers={"Prefer": "return=representation"},
+        ) or []
+    except httpx.HTTPStatusError as e:
+        if _es_cliente_inexistente(e):
+            return Response(content="Cliente no encontrado", status_code=404)
+        return respuesta_error(e, contexto="api_crear_nota")
+    except Exception as e:
+        return respuesta_error(e, contexto="api_crear_nota")
+    logger.info("Nota agregada | cliente=%s | usuario=%s", cliente_id, perfil.get("id"))      # nunca el texto de la nota
+    return _nota_publica(filas[0] if filas else {})
+
+
+def _es_cliente_inexistente(e: "httpx.HTTPStatusError") -> bool:
+    """PostgREST responde 409 con code 23503 cuando la clave foránea (el cliente) no existe."""
+    if getattr(e.response, "status_code", None) != 409:
+        return False
+    try:
+        return (e.response.json() or {}).get("code") == "23503"
+    except Exception:
+        return False
 
 
 @router.get("/api/prospectos/{prospecto_id}/conversacion")
