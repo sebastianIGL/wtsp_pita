@@ -84,6 +84,22 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Los datos se leen de Supabase con caché de 5 minutos (índice de slugs y ficha por proyecto). Cada visita deja una línea de log
   `Ficha de proyecto | slug=… | origen=viviendas|bot|directo` (el origen sale de `?o=`, con lista cerrada).
 
+## Medición (Google Tag Manager) y cookies del sitio público
+- Variable **`GTM_ID`** (formato `GTM-XXXXXXX`; sin ella, o con un valor que no tenga ese formato, **no cambia nada**: ninguna página carga
+  nada de Google ni muestra aviso de cookies; el arranque avisa si la variable existe pero no sirve).
+- Con `GTM_ID`, todas las páginas públicas (inicio, cómo funciona, subsidios, viviendas, blog, fichas de proyecto y las legales) muestran un
+  aviso de cookies (`frontend/partials/_cookies.html`, incluido desde `_scripts_common.html`) con «Aceptar todas», «Solo necesarias» y
+  «Configurar» (medición y publicidad por separado). El CRM, el login y «Mi camino» nunca lo cargan.
+- **Consent Mode v2:** todo parte denegado (`gtag('consent','default')` antes que nada). **Google Tag Manager solo se carga si la persona
+  acepta alguna categoría** (nunca antes, ni si rechaza); la elección se guarda 12 meses en el navegador (`localStorage`, clave
+  `qs_cookies`) y se puede cambiar desde «Configurar cookies» en el pie y en `/cookies`. Retirar el consentimiento borra las cookies de
+  medición (`_ga*`, `_gid`, `_gat*`, `_gcl_*`, `_gac_*`, `_fbp`, `_fbc`). Si cambia el texto o las categorías, subir `VERSION` en el parcial
+  para volver a preguntar a todos.
+- Dentro de Tag Manager hay que configurar GA4 y las etiquetas con **comprobaciones de consentimiento** (analytics_storage para medición;
+  ad_storage, ad_user_data y ad_personalization para publicidad). El evento `qs_cookies_actualizadas` se empuja al `dataLayer` en cada elección.
+- Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
+  proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
+
 ## CSS de Tailwind (Fase 10)
 - Tailwind **3.4.17** (la versión que servía el CDN) con el CLI standalone: <https://github.com/tailwindlabs/tailwindcss/releases/tag/v3.4.17>.
   El binario **no** va en el repo. El CSS compilado **sí** (`frontend/css/sitio.css` y `frontend/css/crm.css`); Railway no compila nada.

@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.core.config import get_settings
 from app.services import legal
 from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
 from app.services.seo import PAGINAS_PUBLICAS, SITIO_URL, construir_robots, construir_sitemap
@@ -18,7 +19,12 @@ logger = logging.getLogger("wtsp_pita")
 router = APIRouter()
 
 
-templates = Jinja2Templates(directory="frontend")
+def _contexto_comun(request: Request) -> dict:
+    """Variables disponibles en todas las plantillas: ``gtm_id`` (None si Tag Manager no está configurado: sin él no se carga nada)."""
+    return {"gtm_id": get_settings().gtm_id}
+
+
+templates = Jinja2Templates(directory="frontend", context_processors=[_contexto_comun])
 
 
 # ── Landing pública ───────────────────────────────────────────────────────────

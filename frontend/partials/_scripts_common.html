@@ -24,3 +24,4 @@ document.addEventListener('DOMContentLoaded', function () {
   items.forEach(function (el) { observer.observe(el) })
 })
 </script>
+{% if gtm_id %}{% include "partials/_cookies.html" %}{% endif %}

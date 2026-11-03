@@ -15,6 +15,7 @@ El entorno se vuelve a leer solo si cambió desde la última llamada (huella de 
 conocidos): en producción equivale a un singleton, y en pruebas respeta ``monkeypatch.setenv``.
 """
 import os
+import re
 from typing import Dict, List, Optional, Tuple
 
 from pydantic import AliasChoices, Field, field_validator, model_validator
@@ -79,6 +80,9 @@ class Settings(BaseSettings):
     # Apagado (por defecto) = el comportamiento de siempre: el aviso espera dormido en memoria hasta que abre el horario.
     # Requiere haber ejecutado antes la migración (tabla AvisoEjecutivo y función reclamar_avisos).
     avisos_persistentes: bool = Field(False, validation_alias=_alias("AVISOS_PERSISTENTES"))
+    # ID del contenedor de Google Tag Manager (GTM-XXXXXXX) para la medición del sitio PÚBLICO. Sin él (o con un valor que no tenga ese
+    # formato) no se carga nada de Google ni se muestra el aviso de cookies. Con él, Tag Manager solo se carga si la persona lo acepta.
+    gtm_id: Optional[str] = Field(None, validation_alias=_alias("GTM_ID"))
     bot_reply_delay: int = Field(30, validation_alias=_alias("BOT_REPLY_DELAY"))
     # Horas (hora de Chile) entre las que el bot RESPONDE mensajes de texto. 0–24 = siempre (24/7).
     # No afecta a los avisos a ejecutivos, que tienen sus propios horarios fijos.
@@ -115,6 +119,13 @@ class Settings(BaseSettings):
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)
         return str(v).strip().lower() in _VERDADERO
+
+    @field_validator("gtm_id", mode="before")
+    @classmethod
+    def _gtm_id_valido(cls, v):
+        # Solo se acepta un ID con el formato de Google; cualquier otra cosa se descarta (nunca error, y nunca llega a una página).
+        texto = str(v or "").strip().upper()
+        return texto if re.fullmatch(r"GTM-[A-Z0-9]{4,12}", texto) else None
 
     @field_validator("horario_bot_inicio", mode="before")
     @classmethod
@@ -282,6 +293,9 @@ def registrar_configuracion(logger) -> None:
                      "la firma, así que NO se rechaza nada hasta que se defina WA_APP_SECRET")
     logger.info("Horario en que el bot responde mensajes de texto: %s", describir_horario_bot())
     logger.info("Avisos a ejecutivos: %s", describir_avisos())
+    if os.environ.get("GTM_ID") and not get_settings().gtm_id:
+        logger.warning("Configuración: GTM_ID no tiene el formato GTM-XXXXXXX: se ignora (no se carga Tag Manager ni se muestra el aviso de cookies)")
+    logger.info("Medición del sitio público: %s", describir_medicion())
     if os.environ.get("RECOVERY_MAX_ANTIGUEDAD_HORAS") and _parse_hora(os.environ["RECOVERY_MAX_ANTIGUEDAD_HORAS"], 0, 8760) is None:
         logger.warning("Configuración: RECOVERY_MAX_ANTIGUEDAD_HORAS no es válida (entero 0–8760): se usa %d h",
                        RECOVERY_MAX_ANTIGUEDAD_DEFECTO)
@@ -309,6 +323,12 @@ def describir_avisos() -> str:
     if get_settings().avisos_persistentes:
         return "cola persistente en la base de datos (AVISOS_PERSISTENTES encendido; requiere la tabla AvisoEjecutivo)"
     return "espera en memoria hasta que abre el horario (AVISOS_PERSISTENTES apagado)"
+
+
+def describir_medicion() -> str:
+    if get_settings().gtm_id:
+        return "Google Tag Manager configurado (GTM_ID); solo se carga si la persona acepta las cookies"
+    return "sin Tag Manager (GTM_ID no configurado): no se carga nada de Google ni se pide consentimiento"
 
 
 def describir_firma_webhook() -> str:

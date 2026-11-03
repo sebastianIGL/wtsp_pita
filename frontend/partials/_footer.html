@@ -80,6 +80,7 @@
         <a href="/terminos"  class="footer-link">Términos de uso</a>
         <a href="/privacidad" class="footer-link">Política de privacidad</a>
         <a href="/cookies"   class="footer-link">Cookies</a>
+        {% if gtm_id %}<a href="#" class="footer-link" onclick="QSCookies.abrir(); return false">Configurar cookies</a>{% endif %}
         <div style="margin-top:1.5rem">
           <div class="footer-col-title">Contacto</div>
           <a href="mailto:hola@quesubsidio.cl" class="footer-link">hola@quesubsidio.cl</a>
