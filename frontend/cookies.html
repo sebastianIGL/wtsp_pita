@@ -1,0 +1,41 @@
+{% extends "legal_base.html" %}
+{% block titulo %}Política de cookies{% endblock %}
+{% block contenido %}
+<p>Una cookie es un pequeño archivo que un sitio guarda en tu navegador; hay otras tecnologías parecidas, como el almacenamiento local. Aquí te contamos cuáles usa QueSubsidio y cómo puedes elegir.</p>
+
+<h2>1. Lo estrictamente necesario</h2>
+<p>El sitio guarda en tu navegador lo mínimo para funcionar. No sirve para seguirte ni para hacer publicidad, y por eso no necesita tu consentimiento:</p>
+<div class="legal-tabla-caja">
+<table class="legal-tabla">
+  <thead><tr><th>Qué</th><th>Para qué</th><th>Cuánto dura</th></tr></thead>
+  <tbody>
+    <tr><td>Sesión de acceso (almacenamiento local)</td><td>Mantener tu sesión iniciada si entras a tu cuenta.</td><td>Hasta que cierres sesión.</td></tr>
+    <tr><td>Progreso en «Mi camino» (almacenamiento local)</td><td>Recordar los pasos que ya marcaste.</td><td>Hasta que lo borres de tu navegador.</td></tr>
+    <tr><td>Preferencia de tema (almacenamiento local)</td><td>Recordar si prefieres el modo claro u oscuro.</td><td>Hasta que lo borres de tu navegador.</td></tr>
+    {% if gtm_id %}<tr><td>Tu elección sobre cookies (almacenamiento local)</td><td>Recordar lo que decidiste en esta página y no preguntarte de nuevo.</td><td>12 meses.</td></tr>{% endif %}
+  </tbody>
+</table>
+</div>
+
+<h2>2. Medición y publicidad</h2>
+{% if gtm_id %}
+<p>Con tu consentimiento, usamos Google Tag Manager y Google Analytics para saber cómo se usa el sitio (qué páginas se visitan, desde dónde llegan las personas) y mejorarlo. Si lo permites, también podemos medir el resultado de campañas de publicidad.</p>
+<p><strong>No se cargan hasta que tú lo aceptas.</strong> Mientras no elijas, o si eliges «Solo necesarias», no se instala ninguna cookie de medición ni de publicidad. Las cookies típicas de Google Analytics son <code>_ga</code> y <code>_ga_…</code> (hasta 2 años) y, si permites publicidad, <code>_gcl_…</code> (hasta 90 días); sus duraciones pueden variar.</p>
+<div class="legal-aviso">
+  <strong>Cambia tu elección cuando quieras.</strong>
+  <p style="margin:.5rem 0 .75rem">Puedes aceptar, rechazar o ajustar cada categoría, y retirar tu consentimiento en cualquier momento. Al retirarlo borramos las cookies de medición de este sitio.</p>
+  <button type="button" class="btn btn-primary" onclick="QSCookies.abrir()">Configurar cookies</button>
+</div>
+{% else %}
+<p>Hoy QueSubsidio <strong>no usa cookies de medición ni de publicidad</strong>. Si más adelante las incorporamos, por ejemplo para entender qué páginas se visitan o para medir campañas, te pediremos tu consentimiento antes de instalarlas, podrás elegir por categoría y actualizaremos esta página.</p>
+{% endif %}
+
+<h2>3. Servicios de terceros que se cargan al abrir las páginas</h2>
+<p>Algunas páginas cargan tipografías de Google Fonts y una biblioteca de código de jsDelivr. Para entregarte esos archivos, esos servicios reciben tu dirección IP y los datos normales de tu navegador, como ocurre al visitar cualquier sitio.</p>
+
+<h2>4. Cómo borrar o bloquear cookies</h2>
+<p>Puedes ver, borrar y bloquear las cookies y los datos del sitio desde la configuración de tu navegador. Si bloqueas lo estrictamente necesario, algunas funciones, como mantener tu sesión iniciada, pueden dejar de funcionar.</p>
+
+<h2>5. Más información</h2>
+<p>Para saber cómo tratamos tus datos personales, lee nuestra <a href="/privacidad">Política de privacidad</a>. Si tienes dudas, escríbenos a <a href="mailto:{{ contacto }}">{{ contacto }}</a>.</p>
+{% endblock %}

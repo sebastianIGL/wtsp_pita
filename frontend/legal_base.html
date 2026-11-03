@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+{% include "partials/_head.html" %}
+<style>
+  .legal { max-width: 780px; margin: 0 auto; }
+  .legal-menu { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.75rem; }
+  .legal-menu a { font-size: 0.85rem; font-weight: 600; text-decoration: none; padding: 0.4rem 0.95rem; border-radius: 9999px;
+                  color: var(--blue); background: var(--blue-soft); border: 1px solid var(--blue-border); }
+  .legal-menu a[aria-current] { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .legal h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 800; line-height: 1.15; margin-bottom: 0.4rem; }
+  .legal-fecha { font-size: 0.875rem; color: var(--text-subtle); margin-bottom: 2rem; }
+  .legal h2 { font-size: 1.2rem; font-weight: 700; margin: 2rem 0 0.6rem; }
+  .legal p, .legal li { font-size: 0.975rem; color: var(--text); line-height: 1.75; }
+  .legal p { margin-bottom: 0.85rem; }
+  .legal ul { list-style: disc; margin: 0 0 0.85rem 1.25rem; padding-left: 0.4rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .legal li { display: list-item; }
+  .legal a { color: var(--blue); }
+  .legal-tabla { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.25rem; font-size: 0.9rem; }
+  .legal-tabla th, .legal-tabla td { text-align: left; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .legal-tabla th { font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-subtle); }
+  .legal-tabla-caja { overflow-x: auto; }
+  .legal-aviso { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1.25rem 0; }
+</style>
+<link rel="stylesheet" href="/css/sitio.css" />
+</head>
+<body>
+
+{% include "partials/_navbar.html" %}
+
+<main>
+  <section class="section-sm">
+    <div class="container">
+      <article class="legal">
+        <nav class="legal-menu" aria-label="Documentos legales">
+          <a href="/terminos"{% if pagina_legal == 'terminos' %} aria-current="page"{% endif %}>Términos de uso</a>
+          <a href="/privacidad"{% if pagina_legal == 'privacidad' %} aria-current="page"{% endif %}>Política de privacidad</a>
+          <a href="/cookies"{% if pagina_legal == 'cookies' %} aria-current="page"{% endif %}>Cookies</a>
+        </nav>
+        <h1>{% block titulo %}{% endblock %}</h1>
+        <p class="legal-fecha">Última actualización: {{ actualizado }}</p>
+        {% block contenido %}{% endblock %}
+      </article>
+    </div>
+  </section>
+</main>
+
+{% include "partials/_footer.html" %}
+{% include "partials/_scripts_common.html" %}
+
+</body>
+</html>

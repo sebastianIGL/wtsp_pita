@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.services import legal
 from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
 from app.services.seo import PAGINAS_PUBLICAS, SITIO_URL, construir_robots, construir_sitemap
 
@@ -112,6 +113,31 @@ async def sitemap_xml():
 @router.get("/robots.txt", include_in_schema=False)
 async def robots_txt():
     return PlainTextResponse(construir_robots(), headers={"Cache-Control": "public, max-age=3600"})
+
+
+def _pagina_legal(request: Request, plantilla: str, clave: str, titulo: str, descripcion: str):
+    return templates.TemplateResponse(request, plantilla, {
+        "active": "", "pagina_legal": clave, "page_title": f"{titulo} — QueSubsidio", "page_description": descripcion, "page_path": f"/{clave}",
+        "razon_social": legal.RAZON_SOCIAL, "contacto": legal.CONTACTO, "actualizado": legal.ACTUALIZADO,
+    })
+
+
+@router.get("/terminos")
+async def page_terminos(request: Request):
+    return _pagina_legal(request, "terminos.html", "terminos", "Términos de uso",
+                         "Condiciones de uso de QueSubsidio: qué es el sitio, qué no es, y cómo usar su información sobre subsidios y proyectos.")
+
+
+@router.get("/privacidad")
+async def page_privacidad(request: Request):
+    return _pagina_legal(request, "privacidad.html", "privacidad", "Política de privacidad",
+                         "Qué datos personales recoge QueSubsidio, para qué los usa, con quién los comparte y cómo ejercer tus derechos.")
+
+
+@router.get("/cookies")
+async def page_cookies(request: Request):
+    return _pagina_legal(request, "cookies.html", "cookies", "Política de cookies",
+                         "Qué cookies y almacenamiento local usa QueSubsidio y cómo elegir.")
 
 
 @router.get("/blog")
