@@ -97,6 +97,8 @@
     s.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(GTM_ID)
     document.head.appendChild(s)
   }
+  // Una cookie solo del host (quesubsidio.cl) y otra con Domain=.quesubsidio.cl son cookies DISTINTAS: Google crea las segundas, y para borrarlas
+  // hay que repetir el Domain. Se prueban las tres formas (sin Domain, con el host y con el dominio padre) en el apex (quesubsidio.cl) y en www.
   function borrarCookiesDeMedicion() {
     var partes = location.hostname.split('.'), dominios = ['', location.hostname, '.' + location.hostname]
     for (var i = 1; i < partes.length - 1; i++) dominios.push('.' + partes.slice(i).join('.'))
