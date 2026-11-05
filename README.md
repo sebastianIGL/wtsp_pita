@@ -89,14 +89,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   nada de Google ni muestra aviso de cookies; el arranque avisa si la variable existe pero no sirve).
 - Con `GTM_ID`, todas las páginas públicas (inicio, cómo funciona, subsidios, viviendas, blog, fichas de proyecto y las legales) muestran un
   aviso de cookies (`frontend/partials/_cookies.html`, incluido desde `_scripts_common.html`) con «Aceptar todas», «Solo necesarias» y
-  «Configurar» (medición y publicidad por separado). El CRM, el login y «Mi camino» nunca lo cargan.
+  «Configurar» (hoy una sola categoría opcional: **medición**; la publicidad no se ofrece porque solo se mide con Google Analytics). El CRM, el login y «Mi camino» nunca lo cargan.
 - **Consent Mode v2:** todo parte denegado (`gtag('consent','default')` antes que nada). **Google Tag Manager solo se carga si la persona
-  acepta alguna categoría** (nunca antes, ni si rechaza); la elección se guarda 12 meses en el navegador (`localStorage`, clave
+  acepta la medición** (nunca antes, ni si rechaza); la elección se guarda 12 meses en el navegador (`localStorage`, clave
   `qs_cookies`) y se puede cambiar desde «Configurar cookies» en el pie y en `/cookies`. Retirar el consentimiento borra las cookies de
   medición (`_ga*`, `_gid`, `_gat*`, `_gcl_*`, `_gac_*`, `_fbp`, `_fbc`). Si cambia el texto o las categorías, subir `VERSION` en el parcial
-  para volver a preguntar a todos.
-- Dentro de Tag Manager hay que configurar GA4 y las etiquetas con **comprobaciones de consentimiento** (analytics_storage para medición;
-  ad_storage, ad_user_data y ad_personalization para publicidad). El evento `qs_cookies_actualizadas` se empuja al `dataLayer` en cada elección.
+  para volver a preguntar a todos (hoy `VERSION = 2`: las elecciones de la versión 1, que traían «publicidad», se ignoran y se vuelve a preguntar).
+- Dentro de Tag Manager hay que configurar GA4 y las etiquetas con **comprobaciones de consentimiento** (`analytics_storage`; `ad_storage`, `ad_user_data` y
+  `ad_personalization` quedan siempre denegados: si algún día se hacen campañas hay que volver a ofrecer la categoría). El evento
+  `qs_cookies_actualizadas` (`{medicion}`) se empuja al `dataLayer` en cada elección.
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 

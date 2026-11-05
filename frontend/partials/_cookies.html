@@ -29,7 +29,7 @@
 
 <div id="qsc-banner" role="region" aria-label="Preferencias de cookies">
   <p class="qsc-titulo">Tu privacidad</p>
-  <p class="qsc-texto">Las cookies necesarias para que el sitio funcione ya están activas. Las de <strong>medición</strong> y <strong>publicidad</strong> solo se instalan si tú lo permites, y puedes cambiar tu elección cuando quieras. <a href="/cookies">Más información</a></p>
+  <p class="qsc-texto">Las cookies necesarias para que el sitio funcione ya están activas. Las de <strong>medición</strong> solo se instalan si tú lo permites, y puedes cambiar tu elección cuando quieras. <a href="/cookies">Más información</a></p>
   <div class="qsc-botones">
     <button type="button" class="btn btn-primary" data-qsc="todas">Aceptar todas</button>
     <button type="button" class="btn btn-outline" data-qsc="necesarias">Solo necesarias</button>
@@ -49,10 +49,6 @@
       <div><strong>Medición</strong><small>Nos dicen qué páginas se visitan y desde dónde llegan las personas, para mejorar el sitio (Google Analytics).</small></div>
       <label class="qsc-sw"><input type="checkbox" id="qsc-medicion" aria-label="Medición"><span></span></label>
     </div>
-    <div class="qsc-cat">
-      <div><strong>Publicidad</strong><small>Permiten medir el resultado de nuestras campañas de publicidad.</small></div>
-      <label class="qsc-sw"><input type="checkbox" id="qsc-publicidad" aria-label="Publicidad"><span></span></label>
-    </div>
     <div class="qsc-botones">
       <button type="button" class="btn btn-primary" data-qsc="guardar">Guardar mi elección</button>
       <button type="button" class="btn btn-outline" data-qsc="todas">Aceptar todas</button>
@@ -64,9 +60,9 @@
 <script>
 (function () {
   var GTM_ID = {{ gtm_id | tojson }}
-  var CLAVE = 'qs_cookies', VERSION = 1, VIGENCIA_MS = 365 * 24 * 60 * 60 * 1000
+  var CLAVE = 'qs_cookies', VERSION = 2, VIGENCIA_MS = 365 * 24 * 60 * 60 * 1000
   var banner = document.getElementById('qsc-banner'), modal = document.getElementById('qsc-modal')
-  var chkMedicion = document.getElementById('qsc-medicion'), chkPublicidad = document.getElementById('qsc-publicidad')
+  var chkMedicion = document.getElementById('qsc-medicion')
   var actual = null, gtmCargado = false, focoPrevio = null
 
   // Consent Mode: todo lo que no es necesario parte DENEGADO. Esta llamada va antes de cualquier otra de Google.
@@ -79,12 +75,12 @@
     try {
       var v = JSON.parse(localStorage.getItem(CLAVE))
       var edad = Date.now() - new Date(v.fecha).getTime()
-      if (v && v.v === VERSION && typeof v.medicion === 'boolean' && typeof v.publicidad === 'boolean' && edad >= 0 && edad < VIGENCIA_MS) return v
+      if (v && v.v === VERSION && typeof v.medicion === 'boolean' && edad >= 0 && edad < VIGENCIA_MS) return v
     } catch (e) {}
     return null
   }
-  function guardar(medicion, publicidad) {
-    var v = { v: VERSION, medicion: !!medicion, publicidad: !!publicidad, fecha: new Date().toISOString() }
+  function guardar(medicion) {
+    var v = { v: VERSION, medicion: !!medicion, fecha: new Date().toISOString() }
     try { localStorage.setItem(CLAVE, JSON.stringify(v)) } catch (e) {}
     return v
   }
@@ -110,15 +106,12 @@
   }
   function aplicar(v) {
     actual = v
-    gtag('consent', 'update', {
-      analytics_storage: v.medicion ? 'granted' : 'denied',
-      ad_storage: v.publicidad ? 'granted' : 'denied', ad_user_data: v.publicidad ? 'granted' : 'denied', ad_personalization: v.publicidad ? 'granted' : 'denied'
-    })
-    window.dataLayer.push({ event: 'qs_cookies_actualizadas', medicion: v.medicion, publicidad: v.publicidad })
-    if (v.medicion || v.publicidad) cargarGTM(); else borrarCookiesDeMedicion()
+    gtag('consent', 'update', { analytics_storage: v.medicion ? 'granted' : 'denied' })      // publicidad no se ofrece: ad_* queda denegado
+    window.dataLayer.push({ event: 'qs_cookies_actualizadas', medicion: v.medicion })
+    if (v.medicion) cargarGTM(); else borrarCookiesDeMedicion()
   }
-  function elegir(medicion, publicidad) {
-    aplicar(guardar(medicion, publicidad))
+  function elegir(medicion) {
+    aplicar(guardar(medicion))
     banner.classList.remove('qsc-on')
     cerrar()
   }
@@ -127,7 +120,6 @@
   function abrir() {
     focoPrevio = document.activeElement
     chkMedicion.checked = !!(actual && actual.medicion)
-    chkPublicidad.checked = !!(actual && actual.publicidad)
     modal.classList.add('qsc-on')
     var primero = foco()[0]; if (primero) primero.focus()
   }
@@ -141,9 +133,9 @@
     var b = e.target.closest && e.target.closest('[data-qsc]')
     if (!b || !(banner.contains(b) || modal.contains(b))) return
     var accion = b.getAttribute('data-qsc')
-    if (accion === 'todas') elegir(true, true)
-    else if (accion === 'necesarias') elegir(false, false)
-    else if (accion === 'guardar') elegir(chkMedicion.checked, chkPublicidad.checked)
+    if (accion === 'todas') elegir(true)
+    else if (accion === 'necesarias') elegir(false)
+    else if (accion === 'guardar') elegir(chkMedicion.checked)
     else if (accion === 'configurar') abrir()
   })
   document.addEventListener('keydown', function (e) {
@@ -156,7 +148,7 @@
   })
   modal.addEventListener('click', function (e) { if (e.target === modal) cerrar() })
 
-  window.QSCookies = { abrir: abrir, estado: function () { return actual ? { medicion: actual.medicion, publicidad: actual.publicidad } : null } }
+  window.QSCookies = { abrir: abrir, estado: function () { return actual ? { medicion: actual.medicion } : null } }
 
   var guardado = leer()
   if (guardado) aplicar(guardado); else banner.classList.add('qsc-on')
