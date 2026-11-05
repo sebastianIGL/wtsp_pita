@@ -32,7 +32,7 @@
 
 <footer>
   <div class="container">
-    <div class="footer-grid">
+    <div class="footer-grid{% if not mostrar_newsletter %} footer-grid-3{% endif %}">
 
       <!-- Col 1: Marca -->
       <div>
@@ -88,6 +88,7 @@
         </div>
       </div>
 
+      {% if mostrar_newsletter %}
       <!-- Col 4: Newsletter -->
       <div>
         <div class="footer-col-title">Newsletter</div>
@@ -108,6 +109,7 @@
           <div id="footerNewsletterMsg" style="display:none"></div>
         </form>
       </div>
+      {% endif %}
 
     </div>
 
@@ -121,6 +123,7 @@
 <script>
 document.getElementById('footerYear').textContent = new Date().getFullYear()
 
+{% if mostrar_newsletter %}
 async function submitNewsletter(e) {
   e.preventDefault()
   const email = document.getElementById('footerEmail').value.trim()
@@ -143,4 +146,5 @@ async function submitNewsletter(e) {
   } catch { msg.className = 'msg-err'; msg.textContent = 'Error de conexión.'; msg.style.display = 'block' }
   lbl.textContent = 'Suscribirme'; btn.disabled = false
 }
+{% endif %}
 </script>

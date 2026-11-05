@@ -340,6 +340,7 @@
 
     footer { background: var(--footer-bg); border-top: 1px solid var(--sep); padding: 3.5rem 0 1.75rem; }
     .footer-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1.3fr; gap: 3rem; margin-bottom: 2.5rem; }
+    @media (min-width: 901px) { .footer-grid-3 { grid-template-columns: 1.6fr 1fr 1fr; } }      /* pie de tres columnas */
     @media (max-width: 900px) { .footer-grid { grid-template-columns: 1fr 1fr; gap: 2rem; } }
     @media (max-width: 560px) { .footer-grid { grid-template-columns: 1fr; } }
     .footer-logo { height: 84px; width: auto; display: block; margin-bottom: 0.5rem; }

@@ -24,6 +24,7 @@
       <p style="color:var(--text-muted);font-size:1.0625rem;line-height:1.8;margin-bottom:2rem">
         Estamos preparando artículos, guías prácticas y novedades sobre subsidios habitacionales, el mercado inmobiliario chileno y todo lo que necesitas saber para acceder a tu vivienda.
       </p>
+      {% if mostrar_newsletter %}
       <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1.5rem">Suscríbete para ser el primero en enterarte:</p>
       <form id="blogNewsletterForm" onsubmit="subscribirBlog(event)" style="display:flex;gap:0.75rem;max-width:420px;margin:0 auto;flex-wrap:wrap;justify-content:center">
         <input type="email" class="inp" placeholder="tu@correo.cl" id="blogEmail" required style="flex:1;min-width:200px" />
@@ -36,6 +37,7 @@
         </button>
       </form>
       <div id="blogNewsletterMsg" style="display:none;margin-top:1rem"></div>
+      {% endif %}
 
       <div style="margin-top:3rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
         <a href="/" class="btn btn-ghost" style="font-size:0.875rem">← Volver al inicio</a>
@@ -49,6 +51,7 @@
 {% include "partials/_scripts_common.html" %}
 
 <script>
+{% if mostrar_newsletter %}
 async function subscribirBlog(e) {
   e.preventDefault()
   const email = document.getElementById('blogEmail').value.trim()
@@ -70,6 +73,7 @@ async function subscribirBlog(e) {
   } catch { msg.className = 'msg-err'; msg.textContent = 'Error de conexión.'; msg.style.display = 'block' }
   lbl.textContent = 'Avisar cuando esté listo'; btn.disabled = false
 }
+{% endif %}
 </script>
 
 </body>

@@ -5,4 +5,5 @@ se conserva para cuando se retomen: cambiar a ``True`` y desplegar las muestra d
 ``mostrar_contacto_empresas``, etc. (ver ``_contexto_comun`` en ``app/routers/paginas.py``)."""
 
 CONTACTO_EMPRESAS = False     # sección «Para inmobiliarias» de la portada y la ruta /api/contacto
+NEWSLETTER = False            # suscripción del pie y del blog y la ruta /api/newsletter (pendiente de rehacer: envío real, baja, texto)
 FUNCIONALIDADES = False       # bloque «Funcionalidades» de la portada (escrito para inmobiliarias: el sitio público es solo informativo)

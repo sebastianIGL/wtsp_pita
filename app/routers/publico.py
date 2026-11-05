@@ -123,7 +123,9 @@ async def api_contacto(request: Request):
 
 @router.post("/api/newsletter")
 async def api_newsletter(request: Request):
-    """Guarda suscripción al blog/newsletter en Supabase."""
+    """Guarda suscripción al blog/newsletter en Supabase. Cerrada (404) mientras el newsletter esté oculto (interruptores.py)."""
+    if not interruptores.NEWSLETTER:
+        return Response(content="No disponible", status_code=404)
     ip = ip_cliente(request)
     if not _rate_limit_ok(f"newsletter:{ip}", max_req=3, window=60):
         return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
