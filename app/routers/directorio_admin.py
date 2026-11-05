@@ -1,11 +1,13 @@
-"""API del editor del directorio de subsidios (pestaña «Subsidios» del panel de administración). Todas las rutas exigen sesión y son **solo del dueño**.
-La lógica y sus reglas están en ``app/services/directorio_admin.py``."""
+"""API del editor del directorio de subsidios (pestaña «Subsidios» del panel de administración). Todas las rutas exigen sesión.
+**Editar, publicar, ocultar, archivar, borrar y manejar fuentes es solo del dueño.** Una persona **administradora** actúa como revisora: puede ver todo (incluidos los borradores y la vista
+previa), verificar datos («Verificar» y «Verificar todos los datos») y marcar una ficha o una guía como revisada; queda su nombre y la fecha. Quien revisa no publica.
+La lógica y sus reglas están en ``app/services/directorio_admin.py`` y ``guias_admin.py``."""
 import logging
 from typing import Any, Awaitable, Callable, Dict, Tuple, Union
 
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.errors import respuesta_error
-from app.core.permisos import _solo_owner
+from app.core.permisos import _solo_admin, _solo_owner
 from app.routers.paginas import templates
 from app.services import directorio_admin as ed
 from app.services import guias_admin as ga
@@ -22,6 +24,16 @@ async def _dueno(request: Request) -> Union[Dict[str, Any], Response]:
         return Response(content="Unauthorized", status_code=401)
     if not _solo_owner(perfil):
         return Response(content="Solo el dueño", status_code=403)
+    return perfil
+
+
+async def _revisor(request: Request) -> Union[Dict[str, Any], Response]:
+    """Dueño o administrador: ver y revisar (verificar datos, marcar revisada). Quien no tiene sesión recibe 401; un ejecutivo, 403."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content="Solo el dueño o un administrador", status_code=403)
     return perfil
 
 
@@ -46,7 +58,7 @@ async def _ejecutar(contexto: str, accion: Callable[[], Awaitable[Any]]):
 
 @router.get("/api/directorio/subsidios")
 async def api_directorio_listar(request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_directorio_listar", ed.listar)
@@ -65,7 +77,7 @@ async def api_directorio_crear(request: Request):
 
 @router.get("/api/directorio/subsidios/{sid}")
 async def api_directorio_obtener(sid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_directorio_obtener", lambda: ed.obtener(sid))
@@ -107,7 +119,7 @@ async def api_directorio_estado(sid: int, request: Request):
 
 @router.post("/api/directorio/subsidios/{sid}/revisada")
 async def api_directorio_revisada(sid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_directorio_revisada", lambda: ed.marcar_revisada(sid, perfil))
@@ -115,7 +127,7 @@ async def api_directorio_revisada(sid: int, request: Request):
 
 @router.get("/api/directorio/subsidios/{sid}/vista-previa")
 async def api_directorio_vista_previa(sid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     try:
@@ -195,7 +207,7 @@ async def api_directorio_dato_editar(did: int, request: Request):
 
 @router.post("/api/directorio/datos/{did}/verificar")
 async def api_directorio_dato_verificar(did: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_directorio_dato_verificar", lambda: ed.verificar_dato(did, perfil))
@@ -217,7 +229,7 @@ async def api_directorio_dato_borrar(did: int, request: Request):
 
 @router.get("/api/directorio/fuentes")
 async def api_directorio_fuentes(request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_directorio_fuentes", ed.listar_fuentes)
@@ -247,7 +259,7 @@ async def api_directorio_fuente_editar(fid: int, request: Request):
 
 @router.post("/api/directorio/subsidios/{sid}/verificar-datos")
 async def api_directorio_verificar_todos(sid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_directorio_verificar_todos", lambda: ed.verificar_todos(sid, perfil))
@@ -257,7 +269,7 @@ async def api_directorio_verificar_todos(sid: int, request: Request):
 
 @router.get("/api/directorio/guias")
 async def api_guias_listar(request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_guias_listar", ga.listar_guias)
@@ -276,7 +288,7 @@ async def api_guias_crear(request: Request):
 
 @router.get("/api/directorio/guias/{gid}")
 async def api_guias_obtener(gid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_guias_obtener", lambda: ga.obtener_guia(gid))
@@ -318,7 +330,7 @@ async def api_guias_estado(gid: int, request: Request):
 
 @router.post("/api/directorio/guias/{gid}/revisada")
 async def api_guias_revisada(gid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_guias_revisada", lambda: ga.marcar_revisada_guia(gid, perfil))
@@ -326,7 +338,7 @@ async def api_guias_revisada(gid: int, request: Request):
 
 @router.get("/api/directorio/guias/{gid}/vista-previa")
 async def api_guias_vista_previa(gid: int, request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     try:
@@ -348,7 +360,7 @@ async def api_guias_vista_previa(gid: int, request: Request):
 
 @router.get("/api/directorio/glosario")
 async def api_glosario_listar(request: Request):
-    perfil = await _dueno(request)
+    perfil = await _revisor(request)
     if isinstance(perfil, Response):
         return perfil
     return await _ejecutar("api_glosario_listar", ga.listar_terminos)

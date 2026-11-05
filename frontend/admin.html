@@ -390,6 +390,7 @@
 
   <!-- TAB: SUBSIDIOS (directorio) -->
   <div id="panel-subsidios" class="hidden">
+    <div id="ds-aviso-revision" class="hidden ds-pend ds-si val-text"><strong>Modo revisión.</strong> Puedes ver todo, verificar datos y marcar fichas y guías como revisadas (queda tu nombre y la fecha). Editar, publicar, ocultar y borrar es del dueño.</div>
     <div class="ds-barra" id="ds-secciones" style="border-bottom:1px solid rgba(148,163,184,.2);gap:0.25rem">
       <button id="ds-boton-subsidios" onclick="dsSeccion('subsidios')" class="ds-seccion-btn ds-activa sidebar-text">Subsidios</button>
       <button id="ds-boton-guias" onclick="dsSeccion('guias')" class="ds-seccion-btn sidebar-text">Guías</button>
@@ -477,7 +478,7 @@
           <h2 class="text-xl font-semibold val-text">Glosario</h2>
           <p class="text-xs sub-text mt-1">Cada término necesita una definición y una fuente oficial que la respalde.</p>
         </div>
-        <button onclick="glMostrarForm(0)" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Nuevo término</button>
+        <button onclick="glMostrarForm(0)" class="ds-solo-dueno flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Nuevo término</button>
       </div>
       <div id="gl-form" class="hidden"></div>
       <div class="glass rounded-2xl overflow-hidden">
@@ -1651,7 +1652,7 @@
           <td class="px-5 py-3">${dsChip(f.estado)}</td>
           <td class="px-5 py-3 text-xs">${pend}</td>
           <td class="px-5 py-3 text-xs val-text">${f.revisado_en ? esc(f.revisado_en) : '—'}<div class="ds-sub">${esc(f.revisado_por || '')}</div></td>
-          <td class="px-5 py-3"><button onclick="dsAbrir(${Number(f.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>${ver}</td>
+          <td class="px-5 py-3"><button onclick="dsAbrir(${Number(f.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">${dsSoloRevision() ? 'Revisar' : 'Editar'}</button>${ver}</td>
         </tr>`
       }).join('')
     } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; dsError(e) }
@@ -1764,7 +1765,7 @@
           <button onclick="dsDatosVerificarTodos()" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition" title="Para cuando ya leíste cada dato en su fuente">Verificar todos los datos</button></div>
         <p class="ds-ayuda sub-text">Cada dato necesita una fuente oficial y quedar «verificado» después de que lo compares con ella. Si cambias su valor, su cifra, su unidad, su llamado o su fuente, vuelve a «por confirmar».</p>
         ${datos.map(d => dsFilaDato(d)).join('') || '<p class="ds-ayuda sub-text">Todavía no hay datos.</p>'}
-        <div class="ds-grid" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
+        <div class="ds-grid ds-agregar" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
           <div class="ds-ancho"><span class="ds-lbl">Agregar un dato</span></div>
           <div><label for="dsd-nuevo-etiqueta">Dato</label><input id="dsd-nuevo-etiqueta" placeholder="Ahorro mínimo" /></div>
           <div><label for="dsd-nuevo-clave">Clave</label><input id="dsd-nuevo-clave" placeholder="ahorro_minimo" /></div>
@@ -1781,7 +1782,7 @@
         <h3 class="val-text">Textos de la ficha</h3>
         <p class="ds-ayuda sub-text">Párrafos separados por una línea en blanco. Una línea que empieza con «- » es una viñeta.</p>
         ${bloques.map(b => dsFilaBloque(b)).join('') || '<p class="ds-ayuda sub-text">Todavía no hay textos.</p>'}
-        <div class="ds-grid" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
+        <div class="ds-grid ds-agregar" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
           <div class="ds-ancho"><span class="ds-lbl">Agregar un texto</span></div>
           <div><label for="dsb-nuevo-clave">Tipo</label><select id="dsb-nuevo-clave">${dsOpciones(DS_BLOQUES, 'para_quien')}</select></div>
           <div><label for="dsb-nuevo-titulo">Título</label><input id="dsb-nuevo-titulo" /></div>
@@ -1947,7 +1948,7 @@
           <td class="px-5 py-3">${dsChip(g.estado)}</td>
           <td class="px-5 py-3 text-xs">${pend}</td>
           <td class="px-5 py-3 text-xs val-text">${g.revisado_en ? esc(g.revisado_en) : '—'}<div class="ds-sub">${esc(g.revisado_por || '')}</div></td>
-          <td class="px-5 py-3"><button onclick="gdAbrir(${Number(g.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>${ver}</td>
+          <td class="px-5 py-3"><button onclick="gdAbrir(${Number(g.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">${dsSoloRevision() ? 'Revisar' : 'Editar'}</button>${ver}</td>
         </tr>`
       }).join('')
     } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; dsError(e) }
@@ -2050,7 +2051,7 @@
           <td class="px-5 py-3 text-xs val-text" style="max-width:28rem">${esc((t.definicion || '').slice(0, 140))}${(t.definicion || '').length > 140 ? '…' : ''}</td>
           <td class="px-5 py-3">${dsChip(t.estado)}</td>
           <td class="px-5 py-3 text-xs">${t.bloqueantes.length ? `<span class="ds-mal">${t.bloqueantes.length} por resolver</span>` : '<span class="sub-text">Lista</span>'}</td>
-          <td class="px-5 py-3"><button onclick="glMostrarForm(${Number(t.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button></td>
+          <td class="px-5 py-3"><button onclick="glMostrarForm(${Number(t.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">${dsSoloRevision() ? 'Revisar' : 'Editar'}</button></td>
         </tr>`).join('')
     } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; dsError(e) }
   }
@@ -2102,6 +2103,24 @@
     if (!confirm('Se borrará el término. ¿Continuar?')) return
     try { await dsApi('DELETE', `/glosario/${id}`); toast('Término borrado'); await cargarGlosario() } catch (e) { dsError(e) }
   }
+
+  // ── Modo revisión (persona administradora) ───────────────────────────────────
+  // Puede ver todo, verificar datos y marcar revisada. Lo demás (editar, publicar, ocultar, borrar, fuentes) es del dueño: se oculta aquí y el servidor lo rechaza con 403.
+  const DS_PERMITIDOS_REVISION = ['dsSeccion', 'dsAbrir', 'dsVolver', 'dsRevisada', 'dsVistaPrevia', 'dsDatosVerificarTodos', 'dsDatoVerificar',
+                                  'gdAbrir', 'gdVolver', 'gdRevisada', 'gdVistaPrevia', 'glMostrarForm', 'glOcultarForm']
+  function dsSoloRevision() { return !!_perfil && _perfil.rol !== 'owner' }
+  function dsModoRevision() {
+    if (!dsSoloRevision()) return
+    const panel = document.getElementById('panel-subsidios')
+    document.getElementById('ds-aviso-revision').classList.remove('hidden')
+    panel.querySelectorAll('[onclick]').forEach(el => {
+      const m = (el.getAttribute('onclick') || '').match(/^(\w+)\(/)
+      if (m && !DS_PERMITIDOS_REVISION.includes(m[1])) el.classList.add('hidden')
+    })
+    panel.querySelectorAll('#ds-editor input, #ds-editor select, #ds-editor textarea, #gd-editor input, #gd-editor select, #gd-editor textarea, #gl-form input, #gl-form select, #gl-form textarea').forEach(el => { el.disabled = true })
+    panel.querySelectorAll('.ds-agregar, .ds-solo-dueno').forEach(el => el.classList.add('hidden'))
+  }
+  new MutationObserver(dsModoRevision).observe(document.getElementById('panel-subsidios'), { childList: true, subtree: true })
 
   init();
 </script>

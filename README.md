@@ -164,6 +164,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   valida los nombres y arma el enlace a la ficha ella misma (no usa la ruta que venga en los datos).
 - Fuera de alcance (opción C, no hecha): guardar el avance en la cuenta. `/api/progreso` ya existe pero la página no lo usa.
 
+## Rol revisor en el panel del directorio (persona administradora)
+- Editar, publicar, ocultar, archivar, borrar y manejar fuentes sigue siendo **solo del dueño**. Una persona con rol **administrador** actúa como **revisora**: ve todo (borradores y vista previa) y puede **verificar datos**
+  («Verificar» y «Verificar todos los datos») y **marcar revisadas** fichas y guías; queda su nombre y la fecha. Quien revisa no publica. Un ejecutivo no accede a nada de esto.
+- Servidor: doce rutas de `/api/directorio/...` aceptan dueño o administrador (`_revisor` en `app/routers/directorio_admin.py`); el resto exige al dueño (403 «Solo el dueño»). El panel (`frontend/admin.html`) muestra el
+  «Modo revisión»: oculta lo que solo puede hacer el dueño y bloquea los campos; si alguien llama a la API a mano, el servidor igual responde 403.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen
