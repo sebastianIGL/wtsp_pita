@@ -44,6 +44,33 @@
     ::-webkit-scrollbar { width:6px; }
     ::-webkit-scrollbar-thumb { border-radius:3px; background:#334155; }
     input:focus, textarea:focus, select:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
+
+    /* ── Directorio de subsidios (editor) ───────────────────────────────────── */
+    .ds-card { border-radius: 1rem; padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+    .ds-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.2rem; }
+    .ds-ayuda { font-size: 0.78rem; margin-bottom: 0.8rem; }
+    .ds-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.7rem 0.9rem; }
+    .ds-grid .ds-ancho { grid-column: 1 / -1; }
+    .ds-grid label, .ds-lbl { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; color: #94a3b8; }
+    .ds-grid input, .ds-grid select, .ds-grid textarea { width: 100%; padding: 0.45rem 0.6rem; border-radius: 0.5rem; font-size: 0.85rem; }
+    .ds-grid textarea { min-height: 7rem; resize: vertical; line-height: 1.45; }
+    .ds-chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 9999px; font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
+    .ds-borrador { background: #334155; color: #cbd5e1; } .ds-publicado { background: #14532d; color: #86efac; } .ds-archivado { background: #3f3f46; color: #a1a1aa; }
+    .ds-verificado { background: #14532d; color: #86efac; } .ds-por_confirmar { background: #78350f; color: #fcd34d; }
+    html:not(.dark) .ds-borrador { background: #e2e8f0; color: #475569; } html:not(.dark) .ds-publicado, html:not(.dark) .ds-verificado { background: #dcfce7; color: #166534; }
+    html:not(.dark) .ds-archivado { background: #e4e4e7; color: #52525b; } html:not(.dark) .ds-por_confirmar { background: #fef3c7; color: #92400e; }
+    .ds-pend { border: 1px solid; border-radius: 0.75rem; padding: 0.8rem 1rem; font-size: 0.85rem; margin-bottom: 1rem; }
+    .ds-pend ul { margin: 0.35rem 0 0 1.1rem; list-style: disc; }
+    .ds-pend.ds-no { border-color: rgba(248,113,113,.5); background: rgba(248,113,113,.07); } .ds-pend.ds-si { border-color: rgba(74,222,128,.5); background: rgba(74,222,128,.07); }
+    .ds-mal { color: #f87171; } .ds-aviso { color: #fbbf24; }
+    html:not(.dark) .ds-mal { color: #b91c1c; } html:not(.dark) .ds-aviso { color: #b45309; }
+    .ds-barra { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1rem; }
+    .ds-sep { flex: 1; }
+    .ds-chk { display: flex; gap: 0.45rem; align-items: flex-start; font-size: 0.82rem; padding: 0.15rem 0; cursor: pointer; }
+    .ds-chk input { width: auto; margin-top: 0.2rem; }
+    .ds-chk small { opacity: 0.7; }
+    .ds-acciones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
+    .ds-sub { font-size: 0.72rem; opacity: 0.7; }
   </style>
 <link rel="stylesheet" href="/css/crm.css" />
 </head>
@@ -77,6 +104,11 @@
         class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
         <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2M5 21h2m0 0h10M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 8v-4a1 1 0 011-1h0a1 1 0 011 1v4"/></svg>
         Inmobiliarias
+      </button>
+      <button onclick="mostrarTab('subsidios')" id="tab-subsidios"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        Subsidios
       </button>
       <div class="my-2 border-t header-border"></div>
       <button onclick="mostrarTab('logs')" id="tab-logs"
@@ -352,6 +384,48 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- TAB: SUBSIDIOS (directorio) -->
+  <div id="panel-subsidios" class="hidden">
+    <div id="ds-lista">
+      <div class="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        <div>
+          <h2 class="text-xl font-semibold val-text">Directorio de subsidios</h2>
+          <p class="text-xs sub-text mt-1">Cada dato lleva su fuente oficial. Una ficha solo se publica con todos sus datos verificados y revisada hace menos de 90 días.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="dsFuentesMostrar()" class="text-sm px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Fuentes oficiales</button>
+          <button onclick="dsNuevaMostrar()" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Nueva ficha</button>
+        </div>
+      </div>
+      <div id="ds-nueva" class="hidden glass ds-card">
+        <h3 class="val-text">Nueva ficha (nace en borrador)</h3>
+        <p class="ds-ayuda sub-text">Después podrás agregar sus datos, bloques de texto y fuentes.</p>
+        <div class="ds-grid">
+          <div><label for="dsn-slug">Dirección (slug)</label><input id="dsn-slug" placeholder="ds1-tramo-2" /></div>
+          <div><label for="dsn-corto">Nombre corto</label><input id="dsn-corto" placeholder="DS1 Tramo 2" /></div>
+          <div><label for="dsn-oficial">Nombre oficial</label><input id="dsn-oficial" placeholder="Subsidio para Sectores Medios, Tramo 2" /></div>
+          <div><label for="dsn-grupo">Grupo</label><select id="dsn-grupo"></select></div>
+          <div class="ds-ancho"><label for="dsn-resumen">Resumen (en una frase)</label><input id="dsn-resumen" /></div>
+        </div>
+        <div class="ds-acciones">
+          <button onclick="dsCrear()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Crear ficha</button>
+          <button onclick="dsNuevaMostrar()" class="text-sm px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Cancelar</button>
+        </div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="thead-row text-xs uppercase tracking-wider border-b">
+            <th class="text-left px-5 py-3">Ficha</th><th class="text-left px-5 py-3">Grupo</th><th class="text-left px-5 py-3">Estado</th>
+            <th class="text-left px-5 py-3">Pendientes</th><th class="text-left px-5 py-3">Revisada</th><th class="text-left px-5 py-3">Acciones</th>
+          </tr></thead>
+          <tbody id="ds-tabla"><tr><td colspan="6" class="text-center empty-text py-10">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div id="ds-fuentes" class="hidden mt-6"></div>
+    </div>
+    <div id="ds-editor" class="hidden"></div>
   </div>
   </main>
 </div>
@@ -648,7 +722,7 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'inmobiliarias', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping'].forEach(t => {
+    ['usuarios', 'inmobiliarias', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping', 'subsidios'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-violet-600', t === tab);
@@ -662,6 +736,7 @@
     if (tab === 'logswa') cargarLogsWhatsapp();
     if (tab === 'ejecutivos') cargarEjecutivos();
     if (tab === 'scraping') cargarLogsScraping();
+    if (tab === 'subsidios') cargarSubsidios();
   }
 
   // ── Ejecutivos bancarios ──────────────────────────────────────────────────
@@ -1445,6 +1520,324 @@
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { cerrarModalCrear(); cerrarModalEditar(); }
   });
+
+  // ── Directorio de subsidios (editor) ─────────────────────────────────────────
+  // Todo texto que viene del servidor pasa por esc() antes de llegar a innerHTML; los botones solo reciben números (ids).
+  const DS_GRUPOS = { comprar: 'Comprar vivienda', construir: 'Construir vivienda', arrendar: 'Arrendar', mejorar: 'Mejorar vivienda y barrio', rural: 'Programa rural', valech: 'Informe Valech', otro: 'Otros subsidios' }
+  const DS_ALCANCES = { completa: 'Completa', ligera: 'Ligera (otros subsidios)' }
+  const DS_POSTULACION = { por_llamados: 'Por llamados del MINVU', todo_el_ano: 'Todo el año', otra: 'Otra forma' }
+  const DS_UNIDADES = { UF: 'UF', CLP: 'Pesos', porcentaje: 'Porcentaje', meses: 'Meses', anios: 'Años', texto: 'Texto' }
+  const DS_TIPOS = { ficha: 'Ficha oficial', pagina_llamado: 'Página del llamado', folleto: 'Folleto', decreto: 'Decreto', resolucion: 'Resolución', otro: 'Otro documento' }
+  const DS_BLOQUES = { para_quien: 'Para quién es', que_entrega: 'Qué entrega', antes_de_postular: 'Antes de postular', como_se_postula: 'Cómo se postula',
+                       despues_de_ganarlo: 'Después de ganarlo', compatibilidades: 'Compatibilidades', errores_frecuentes: 'Errores frecuentes', otro: 'Otro' }
+  const DS_ESTADOS = { borrador: 'Borrador', publicado: 'Publicado', archivado: 'Archivado', verificado: 'Verificado', por_confirmar: 'Por confirmar' }
+  let _dsFuentes = []
+  let _dsActual = null
+
+  async function dsApi(metodo, ruta, cuerpo) {
+    const res = await fetch('/api/directorio' + ruta, { method: metodo, headers: authHeaders(), body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) })
+    const texto = await res.text()
+    if (!res.ok) throw new Error(texto || ('Error ' + res.status))
+    return texto ? JSON.parse(texto) : null
+  }
+  function dsError(e) { toast(e.message || 'Ocurrió un error', 'error') }
+  function dsOpciones(mapa, elegido) {
+    return Object.entries(mapa).map(([k, v]) => `<option value="${esc(k)}" ${k === elegido ? 'selected' : ''}>${esc(v)}</option>`).join('')
+  }
+  function dsChip(estado) { return `<span class="ds-chip ds-${esc(estado)}">${esc(DS_ESTADOS[estado] || estado)}</span>` }
+  function dsValor(id) { return document.getElementById(id).value }
+  function dsNumero(id) {
+    const v = dsValor(id).trim().replace(',', '.')
+    if (v === '') return null
+    const n = Number(v)
+    if (!Number.isFinite(n)) throw new Error('El valor numérico debe ser un número.')
+    return n
+  }
+  function dsFuentesMarcadas(contenedor) {
+    return [...document.querySelectorAll(`#${contenedor} input[type=checkbox]:checked`)].map(i => Number(i.value))
+  }
+  function dsChecksFuentes(contenedor, marcadas) {
+    if (!_dsFuentes.length) return '<p class="ds-ayuda sub-text">Todavía no hay fuentes: agrégalas en «Fuentes oficiales».</p>'
+    return `<div id="${contenedor}">` + _dsFuentes.map(f =>
+      `<label class="ds-chk"><input type="checkbox" value="${Number(f.id)}" ${(marcadas || []).includes(f.id) ? 'checked' : ''} /><span>[${Number(f.id)}] ${esc(f.titulo)} <small>${esc(f.organismo)}</small></span></label>`).join('') + '</div>'
+  }
+  function dsSelectFuente(id, elegida) {
+    return `<select id="${id}"><option value="">— elige la fuente —</option>` + _dsFuentes.map(f =>
+      `<option value="${Number(f.id)}" ${f.id === elegida ? 'selected' : ''}>[${Number(f.id)}] ${esc(f.titulo)}</option>`).join('') + '</select>'
+  }
+  async function dsCargarFuentes() { _dsFuentes = await dsApi('GET', '/fuentes') || [] }
+
+  // ── Lista ────────────────────────────────────────────────────────────────────
+  async function cargarSubsidios() {
+    document.getElementById('ds-lista').classList.remove('hidden')
+    document.getElementById('ds-editor').classList.add('hidden')
+    document.getElementById('dsn-grupo').innerHTML = dsOpciones(DS_GRUPOS, 'comprar')
+    const tbody = document.getElementById('ds-tabla')
+    try {
+      const [filas] = await Promise.all([dsApi('GET', '/subsidios'), dsCargarFuentes()])
+      if (!filas.length) { tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Todavía no hay fichas. Crea la primera con «Nueva ficha».</td></tr>'; return }
+      tbody.innerHTML = filas.map(f => {
+        const graves = f.bloqueantes.length, avisos = f.avisos.length
+        const pend = graves ? `<span class="ds-mal">${graves} por resolver</span>` : (avisos ? `<span class="ds-aviso">Revisión pendiente</span>` : '<span class="sub-text">Lista</span>')
+        const ver = f.estado === 'publicado' ? ` <a href="/subsidios/${encodeURIComponent(f.slug)}" target="_blank" rel="noopener" class="text-xs sidebar-text hover:text-violet-400 underline">Ver en el sitio</a>` : ''
+        return `<tr class="trow border-b transition">
+          <td class="px-5 py-3"><div class="font-medium val-text">${esc(f.nombre_corto)}</div><div class="ds-sub">${esc(f.nombre_oficial)}</div></td>
+          <td class="px-5 py-3 val-text">${esc(DS_GRUPOS[f.grupo] || f.grupo)}</td>
+          <td class="px-5 py-3">${dsChip(f.estado)}</td>
+          <td class="px-5 py-3 text-xs">${pend}</td>
+          <td class="px-5 py-3 text-xs val-text">${f.revisado_en ? esc(f.revisado_en) : '—'}<div class="ds-sub">${esc(f.revisado_por || '')}</div></td>
+          <td class="px-5 py-3"><button onclick="dsAbrir(${Number(f.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>${ver}</td>
+        </tr>`
+      }).join('')
+    } catch (e) { tbody.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; dsError(e) }
+  }
+  function dsNuevaMostrar() { document.getElementById('ds-nueva').classList.toggle('hidden') }
+  async function dsCrear() {
+    try {
+      const f = await dsApi('POST', '/subsidios', { slug: dsValor('dsn-slug'), nombre_corto: dsValor('dsn-corto'), nombre_oficial: dsValor('dsn-oficial'), grupo: dsValor('dsn-grupo'), resumen: dsValor('dsn-resumen') })
+      toast('Ficha creada en borrador')
+      await dsAbrir(f.id)
+    } catch (e) { dsError(e) }
+  }
+
+  // ── Fuentes oficiales ────────────────────────────────────────────────────────
+  async function dsFuentesMostrar() {
+    const caja = document.getElementById('ds-fuentes')
+    if (!caja.classList.contains('hidden')) { caja.classList.add('hidden'); return }
+    try { await dsCargarFuentes() } catch (e) { dsError(e); return }
+    const hoy = new Date().toISOString().slice(0, 10)
+    caja.innerHTML = `<div class="glass ds-card">
+      <h3 class="val-text">Fuentes oficiales</h3>
+      <p class="ds-ayuda sub-text">Solo se aceptan enlaces https de sitios del Estado (gob.cl, bcn.cl, minvu.cl, cmfchile.cl, sii.cl). El enlace de una fuente no se edita: si cambia, crea otra.</p>
+      ${_dsFuentes.map(f => `<div class="ds-grid" style="border-top:1px solid rgba(148,163,184,.2);padding:0.7rem 0">
+        <div class="ds-ancho"><span class="ds-lbl">[${Number(f.id)}]</span><a href="${esc(f.url)}" target="_blank" rel="noopener" class="text-sm underline val-text" style="word-break:break-all">${esc(f.url)}</a></div>
+        <div><label for="dsf-${Number(f.id)}-titulo">Título</label><input id="dsf-${Number(f.id)}-titulo" value="${esc(f.titulo)}" /></div>
+        <div><label for="dsf-${Number(f.id)}-organismo">Organismo</label><input id="dsf-${Number(f.id)}-organismo" value="${esc(f.organismo)}" /></div>
+        <div><label for="dsf-${Number(f.id)}-tipo">Tipo</label><select id="dsf-${Number(f.id)}-tipo">${dsOpciones(DS_TIPOS, f.tipo)}</select></div>
+        <div><label for="dsf-${Number(f.id)}-leida">Leída el</label><input id="dsf-${Number(f.id)}-leida" type="date" value="${esc(f.leida_en || '')}" /></div>
+        <div style="align-self:end"><button onclick="dsFuenteGuardar(${Number(f.id)})" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Guardar</button></div>
+      </div>`).join('')}
+      <div class="ds-grid" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.4rem">
+        <div class="ds-ancho"><span class="ds-lbl">Agregar una fuente</span></div>
+        <div class="ds-ancho"><label for="dsf-nueva-url">Enlace (https)</label><input id="dsf-nueva-url" placeholder="https://www.minvu.gob.cl/…" /></div>
+        <div><label for="dsf-nueva-titulo">Título</label><input id="dsf-nueva-titulo" /></div>
+        <div><label for="dsf-nueva-organismo">Organismo</label><input id="dsf-nueva-organismo" placeholder="MINVU" /></div>
+        <div><label for="dsf-nueva-tipo">Tipo</label><select id="dsf-nueva-tipo">${dsOpciones(DS_TIPOS, 'ficha')}</select></div>
+        <div><label for="dsf-nueva-leida">Leída el</label><input id="dsf-nueva-leida" type="date" value="${hoy}" /></div>
+        <div style="align-self:end"><button onclick="dsFuenteCrear()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Agregar</button></div>
+      </div></div>`
+    caja.classList.remove('hidden')
+  }
+  async function dsFuenteCrear() {
+    try {
+      await dsApi('POST', '/fuentes', { url: dsValor('dsf-nueva-url'), titulo: dsValor('dsf-nueva-titulo'), organismo: dsValor('dsf-nueva-organismo'), tipo: dsValor('dsf-nueva-tipo'), leida_en: dsValor('dsf-nueva-leida') || null })
+      toast('Fuente agregada')
+      document.getElementById('ds-fuentes').classList.add('hidden')
+      await dsFuentesMostrar()
+    } catch (e) { dsError(e) }
+  }
+  async function dsFuenteGuardar(id) {
+    try {
+      await dsApi('PATCH', `/fuentes/${id}`, { titulo: dsValor(`dsf-${id}-titulo`), organismo: dsValor(`dsf-${id}-organismo`), tipo: dsValor(`dsf-${id}-tipo`), leida_en: dsValor(`dsf-${id}-leida`) || null })
+      toast('Fuente guardada')
+    } catch (e) { dsError(e) }
+  }
+
+  // ── Editor de una ficha ──────────────────────────────────────────────────────
+  async function dsAbrir(id) {
+    try {
+      await dsCargarFuentes()
+      _dsActual = await dsApi('GET', `/subsidios/${id}`)
+    } catch (e) { dsError(e); return }
+    dsPintar()
+  }
+  function dsVolver() { cargarSubsidios() }
+
+  function dsPintar() {
+    const { subsidio: s, bloques, datos, bloqueantes, avisos } = _dsActual
+    document.getElementById('ds-lista').classList.add('hidden')
+    const ed = document.getElementById('ds-editor')
+    const pendientes = [...bloqueantes.map(p => `<li class="ds-mal">${esc(p)}</li>`), ...avisos.map(p => `<li class="ds-aviso">${esc(p)}</li>`)]
+    const hoyIso = new Date().toISOString().slice(0, 10)
+    ed.innerHTML = `
+      <div class="ds-barra">
+        <button onclick="dsVolver()" class="text-sm px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">← Fichas</button>
+        <h2 class="text-xl font-semibold val-text">${esc(s.nombre_corto)}</h2> ${dsChip(s.estado)}
+        <span class="ds-sep"></span>
+        <button onclick="dsRevisada()" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition" title="Registra que hoy releíste los datos de la ficha">Marcar revisada hoy</button>
+        <button onclick="dsVistaPrevia()" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Vista previa</button>
+        ${s.estado === 'publicado'
+          ? '<button onclick="dsEstado(\'borrador\')" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Ocultar del sitio</button>'
+          : '<button onclick="dsEstado(\'publicado\')" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Publicar</button>'}
+        ${s.estado !== 'archivado' ? '<button onclick="dsEstado(\'archivado\')" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Archivar</button>' : ''}
+        ${s.estado === 'borrador' ? '<button onclick="dsBorrar()" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Borrar ficha</button>' : ''}
+      </div>
+      <div class="ds-pend ${pendientes.length ? 'ds-no' : 'ds-si'} val-text">
+        ${pendientes.length ? '<strong>Para poder publicarla falta:</strong><ul>' + pendientes.join('') + '</ul>' : '<strong>Todo listo:</strong> se puede publicar.'}
+      </div>
+      <p class="ds-sub mb-3">Última revisión: ${s.revisado_en ? esc(s.revisado_en) : 'nunca'}${s.revisado_por ? ' · ' + esc(s.revisado_por) : ''}${s.estado === 'publicado' ? ` · <a href="/subsidios/${encodeURIComponent(s.slug)}" target="_blank" rel="noopener" class="underline">ver en el sitio</a>` : ''}</p>
+
+      <div class="glass ds-card">
+        <h3 class="val-text">La ficha</h3>
+        <div class="ds-grid">
+          <div><label for="dse-slug">Dirección (slug)</label><input id="dse-slug" value="${esc(s.slug)}" ${s.estado === 'publicado' ? 'disabled title="Oculta la ficha para cambiar su dirección"' : ''} /></div>
+          <div><label for="dse-corto">Nombre corto</label><input id="dse-corto" value="${esc(s.nombre_corto)}" /></div>
+          <div><label for="dse-oficial">Nombre oficial</label><input id="dse-oficial" value="${esc(s.nombre_oficial)}" /></div>
+          <div><label for="dse-decreto">Decreto</label><input id="dse-decreto" value="${esc(s.decreto || '')}" /></div>
+          <div><label for="dse-grupo">Grupo</label><select id="dse-grupo">${dsOpciones(DS_GRUPOS, s.grupo)}</select></div>
+          <div><label for="dse-alcance">Alcance</label><select id="dse-alcance">${dsOpciones(DS_ALCANCES, s.alcance)}</select></div>
+          <div><label for="dse-post">Cómo se postula</label><select id="dse-post">${dsOpciones(DS_POSTULACION, s.postulacion)}</select></div>
+          <div><label for="dse-orden">Orden</label><input id="dse-orden" type="number" min="0" max="10000" value="${Number(s.orden)}" /></div>
+          <div class="ds-ancho"><label for="dse-resumen">Resumen (en una frase)</label><textarea id="dse-resumen" style="min-height:3.5rem">${esc(s.resumen)}</textarea></div>
+          <div class="ds-ancho"><span class="ds-lbl">Fuentes que respaldan la ficha en general</span>${dsChecksFuentes('dse-fuentes', s.fuentes)}</div>
+        </div>
+        <div class="ds-acciones"><button onclick="dsGuardarFicha()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Guardar la ficha</button></div>
+      </div>
+
+      <div class="glass ds-card">
+        <h3 class="val-text">Datos clave</h3>
+        <p class="ds-ayuda sub-text">Cada dato necesita una fuente oficial y quedar «verificado» después de que lo compares con ella. Si cambias su valor, su cifra, su unidad, su llamado o su fuente, vuelve a «por confirmar».</p>
+        ${datos.map(d => dsFilaDato(d)).join('') || '<p class="ds-ayuda sub-text">Todavía no hay datos.</p>'}
+        <div class="ds-grid" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
+          <div class="ds-ancho"><span class="ds-lbl">Agregar un dato</span></div>
+          <div><label for="dsd-nuevo-etiqueta">Dato</label><input id="dsd-nuevo-etiqueta" placeholder="Ahorro mínimo" /></div>
+          <div><label for="dsd-nuevo-clave">Clave</label><input id="dsd-nuevo-clave" placeholder="ahorro_minimo" /></div>
+          <div><label for="dsd-nuevo-valor_texto">Valor que se muestra</label><input id="dsd-nuevo-valor_texto" placeholder="10 UF" /></div>
+          <div><label for="dsd-nuevo-valor_numero">Valor numérico</label><input id="dsd-nuevo-valor_numero" placeholder="10" /></div>
+          <div><label for="dsd-nuevo-unidad">Unidad</label><select id="dsd-nuevo-unidad">${dsOpciones(DS_UNIDADES, 'UF')}</select></div>
+          <div><label for="dsd-nuevo-llamado">Llamado (si aplica)</label><input id="dsd-nuevo-llamado" /></div>
+          <div><label for="dsd-nuevo-fuente">Fuente</label>${dsSelectFuente('dsd-nuevo-fuente', null)}</div>
+          <div style="align-self:end"><button onclick="dsDatoCrear()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Agregar dato</button></div>
+        </div>
+      </div>
+
+      <div class="glass ds-card">
+        <h3 class="val-text">Textos de la ficha</h3>
+        <p class="ds-ayuda sub-text">Párrafos separados por una línea en blanco. Una línea que empieza con «- » es una viñeta.</p>
+        ${bloques.map(b => dsFilaBloque(b)).join('') || '<p class="ds-ayuda sub-text">Todavía no hay textos.</p>'}
+        <div class="ds-grid" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
+          <div class="ds-ancho"><span class="ds-lbl">Agregar un texto</span></div>
+          <div><label for="dsb-nuevo-clave">Tipo</label><select id="dsb-nuevo-clave">${dsOpciones(DS_BLOQUES, 'para_quien')}</select></div>
+          <div><label for="dsb-nuevo-titulo">Título</label><input id="dsb-nuevo-titulo" /></div>
+          <div><label for="dsb-nuevo-orden">Orden</label><input id="dsb-nuevo-orden" type="number" min="0" max="10000" value="${(bloques.length + 1) * 10}" /></div>
+          <div class="ds-ancho"><label for="dsb-nuevo-cuerpo">Texto</label><textarea id="dsb-nuevo-cuerpo"></textarea></div>
+          <div class="ds-ancho"><span class="ds-lbl">Fuentes del texto</span>${dsChecksFuentes('dsb-nuevo-fuentes', [])}</div>
+          <div><button onclick="dsBloqueCrear()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Agregar texto</button></div>
+        </div>
+      </div>`
+    ed.classList.remove('hidden')
+    window.scrollTo(0, 0)
+  }
+
+  function dsFilaDato(d) {
+    const i = Number(d.id)
+    return `<div class="ds-grid" style="border-top:1px solid rgba(148,163,184,.2);padding:0.8rem 0">
+      <div><label for="dsd-${i}-etiqueta">Dato</label><input id="dsd-${i}-etiqueta" value="${esc(d.etiqueta)}" /></div>
+      <div><label for="dsd-${i}-clave">Clave</label><input id="dsd-${i}-clave" value="${esc(d.clave)}" /></div>
+      <div><label for="dsd-${i}-valor_texto">Valor que se muestra</label><input id="dsd-${i}-valor_texto" value="${esc(d.valor_texto)}" /></div>
+      <div><label for="dsd-${i}-valor_numero">Valor numérico</label><input id="dsd-${i}-valor_numero" value="${d.valor_numero === null || d.valor_numero === undefined ? '' : esc(d.valor_numero)}" /></div>
+      <div><label for="dsd-${i}-unidad">Unidad</label><select id="dsd-${i}-unidad">${dsOpciones(DS_UNIDADES, d.unidad)}</select></div>
+      <div><label for="dsd-${i}-llamado">Llamado</label><input id="dsd-${i}-llamado" value="${esc(d.llamado || '')}" /></div>
+      <div><label for="dsd-${i}-fuente">Fuente</label>${dsSelectFuente(`dsd-${i}-fuente`, d.fuente_id)}</div>
+      <div><span class="ds-lbl">Estado</span>${dsChip(d.estado)}<div class="ds-sub">${d.revisado_en ? esc(d.revisado_en) + ' · ' + esc(d.revisado_por || '') : 'sin verificar'}</div></div>
+      <div class="ds-ancho ds-acciones" style="margin-top:0">
+        <button onclick="dsDatoGuardar(${i})" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Guardar</button>
+        <button onclick="dsDatoVerificar(${i})" class="text-xs px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white transition">Verificar (ya lo comparé con la fuente)</button>
+        <button onclick="dsDatoBorrar(${i})" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Borrar</button>
+      </div></div>`
+  }
+  function dsFilaBloque(b) {
+    const i = Number(b.id)
+    return `<div class="ds-grid" style="border-top:1px solid rgba(148,163,184,.2);padding:0.8rem 0">
+      <div><label for="dsb-${i}-clave">Tipo</label><select id="dsb-${i}-clave">${dsOpciones(DS_BLOQUES, b.clave)}</select></div>
+      <div><label for="dsb-${i}-titulo">Título</label><input id="dsb-${i}-titulo" value="${esc(b.titulo)}" /></div>
+      <div><label for="dsb-${i}-orden">Orden</label><input id="dsb-${i}-orden" type="number" min="0" max="10000" value="${Number(b.orden)}" /></div>
+      <div class="ds-ancho"><label for="dsb-${i}-cuerpo">Texto</label><textarea id="dsb-${i}-cuerpo">${esc(b.cuerpo)}</textarea></div>
+      <div class="ds-ancho"><span class="ds-lbl">Fuentes del texto</span>${dsChecksFuentes(`dsb-${i}-fuentes`, b.fuentes)}</div>
+      <div class="ds-ancho ds-acciones" style="margin-top:0">
+        <button onclick="dsBloqueGuardar(${i})" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Guardar texto</button>
+        <button onclick="dsBloqueBorrar(${i})" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Borrar</button>
+      </div></div>`
+  }
+
+  // ── Acciones de la ficha ─────────────────────────────────────────────────────
+  async function dsGuardarFicha() {
+    const id = _dsActual.subsidio.id
+    const cambios = { nombre_corto: dsValor('dse-corto'), nombre_oficial: dsValor('dse-oficial'), decreto: dsValor('dse-decreto') || null, grupo: dsValor('dse-grupo'),
+                      alcance: dsValor('dse-alcance'), postulacion: dsValor('dse-post'), orden: Number(dsValor('dse-orden')), resumen: dsValor('dse-resumen'), fuentes: dsFuentesMarcadas('dse-fuentes') }
+    if (!document.getElementById('dse-slug').disabled) cambios.slug = dsValor('dse-slug')
+    try { await dsApi('PATCH', `/subsidios/${id}`, cambios); toast('Ficha guardada'); await dsAbrir(id) } catch (e) { dsError(e) }
+  }
+  async function dsRevisada() {
+    const id = _dsActual.subsidio.id
+    try { await dsApi('POST', `/subsidios/${id}/revisada`); toast('Marcada como revisada hoy'); await dsAbrir(id) } catch (e) { dsError(e) }
+  }
+  async function dsEstado(estado) {
+    const id = _dsActual.subsidio.id
+    if (estado === 'borrador' && !confirm('La ficha dejará de verse en el sitio. ¿Continuar?')) return
+    try { await dsApi('POST', `/subsidios/${id}/estado`, { estado }); toast(estado === 'publicado' ? 'Ficha publicada' : (estado === 'archivado' ? 'Ficha archivada' : 'Ficha oculta')); await dsAbrir(id) } catch (e) { dsError(e) }
+  }
+  async function dsBorrar() {
+    if (!confirm('Se borrará la ficha con sus datos y textos. ¿Continuar?')) return
+    try { await dsApi('DELETE', `/subsidios/${_dsActual.subsidio.id}`); toast('Ficha borrada'); await cargarSubsidios() } catch (e) { dsError(e) }
+  }
+  async function dsVistaPrevia() {
+    const w = window.open('', '_blank')
+    if (!w) { toast('Permite las ventanas emergentes para ver la vista previa', 'error'); return }
+    w.document.write('<p style="font-family:sans-serif;padding:2rem">Cargando la vista previa…</p>')
+    try {
+      const res = await fetch(`/api/directorio/subsidios/${_dsActual.subsidio.id}/vista-previa`, { headers: authHeaders() })
+      const html = await res.text()
+      if (!res.ok) { w.close(); toast(html || 'No se pudo cargar la vista previa', 'error'); return }
+      w.document.open(); w.document.write(html); w.document.close()
+    } catch (e) { w.close(); dsError(e) }
+  }
+
+  // datos
+  async function dsDatoCrear() {
+    try {
+      const fuente = dsValor('dsd-nuevo-fuente')
+      await dsApi('POST', `/subsidios/${_dsActual.subsidio.id}/datos`, { etiqueta: dsValor('dsd-nuevo-etiqueta'), clave: dsValor('dsd-nuevo-clave'), valor_texto: dsValor('dsd-nuevo-valor_texto'),
+        valor_numero: dsNumero('dsd-nuevo-valor_numero'), unidad: dsValor('dsd-nuevo-unidad'), llamado: dsValor('dsd-nuevo-llamado') || null, fuente_id: fuente ? Number(fuente) : null })
+      toast('Dato agregado (por confirmar)'); await dsAbrir(_dsActual.subsidio.id)
+    } catch (e) { dsError(e) }
+  }
+  async function dsDatoGuardar(id) {
+    try {
+      const fuente = dsValor(`dsd-${id}-fuente`)
+      const r = await dsApi('PATCH', `/datos/${id}`, { etiqueta: dsValor(`dsd-${id}-etiqueta`), clave: dsValor(`dsd-${id}-clave`), valor_texto: dsValor(`dsd-${id}-valor_texto`),
+        valor_numero: dsNumero(`dsd-${id}-valor_numero`), unidad: dsValor(`dsd-${id}-unidad`), llamado: dsValor(`dsd-${id}-llamado`) || null, fuente_id: fuente ? Number(fuente) : null })
+      toast(r && r.reabierto ? 'Guardado: el dato volvió a «por confirmar», verifícalo de nuevo' : 'Dato guardado')
+      await dsAbrir(_dsActual.subsidio.id)
+    } catch (e) { dsError(e) }
+  }
+  async function dsDatoVerificar(id) {
+    try { await dsApi('POST', `/datos/${id}/verificar`); toast('Dato verificado'); await dsAbrir(_dsActual.subsidio.id) } catch (e) { dsError(e) }
+  }
+  async function dsDatoBorrar(id) {
+    if (!confirm('¿Borrar este dato?')) return
+    try { await dsApi('DELETE', `/datos/${id}`); toast('Dato borrado'); await dsAbrir(_dsActual.subsidio.id) } catch (e) { dsError(e) }
+  }
+
+  // bloques
+  async function dsBloqueCrear() {
+    try {
+      await dsApi('POST', `/subsidios/${_dsActual.subsidio.id}/bloques`, { clave: dsValor('dsb-nuevo-clave'), titulo: dsValor('dsb-nuevo-titulo'), cuerpo: dsValor('dsb-nuevo-cuerpo'),
+        orden: Number(dsValor('dsb-nuevo-orden')), fuentes: dsFuentesMarcadas('dsb-nuevo-fuentes') })
+      toast('Texto agregado'); await dsAbrir(_dsActual.subsidio.id)
+    } catch (e) { dsError(e) }
+  }
+  async function dsBloqueGuardar(id) {
+    try {
+      await dsApi('PATCH', `/bloques/${id}`, { clave: dsValor(`dsb-${id}-clave`), titulo: dsValor(`dsb-${id}-titulo`), cuerpo: dsValor(`dsb-${id}-cuerpo`),
+        orden: Number(dsValor(`dsb-${id}-orden`)), fuentes: dsFuentesMarcadas(`dsb-${id}-fuentes`) })
+      toast('Texto guardado'); await dsAbrir(_dsActual.subsidio.id)
+    } catch (e) { dsError(e) }
+  }
+  async function dsBloqueBorrar(id) {
+    if (!confirm('¿Borrar este texto?')) return
+    try { await dsApi('DELETE', `/bloques/${id}`); toast('Texto borrado'); await dsAbrir(_dsActual.subsidio.id) } catch (e) { dsError(e) }
+  }
 
   init();
 </script>
