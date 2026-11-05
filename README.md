@@ -316,6 +316,7 @@ En “Getting Started” de WhatsApp Cloud API podés generar un token de prueba
   o el texto del código). Un error que ningún endpoint capturó también devuelve el mensaje genérico (y `X-Request-ID`).
   `EXPOSE_ERROR_DETAIL=true` (apagada por defecto, **solo para desarrollo**) agrega el detalle a la respuesta; el arranque
   avisa si está activa. Los `except` que antes tragaban el error en silencio ahora lo registran con contexto y código.
+  **Excepción (envío de correos por Gmail):** si Google rechaza el envío por un motivo de configuración que se puede corregir (la dirección no es un usuario de Google Workspace o es un alias, falta la delegación de dominio, Gmail sin habilitar, adjuntos muy pesados, cuota), la persona ve la causa con la dirección afectada (`No se pudo enviar el correo desde …`, estado 502) y el detalle de Google queda en el log; el resto de los errores de Gmail siguen siendo genéricos (`app/clients/gmail.py`).
 - **Firma del webhook de WhatsApp** (`app/core/webhook_signature.py`): Meta firma cada mensaje con el *App Secret* de la
   app (cabecera `X-Hub-Signature-256`). Sin `WA_APP_SECRET` no se comprueba nada y el arranque lo avisa. Con
   `WA_APP_SECRET` definido, cada POST se registra en el log como `Webhook: firma válida` / `firma invalida` / `firma
