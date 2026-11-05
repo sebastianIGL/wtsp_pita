@@ -100,6 +100,20 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 
+## Autorización explícita en los formularios públicos
+- Los tres formularios que guardan datos de personas exigen una **casilla sin marcar de antemano**, con el enlace a `/privacidad`: el
+  evaluador del paso 3 de `/` (`p3-acepta`, nombra los datos de situación económica; se pide tanto al crear la cuenta con contraseña como
+  por código), el contacto de empresas de `/` (`e-acepta`) y el newsletter (pie de todas las páginas: `footerAcepta`; blog: `blogAcepta`).
+  «Continuar sin guardar» no envía nada, así que no la pide.
+- **El servidor también la exige** (no solo el navegador): `POST /api/formulario` pide `consentimiento: true`, `POST /api/contacto`
+  `acepta_privacidad: true` y `POST /api/newsletter` `acepta: true`, y deben ser exactamente `true` (no `"true"`, `1` ni `"on"`); si no, responde
+  422 sin guardar nada ni enviar correos. Cualquier formulario nuevo que llame a estas rutas debe mandar su señal (una prueba lo vigila).
+- **Constancia:** tras guardar, `app/services/consentimientos.py` inserta una fila en `ConsentimientoPrivacidad` (origen, correo en
+  minúsculas, token del formulario si lo hay, versión de la política `legal.VERSION_POLITICA` y fecha). Es de «mejor esfuerzo»: si la tabla
+  no existe o la base falla solo deja un aviso en el log (sin el correo) y el formulario igual funciona. La constancia vive solo en la
+  tabla: no se agrega a ningún correo. **La migración `supabase/migraciones/2026-11-04_consentimiento_privacidad.sql` debe ejecutarse
+  antes de publicar**; si cambia el texto de la política hay que subir `VERSION_POLITICA` junto con `ACTUALIZADO`.
+
 ## CSS de Tailwind (Fase 10)
 - Tailwind **3.4.17** (la versión que servía el CDN) con el CLI standalone: <https://github.com/tailwindlabs/tailwindcss/releases/tag/v3.4.17>.
   El binario **no** va en el repo. El CSS compilado **sí** (`frontend/css/sitio.css` y `frontend/css/crm.css`); Railway no compila nada.

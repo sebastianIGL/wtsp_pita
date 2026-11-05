@@ -11,6 +11,7 @@ from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
 from app.core.utilidades import _normalize_phone, _utc_now_iso
+from app.services.consentimientos import registrar_consentimiento
 from app.services.prospectos import upsert_prospecto
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict
@@ -36,6 +37,9 @@ async def api_crear_formulario(request: Request):
     if not _rate_limit_ok(f"formulario_crear:{ip_cliente(request)}", max_req=10, window=60):
         return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)
     body = await request.json()
+    if body.get("consentimiento") is not True:
+        # El perfil incluye datos de la situación económica de la persona: sin su autorización explícita no se guarda nada.
+        return Response(content="Necesitamos tu autorización para guardar tu perfil", status_code=422)
     payload = {k: v for k, v in body.items() if k in _FORMULARIO_CAMPOS and v is not None}
     try:
         row = await _supabase_request(
@@ -43,7 +47,10 @@ async def api_crear_formulario(request: Request):
             json=payload,
             extra_headers={"Prefer": "return=representation"},
         )
-        return row[0] if isinstance(row, list) and row else row
+        creado = row[0] if isinstance(row, list) and row else row
+        await registrar_consentimiento("formulario", correo=payload.get("email"),
+                                       formulario_token=(creado or {}).get("token") if isinstance(creado, dict) else None)
+        return creado
     except Exception as exc:
         logger.warning("Error creando Formulario: %s", exc)
         return Response(content="Error al crear formulario", status_code=500)

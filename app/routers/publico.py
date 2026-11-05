@@ -12,6 +12,7 @@ from app.clients.supabase import _supabase_request
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
 from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
+from app.services.consentimientos import registrar_consentimiento
 from app.services.ficha_proyecto import asignar_slugs
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict, List
@@ -90,8 +91,11 @@ async def api_contacto(request: Request):
 
     if not nombre or not correo:
         return Response(content="nombre y correo son requeridos", status_code=422)
+    if body.get("acepta_privacidad") is not True:
+        return Response(content="Necesitamos tu autorización para usar estos datos", status_code=422)
 
     logger.info("📩 Contacto landing | %s | %s | %s", nombre, correo, empresa)
+    await registrar_consentimiento("contacto", correo=correo)
 
     destino = get_settings().email_admin
     if destino:
@@ -126,6 +130,8 @@ async def api_newsletter(request: Request):
 
     if not email or "@" not in email:
         return Response(content="email inválido", status_code=422)
+    if body.get("acepta") is not True:
+        return Response(content="Marca la casilla para suscribirte", status_code=422)
 
     logger.info("📧 Newsletter suscripción: %s", email)
 
@@ -136,6 +142,7 @@ async def api_newsletter(request: Request):
             json={"email": email},
             extra_headers={"Prefer": "resolution=ignore-duplicates,return=minimal"},
         )
+        await registrar_consentimiento("newsletter", correo=email)
     except Exception as exc:
         logger.warning("No se pudo guardar newsletter en Supabase: %s", exc)
 
