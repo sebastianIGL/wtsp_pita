@@ -150,7 +150,9 @@ def validar(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], hoy: Optional
 def armar_ficha(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], problemas: Dict[str, List[str]], uf: Optional[Tuple[float, date]]) -> Dict[str, Any]:
     numeradas: Dict[int, int] = {}                       # id de Fuente → número que se ve en la página (por orden de aparición)
 
-    def num(fid: int) -> int:
+    def num(fid: int) -> Optional[int]:
+        if fid not in fuentes:                           # en la vista previa puede haber una fuente aún inexistente: simplemente no se numera
+            return None
         return numeradas.setdefault(fid, len(numeradas) + 1)
 
     for fid in _ids(s.get("fuentes")):
@@ -158,7 +160,7 @@ def armar_ficha(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], problemas
     bloques = []
     for b in sorted([b for b in (s.get("SubsidioBloque") or []) if isinstance(b, dict)], key=lambda x: (x.get("orden") or 0, x.get("id") or 0)):
         bloques.append({"clave": b.get("clave"), "titulo": str(b.get("titulo") or ""), "partes": partes_de_texto(b.get("cuerpo")),
-                        "fuentes": sorted({num(f) for f in _ids(b.get("fuentes"))})})
+                        "fuentes": sorted({num(f) for f in _ids(b.get("fuentes")) if num(f)})})
     datos = []
     for d in sorted([d for d in (s.get("SubsidioDato") or []) if isinstance(d, dict)], key=lambda x: (x.get("orden") or 0, x.get("id") or 0)):
         pesos = None
@@ -169,7 +171,7 @@ def armar_ficha(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], problemas
         if uf and d.get("unidad") == "UF" and n and n > 0:
             pesos = "≈ " + servicio_uf.formatear_pesos(n * uf[0])
         datos.append({"etiqueta": str(d.get("etiqueta") or ""), "valor": str(d.get("valor_texto") or ""), "pesos": pesos, "llamado": d.get("llamado"),
-                      "fuentes": [num(d["fuente_id"])] if isinstance(d.get("fuente_id"), int) else []})
+                      "fuentes": [n for n in [num(d["fuente_id"])] if n] if isinstance(d.get("fuente_id"), int) else []})
     lista_fuentes = []
     for fid, n in sorted(numeradas.items(), key=lambda kv: kv[1]):
         f = fuentes[fid]
@@ -245,6 +247,11 @@ async def fichas_publicas() -> Dict[str, Dict[str, Any]]:
         raise DirectorioNoDisponible() from e
     _cache.update(fichas=fichas, ts=ahora, bueno=fichas)
     return fichas
+
+
+def invalidar_cache() -> None:
+    """Tras guardar algo en el editor: la próxima visita vuelve a leer la base (se conserva la última copia buena por si falla)."""
+    _cache.update(fichas=None, ts=0.0)
 
 
 async def obtener_subsidio(slug: str) -> Optional[Dict[str, Any]]:

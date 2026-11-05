@@ -115,6 +115,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   (404 normal) y el sitemap sigue funcionando. Las fichas vigentes entran al `sitemap.xml`.
 - **Por ahora** (hasta que exista el editor del panel, fase 2) una ficha se publica o se oculta con el `update` del bloque D del SQL.
 
+## Editor del directorio (Fase 2: pestaña «Subsidios» del panel de administración)
+- **Quién:** solo el dueño (`rol = owner`); el resto recibe 403. Rutas `/api/directorio/...` (`app/routers/directorio_admin.py`, lógica y reglas en `app/services/directorio_admin.py`).
+- **Reglas del editor:** una ficha **nace en borrador**; solo se publica si `directorio.validar` no da problemas graves **ni avisos** (todos los datos verificados con fuente oficial y la
+  ficha y sus datos revisados en los últimos 90 días). **Cambiar un dato (valor, cifra, unidad, llamado o fuente) lo devuelve a «por confirmar»**: hay que volver a verificarlo, y
+  mientras tanto una ficha ya publicada deja de mostrarse. Verificar un dato y «Marcar revisada hoy» guardan la fecha y a la persona autenticada. Las fuentes solo se crean con un enlace https de
+  un sitio oficial y su enlace no se edita (se crea otra). La dirección (slug) de una ficha publicada no se cambia y una ficha publicada no se borra.
+- **Vista previa** (`GET /api/directorio/subsidios/{id}/vista-previa`, con sesión): la misma plantilla pública con un aviso «VISTA PREVIA» y la lista de lo que falta; no se indexa ni se guarda en caché.
+- Cada escritura invalida la copia de lectura pública (la siguiente visita ve el cambio). El texto de las fichas siempre se escapa (nunca se interpreta como HTML).
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen

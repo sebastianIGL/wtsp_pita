@@ -34,6 +34,7 @@ from app.routers.documentos import router as documentos_router
 from app.routers.clientes import router as clientes_router
 from app.routers.clientes_acciones import router as clientes_acciones_router
 from app.routers.health import router as health_router
+from app.routers.directorio_admin import router as directorio_admin_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging
 from app.core.user_cache import user_cache
 from app.core.errors import registrar_error
@@ -236,6 +237,7 @@ app.include_router(clientes_router)
 app.include_router(documentos_router)
 
 
+app.include_router(directorio_admin_router)   # editor del directorio de subsidios (solo el dueño)
 app.include_router(paginas_router)
 
 

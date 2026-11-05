@@ -4,6 +4,8 @@
 {% include "partials/_head.html" %}
 {% if subsidio %}<script type="application/ld+json">{{ json_ld | tojson }}</script>
 {% endif %}<style>
+  .sf-prev { background: #fef3c7; border-bottom: 2px solid #f59e0b; color: #78350f; padding: 0.8rem 0; font-size: 0.9rem; line-height: 1.5; }
+  .sf-prev ul { margin: 0.35rem 0 0 1.2rem; list-style: disc; }
   .sf-migas { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.85rem; color: var(--text-subtle); margin-bottom: 1.25rem; }
   .sf-migas a { color: var(--text-muted); text-decoration: none; }
   .sf-migas a:hover { color: var(--blue); }
@@ -53,6 +55,10 @@
   </section>
 {% else %}
   {% set s = subsidio %}
+  {% if vista_previa %}
+  <div class="sf-prev" role="note"><div class="container"><strong>VISTA PREVIA — solo la ves tú.</strong> Así se vería la ficha publicada.
+    {% if pendientes %}<strong>Antes de publicarla falta:</strong><ul>{% for p in pendientes %}<li>{{ p }}</li>{% endfor %}</ul>{% else %}No falta nada: se puede publicar.{% endif %}</div></div>
+  {% endif %}
   <section class="section-sm">
     <div class="container sf-cab">
       <nav class="sf-migas" aria-label="Ruta de navegación">
