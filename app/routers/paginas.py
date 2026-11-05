@@ -61,7 +61,7 @@ async def page_subsidios(request: Request):
     return templates.TemplateResponse(request, "subsidios.html", {
         "active": "subsidios",
         "page_title": "Subsidios Habitacionales — QueSubsidio",
-        "page_description": "Conoce todos los subsidios disponibles: DS19, DS49, DS1 T2/T3 y más. Encuentra el que se ajusta a tu situación.",
+        "page_description": "Conoce los subsidios DS19, DS49 y DS1 T2/T3: para quién son, qué piden y dónde verificarlos en las fuentes oficiales.",
         "page_path": "/subsidios",
     })
 
@@ -71,7 +71,7 @@ async def page_viviendas(request: Request):
     return templates.TemplateResponse(request, "viviendas.html", {
         "active": "viviendas",
         "page_title": "Viviendas con Subsidio — QueSubsidio",
-        "page_description": "Explora proyectos inmobiliarios disponibles con subsidio habitacional en todo Chile.",
+        "page_description": "Explora proyectos inmobiliarios disponibles con subsidio habitacional.",
         "page_path": "/viviendas",
     })
 
