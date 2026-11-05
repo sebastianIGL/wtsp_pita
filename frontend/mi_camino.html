@@ -354,22 +354,22 @@
   // ── Datos ─────────────────────────────────────────────────────
   const REQS = {
     s: [
-      { id: 'edad',     icon: '🪪', titulo: 'Mayor de 18 años',                 sub: 'Requisito básico para postular' },
-      { id: 'nacional', icon: '🇨🇱', titulo: 'Chileno o residente (≥5 años)',     sub: 'Cédula de identidad vigente' },
-      { id: 'sin_prop', icon: '🚫', titulo: 'Sin propiedad a tu nombre',         sub: 'Beneficio solo para primera vivienda' },
-      { id: 'sin_sub',  icon: '🔄', titulo: 'Sin subsidio previo',               sub: 'El beneficio se usa una sola vez' },
-      { id: 'rsh',      icon: '📋', titulo: 'Inscrito en el RSH',                sub: 'Tramítalo gratis en registrosocial.gob.cl' },
-      { id: 'ahorro',   icon: '💰', titulo: 'Ahorro mínimo (10–50 UF)',          sub: 'Cuenta bancaria o libreta CAV' },
-      { id: 'puntaje',  icon: '📊', titulo: 'Puntaje RSH en el tramo',           sub: 'DS19: tramos 1-5 del RSH' },
+      { id: 'edad',     icon: '🪪', titulo: 'Mayor de 18 años',                 sub: 'Requisito de los subsidios de compra (DS49, DS1 y DS19)' },
+      { id: 'nacional', icon: '🇨🇱', titulo: 'Cédula de identidad vigente',          sub: 'Si eres extranjero, con residencia definitiva' },
+      { id: 'sin_prop', icon: '🚫', titulo: 'Sin vivienda propia',                 sub: 'Ni tú ni tu grupo familiar declarado deben tener una vivienda o un sitio habitacional' },
+      { id: 'sin_sub',  icon: '🔄', titulo: 'Revisa si ya usaste un subsidio',    sub: 'Según el programa, haber usado uno puede impedir postular. Consúltalo en minvu.gob.cl' },
+      { id: 'rsh',      icon: '📋', titulo: 'Registro Social de Hogares al día', sub: 'Se tramita gratis en registrosocial.gob.cl' },
+      { id: 'ahorro',   icon: '💰', titulo: 'Ahorro en cuenta para la vivienda', sub: 'DS49: 10 UF · DS1: 30 UF (T1), 40 UF (T2) u 80 UF (T3), según el llamado' },
+      { id: 'puntaje',  icon: '📊', titulo: 'Tu tramo del RSH alcanza',           sub: 'DS49: hasta 40% · DS1: 60% (T1), 80% (T2) o 90% (T3) · DS19: tener RSH' },
     ],
     h: [
-      { id: 'edad',     icon: '🪪', titulo: 'Mayor de 18 años',                 sub: 'Requisito legal para contratar' },
-      { id: 'ingresos', icon: '💼', titulo: 'Ingresos demostrables',            sub: 'Liquidaciones, boletas o carpeta tributaria' },
-      { id: 'antigued', icon: '📅', titulo: 'Antigüedad laboral (6–12 meses)',   sub: 'Continuidad en el trabajo actual' },
-      { id: 'dicom',    icon: '✅', titulo: 'Sin morosidades graves',           sub: 'Sin protestos ni deudas castigadas' },
-      { id: 'capacid',  icon: '📐', titulo: 'Cuota ≤ 25–30% de tu renta',       sub: 'Capacidad real de pago mensual' },
-      { id: 'pie',      icon: '🏦', titulo: 'Pie disponible (10–20%)',           sub: 'Pago inicial al reservar' },
-      { id: 'cotiz',    icon: '🔐', titulo: 'Cotizaciones previsionales al día', sub: 'AFP sin lagunas los últimos 12 meses' },
+      { id: 'edad',     icon: '🪪', titulo: 'Mayor de 18 años',                 sub: 'Requisito para firmar un crédito hipotecario' },
+      { id: 'ingresos', icon: '💼', titulo: 'Ingresos demostrables',            sub: 'Los bancos piden liquidaciones, boletas o carpeta tributaria según tu caso' },
+      { id: 'antigued', icon: '📅', titulo: 'Antigüedad laboral',   sub: 'Los bancos suelen pedir entre 6 y 12 meses en tu trabajo actual' },
+      { id: 'dicom',    icon: '✅', titulo: 'Historial de deudas en orden',     sub: 'Los bancos revisan tus deudas y morosidades; revísalas en la CMF' },
+      { id: 'capacid',  icon: '📐', titulo: 'Cuota que puedas pagar',       sub: 'Los bancos suelen limitar la cuota a cerca de un 25% a 30% de tu renta' },
+      { id: 'pie',      icon: '🏦', titulo: 'Ahorro o pie disponible',           sub: 'Con subsidio, tu ahorro y el subsidio forman parte del pago; el monto depende del banco y del proyecto' },
+      { id: 'cotiz',    icon: '🔐', titulo: 'Cotizaciones previsionales al día', sub: 'Los bancos suelen pedir cotizaciones recientes (por ejemplo, las últimas 12)' },
     ]
   };
 
@@ -468,6 +468,9 @@
         <div class="cards-grid">${cardsHtml}</div>
         <p style="text-align:center;margin-top:1.5rem;font-size:0.75rem;color:var(--text-sub)">
           Tu progreso se guarda automáticamente en este dispositivo
+        </p>
+        <p style="text-align:center;margin-top:0.5rem;font-size:0.75rem;color:var(--text-sub)">
+          Esta lista es orientativa: confirma cada requisito en las fuentes oficiales (<a href="/subsidios" style="color:inherit;text-decoration:underline">ver subsidios</a>) y con tu banco.
         </p>
       </div>
     `;

@@ -101,6 +101,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 
+## Datos de subsidios (DS19, DS1, DS49)
+- Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
+  (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen
+  fecha propia). Si una cifra no está confirmada por una fuente oficial **no se publica** (por ejemplo, los montos del DS19, que difieren entre el folleto
+  y la página del MINVU). Los montos, ahorros y topes cambian por llamado: al revisar, volver a leer cada fuente.
+- El recuadro «Fechas de postulación» de `/subsidios` no publica fechas: remite a la página oficial del MINVU (decisión del dueño, para que nada venza).
+- «3 subsidios que explicamos» (portada) = las tres tarjetas (DS19, DS1, DS49). Lo que dicen los bancos («suelen pedir…») es costumbre del mercado, no norma.
+
 ## Cifras de la portada
 - **«personas registradas»** sale de la base: `app/services/estadisticas.py` cuenta las filas de la tabla `Cliente` (una consulta liviana que
   pide solo el total en `Content-Range`), la guarda **una hora** en memoria y, si la base falla o tarda más de 3 s, conserva el último valor
