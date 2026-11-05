@@ -106,7 +106,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   vuelve a mostrar. Las plantillas reciben cada valor como `mostrar_<nombre>` desde `_contexto_comun` (`app/routers/paginas.py`).
 - Hoy: `CONTACTO_EMPRESAS` (sección «Para inmobiliarias» de la portada, enlace «¿Eres inmobiliaria?» y `POST /api/contacto`, que enviaba al
   correo `EMAIL_ADMIN` el aviso «[QueSubsidio] Contacto desde la landing»). La frase del formulario de contacto en `/privacidad` también
-  depende de este valor.
+  depende de este valor. `FUNCIONALIDADES` (bloque «Funcionalidades» de la portada).
 
 ## Autorización explícita en los formularios públicos
 - Los tres formularios que guardan datos de personas exigen una **casilla sin marcar de antemano**, con el enlace a `/privacidad`: el

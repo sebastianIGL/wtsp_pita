@@ -12,15 +12,15 @@
         "@id": "https://quesubsidio.cl/#organization",
         "name": "QueSubsidio",
         "url": "https://quesubsidio.cl",
-        "description": "CRM inmobiliario especializado en la gestión de proyectos habitacionales con subsidios DS19 y DS1 T2/T3 en Chile. Automatización de atención por WhatsApp, gestión de etapas y documentación centralizada.",
+        "description": "QueSubsidio acerca la vivienda a más familias chilenas con información clara sobre los subsidios habitacionales DS19, DS49 y DS1 T2/T3, y las acompaña a avanzar en cada etapa.",
         "areaServed": { "@type": "Country", "name": "Chile" },
-        "contactPoint": { "@type": "ContactPoint", "contactType": "ventas", "availableLanguage": "Spanish" }
+        "contactPoint": { "@type": "ContactPoint", "contactType": "customer service", "email": "hola@quesubsidio.cl", "availableLanguage": "Spanish" }
       },
       {
         "@type": "WebSite",
         "@id": "https://quesubsidio.cl/#website",
         "url": "https://quesubsidio.cl",
-        "name": "QueSubsidio — CRM Inmobiliario",
+        "name": "QueSubsidio",
         "publisher": { "@id": "https://quesubsidio.cl/#organization" },
         "inLanguage": "es-CL"
       },
@@ -65,14 +65,6 @@
             "acceptedAnswer": {
               "@type": "Answer",
               "text": "El proceso completo toma entre 6 y 18 meses: obtención del subsidio (2-4 meses), selección de proyecto y firma de promesa (1-3 meses), tramitación del crédito hipotecario si aplica (1-3 meses), y escrituración más entrega según avance de obra (2-6 meses). La agilidad depende de la inmobiliaria, el banco y el MINVU."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "¿Cómo ayuda un CRM especializado en subsidios a una inmobiliaria?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Un CRM inmobiliario especializado en subsidios permite: clasificar cada prospecto según su tipo de subsidio (DS19, DS1 T2/T3), enviar mensajes informativos personalizados por WhatsApp en cada etapa del proceso, gestionar documentación requerida por el MINVU, y alertar al ejecutivo cuando hay una acción pendiente. Esto reduce el tiempo de cierre de promesas y mejora la experiencia del comprador."
             }
           }
         ]
@@ -723,9 +715,9 @@
     <div class="container">
       <div class="reveal" style="text-align:center;max-width:600px;margin:0 auto 2.5rem;">
         <span class="chip">Proyectos</span>
-        <h2 id="vitrina-title" class="section-h">Proyectos gestionados con QueSubsidio</h2>
+        <h2 id="vitrina-title" class="section-h">Proyectos con subsidio</h2>
         <p class="section-lead" style="margin:0 auto;">
-          Inmobiliarias de distintas regiones de Chile confían en nuestra plataforma para gestionar sus proyectos habitacionales con subsidio.
+          Conoce proyectos habitacionales que reciben compradores con subsidio.
         </p>
       </div>
 
@@ -845,27 +837,6 @@
             </ul>
             <p style="margin-top:0.75rem;">
               La agilidad de cada etapa depende de la inmobiliaria, el banco elegido y los tiempos de respuesta del MINVU.
-              Un CRM especializado puede reducir los tiempos internos al automatizar la comunicación y el seguimiento.
-            </p>
-          </div>
-        </details>
-
-        <details class="faq" id="faq6">
-          <summary>
-            ¿Cómo ayuda un CRM especializado en subsidios a una inmobiliaria?
-            <span class="faq-icon" aria-hidden="true">+</span>
-          </summary>
-          <div class="faq-answer">
-            Un CRM inmobiliario especializado en subsidios permite:
-            <ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.4rem;">
-              <li>Clasificar automáticamente a cada prospecto según su tipo de subsidio (DS19, DS1 T2/T3).</li>
-              <li>Enviar mensajes informativos personalizados por WhatsApp en cada etapa del proceso.</li>
-              <li>Gestionar la documentación requerida por el MINVU y el banco en un solo lugar.</li>
-              <li>Alertar al ejecutivo cuando hay una acción pendiente o un documento faltante.</li>
-              <li>Mantener el historial completo de conversaciones con cada comprador.</li>
-            </ul>
-            <p style="margin-top:0.75rem;">
-              El resultado es una reducción del tiempo de cierre de promesas, menos errores en la documentación y una mejor experiencia para el comprador en un proceso que de por sí es complejo.
             </p>
           </div>
         </details>
@@ -894,6 +865,7 @@
     </div>
   </section>
 
+  {% if mostrar_funcionalidades %}
   <!-- ── CARACTERÍSTICAS ───────────────────────────────────────────────────── -->
   <section id="features" class="section" aria-labelledby="features-title">
     <div class="container">
@@ -980,6 +952,7 @@
       </div>
     </div>
   </section>
+  {% endif %}
 
 {% if mostrar_contacto_empresas %}
 <!-- ══════════════════ SECCIÓN PARA INMOBILIARIAS ══════════════════════════ -->

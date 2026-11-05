@@ -23,7 +23,8 @@ router = APIRouter()
 def _contexto_comun(request: Request) -> dict:
     """Variables disponibles en todas las plantillas: ``gtm_id`` (None si Tag Manager no está configurado: sin él no se carga nada) y los
     interruptores de ``app/core/interruptores.py`` (funciones ocultas por decisión del dueño)."""
-    return {"gtm_id": get_settings().gtm_id, "mostrar_contacto_empresas": interruptores.CONTACTO_EMPRESAS}
+    return {"gtm_id": get_settings().gtm_id, "mostrar_contacto_empresas": interruptores.CONTACTO_EMPRESAS,
+            "mostrar_funcionalidades": interruptores.FUNCIONALIDADES}
 
 
 templates = Jinja2Templates(directory="frontend", context_processors=[_contexto_comun])
