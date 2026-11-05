@@ -146,7 +146,7 @@
             </ul>
             {% endif %}
             <p class="sub-fuente">Revisado el {{ f.revisado }}. <a href="{{ f.ruta }}#fuentes">Ver las fuentes oficiales</a></p>
-            <a href="{{ f.ruta }}" class="sub-link">Ver la ficha completa
+            <a href="{{ f.ruta }}" class="sub-link">{% if f.alcance == "ligera" %}Ver la ficha{% else %}Ver la ficha completa{% endif %}
               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
             </a>
           </article>

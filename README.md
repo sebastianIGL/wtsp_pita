@@ -145,6 +145,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   (sin mirar tildes ni mayúsculas); lo publicado no se borra. La ficha de subsidio suma **«Verificar todos los datos»** (`POST /api/directorio/subsidios/{id}/verificar-datos`): marca de una vez los datos
   «por confirmar», solo si todos tienen fuente oficial, con tu nombre y la fecha.
 
+## Contenido de las Fases 4 a 6 (vivienda restante, guías, otros subsidios)
+- **Tres archivos SQL** en `supabase/migraciones/` que el dueño ejecuta completos (cada uno es repetible y todo entra en **borrador** con los datos **«por confirmar»**; nada se ve hasta que él los verifica y publica en
+  Admin → Subsidios): `2026-11-05_directorio_fase4_vivienda.sql` (arriendo DS52; construir: DS49 sitio propio y DS1 Tramos 2 y 3; mejoramiento DS27; rural DS10; Valech; DS1 Tramo 4; y ajustes a las fichas de compra DS1:
+  precio máximo y monto promedio del Tramo 3, cifras rotuladas con los dos llamados de 2026), `..._fase5_guias_glosario.sql` (cinco guías y 19 términos) y `..._fase6_otros_subsidios.sql` (ocho fichas ligeras sin
+  montos: SUF, Asignación Familiar, Aporte Familiar Permanente, Subsidio Eléctrico, SAP, SUE, Subsidio de Discapacidad <18 y PGU).
+- **Regla de contenido:** cada dato sale de una página oficial leída el 2026-11-05 y va con su fuente; **si dos fuentes oficiales dan cifras distintas, la cifra no se publica** (la ficha lo dice o lo omite). No se publican
+  fechas de llamados. Las fichas ligeras no llevan montos (se reajustan cada año) y aclaran que el beneficio no es de vivienda.
+- Los SQL se generan desde un único conjunto de datos (fuera del repositorio, en la carpeta de trabajo del dueño) que también produce la hoja de verificación con la cita textual de cada cifra.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen

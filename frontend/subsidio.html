@@ -91,8 +91,9 @@
       <p class="sf-nota">{% if s.revisado %}Ficha revisada el {{ s.revisado }}{% if s.revisado_por %} por {{ s.revisado_por }}{% endif %}.{% endif %}
         Información orientativa, contrastada con las fuentes oficiales citadas. QueSubsidio no es el MINVU ni un banco, no otorga subsidios y no puede garantizar que obtengas uno.
         Los montos, ahorros y topes cambian de un llamado a otro: confirma siempre en la fuente oficial antes de postular.</p>
+      {% if s.alcance == "ligera" %}<p class="sf-nota"><strong>Este beneficio no es de vivienda.</strong> La información es orientativa y el trámite se hace en la institución que se indica en los textos de arriba. Si además buscas una vivienda con subsidio, puedes evaluar tu caso aquí.</p>{% endif %}
       <div class="sf-acciones">
-        <a href="/#registro" class="btn btn-red">Evaluar mi caso</a>
+        <a href="/#registro" class="btn btn-red">{% if s.alcance == "ligera" %}Evaluar mi caso de vivienda{% else %}Evaluar mi caso{% endif %}</a>
         <a href="/subsidios" class="btn btn-outline">Ver todos los subsidios</a>
       </div>
     </div>
