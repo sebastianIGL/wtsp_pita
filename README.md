@@ -100,6 +100,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 
+## Cifras de la portada
+- **«personas registradas»** sale de la base: `app/services/estadisticas.py` cuenta las filas de la tabla `Cliente` (una consulta liviana que
+  pide solo el total en `Content-Range`), la guarda **una hora** en memoria y, si la base falla o tarda más de 3 s, conserva el último valor
+  conocido; si no hay ninguno, la portada muestra solo las otras dos cifras (nunca inventa un número). Cuenta **todos** los clientes de la tabla
+  (todas las empresas y proyectos, incluidos los de prueba que haya).
+- **«subsidios que explicamos»** (3: DS19, DS1 T2/T3 y DS49) está escrito en `home.html`; una prueba lo compara con las tarjetas de `/subsidios`.
+  Si se agrega o quita un subsidio en el sitio, cambiar ese número.
+- **«89% tasa de éxito»** lo mantuvo el dueño por decisión propia (es un dato escrito a mano).
+
 ## Funciones ocultas del sitio público (interruptores)
 - `app/core/interruptores.py` reúne las funciones que el dueño decidió ocultar por ahora. Con `False` la función **no aparece en las páginas y su
   ruta de la API responde 404** (así no hay formularios ni correos que nadie pidió). El código se conserva: cambiar a `True` y desplegar la

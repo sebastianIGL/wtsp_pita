@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from app.core import interruptores
 from app.core.config import get_settings
 from app.services import legal
+from app.services.estadisticas import formatear_miles, total_clientes
 from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
 from app.services.seo import PAGINAS_PUBLICAS, SITIO_URL, construir_robots, construir_sitemap
 
@@ -34,7 +35,9 @@ templates = Jinja2Templates(directory="frontend", context_processors=[_contexto_
 # ── Landing pública ───────────────────────────────────────────────────────────
 @router.get("/")
 async def page_home(request: Request):
+    total = await total_clientes()
     return templates.TemplateResponse(request, "home.html", {
+        "total_clientes": total, "total_clientes_txt": formatear_miles(total) if total is not None else None,
         "active": "inicio",
         "page_title": "QueSubsidio — Subsidios Habitacionales en Chile",
         "page_description": "Comprar tu propiedad con subsidio aún es posible. QueSubsidio acerca la vivienda a más familias chilenas con información clara sobre DS19, DS49 y DS1 T2/T3.",
