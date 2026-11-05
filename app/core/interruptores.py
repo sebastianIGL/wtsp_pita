@@ -7,7 +7,8 @@ se conserva para cuando se retomen: cambiar a ``True`` y desplegar las muestra d
 # Proyectos que NO se muestran en el sitio público (vitrina de la portada, /viviendas, fichas /viviendas/{slug} y sitemap): los de una inmobiliaria o
 # empresa cuyo nombre contenga alguno de estos textos (sin importar mayúsculas ni tildes). Siguen activos en el CRM y para el asistente de WhatsApp.
 # Vacía = no se oculta ninguno.
-PROYECTOS_OCULTOS_DEL_SITIO = ("subsidios.cl",)
+# «prueba inmobiliaria» agrupa los proyectos de prueba («prueba proyecto», «prueba-tipologia»).
+PROYECTOS_OCULTOS_DEL_SITIO = ("subsidios.cl", "prueba inmobiliaria")
 
 CONTACTO_EMPRESAS = False     # sección «Para inmobiliarias» de la portada y la ruta /api/contacto
 NEWSLETTER = False            # suscripción del pie y del blog y la ruta /api/newsletter (pendiente de rehacer: envío real, baja, texto)
