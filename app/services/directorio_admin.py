@@ -371,6 +371,23 @@ async def verificar_dato(did: int, perfil: Dict[str, Any]) -> Dict[str, Any]:
     return fila[0]
 
 
+async def verificar_todos(sid: int, perfil: Dict[str, Any]) -> Dict[str, Any]:
+    """Marca como verificados todos los datos de la ficha que aún están «por confirmar» (para cuando ya los releíste uno por uno en sus fuentes).
+    Cada dato debe tener una fuente oficial; si alguno no la tiene, no se verifica ninguno. Registra a la persona autenticada y la fecha."""
+    await _subsidio(sid)
+    datos = await _filas("SubsidioDato", {"subsidio_id": f"eq.{sid}"})
+    fuentes = await _fuentes_por_id()
+    pendientes = [d for d in datos if d.get("estado") != "verificado"]
+    sin_fuente = [d.get("clave") for d in pendientes if not (fuentes.get(d.get("fuente_id")) and dr.es_fuente_oficial(fuentes[d["fuente_id"]].get("url")))]
+    if sin_fuente:
+        raise _error("No se verificó nada: estos datos no tienen una fuente oficial: " + ", ".join(sin_fuente) + ".", 422)
+    for d in pendientes:
+        await _supabase_request("PATCH", "/SubsidioDato", params={"id": f"eq.{d['id']}"},
+                                json={"estado": "verificado", "revisado_en": date.today().isoformat(), "revisado_por": _revisor(perfil)})
+    dr.invalidar_cache()
+    return {"verificados": len(pendientes), "ya_estaban": len(datos) - len(pendientes)}
+
+
 async def eliminar_dato(did: int) -> None:
     await _fila_de("SubsidioDato", did, "ese dato")
     await _supabase_request("DELETE", "/SubsidioDato", params={"id": f"eq.{did}"})
@@ -389,7 +406,7 @@ async def listar_fuentes() -> List[Dict[str, Any]]:
 async def crear_fuente(body: Dict[str, Any]) -> Dict[str, Any]:
     url = _texto(body, "url", 500, "Enlace")
     if not dr.es_fuente_oficial(url):
-        raise _error("El enlace debe ser https y de un sitio oficial del Estado (gob.cl, bcn.cl, minvu.cl, cmfchile.cl o sii.cl).")
+        raise _error("El enlace debe ser https y de un sitio oficial del Estado (gob.cl, bcn.cl, minvu.cl, cmfchile.cl, sii.cl, bcentral.cl o sernac.cl).")
     datos = {"titulo": _texto(body, "titulo", 250, "Título"), "url": url, "organismo": _texto(body, "organismo", 80, "Organismo"),
              "tipo": _opcion(body, "tipo", TIPOS_FUENTE, "Tipo"), "publicada_en": _fecha_o_nula(body, "publicada_en", "Fecha de la fuente"),
              "leida_en": _fecha_o_nula(body, "leida_en", "Fecha en que la leíste") or date.today().isoformat()}

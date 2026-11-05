@@ -71,6 +71,8 @@
     .ds-chk small { opacity: 0.7; }
     .ds-acciones { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
     .ds-sub { font-size: 0.72rem; opacity: 0.7; }
+    .ds-seccion-btn { font-size: 0.85rem; padding: 0.45rem 1rem; border-radius: 0.6rem 0.6rem 0 0; border-bottom: 2px solid transparent; }
+    .ds-seccion-btn.ds-activa { border-bottom-color: #7c3aed; color: #a78bfa; font-weight: 700; }
   </style>
 <link rel="stylesheet" href="/css/crm.css" />
 </head>
@@ -388,6 +390,12 @@
 
   <!-- TAB: SUBSIDIOS (directorio) -->
   <div id="panel-subsidios" class="hidden">
+    <div class="ds-barra" id="ds-secciones" style="border-bottom:1px solid rgba(148,163,184,.2);gap:0.25rem">
+      <button id="ds-boton-subsidios" onclick="dsSeccion('subsidios')" class="ds-seccion-btn ds-activa sidebar-text">Subsidios</button>
+      <button id="ds-boton-guias" onclick="dsSeccion('guias')" class="ds-seccion-btn sidebar-text">Guías</button>
+      <button id="ds-boton-glosario" onclick="dsSeccion('glosario')" class="ds-seccion-btn sidebar-text">Glosario</button>
+    </div>
+    <div id="ds-seccion-subsidios">
     <div id="ds-lista">
       <div class="flex items-center justify-between mb-5 gap-3 flex-wrap">
         <div>
@@ -426,6 +434,62 @@
       <div id="ds-fuentes" class="hidden mt-6"></div>
     </div>
     <div id="ds-editor" class="hidden"></div>
+    </div>
+
+    <div id="ds-seccion-guias" class="hidden">
+      <div id="gd-lista">
+        <div class="flex items-center justify-between mb-5 gap-3 flex-wrap">
+          <div>
+            <h2 class="text-xl font-semibold val-text">Guías</h2>
+            <p class="text-xs sub-text mt-1">Cada guía cita fuentes oficiales. Solo se publica con todo su texto, sus fuentes y una revisión de los últimos 90 días. Si cambias su texto, su revisión se borra.</p>
+          </div>
+          <button onclick="gdNuevaMostrar()" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Nueva guía</button>
+        </div>
+        <div id="gd-nueva" class="hidden glass ds-card">
+          <h3 class="val-text">Nueva guía (nace en borrador)</h3>
+          <div class="ds-grid">
+            <div><label for="gdn-slug">Dirección (slug)</label><input id="gdn-slug" placeholder="como-consultar-tu-tramo-rsh" /></div>
+            <div><label for="gdn-titulo">Título</label><input id="gdn-titulo" /></div>
+            <div class="ds-ancho"><label for="gdn-resumen">Resumen (en una frase)</label><input id="gdn-resumen" /></div>
+            <div class="ds-ancho"><label for="gdn-cuerpo">Texto</label><textarea id="gdn-cuerpo"></textarea></div>
+          </div>
+          <div class="ds-acciones">
+            <button onclick="gdCrear()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Crear guía</button>
+            <button onclick="gdNuevaMostrar()" class="text-sm px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Cancelar</button>
+          </div>
+        </div>
+        <div class="glass rounded-2xl overflow-hidden">
+          <table class="w-full text-sm">
+            <thead><tr class="thead-row text-xs uppercase tracking-wider border-b">
+              <th class="text-left px-5 py-3">Guía</th><th class="text-left px-5 py-3">Estado</th><th class="text-left px-5 py-3">Pendientes</th>
+              <th class="text-left px-5 py-3">Revisada</th><th class="text-left px-5 py-3">Acciones</th>
+            </tr></thead>
+            <tbody id="gd-tabla"><tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="gd-editor" class="hidden"></div>
+    </div>
+
+    <div id="ds-seccion-glosario" class="hidden">
+      <div class="flex items-center justify-between mb-5 gap-3 flex-wrap">
+        <div>
+          <h2 class="text-xl font-semibold val-text">Glosario</h2>
+          <p class="text-xs sub-text mt-1">Cada término necesita una definición y una fuente oficial que la respalde.</p>
+        </div>
+        <button onclick="glMostrarForm(0)" class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Nuevo término</button>
+      </div>
+      <div id="gl-form" class="hidden"></div>
+      <div class="glass rounded-2xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead><tr class="thead-row text-xs uppercase tracking-wider border-b">
+            <th class="text-left px-5 py-3">Término</th><th class="text-left px-5 py-3">Definición</th><th class="text-left px-5 py-3">Estado</th>
+            <th class="text-left px-5 py-3">Pendientes</th><th class="text-left px-5 py-3">Acciones</th>
+          </tr></thead>
+          <tbody id="gl-tabla"><tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </div>
   </main>
 </div>
@@ -1569,6 +1633,7 @@
 
   // ── Lista ────────────────────────────────────────────────────────────────────
   async function cargarSubsidios() {
+    dsMostrarSeccion('subsidios')
     document.getElementById('ds-lista').classList.remove('hidden')
     document.getElementById('ds-editor').classList.add('hidden')
     document.getElementById('dsn-grupo').innerHTML = dsOpciones(DS_GRUPOS, 'comprar')
@@ -1608,7 +1673,7 @@
     const hoy = new Date().toISOString().slice(0, 10)
     caja.innerHTML = `<div class="glass ds-card">
       <h3 class="val-text">Fuentes oficiales</h3>
-      <p class="ds-ayuda sub-text">Solo se aceptan enlaces https de sitios del Estado (gob.cl, bcn.cl, minvu.cl, cmfchile.cl, sii.cl). El enlace de una fuente no se edita: si cambia, crea otra.</p>
+      <p class="ds-ayuda sub-text">Solo se aceptan enlaces https de sitios del Estado (gob.cl, bcn.cl, minvu.cl, cmfchile.cl, sii.cl, bcentral.cl, sernac.cl). El enlace de una fuente no se edita: si cambia, crea otra.</p>
       ${_dsFuentes.map(f => `<div class="ds-grid" style="border-top:1px solid rgba(148,163,184,.2);padding:0.7rem 0">
         <div class="ds-ancho"><span class="ds-lbl">[${Number(f.id)}]</span><a href="${esc(f.url)}" target="_blank" rel="noopener" class="text-sm underline val-text" style="word-break:break-all">${esc(f.url)}</a></div>
         <div><label for="dsf-${Number(f.id)}-titulo">Título</label><input id="dsf-${Number(f.id)}-titulo" value="${esc(f.titulo)}" /></div>
@@ -1695,7 +1760,8 @@
       </div>
 
       <div class="glass ds-card">
-        <h3 class="val-text">Datos clave</h3>
+        <div class="ds-barra" style="margin-bottom:0.3rem"><h3 class="val-text">Datos clave</h3><span class="ds-sep"></span>
+          <button onclick="dsDatosVerificarTodos()" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition" title="Para cuando ya leíste cada dato en su fuente">Verificar todos los datos</button></div>
         <p class="ds-ayuda sub-text">Cada dato necesita una fuente oficial y quedar «verificado» después de que lo compares con ella. Si cambias su valor, su cifra, su unidad, su llamado o su fuente, vuelve a «por confirmar».</p>
         ${datos.map(d => dsFilaDato(d)).join('') || '<p class="ds-ayuda sub-text">Todavía no hay datos.</p>'}
         <div class="ds-grid" style="border-top:2px solid rgba(124,58,237,.4);padding-top:0.9rem;margin-top:0.6rem">
@@ -1837,6 +1903,204 @@
   async function dsBloqueBorrar(id) {
     if (!confirm('¿Borrar este texto?')) return
     try { await dsApi('DELETE', `/bloques/${id}`); toast('Texto borrado'); await dsAbrir(_dsActual.subsidio.id) } catch (e) { dsError(e) }
+  }
+
+  async function dsDatosVerificarTodos() {
+    const pendientes = _dsActual.datos.filter(d => d.estado !== 'verificado').length
+    if (!pendientes) { toast('Todos los datos ya están verificados'); return }
+    if (!confirm(`Vas a marcar ${pendientes} dato(s) como verificados con tu nombre y la fecha de hoy. Hazlo solo si ya comparaste cada uno con su fuente oficial. ¿Continuar?`)) return
+    try { const r = await dsApi('POST', `/subsidios/${_dsActual.subsidio.id}/verificar-datos`); toast(`${Number(r.verificados)} dato(s) verificados`); await dsAbrir(_dsActual.subsidio.id) } catch (e) { dsError(e) }
+  }
+
+  // ── Guías y glosario (editor) ────────────────────────────────────────────────
+  let _gdActual = null
+  let _glTerminos = []
+
+  function dsMostrarSeccion(nombre) {
+    ['subsidios', 'guias', 'glosario'].forEach(n => {
+      document.getElementById('ds-seccion-' + n).classList.toggle('hidden', n !== nombre)
+      document.getElementById('ds-boton-' + n).classList.toggle('ds-activa', n === nombre)
+    })
+  }
+  function dsSeccion(nombre) {
+    dsMostrarSeccion(nombre)
+    if (nombre === 'subsidios') cargarSubsidios()
+    else if (nombre === 'guias') cargarGuias()
+    else cargarGlosario()
+  }
+  function dsPendientes(graves, avisos) {
+    return graves ? `<span class="ds-mal">${graves} por resolver</span>` : (avisos ? '<span class="ds-aviso">Revisión pendiente</span>' : '<span class="sub-text">Lista</span>')
+  }
+
+  async function cargarGuias() {
+    document.getElementById('gd-lista').classList.remove('hidden')
+    document.getElementById('gd-editor').classList.add('hidden')
+    const tbody = document.getElementById('gd-tabla')
+    try {
+      const [filas] = await Promise.all([dsApi('GET', '/guias'), dsCargarFuentes()])
+      if (!filas.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Todavía no hay guías. Crea la primera con «Nueva guía».</td></tr>'; return }
+      tbody.innerHTML = filas.map(g => {
+        const pend = dsPendientes(g.bloqueantes.length, g.avisos.length)
+        const ver = g.estado === 'publicado' ? ` <a href="/guias/${encodeURIComponent(g.slug)}" target="_blank" rel="noopener" class="text-xs sidebar-text hover:text-violet-400 underline">Ver en el sitio</a>` : ''
+        return `<tr class="trow border-b transition">
+          <td class="px-5 py-3"><div class="font-medium val-text">${esc(g.titulo)}</div><div class="ds-sub">${esc(g.slug)}</div></td>
+          <td class="px-5 py-3">${dsChip(g.estado)}</td>
+          <td class="px-5 py-3 text-xs">${pend}</td>
+          <td class="px-5 py-3 text-xs val-text">${g.revisado_en ? esc(g.revisado_en) : '—'}<div class="ds-sub">${esc(g.revisado_por || '')}</div></td>
+          <td class="px-5 py-3"><button onclick="gdAbrir(${Number(g.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button>${ver}</td>
+        </tr>`
+      }).join('')
+    } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; dsError(e) }
+  }
+  function gdNuevaMostrar() { document.getElementById('gd-nueva').classList.toggle('hidden') }
+  async function gdCrear() {
+    try {
+      const g = await dsApi('POST', '/guias', { slug: dsValor('gdn-slug'), titulo: dsValor('gdn-titulo'), resumen: dsValor('gdn-resumen'), cuerpo: dsValor('gdn-cuerpo') })
+      toast('Guía creada en borrador')
+      await gdAbrir(g.id)
+    } catch (e) { dsError(e) }
+  }
+  async function gdAbrir(id) {
+    try { await dsCargarFuentes(); _gdActual = await dsApi('GET', `/guias/${id}`) } catch (e) { dsError(e); return }
+    gdPintar()
+  }
+  function gdVolver() { cargarGuias() }
+  function gdPintar() {
+    const { guia: g, bloqueantes, avisos } = _gdActual
+    document.getElementById('gd-lista').classList.add('hidden')
+    const ed = document.getElementById('gd-editor')
+    const pendientes = [...bloqueantes.map(p => `<li class="ds-mal">${esc(p)}</li>`), ...avisos.map(p => `<li class="ds-aviso">${esc(p)}</li>`)]
+    ed.innerHTML = `
+      <div class="ds-barra">
+        <button onclick="gdVolver()" class="text-sm px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">← Guías</button>
+        <h2 class="text-xl font-semibold val-text">${esc(g.titulo)}</h2> ${dsChip(g.estado)}
+        <span class="ds-sep"></span>
+        <button onclick="gdRevisada()" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition" title="Registra que hoy releíste la guía contra sus fuentes">Marcar revisada hoy</button>
+        <button onclick="gdVistaPrevia()" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Vista previa</button>
+        ${g.estado === 'publicado'
+          ? '<button onclick="gdEstado(\'borrador\')" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Ocultar del sitio</button>'
+          : '<button onclick="gdEstado(\'publicado\')" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Publicar</button>'}
+        ${g.estado !== 'archivado' ? '<button onclick="gdEstado(\'archivado\')" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Archivar</button>' : ''}
+        ${g.estado === 'borrador' ? '<button onclick="gdBorrar()" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Borrar guía</button>' : ''}
+      </div>
+      <div class="ds-pend ${pendientes.length ? 'ds-no' : 'ds-si'} val-text">
+        ${pendientes.length ? '<strong>Para poder publicarla falta:</strong><ul>' + pendientes.join('') + '</ul>' : '<strong>Todo listo:</strong> se puede publicar.'}
+      </div>
+      <p class="ds-sub mb-3">Última revisión: ${g.revisado_en ? esc(g.revisado_en) : 'nunca'}${g.revisado_por ? ' · ' + esc(g.revisado_por) : ''}</p>
+      <div class="glass ds-card">
+        <div class="ds-grid">
+          <div><label for="gde-slug">Dirección (slug)</label><input id="gde-slug" value="${esc(g.slug)}" ${g.estado === 'publicado' ? 'disabled' : ''} /></div>
+          <div><label for="gde-titulo">Título</label><input id="gde-titulo" value="${esc(g.titulo)}" /></div>
+          <div><label for="gde-orden">Orden</label><input id="gde-orden" type="number" min="0" max="10000" value="${Number(g.orden)}" /></div>
+          <div class="ds-ancho"><label for="gde-resumen">Resumen (en una frase)</label><textarea id="gde-resumen" style="min-height:3.5rem">${esc(g.resumen)}</textarea></div>
+          <div class="ds-ancho"><label for="gde-cuerpo">Texto</label><textarea id="gde-cuerpo" style="min-height:18rem">${esc(g.cuerpo)}</textarea>
+            <p class="ds-ayuda sub-text">Párrafos separados por una línea en blanco. Una línea que empieza con «- » es una viñeta y una que empieza con «1. », «2. »… es un paso numerado.</p></div>
+          <div class="ds-ancho"><span class="ds-lbl">Fuentes oficiales de la guía</span>${dsChecksFuentes('gde-fuentes', g.fuentes)}</div>
+        </div>
+        <div class="ds-acciones"><button onclick="gdGuardar()" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Guardar la guía</button></div>
+      </div>`
+    ed.classList.remove('hidden')
+    window.scrollTo(0, 0)
+  }
+  async function gdGuardar() {
+    const id = _gdActual.guia.id
+    const cambios = { titulo: dsValor('gde-titulo'), resumen: dsValor('gde-resumen'), cuerpo: dsValor('gde-cuerpo'), orden: Number(dsValor('gde-orden')), fuentes: dsFuentesMarcadas('gde-fuentes') }
+    if (!document.getElementById('gde-slug').disabled) cambios.slug = dsValor('gde-slug')
+    try {
+      const r = await dsApi('PATCH', `/guias/${id}`, cambios)
+      toast(r && r.revision_borrada ? 'Guardada: cambió su contenido, así que hay que marcarla revisada de nuevo' : 'Guía guardada')
+      await gdAbrir(id)
+    } catch (e) { dsError(e) }
+  }
+  async function gdRevisada() {
+    const id = _gdActual.guia.id
+    try { await dsApi('POST', `/guias/${id}/revisada`); toast('Marcada como revisada hoy'); await gdAbrir(id) } catch (e) { dsError(e) }
+  }
+  async function gdEstado(estado) {
+    const id = _gdActual.guia.id
+    if (estado === 'borrador' && !confirm('La guía dejará de verse en el sitio. ¿Continuar?')) return
+    try { await dsApi('POST', `/guias/${id}/estado`, { estado }); toast(estado === 'publicado' ? 'Guía publicada' : (estado === 'archivado' ? 'Guía archivada' : 'Guía oculta')); await gdAbrir(id) } catch (e) { dsError(e) }
+  }
+  async function gdBorrar() {
+    if (!confirm('Se borrará la guía. ¿Continuar?')) return
+    try { await dsApi('DELETE', `/guias/${Number(_gdActual.guia.id)}`); toast('Guía borrada'); await cargarGuias() } catch (e) { dsError(e) }
+  }
+  async function gdVistaPrevia() {
+    const w = window.open('', '_blank')
+    if (!w) { toast('Permite las ventanas emergentes para ver la vista previa', 'error'); return }
+    w.document.write('<p style="font-family:sans-serif;padding:2rem">Cargando la vista previa…</p>')
+    try {
+      const res = await fetch(`/api/directorio/guias/${Number(_gdActual.guia.id)}/vista-previa`, { headers: authHeaders() })
+      const html = await res.text()
+      if (!res.ok) { w.close(); toast(html || 'No se pudo cargar la vista previa', 'error'); return }
+      w.document.open(); w.document.write(html); w.document.close()
+    } catch (e) { w.close(); dsError(e) }
+  }
+
+  // glosario
+  async function cargarGlosario() {
+    document.getElementById('gl-form').classList.add('hidden')
+    const tbody = document.getElementById('gl-tabla')
+    try {
+      const [filas] = await Promise.all([dsApi('GET', '/glosario'), dsCargarFuentes()])
+      _glTerminos = filas
+      if (!filas.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-center empty-text py-10">Todavía no hay términos. Crea el primero con «Nuevo término».</td></tr>'; return }
+      tbody.innerHTML = filas.map(t => `<tr class="trow border-b transition">
+          <td class="px-5 py-3 font-medium val-text">${esc(t.termino)}</td>
+          <td class="px-5 py-3 text-xs val-text" style="max-width:28rem">${esc((t.definicion || '').slice(0, 140))}${(t.definicion || '').length > 140 ? '…' : ''}</td>
+          <td class="px-5 py-3">${dsChip(t.estado)}</td>
+          <td class="px-5 py-3 text-xs">${t.bloqueantes.length ? `<span class="ds-mal">${t.bloqueantes.length} por resolver</span>` : '<span class="sub-text">Lista</span>'}</td>
+          <td class="px-5 py-3"><button onclick="glMostrarForm(${Number(t.id)})" class="text-xs px-3 py-1 rounded-lg glass sidebar-text hover:text-violet-400 transition">Editar</button></td>
+        </tr>`).join('')
+    } catch (e) { tbody.innerHTML = '<tr><td colspan="5" class="text-center text-red-400 py-10">Error al cargar</td></tr>'; dsError(e) }
+  }
+  function glMostrarForm(id) {
+    const t = id ? _glTerminos.find(x => x.id === id) : null
+    const i = Number(id)
+    const caja = document.getElementById('gl-form')
+    caja.innerHTML = `<div class="glass ds-card">
+      <h3 class="val-text">${t ? 'Editar el término' : 'Nuevo término (nace en borrador)'}</h3>
+      ${t ? `<div class="ds-barra">${dsChip(t.estado)}<span class="ds-sep"></span>
+        ${t.estado === 'publicado'
+          ? '<button onclick="glEstado(\'borrador\')" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Ocultar del sitio</button>'
+          : '<button onclick="glEstado(\'publicado\')" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Publicar</button>'}
+        ${t.estado !== 'archivado' ? '<button onclick="glEstado(\'archivado\')" class="text-xs px-3 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Archivar</button>' : ''}
+        ${t.estado === 'borrador' ? '<button onclick="glBorrar()" class="text-xs px-3 py-2 rounded-lg bg-red-900/40 hover:bg-red-800/60 text-red-400 transition">Borrar</button>' : ''}</div>
+        ${t.bloqueantes.length ? '<div class="ds-pend ds-no val-text"><strong>Para poder publicarlo falta:</strong><ul>' + t.bloqueantes.map(p => `<li class="ds-mal">${esc(p)}</li>`).join('') + '</ul></div>' : ''}` : ''}
+      <div class="ds-grid">
+        <div><label for="gl-termino">Término</label><input id="gl-termino" value="${t ? esc(t.termino) : ''}" placeholder="RSH" /></div>
+        <div><label for="gl-orden">Orden</label><input id="gl-orden" type="number" min="0" max="10000" value="${t ? Number(t.orden) : 100}" /></div>
+        <div><label for="gl-fuente">Fuente oficial</label>${dsSelectFuente('gl-fuente', t ? t.fuente_id : null)}</div>
+        <div class="ds-ancho"><label for="gl-definicion">Definición (en simple)</label><textarea id="gl-definicion" style="min-height:5rem">${t ? esc(t.definicion) : ''}</textarea></div>
+      </div>
+      <div class="ds-acciones">
+        <button onclick="glGuardar(${i})" class="bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">Guardar</button>
+        <button onclick="glOcultarForm()" class="text-sm px-4 py-2 rounded-lg glass sidebar-text hover:text-violet-400 transition">Cerrar</button>
+      </div></div>`
+    caja.dataset.id = String(i)
+    caja.classList.remove('hidden')
+  }
+  function glOcultarForm() { document.getElementById('gl-form').classList.add('hidden') }
+  function glIdActual() { return Number(document.getElementById('gl-form').dataset.id) }
+  async function glGuardar(id) {
+    try {
+      const fuente = dsValor('gl-fuente')
+      const cuerpo = { termino: dsValor('gl-termino'), definicion: dsValor('gl-definicion'), orden: Number(dsValor('gl-orden')), fuente_id: fuente ? Number(fuente) : null }
+      if (id) await dsApi('PATCH', `/glosario/${id}`, cuerpo)
+      else await dsApi('POST', '/glosario', cuerpo)
+      toast(id ? 'Término guardado' : 'Término creado en borrador')
+      await cargarGlosario()
+    } catch (e) { dsError(e) }
+  }
+  async function glEstado(estado) {
+    const id = glIdActual()
+    if (estado === 'borrador' && !confirm('El término dejará de verse en el sitio. ¿Continuar?')) return
+    try { await dsApi('POST', `/glosario/${id}/estado`, { estado }); toast(estado === 'publicado' ? 'Término publicado' : (estado === 'archivado' ? 'Término archivado' : 'Término oculto')); await cargarGlosario() } catch (e) { dsError(e) }
+  }
+  async function glBorrar() {
+    const id = glIdActual()
+    if (!confirm('Se borrará el término. ¿Continuar?')) return
+    try { await dsApi('DELETE', `/glosario/${id}`); toast('Término borrado'); await cargarGlosario() } catch (e) { dsError(e) }
   }
 
   init();

@@ -3,7 +3,7 @@
 Reglas que protegen a las familias de información sin respaldo (se aplican al **mostrar**, no solo al guardar):
 
 * Una ficha ``publicado`` se muestra solo si **todos** sus datos están ``verificado`` y cada dato y cada bloque citan una fuente existente
-  cuyo enlace es https y de un dominio oficial (gob.cl, bcn.cl, minvu.cl, cmfchile.cl, sii.cl). Si no, responde 404 (nunca se muestra un número sin respaldo).
+  cuyo enlace es https y de un dominio oficial (gob.cl, bcn.cl, minvu.cl, cmfchile.cl, sii.cl, bcentral.cl, sernac.cl). Si no, responde 404 (nunca se muestra un número sin respaldo).
 * Si la revisión de la ficha o de algún dato tiene más de ``DIAS_REVISION`` días (o falta la fecha o el revisor), la ficha **se sigue mostrando**,
   con un aviso visible («pendiente de revisión: confirma los datos en la fuente oficial») y ``noindex``.
 * Los equivalentes en pesos son aproximados, con la UF del día que informa el servicio (``app.services.uf``); sin ese valor no se muestran.
@@ -27,7 +27,7 @@ from app.services.seo import SITIO_URL
 logger = logging.getLogger("wtsp_pita")
 
 DIAS_REVISION = 90
-DOMINIOS_OFICIALES = ("gob.cl", "bcn.cl", "minvu.cl", "cmfchile.cl", "sii.cl")
+DOMINIOS_OFICIALES = ("gob.cl", "bcn.cl", "minvu.cl", "cmfchile.cl", "sii.cl", "bcentral.cl", "sernac.cl")
 SLUG_VALIDO = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SLUG_MAX = 90
 GRUPOS = {"comprar": "Comprar vivienda", "construir": "Construir vivienda", "arrendar": "Arrendar", "mejorar": "Mejorar vivienda y barrio",
@@ -79,31 +79,44 @@ def es_fuente_oficial(url: Any) -> bool:
     return u.scheme == "https" and any(host == d or host.endswith("." + d) for d in DOMINIOS_OFICIALES)
 
 
+_NUMERADA = re.compile(r"^\d{1,2}[.)]\s+(.+)$")
+
+
 def partes_de_texto(cuerpo: Any) -> List[Dict[str, Any]]:
-    """Párrafos (separados por línea en blanco) y listas (líneas que empiezan con «- »). El texto sale tal cual: la plantilla lo escapa."""
+    """Párrafos (separados por línea en blanco), listas con viñetas (líneas que empiezan con «- ») y listas numeradas (líneas que empiezan con «1. », «2. »…).
+    El texto sale tal cual: la plantilla lo escapa."""
     partes: List[Dict[str, Any]] = []
     parrafo: List[str] = []
-    items: List[str] = []
+    lista: Dict[str, Any] = {"tipo": None, "items": []}
 
-    def cerrar():
+    def cerrar_parrafo():
         if parrafo:
             partes.append({"tipo": "p", "texto": " ".join(parrafo)}); parrafo.clear()
-        if items:
-            partes.append({"tipo": "ul", "items": list(items)}); items.clear()
+
+    def cerrar_lista():
+        if lista["items"]:
+            partes.append({"tipo": lista["tipo"], "items": list(lista["items"])})
+        lista.update(tipo=None, items=[])
+
+    def agregar(tipo: str, texto: str):
+        cerrar_parrafo()
+        if lista["tipo"] != tipo:
+            cerrar_lista()
+            lista["tipo"] = tipo
+        lista["items"].append(texto)
 
     for linea in str(cuerpo or "").replace("\r", "").split("\n"):
         s = linea.strip()
         if not s:
-            cerrar()
+            cerrar_parrafo(); cerrar_lista()
         elif s.startswith("- "):
-            if parrafo:
-                partes.append({"tipo": "p", "texto": " ".join(parrafo)}); parrafo.clear()
-            items.append(s[2:].strip())
+            agregar("ul", s[2:].strip())
+        elif _NUMERADA.match(s):
+            agregar("ol", _NUMERADA.match(s).group(1).strip())
         else:
-            if items:
-                partes.append({"tipo": "ul", "items": list(items)}); items.clear()
+            cerrar_lista()
             parrafo.append(s)
-    cerrar()
+    cerrar_parrafo(); cerrar_lista()
     return partes
 
 

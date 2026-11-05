@@ -1,0 +1,37 @@
+<style>
+  .sf-prev { background: #fef3c7; border-bottom: 2px solid #f59e0b; color: #78350f; padding: 0.8rem 0; font-size: 0.9rem; line-height: 1.5; }
+  .sf-prev ul { margin: 0.35rem 0 0 1.2rem; list-style: disc; }
+  .sf-migas { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.85rem; color: var(--text-subtle); margin-bottom: 1.25rem; }
+  .sf-migas a { color: var(--text-muted); text-decoration: none; }
+  .sf-migas a:hover { color: var(--blue); }
+  .sf-migas [aria-current] { color: var(--ink); font-weight: 600; }
+  .sf-cab h1 { font-size: clamp(1.8rem, 3.6vw, 2.5rem); font-weight: 800; line-height: 1.12; margin: 0.5rem 0 0.35rem; }
+  .sf-oficial { color: var(--text-muted); font-size: 1.05rem; margin-bottom: 1rem; }
+  .sf-resumen { font-size: 1.1rem; line-height: 1.6; max-width: 760px; margin-bottom: 0.9rem; }
+  .sf-post { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1rem; }
+  .sf-aviso { border: 1px solid #f5c58b; background: #fff7ed; color: #7c3a05; border-radius: var(--radius); padding: 0.9rem 1.1rem; max-width: 760px; font-size: 0.92rem; line-height: 1.55; margin-top: 1rem; }
+  .sf-tabla { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; font-size: 0.95rem; }
+  .sf-tabla th, .sf-tabla td { padding: 0.7rem 1rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); }
+  .sf-tabla th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-subtle); background: var(--bg2); }
+  .sf-tabla tr:last-child td { border-bottom: 0; }
+  .sf-tabla td.v strong { color: var(--ink); font-size: 1.02rem; }
+  .sf-tabla small { display: block; color: var(--text-subtle); font-size: 0.8rem; margin-top: 0.15rem; }
+  .sf-tabla-caja { overflow-x: auto; }
+  .sf-sec { padding-top: 1.75rem; padding-bottom: 1.75rem; }
+  .sf-bloque h2 { font-size: 1.35rem; font-weight: 800; margin-bottom: 0.7rem; }
+  .sf-bloque p, .sf-bloque li { font-size: 1rem; line-height: 1.7; max-width: 760px; }
+  .sf-bloque ul { margin: 0.5rem 0 0.75rem 1.3rem; list-style: disc; }
+  .sf-bloque ol { margin: 0.5rem 0 0.75rem 1.5rem; list-style: decimal; }
+  .sf-bloque ol li { padding-left: 0.2rem; margin-bottom: 0.3rem; }
+  .sf-bloque p { margin-bottom: 0.75rem; }
+  .sf-nota { font-size: 0.82rem; color: var(--text-subtle); max-width: 760px; line-height: 1.6; margin-top: 0.8rem; }
+  .sf-fuentes { list-style: none; margin: 0; padding: 0; max-width: 820px; }
+  .sf-fuentes li { display: grid; grid-template-columns: 2.2rem 1fr; gap: 0.5rem; padding: 0.7rem 0; border-bottom: 1px solid var(--border); font-size: 0.92rem; line-height: 1.5; }
+  .sf-fuentes li:last-child { border-bottom: 0; }
+  .sf-fuentes .n { color: var(--blue); font-weight: 800; }
+  .sf-fuentes a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; word-break: break-word; }
+  .sf-fuentes small { display: block; color: var(--text-subtle); font-size: 0.8rem; }
+  sup.sf-ref a { color: var(--blue); text-decoration: none; font-weight: 700; font-size: 0.75rem; margin-left: 0.1rem; }
+  .sf-acciones { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.25rem; }
+  @media (max-width: 640px) { .sf-acciones .btn { flex: 1 1 100%; } }
+</style>

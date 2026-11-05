@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+{% include "partials/_head.html" %}
+{% if terminos %}<script type="application/ld+json">{{ json_ld | tojson }}</script>
+{% endif %}{% include "partials/_estilos_ficha.html" %}
+<style>
+  .gl-letras { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.25rem 0 0.5rem; }
+  .gl-letras a { min-width: 2rem; text-align: center; font-weight: 700; font-size: 0.85rem; color: var(--ink); text-decoration: none; background: #fff; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.25rem 0.5rem; }
+  .gl-letras a:hover { border-color: var(--blue); color: var(--blue); }
+  .gl-lista { max-width: 820px; margin-top: 1.5rem; }
+  .gl-letra { font-size: 1.1rem; font-weight: 800; color: var(--blue); border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; margin: 1.8rem 0 0.4rem; scroll-margin-top: 5rem; }
+  .gl-termino { padding: 0.9rem 0; border-bottom: 1px solid var(--border); scroll-margin-top: 5rem; }
+  .gl-termino:last-child { border-bottom: 0; }
+  .gl-termino dt { font-weight: 800; color: var(--ink); font-size: 1.02rem; }
+  .gl-termino dd { margin: 0.25rem 0 0; color: var(--text-muted); line-height: 1.65; font-size: 0.96rem; }
+  .gl-termino dd small { display: block; margin-top: 0.3rem; color: var(--text-subtle); font-size: 0.8rem; }
+  .gl-termino dd small a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+  .gd-vacio { margin-top: 1.5rem; padding: 1.25rem; border: 1px dashed var(--border-strong); border-radius: var(--radius); color: var(--text-muted); max-width: 640px; }
+</style>
+<link rel="stylesheet" href="/css/sitio.css" />
+</head>
+<body>
+
+{% include "partials/_navbar.html" %}
+
+<main>
+  <section class="section-sm">
+    <div class="container sf-cab">
+      <nav class="sf-migas" aria-label="Ruta de navegación">
+        <a href="/">Inicio</a><span aria-hidden="true">›</span><span aria-current="page">Glosario</span>
+      </nav>
+      <div class="chip">Glosario</div>
+      <h1>Glosario de subsidios habitacionales</h1>
+      <p class="sf-resumen">Las siglas y palabras que aparecen al postular, explicadas en simple. Cada definición cita su fuente oficial.</p>
+      {% if terminos %}
+      <nav class="gl-letras" aria-label="Ir a la letra">{% for grupo in grupos %}<a href="#letra-{{ grupo.id }}">{{ grupo.letra }}</a>{% endfor %}</nav>
+      <div class="gl-lista">
+        {% for grupo in grupos %}
+        <h2 class="gl-letra" id="letra-{{ grupo.id }}">{{ grupo.letra }}</h2>
+        <dl>
+          {% for t in grupo.terminos %}
+          <div class="gl-termino" id="{{ t.ancla }}">
+            <dt>{{ t.termino }}</dt>
+            <dd>{{ t.definicion }}<small>Fuente: <a href="{{ t.fuente.url }}" target="_blank" rel="noopener">{{ t.fuente.titulo }}</a> ({{ t.fuente.organismo }})</small></dd>
+          </div>
+          {% endfor %}
+        </dl>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="gd-vacio">Estamos preparando el glosario. Mientras tanto, mira los <a href="/subsidios">subsidios</a> o las <a href="/guias">guías</a>.</p>
+      {% endif %}
+      <p class="sf-nota">Información orientativa, contrastada con las fuentes oficiales citadas. QueSubsidio no es el MINVU ni un banco.</p>
+      <div class="sf-acciones">
+        <a href="/guias" class="btn btn-outline">Guías</a>
+        <a href="/#registro" class="btn btn-red">Evaluar mi caso</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+{% include "partials/_footer.html" %}
+{% include "partials/_scripts_common.html" %}
+
+</body>
+</html>

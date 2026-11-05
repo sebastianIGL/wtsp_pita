@@ -8,6 +8,7 @@ from app.core.errors import respuesta_error
 from app.core.permisos import _solo_owner
 from app.routers.paginas import templates
 from app.services import directorio_admin as ed
+from app.services import guias_admin as ga
 from fastapi import APIRouter, Request, Response
 
 logger = logging.getLogger("wtsp_pita")
@@ -242,3 +243,157 @@ async def api_directorio_fuente_editar(fid: int, request: Request):
     if isinstance(body, Response):
         return body
     return await _ejecutar("api_directorio_fuente_editar", lambda: ed.editar_fuente(fid, body))
+
+
+@router.post("/api/directorio/subsidios/{sid}/verificar-datos")
+async def api_directorio_verificar_todos(sid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    return await _ejecutar("api_directorio_verificar_todos", lambda: ed.verificar_todos(sid, perfil))
+
+
+# ── guías ────────────────────────────────────────────────────────────────────
+
+@router.get("/api/directorio/guias")
+async def api_guias_listar(request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    return await _ejecutar("api_guias_listar", ga.listar_guias)
+
+
+@router.post("/api/directorio/guias")
+async def api_guias_crear(request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    body = await _cuerpo(request)
+    if isinstance(body, Response):
+        return body
+    return await _ejecutar("api_guias_crear", lambda: ga.crear_guia(body, perfil))
+
+
+@router.get("/api/directorio/guias/{gid}")
+async def api_guias_obtener(gid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    return await _ejecutar("api_guias_obtener", lambda: ga.obtener_guia(gid))
+
+
+@router.patch("/api/directorio/guias/{gid}")
+async def api_guias_editar(gid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    body = await _cuerpo(request)
+    if isinstance(body, Response):
+        return body
+    return await _ejecutar("api_guias_editar", lambda: ga.editar_guia(gid, body))
+
+
+@router.delete("/api/directorio/guias/{gid}")
+async def api_guias_borrar(gid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+
+    async def borrar():
+        await ga.eliminar_guia(gid)
+        return {"ok": True}
+    return await _ejecutar("api_guias_borrar", borrar)
+
+
+@router.post("/api/directorio/guias/{gid}/estado")
+async def api_guias_estado(gid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    body = await _cuerpo(request)
+    if isinstance(body, Response):
+        return body
+    return await _ejecutar("api_guias_estado", lambda: ga.cambiar_estado_guia(gid, body.get("estado")))
+
+
+@router.post("/api/directorio/guias/{gid}/revisada")
+async def api_guias_revisada(gid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    return await _ejecutar("api_guias_revisada", lambda: ga.marcar_revisada_guia(gid, perfil))
+
+
+@router.get("/api/directorio/guias/{gid}/vista-previa")
+async def api_guias_vista_previa(gid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    try:
+        prev = await ga.vista_previa_guia(gid)
+    except Exception as e:
+        return respuesta_error(e, contexto="api_guias_vista_previa")
+    guia = prev["guia"]
+    r = templates.TemplateResponse(request, "guia.html", {
+        "active": "guias", "guia": guia, "json_ld": prev["json_ld"], "robots": "noindex, nofollow",
+        "page_title": guia["titulo_pagina"], "page_description": guia["descripcion"], "page_path": guia["ruta"],
+        "vista_previa": True, "pendientes": prev["pendientes"],
+    })
+    r.headers["Cache-Control"] = "no-store"
+    r.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return r
+
+
+# ── glosario ─────────────────────────────────────────────────────────────────
+
+@router.get("/api/directorio/glosario")
+async def api_glosario_listar(request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    return await _ejecutar("api_glosario_listar", ga.listar_terminos)
+
+
+@router.post("/api/directorio/glosario")
+async def api_glosario_crear(request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    body = await _cuerpo(request)
+    if isinstance(body, Response):
+        return body
+    return await _ejecutar("api_glosario_crear", lambda: ga.crear_termino(body))
+
+
+@router.patch("/api/directorio/glosario/{tid}")
+async def api_glosario_editar(tid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    body = await _cuerpo(request)
+    if isinstance(body, Response):
+        return body
+    return await _ejecutar("api_glosario_editar", lambda: ga.editar_termino(tid, body))
+
+
+@router.delete("/api/directorio/glosario/{tid}")
+async def api_glosario_borrar(tid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+
+    async def borrar():
+        await ga.eliminar_termino(tid)
+        return {"ok": True}
+    return await _ejecutar("api_glosario_borrar", borrar)
+
+
+@router.post("/api/directorio/glosario/{tid}/estado")
+async def api_glosario_estado(tid: int, request: Request):
+    perfil = await _dueno(request)
+    if isinstance(perfil, Response):
+        return perfil
+    body = await _cuerpo(request)
+    if isinstance(body, Response):
+        return body
+    return await _ejecutar("api_glosario_estado", lambda: ga.cambiar_estado_termino(tid, body.get("estado")))

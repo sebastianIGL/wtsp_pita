@@ -11,6 +11,7 @@ from fastapi.templating import Jinja2Templates
 
 from app.core import interruptores
 from app.core.config import get_settings
+from app.services import guias as servicio_guias
 from app.services import legal
 from app.services.directorio import DirectorioNoDisponible, indice_publico, json_ld as json_ld_subsidio, obtener_subsidio, slugs_de_subsidios
 from app.services.estadisticas import formatear_miles, total_clientes
@@ -96,6 +97,54 @@ async def page_ficha_subsidio(request: Request, slug: str):
     })
 
 
+@router.get("/guias")
+async def page_guias(request: Request):
+    """Índice de las guías publicadas (ver app/services/guias.py). Sin guías: la página se ve igual, con un aviso, y no se indexa."""
+    try:
+        guias = await servicio_guias.guias_publicas()
+    except servicio_guias.GuiasNoDisponibles:
+        return PlainTextResponse("Servicio no disponible", status_code=503, headers={"Retry-After": "300"})
+    return templates.TemplateResponse(request, "guias.html", {
+        "active": "guias", "guias": guias, "robots": "index, follow" if guias else "noindex, follow",
+        "page_title": "Guías para postular a un subsidio — QueSubsidio",
+        "page_description": "Guías cortas, con fuentes oficiales, para prepararte: Registro Social de Hogares, cuenta de ahorro, subsidio adjudicado, crédito hipotecario y valor de la UF.",
+        "page_path": "/guias",
+    })
+
+
+@router.get("/guias/{slug}")
+async def page_guia(request: Request, slug: str):
+    try:
+        guia = await servicio_guias.obtener_guia(slug)
+    except servicio_guias.GuiasNoDisponibles:
+        return PlainTextResponse("Servicio no disponible", status_code=503, headers={"Retry-After": "300"})
+    if guia is None:
+        logger.info("Guía | slug=%s | no encontrada", slug[:90])
+        return templates.TemplateResponse(request, "guia.html", {
+            "active": "guias", "guia": None, "robots": "noindex, follow",
+            "page_title": "Guía no encontrada — QueSubsidio", "page_description": "Esta guía no está disponible. Mira las guías que sí tenemos.", "page_path": "/guias",
+        }, status_code=404)
+    return templates.TemplateResponse(request, "guia.html", {
+        "active": "guias", "guia": guia, "json_ld": servicio_guias.json_ld_guia(guia), "robots": guia["robots"],
+        "page_title": guia["titulo_pagina"], "page_description": guia["descripcion"], "page_path": guia["ruta"],
+    })
+
+
+@router.get("/glosario")
+async def page_glosario(request: Request):
+    try:
+        terminos = await servicio_guias.terminos_publicos()
+    except servicio_guias.GuiasNoDisponibles:
+        return PlainTextResponse("Servicio no disponible", status_code=503, headers={"Retry-After": "300"})
+    return templates.TemplateResponse(request, "glosario.html", {
+        "active": "guias", "terminos": terminos, "grupos": servicio_guias.agrupar_por_letra(terminos), "json_ld": servicio_guias.json_ld_glosario(terminos),
+        "robots": "index, follow" if terminos else "noindex, follow",
+        "page_title": "Glosario de subsidios habitacionales — QueSubsidio",
+        "page_description": "RSH, UF, DS, SERVIU, tramo, llamado y otras palabras de los subsidios habitacionales, explicadas en simple con su fuente oficial.",
+        "page_path": "/glosario",
+    })
+
+
 @router.get("/viviendas")
 async def page_viviendas(request: Request):
     return templates.TemplateResponse(request, "viviendas.html", {
@@ -154,7 +203,14 @@ async def sitemap_xml():
     except Exception as e:                       # el directorio nunca debe romper el sitemap (por ejemplo, si sus tablas aún no existen)
         logger.warning("Sitemap: no se pudieron leer las fichas de subsidios (%s)", type(e).__name__)
         fichas = []
-    xml = construir_sitemap(list(PAGINAS_PUBLICAS) + fichas + [f"/viviendas/{s}" for s in slugs])
+    try:
+        slugs_guias = await servicio_guias.slugs_de_guias()
+        hay_terminos = bool(await servicio_guias.terminos_publicos())
+    except Exception as e:                       # lo mismo con las guías y el glosario
+        logger.warning("Sitemap: no se pudieron leer las guías (%s)", type(e).__name__)
+        slugs_guias, hay_terminos = [], False
+    guias = ([("/guias")] if slugs_guias else []) + [f"/guias/{s}" for s in slugs_guias] + (["/glosario"] if hay_terminos else [])
+    xml = construir_sitemap(list(PAGINAS_PUBLICAS) + fichas + guias + [f"/viviendas/{s}" for s in slugs])
     return Response(content=xml, media_type="application/xml; charset=utf-8", headers={"Cache-Control": "public, max-age=3600"})
 
 

@@ -134,6 +134,17 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   Las fichas de otro tipo (arriendo, etc.) entran solas al índice cuando se publican; con dos o más fichas completas en un mismo tipo, se compara ese tipo en su propia tabla.
 - El orden y el color de las tarjetas salen de `orden` y `decreto` de cada ficha.
 
+## Guías y glosario (Fase 5)
+- **Páginas públicas:** `/guias` (índice), `/guias/{slug}` y `/glosario` (`frontend/guias.html`, `guia.html`, `glosario.html`; lógica en `app/services/guias.py`). Leen las tablas `Guia` y `GlosarioTermino`.
+  Mismas reglas que las fichas, aplicadas **al mostrar**: una guía publicada necesita título, resumen, texto y **al menos una fuente**, y todas sus fuentes deben existir y ser un enlace **https de un dominio
+  oficial** (se sumaron `bcentral.cl` y `sernac.cl` a la lista); si no, 404 y aviso en el log. Con la revisión de más de 90 días (o sin fecha o sin revisor) se muestra con aviso «pendiente de revisión»,
+  `noindex` y fuera del sitemap. Un término del glosario necesita definición y fuente oficial. Lectura guardada 5 minutos; si la base falla, la última copia buena (503 si nunca hubo); sin tablas = sin guías.
+  El sitemap incluye `/guias`, cada guía vigente y `/glosario` solo si hay algo publicado. Texto de las guías: párrafos, viñetas (`- `) y pasos numerados (`1. `).
+- **Editor** (solo el dueño; Admin → Subsidios → «Guías» y «Glosario»; rutas `/api/directorio/guias...` y `/glosario...`, lógica en `app/services/guias_admin.py`): nacen en borrador; una guía se publica solo
+  sin problemas ni avisos; **cambiar el título, el resumen, el texto o las fuentes de una guía borra su revisión**; marcar revisada registra a la persona autenticada y la fecha; no se repite un término
+  (sin mirar tildes ni mayúsculas); lo publicado no se borra. La ficha de subsidio suma **«Verificar todos los datos»** (`POST /api/directorio/subsidios/{id}/verificar-datos`): marca de una vez los datos
+  «por confirmar», solo si todos tienen fuente oficial, con tu nombre y la fecha.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen
