@@ -13,3 +13,7 @@ PROYECTOS_OCULTOS_DEL_SITIO = ("subsidios.cl", "prueba inmobiliaria")
 CONTACTO_EMPRESAS = False     # sección «Para inmobiliarias» de la portada y la ruta /api/contacto
 NEWSLETTER = False            # suscripción del pie y del blog y la ruta /api/newsletter (pendiente de rehacer: envío real, baja, texto)
 FUNCIONALIDADES = False       # bloque «Funcionalidades» de la portada (escrito para inmobiliarias: el sitio público es solo informativo)
+
+# /subsidios arma las tarjetas y la tabla comparativa con las fichas del directorio cuando las cinco fichas de compra de vivienda están publicadas y
+# al día (ver NUCLEO en app/services/directorio.py). Con False, o si falta alguna, se ve siempre la página fija ya revisada.
+DIRECTORIO_EN_SUBSIDIOS = True

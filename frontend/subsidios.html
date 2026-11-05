@@ -29,6 +29,23 @@
   .row-pill { display: inline-block; font-weight: 700; font-size: 0.78rem; color: #fff; background: var(--cat); border-radius: 9999px; padding: 0.25rem 0.9rem; white-space: nowrap; }
   .table-note { font-size: 0.78rem; color: var(--text-subtle); margin-top: 0.9rem; }
 
+  /* ── Índice generado desde el directorio ──────────────────────────────── */
+  .sub-detail-grid-centrada { display: flex; flex-wrap: wrap; justify-content: center; }          /* la última fila, si no se llena, queda centrada */
+  .sub-detail-grid-centrada > * { flex: 1 1 280px; max-width: calc((100% - 3rem) / 3); }
+  @media (max-width: 960px) { .sub-detail-grid-centrada > * { max-width: none; } }
+  .grupo-chips { display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; margin-bottom: 2rem; }
+  .grupo-chips a { font-size: 0.85rem; font-weight: 700; color: var(--ink); text-decoration: none; background: #fff; border: 1px solid var(--border); border-radius: 9999px; padding: 0.4rem 1rem; }
+  .grupo-chips a:hover { border-color: var(--blue); color: var(--blue); }
+  .grupo-bloque + .grupo-bloque { margin-top: 2.5rem; }
+  .grupo-titulo { font-size: 1.15rem; font-weight: 800; color: var(--ink); margin-bottom: 1rem; }
+  .sub-fuente { font-size: 0.78rem; color: var(--text-subtle); line-height: 1.5; }
+  .dato-pesos, .cmp-pesos { color: var(--text-subtle); font-size: 0.8rem; }
+  .cmp-pesos { display: block; margin-top: 0.15rem; }
+  .cmp-vacio { color: var(--text-subtle); font-style: italic; }
+  a.row-pill { text-decoration: none; }
+  a.row-pill:hover { filter: brightness(0.92); }
+  a.row-pill:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
   /* ── Fuentes oficiales ─────────────────────────────────────────────────── */
   #oficial { background: var(--bg2); }
   .official-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
@@ -94,6 +111,94 @@
     </div>
   </section>
 
+  {#- Índice y comparación generados desde el directorio (app/services/directorio.py::indice_publico). Si `indice` es None se ve la versión fija de abajo. -#}
+  {% if indice %}
+  <!-- ── EXPLORA LOS SUBSIDIOS (desde el directorio) ───────────────────────── -->
+  <section id="sub-cards" class="section" aria-labelledby="explora-title">
+    <div class="container">
+      <div class="reveal" style="text-align:center;max-width:680px;margin:0 auto 2rem">
+        <h2 id="explora-title" class="section-h">Explora los subsidios de vivienda</h2>
+        <p class="section-lead" style="margin:0 auto">Revisa los requisitos clave de cada alternativa. Cada cifra viene de una fuente oficial y la ficha indica cuándo la revisamos.</p>
+      </div>
+      {% if indice.varios_grupos %}
+      <nav class="grupo-chips" aria-label="Tipos de subsidio">
+        {% for g in indice.grupos %}<a href="#grupo-{{ g.clave }}">{{ g.nombre }}</a>{% endfor %}
+      </nav>
+      {% endif %}
+      {% for g in indice.grupos %}
+      <div id="grupo-{{ g.clave }}" class="grupo-bloque">
+        {% if indice.varios_grupos %}<h3 class="grupo-titulo">{{ g.nombre }}</h3>{% endif %}
+        <div class="sub-detail-grid sub-detail-grid-centrada">
+          {% for f in g.fichas %}
+          <article class="sub-detail {{ f.cat }} reveal">
+            <div class="cat-icon">
+              <svg width="30" height="30" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <span class="cat-pill">{{ f.nombre }}</span>
+            <h3>{{ f.nombre_oficial }}</h3>
+            <span class="sub-tag">{{ f.etiqueta_postulacion }}</span>
+            <p class="sub-desc">{{ f.resumen }}</p>
+            {% if f.resumen_datos %}
+            <ul class="check-list">
+              {% for d in f.resumen_datos %}
+              <li><span>{{ d.etiqueta }}: <strong>{{ d.valor }}</strong>{% if d.pesos %} <span class="dato-pesos">{{ d.pesos }}</span>{% endif %}</span></li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+            <p class="sub-fuente">Revisado el {{ f.revisado }}. <a href="{{ f.ruta }}#fuentes">Ver las fuentes oficiales</a></p>
+            <a href="{{ f.ruta }}" class="sub-link">Ver la ficha completa
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+            </a>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+      <div class="reveal" style="margin-top:1.75rem;padding:1.1rem 1.25rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);font-size:0.9rem;line-height:1.6;">
+        <strong>Fechas de postulación.</strong> Cada llamado tiene sus propias fechas y fecha de corte del ahorro, y cambian durante el año. <strong>Confirma las fechas vigentes en la página oficial del MINVU</strong>
+        (<a href="https://www.minvu.gob.cl/beneficios/comprar-una-vivienda/" target="_blank" rel="noopener">Comprar una vivienda en minvu.gob.cl</a>) y en la ficha de cada programa antes de postular.
+      </div>
+    </div>
+  </section>
+
+  {% if indice.grupos | selectattr("comparacion") | list %}
+  <!-- ── COMPARA (desde el directorio) ─────────────────────────────────────── -->
+  <section id="comparar" class="section" aria-labelledby="comparar-title">
+    <div class="container">
+      <div class="reveal" style="margin-bottom:1.75rem">
+        <h2 id="comparar-title" class="section-h">Compara requisitos clave de un vistazo</h2>
+      </div>
+      {% for g in indice.grupos if g.comparacion %}
+      {% if indice.varios_grupos %}<h3 class="grupo-titulo">{{ g.nombre }}</h3>{% endif %}
+      <div class="table-wrap reveal">
+        <table class="table-compare">
+          <thead>
+            <tr>
+              <th>Subsidio</th>
+              {% for c in g.comparacion.columnas %}<th>{{ c }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for fila in g.comparacion.filas %}
+            <tr class="{{ fila.ficha.cat }}">
+              <td><a class="row-pill" href="{{ fila.ficha.ruta }}">{{ fila.ficha.nombre }}</a></td>
+              {% for c in fila.celdas %}
+              <td>{% if c %}{{ c.valor }}{% if c.llamado %}<sup>*</sup>{% endif %}{% if c.pesos %}<span class="cmp-pesos">{{ c.pesos }}</span>{% endif %}{% else %}<span class="cmp-vacio">Sin dato confirmado</span>{% endif %}</td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% for l in g.comparacion.llamados %}<p class="table-note">* Cifra del {{ l }}: cada llamado puede cambiarla.</p>{% endfor %}
+      {% endfor %}
+      <p class="table-note">«Sin dato confirmado» quiere decir que aún no tenemos una cifra verificada en una fuente oficial vigente.
+        {% if indice.uf %}Los equivalentes en pesos son aproximados y se calculan con el valor de la UF del {{ indice.uf.fecha }} (${{ indice.uf.valor }}). {% endif %}
+        Los montos, ahorros y topes cambian de un llamado a otro y según la zona: abre la ficha de cada subsidio para ver sus fuentes y la fecha de revisión, y confirma siempre en minvu.gob.cl antes de postular.</p>
+    </div>
+  </section>
+  {% endif %}
+  {% else %}
   <!-- ── EXPLORA LOS SUBSIDIOS ─────────────────────────────────────────────── -->
   <section id="sub-cards" class="section" aria-labelledby="explora-title">
     <div class="container">
@@ -227,6 +332,8 @@
       <p class="table-note">Los montos, ahorros y topes cambian de un llamado a otro y según la zona. Información revisada el 5 de noviembre de 2026 en fuentes oficiales del MINVU y ChileAtiende: confirma siempre en minvu.gob.cl antes de postular.</p>
     </div>
   </section>
+
+  {% endif %}
 
   <!-- ── FUENTES OFICIALES ─────────────────────────────────────────────────── -->
   <section id="oficial" class="section-sm" aria-labelledby="oficial-title">

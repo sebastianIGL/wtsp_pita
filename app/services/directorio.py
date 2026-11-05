@@ -35,6 +35,16 @@ GRUPOS = {"comprar": "Comprar vivienda", "construir": "Construir vivienda", "arr
 POSTULACION = {"por_llamados": "Se postula en llamados del MINVU: confirma las fechas vigentes en la página oficial antes de postular.",
                "todo_el_ano": "Se postula durante todo el año.",
                "otra": "Consulta cómo se postula en las fuentes oficiales."}
+POSTULACION_ETIQUETA = {"por_llamados": "Postulación por llamados", "todo_el_ano": "Postulación todo el año", "otra": "Cómo postular: ver la ficha"}
+# Fichas que /subsidios necesita publicadas y al día para mostrar el índice generado en vez de la página fija (ya revisada). Con una sola que falte
+# o esté vencida, la página no pierde ningún subsidio: sigue viéndose la fija.
+NUCLEO = ("ds49-compra", "ds1-tramo-1", "ds1-tramo-2", "ds1-tramo-3", "ds19-integracion-social")
+CAT_POR_DECRETO = {"DS 19": "cat-red", "DS 1": "cat-blue", "DS 49": "cat-purple"}     # el color de la tarjeta sigue al programa; otro decreto: ver CAT_RESPALDO
+CAT_RESPALDO = ("cat-blue", "cat-purple", "cat-red")
+# Columnas de la tabla comparativa: (título, claves de dato que alimentan la columna, la primera que exista gana). Una columna sin ningún dato no se muestra.
+COLUMNAS_COMPARACION = (("Registro Social de Hogares", ("rsh_maximo",)), ("Ahorro mínimo", ("ahorro_minimo",)),
+                        ("Precio máximo de la vivienda", ("precio_maximo",)), ("Monto del subsidio", ("subsidio_base", "subsidio_promedio")))
+DATOS_EN_TARJETA = 4
 TIPOS_FUENTE = {"ficha": "Ficha oficial", "pagina_llamado": "Página del llamado", "folleto": "Folleto oficial", "decreto": "Decreto", "resolucion": "Resolución", "otro": "Documento oficial"}
 _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
@@ -170,7 +180,7 @@ def armar_ficha(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], problemas
             n = None
         if uf and d.get("unidad") == "UF" and n and n > 0:
             pesos = "≈ " + servicio_uf.formatear_pesos(n * uf[0])
-        datos.append({"etiqueta": str(d.get("etiqueta") or ""), "valor": str(d.get("valor_texto") or ""), "pesos": pesos, "llamado": d.get("llamado"),
+        datos.append({"clave": str(d.get("clave") or ""), "etiqueta": str(d.get("etiqueta") or ""), "valor": str(d.get("valor_texto") or ""), "pesos": pesos, "llamado": d.get("llamado"),
                       "fuentes": [n for n in [num(d["fuente_id"])] if n] if isinstance(d.get("fuente_id"), int) else []})
     lista_fuentes = []
     for fid, n in sorted(numeradas.items(), key=lambda kv: kv[1]):
@@ -183,7 +193,8 @@ def armar_ficha(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], problemas
     nombre, oficial, resumen = str(s["nombre_corto"]), str(s["nombre_oficial"]), str(s["resumen"])
     return {
         "slug": s["slug"], "ruta": f"/subsidios/{s['slug']}", "nombre": nombre, "nombre_oficial": oficial, "decreto": s.get("decreto"),
-        "grupo": GRUPOS.get(s.get("grupo"), "Subsidios"), "resumen": resumen, "postulacion": POSTULACION.get(s.get("postulacion"), POSTULACION["otra"]),
+        "grupo": GRUPOS.get(s.get("grupo"), "Subsidios"), "grupo_clave": s.get("grupo") if s.get("grupo") in GRUPOS else "otro",
+        "alcance": s.get("alcance") or "completa", "etiqueta_postulacion": POSTULACION_ETIQUETA.get(s.get("postulacion"), POSTULACION_ETIQUETA["otra"]), "resumen": resumen, "postulacion": POSTULACION.get(s.get("postulacion"), POSTULACION["otra"]),
         "bloques": bloques, "datos": datos, "fuentes": lista_fuentes,
         "revisado": fecha_larga(rev), "revisado_iso": rev.isoformat() if rev else None, "revisado_por": str(s.get("revisado_por") or "").strip() or None,
         "vencida": vencida, "avisos": problemas["avisos"],
@@ -263,3 +274,44 @@ async def obtener_subsidio(slug: str) -> Optional[Dict[str, Any]]:
 async def slugs_de_subsidios() -> List[str]:
     """Para el sitemap: las fichas que se muestran y se pueden indexar (las que tienen la revisión vencida llevan noindex y no van)."""
     return sorted(s for s, f in (await fichas_publicas()).items() if not f["vencida"])
+
+
+# ── índice y comparación de /subsidios ───────────────────────────────────────
+
+def _comparacion(fichas: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Tabla comparativa de un grupo, hecha con los datos de sus fichas completas. None si hay menos de dos o ninguna columna con datos."""
+    filas_base = [f for f in fichas if f["alcance"] == "completa" and f["datos"]]
+    if len(filas_base) < 2:
+        return None
+    columnas, matriz = [], [[] for _ in filas_base]
+    for titulo, claves in COLUMNAS_COMPARACION:
+        celdas = []
+        for f in filas_base:
+            d = next((d for k in claves for d in f["datos"] if d["clave"] == k), None)
+            celdas.append({"valor": d["valor"], "pesos": d["pesos"], "llamado": d["llamado"]} if d else None)
+        if any(celdas):
+            columnas.append(titulo)
+            for fila, c in zip(matriz, celdas):
+                fila.append(c)
+    if not columnas:
+        return None
+    llamados = sorted({c["llamado"] for fila in matriz for c in fila if c and c["llamado"]})
+    return {"columnas": columnas, "filas": [{"ficha": f, "celdas": celdas} for f, celdas in zip(filas_base, matriz)], "llamados": llamados}
+
+
+async def indice_publico() -> Optional[Dict[str, Any]]:
+    """Lo que necesita /subsidios para armar las tarjetas, el selector por grupo y la tabla comparativa desde las fichas publicadas, o None si no
+    corresponde usarlo (falta o está vencida alguna ficha del NUCLEO): entonces la página muestra su versión fija, que tiene los mismos subsidios.
+    Las fichas con la revisión vencida no entran al índice (siguen visibles en su propia página, con el aviso)."""
+    vigentes = {slug: f for slug, f in (await fichas_publicas()).items() if not f["vencida"]}
+    if any(slug not in vigentes for slug in NUCLEO):
+        return None
+    ordenadas = sorted(vigentes.values(), key=lambda f: (f["orden"], f["nombre"], f["slug"]))
+    por_grupo: Dict[str, List[Dict[str, Any]]] = {}
+    for i, f in enumerate(ordenadas):                    # copias: las fichas de la memoria rápida se comparten con las páginas de cada ficha
+        tarjeta = {**f, "cat": CAT_POR_DECRETO.get(f["decreto"]) or CAT_RESPALDO[i % len(CAT_RESPALDO)],
+                   "resumen_datos": f["datos"][:DATOS_EN_TARJETA] if f["alcance"] == "completa" else []}
+        por_grupo.setdefault(f["grupo_clave"], []).append(tarjeta)
+    grupos = [{"clave": c, "nombre": GRUPOS[c], "fichas": por_grupo[c], "comparacion": _comparacion(por_grupo[c])} for c in GRUPOS if c in por_grupo]
+    uf = next((f["uf"] for f in ordenadas if f["uf"]), None)
+    return {"grupos": grupos, "varios_grupos": len(grupos) > 1, "uf": uf}

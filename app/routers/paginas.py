@@ -12,7 +12,7 @@ from fastapi.templating import Jinja2Templates
 from app.core import interruptores
 from app.core.config import get_settings
 from app.services import legal
-from app.services.directorio import DirectorioNoDisponible, json_ld as json_ld_subsidio, obtener_subsidio, slugs_de_subsidios
+from app.services.directorio import DirectorioNoDisponible, indice_publico, json_ld as json_ld_subsidio, obtener_subsidio, slugs_de_subsidios
 from app.services.estadisticas import formatear_miles, total_clientes
 from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
 from app.services.seo import PAGINAS_PUBLICAS, SITIO_URL, construir_robots, construir_sitemap
@@ -59,8 +59,16 @@ async def page_como_funciona(request: Request):
 
 @router.get("/subsidios")
 async def page_subsidios(request: Request):
+    indice = None
+    if interruptores.DIRECTORIO_EN_SUBSIDIOS:
+        try:
+            indice = await indice_publico()
+        except DirectorioNoDisponible:
+            logger.info("Subsidios | directorio no disponible: se muestra la página fija")
+        except Exception:
+            logger.exception("Subsidios | no se pudo armar el índice del directorio: se muestra la página fija")
     return templates.TemplateResponse(request, "subsidios.html", {
-        "active": "subsidios",
+        "indice": indice, "active": "subsidios",
         "page_title": "Subsidios Habitacionales — QueSubsidio",
         "page_description": "Conoce los subsidios DS19, DS49 y DS1 T2/T3: para quién son, qué piden y dónde verificarlos en las fuentes oficiales.",
         "page_path": "/subsidios",

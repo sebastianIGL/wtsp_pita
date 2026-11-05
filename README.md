@@ -124,6 +124,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **Vista previa** (`GET /api/directorio/subsidios/{id}/vista-previa`, con sesión): la misma plantilla pública con un aviso «VISTA PREVIA» y la lista de lo que falta; no se indexa ni se guarda en caché.
 - Cada escritura invalida la copia de lectura pública (la siguiente visita ve el cambio). El texto de las fichas siempre se escapa (nunca se interpreta como HTML).
 
+## Índice y comparación de /subsidios (Fase 3: fichas de compra de vivienda)
+- **Fichas nuevas:** `supabase/migraciones/2026-11-05_directorio_fichas_compra.sql` (la ejecuta el dueño: A3 cargar, B3 comprobar, C3 revertir) agrega, **en borrador**, DS1 Tramo 1, 2 y 3 y DS19
+  (con DS49 son las cinco de compra de vivienda). Cada cifra y cada frase sale de la hoja de la Fase 0 que el dueño revisó; lo que esa hoja dice que no está confirmado (monto y precio
+  máximo del Tramo 3, montos del DS19) no se publica: la ficha lo dice. Una ficha se publica desde Admin → Subsidios (vista previa + Publicar).
+- **Página `/subsidios`:** cuando las cinco fichas del `NUCLEO` (`app/services/directorio.py`) están **publicadas y al día**, las tarjetas, el selector por tipo de subsidio (solo si hay más de un
+  tipo) y la tabla comparativa se arman con `indice_publico()` desde esas fichas (cifras, equivalente en pesos aproximado, asterisco con el llamado de cada cifra, «Sin dato confirmado» donde falta).
+  Si falta o está vencida **una sola**, o la base falla, o `interruptores.DIRECTORIO_EN_SUBSIDIOS = False`, se ve la página fija ya revisada (mismos subsidios): nunca se pierde uno.
+  Las fichas de otro tipo (arriendo, etc.) entran solas al índice cuando se publican; con dos o más fichas completas en un mismo tipo, se compara ese tipo en su propia tabla.
+- El orden y el color de las tarjetas salen de `orden` y `decreto` de cada ficha.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen
