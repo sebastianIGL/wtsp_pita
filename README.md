@@ -109,7 +109,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   todos los datos deben estar `verificado` y cada dato/bloque/ficha citar una fuente que exista y sea un enlace **https de un dominio oficial** (gob.cl, bcn.cl, minvu.cl,
   cmfchile.cl, sii.cl); si no, la ficha responde 404 y deja un aviso en el log. Si la revisión de la ficha o de algún dato tiene **más de 90 días** (o falta la fecha o el
   revisor), la ficha se sigue mostrando con un aviso de «pendiente de revisión» y `noindex`, y sale del sitemap.
-- **Equivalentes en pesos:** solo para datos en UF, aproximados, con la UF del día que informa mindicador.cl (`app/services/uf.py`: sin ese valor, o con uno de más de 10 días,
+- **Equivalentes en pesos:** solo para datos en UF, aproximados, con la UF del día de **la página oficial del SII** (sii.cl/valores_y_fechas/uf; si no responde o cambia su formato, respaldo en mindicador.cl) (`app/services/uf.py`: sin ese valor, o con uno de más de 10 días,
   no se muestran pesos; nunca se usa un valor de respaldo).
 - **Resiliencia:** lectura guardada 5 minutos; si la base falla se usa la última copia buena (y 503 si nunca hubo una); si las tablas aún no existen se trata como «no hay fichas»
   (404 normal) y el sitemap sigue funcionando. Las fichas vigentes entran al `sitemap.xml`.
