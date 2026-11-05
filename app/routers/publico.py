@@ -14,7 +14,7 @@ from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
 from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
 from app.services.consentimientos import registrar_consentimiento
-from app.services.ficha_proyecto import asignar_slugs
+from app.services.ficha_proyecto import asignar_slugs, es_publico
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict, List
 
@@ -32,7 +32,7 @@ async def api_proyectos_landing(limite: int = 12):
     if not (_cache_proyectos["data"] and now - _cache_proyectos["ts"] < _CACHE_TTL):
         rows = await _supabase_request("GET", "/Proyecto", params={
             "select": "id,nombre,imagen_url,imagenes,ubicacion,activo,condicion_propiedad,fuente_externo_id,"
-                      "Tipologia(valor_uf,dormitorios,banos,superficie_util_m2)",
+                      "Inmobiliaria(nombre,Empresa(nombre)),Tipologia(valor_uf,dormitorios,banos,superficie_util_m2)",
             "order": "nombre.asc",
             "limit": "1000",
         }) or []
@@ -40,7 +40,7 @@ async def api_proyectos_landing(limite: int = 12):
         nuevos: List[Dict[str, Any]] = []
         semi: List[Dict[str, Any]] = []
         for r in rows:
-            if not r.get("nombre") or r.get("activo") is False:
+            if not es_publico(r):             # sin nombre, desactivado u oculto del sitio por el dueño (interruptores.py)
                 continue
             condicion = r.get("condicion_propiedad") or "nueva"
             imagenes = [u for u in (r.get("imagenes") or []) if isinstance(u, str)]

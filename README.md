@@ -118,6 +118,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   depende de este valor. `FUNCIONALIDADES` (bloque «Funcionalidades» de la portada).
   `NEWSLETTER` (suscripción del pie de todas las páginas y del blog, y `POST /api/newsletter`; el pie pasa a tres columnas y la política deja de
   nombrarlo). **Pendiente rehacerlo**: hoy solo guardaba correos, no existe ningún envío ni baja.
+- **Proyectos ocultos del sitio público:** `PROYECTOS_OCULTOS_DEL_SITIO` (hoy `("subsidios.cl",)`) saca de la vitrina de la portada, de `/viviendas`, de
+  las fichas `/viviendas/{slug}` (responden 404 con noindex) y del sitemap a los proyectos cuya **inmobiliaria o empresa** tenga ese texto en el
+  nombre (sin importar mayúsculas ni tildes). No desactiva nada en la base: el CRM y el asistente de WhatsApp los siguen viendo. Para cambiar la
+  lista basta editar el archivo; vacía = no se oculta ninguno.
 
 ## Autorización explícita en los formularios públicos
 - Los tres formularios que guardan datos de personas exigen una **casilla sin marcar de antemano**, con el enlace a `/privacidad`: el

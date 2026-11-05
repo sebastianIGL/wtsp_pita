@@ -15,6 +15,7 @@ import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.clients.supabase import _supabase_request
+from app.core import interruptores
 from app.core.cache_proyectos import _CACHE_TTL
 
 SLUG_VALIDO = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
@@ -22,11 +23,12 @@ SLUG_MAX = 90
 ULTIMAS_UNIDADES = 3          # hasta este stock total se dice «Últimas unidades»
 ORIGENES = ("viviendas", "bot")
 
-_SELECT_INDICE = "id,nombre,activo,condicion_propiedad,fuente_externo_id"
+_RELACION_DUENO = "Inmobiliaria(nombre,Empresa(nombre))"      # para saber a qué inmobiliaria y empresa pertenece (ver oculto_en_sitio)
+_SELECT_INDICE = f"id,nombre,activo,condicion_propiedad,fuente_externo_id,{_RELACION_DUENO}"
 _SELECT_FICHA = (
     "id,nombre,ubicacion,imagen_url,imagenes,activo,condicion_propiedad,fuente_externo_id,"
     "acepta_ds19,acepta_ds1_t23,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,"
-    "valor_estacionamiento_uf,estacionamiento_obligatorio,Inmobiliaria(nombre),"
+    f"valor_estacionamiento_uf,estacionamiento_obligatorio,{_RELACION_DUENO},"
     "Tipologia(id,nombre,dormitorios,banos,superficie_util_m2,valor_uf,estado,"
     "EtapaTipologia(stock,Etapa(nombre,estado,fecha_entrega)))"
 )
@@ -36,6 +38,28 @@ _fichas: Dict[str, Tuple[float, Dict[str, Any]]] = {}              # id → (hor
 _MAX_FICHAS = 300
 
 _MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+# ── proyectos que el dueño ocultó del sitio público ──────────────────────────
+
+def _sin_tildes(texto: Any) -> str:
+    return unicodedata.normalize("NFKD", str(texto or "")).encode("ascii", "ignore").decode("ascii").lower().strip()
+
+
+def oculto_en_sitio(p: Dict[str, Any]) -> bool:
+    """True si el nombre de la inmobiliaria o de la empresa del proyecto contiene alguno de interruptores.PROYECTOS_OCULTOS_DEL_SITIO."""
+    textos = [_sin_tildes(t) for t in interruptores.PROYECTOS_OCULTOS_DEL_SITIO if _sin_tildes(t)]
+    if not textos:
+        return False
+    inmobiliaria = p.get("Inmobiliaria") if isinstance(p.get("Inmobiliaria"), dict) else {}
+    empresa = inmobiliaria.get("Empresa") if isinstance(inmobiliaria.get("Empresa"), dict) else {}
+    nombres = [_sin_tildes(inmobiliaria.get("nombre")), _sin_tildes(empresa.get("nombre"))]
+    return any(t in n for t in textos for n in nombres if n)
+
+
+def es_publico(p: Dict[str, Any]) -> bool:
+    """Un proyecto sale en el sitio público si tiene nombre, no está desactivado y no está entre los ocultos."""
+    return bool(p.get("nombre")) and p.get("activo") is not False and not oculto_en_sitio(p)
 
 
 # ── slug ─────────────────────────────────────────────────────────────────────
@@ -63,7 +87,7 @@ def asignar_slugs(proyectos: List[Dict[str, Any]]) -> Dict[str, str]:
     comienzo de su id al final; el resultado no depende del orden de la lista."""
     bases: Dict[str, List[Dict[str, Any]]] = {}
     for p in proyectos:
-        if not p.get("nombre") or p.get("activo") is False or not p.get("id"):
+        if not es_publico(p) or not p.get("id"):
             continue
         bases.setdefault(_slug_base(p), []).append(p)
     slugs: Dict[str, str] = {}
@@ -218,7 +242,7 @@ async def _fila(proyecto_id: str) -> Optional[Dict[str, Any]]:
 
 
 async def obtener_ficha(slug: str) -> Optional[Dict[str, Any]]:
-    """Los datos de la página del proyecto, o None si el slug no existe o el proyecto no está activo."""
+    """Los datos de la página del proyecto, o None si el slug no existe, el proyecto no está activo o está entre los ocultos del sitio público."""
     if len(slug) > SLUG_MAX or not SLUG_VALIDO.match(slug):
         return None
     entrada = (await _indice_fichas()).get(slug)
@@ -226,6 +250,6 @@ async def obtener_ficha(slug: str) -> Optional[Dict[str, Any]]:
         return None
     proyecto_id = entrada["id"]
     fila = await _fila(proyecto_id)
-    if not fila or fila.get("activo") is False or not fila.get("nombre"):
+    if not fila or not es_publico(fila):
         return None
     return armar_ficha(fila, slug)
