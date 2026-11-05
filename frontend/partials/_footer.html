@@ -97,6 +97,10 @@
         <form id="footerNewsletterForm" onsubmit="submitNewsletter(event)">
           <div style="display:flex;flex-direction:column;gap:.625rem">
             <input type="email" id="footerEmail" class="inp" placeholder="tu@correo.cl" required autocomplete="email" aria-label="Correo para el newsletter" />
+            <label class="consent" for="footerAcepta" style="margin:0">
+              <input type="checkbox" id="footerAcepta" required />
+              <span>Acepto recibir novedades por correo y la <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a>.</span>
+            </label>
             <button type="submit" class="btn btn-primary" style="width:100%" id="footerNewsletterBtn">
               <span id="footerNewsletterLabel">Suscribirme</span>
             </button>
@@ -123,9 +127,13 @@ async function submitNewsletter(e) {
   const btn   = document.getElementById('footerNewsletterBtn')
   const lbl   = document.getElementById('footerNewsletterLabel')
   const msg   = document.getElementById('footerNewsletterMsg')
+  const acepta = document.getElementById('footerAcepta')
+  if (!acepta.checked) {
+    msg.className = 'msg-err'; msg.textContent = 'Marca la casilla para suscribirte.'; msg.style.display = 'block'; return
+  }
   lbl.textContent = 'Enviando…'; btn.disabled = true
   try {
-    const r = await fetch('/api/newsletter', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
+    const r = await fetch('/api/newsletter', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email, acepta:true})})
     if (r.ok) {
       msg.className = 'msg-ok'; msg.textContent = '¡Listo! Te avisaremos con novedades.'; msg.style.display = 'block'
       document.getElementById('footerNewsletterForm').reset()

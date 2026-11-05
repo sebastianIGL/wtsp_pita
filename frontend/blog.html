@@ -25,8 +25,12 @@
         Estamos preparando artículos, guías prácticas y novedades sobre subsidios habitacionales, el mercado inmobiliario chileno y todo lo que necesitas saber para acceder a tu vivienda.
       </p>
       <p style="font-size:0.9rem;color:var(--text-muted);margin-bottom:1.5rem">Suscríbete para ser el primero en enterarte:</p>
-      <form id="blogNewsletterForm" onsubmit="subscribirBlog(event)" style="display:flex;gap:0.75rem;max-width:420px;margin:0 auto;flex-wrap:wrap">
+      <form id="blogNewsletterForm" onsubmit="subscribirBlog(event)" style="display:flex;gap:0.75rem;max-width:420px;margin:0 auto;flex-wrap:wrap;justify-content:center">
         <input type="email" class="inp" placeholder="tu@correo.cl" id="blogEmail" required style="flex:1;min-width:200px" />
+        <label class="consent" for="blogAcepta" style="flex:1 1 100%;margin:0;justify-content:center">
+          <input type="checkbox" id="blogAcepta" required />
+          <span>Acepto recibir novedades por correo y la <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a>.</span>
+        </label>
         <button type="submit" class="btn btn-primary" id="blogNewsletterBtn">
           <span id="blogNewsletterLabel">Avisar cuando esté listo</span>
         </button>
@@ -51,9 +55,12 @@ async function subscribirBlog(e) {
   const btn   = document.getElementById('blogNewsletterBtn')
   const lbl   = document.getElementById('blogNewsletterLabel')
   const msg   = document.getElementById('blogNewsletterMsg')
+  if (!document.getElementById('blogAcepta').checked) {
+    msg.className = 'msg-err'; msg.textContent = 'Marca la casilla para suscribirte.'; msg.style.display = 'block'; return
+  }
   lbl.textContent = 'Enviando…'; btn.disabled = true
   try {
-    const r = await fetch('/api/newsletter', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})})
+    const r = await fetch('/api/newsletter', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email, acepta:true})})
     if (r.ok) {
       msg.className = 'msg-ok'; msg.textContent = '¡Perfecto! Te avisaremos cuando publiquemos los primeros artículos.'; msg.style.display = 'block'
       document.getElementById('blogNewsletterForm').reset()

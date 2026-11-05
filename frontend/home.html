@@ -559,6 +559,10 @@
                     <button type="button" onclick="activarModoPwd()" style="background:none;border:none;cursor:pointer;color:var(--primary-light);font-size:0.75rem;padding:0;">← Prefiero crear una contraseña</button>
                   </div>
 
+                  <label class="consent" id="p3-acepta-lbl" for="p3-acepta" style="font-size:0.72rem;">
+                    <input type="checkbox" id="p3-acepta" />
+                    <span>Autorizo a QueSubsidio a tratar mis datos personales, incluidos los de mi situación económica (ingresos, ahorro, deudas y tramo del Registro Social de Hogares), para evaluar mi caso y contactarme por WhatsApp, correo o teléfono, según la <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a>.</span>
+                  </label>
                   <div id="p3-msg" style="display:none;font-size:0.775rem;margin-bottom:0.5rem;"></div>
                   <button type="button" onclick="guardarPerfil()" id="btn-guardar-perfil" class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:0.4rem;">Crear mi cuenta</button>
                   <button type="button" onclick="continuarSinGuardar()" style="width:100%;padding:0.5rem;background:none;border:none;cursor:pointer;font-size:0.775rem;color:var(--text-subtle);text-align:center;">Continuar sin guardar →</button>
@@ -1052,6 +1056,10 @@
               <label class="lbl" for="e-mensaje">Cuéntanos sobre tus proyectos</label>
               <textarea id="e-mensaje" name="mensaje" class="inp" rows="3" placeholder="Tipo de subsidio, región, número de unidades..."></textarea>
             </div>
+            <label class="consent" id="e-acepta-lbl" for="e-acepta">
+              <input id="e-acepta" name="acepta" type="checkbox" required />
+              <span>Acepto que QueSubsidio use estos datos para responder mi solicitud, según la <a href="/privacidad" target="_blank" rel="noopener">Política de privacidad</a>. <span aria-hidden="true" style="color:var(--red)">*</span></span>
+            </label>
             <div id="empMsg"></div>
             <button type="submit" id="btnEmpresa" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:0.5rem;">
               Solicitar información
@@ -1724,6 +1732,26 @@
     document.getElementById('p3-pwd-mode').style.display = 'block';
   }
 
+  // Al marcar una casilla de autorización se quita el aviso de error (el rojo y el mensaje que decía que faltaba marcarla).
+  document.addEventListener('change', function (e) {
+    const lbl = e.target.closest && e.target.closest('.consent');
+    if (!lbl || !e.target.checked) return;
+    lbl.classList.remove('consent-err');
+    const aviso = { 'p3-acepta': 'p3-msg', 'e-acepta': 'empMsg' }[e.target.id];
+    const el = aviso && document.getElementById(aviso);
+    if (el && el.textContent.includes('casilla')) { el.textContent = ''; el.className = ''; el.style.display = 'none'; }
+  });
+
+  // Sin la casilla marcada no se crea la cuenta ni se guarda el perfil (el servidor también lo exige).
+  function _p3FaltaAutorizacion(msgEl) {
+    const lbl = document.getElementById('p3-acepta-lbl');
+    if (document.getElementById('p3-acepta').checked) { lbl.classList.remove('consent-err'); return false; }
+    lbl.classList.add('consent-err');
+    msgEl.style.cssText = 'display:block;color:#c62d29;font-size:0.775rem;margin-bottom:0.5rem;';
+    msgEl.textContent = 'Marca la casilla de autorización para guardar tu perfil.';
+    return true;
+  }
+
   async function guardarPerfil() {
     const email = document.getElementById('p3-email').value.trim();
     const tel   = document.getElementById('p3-telefono').value.trim();
@@ -1737,13 +1765,14 @@
     }
 
     if (_p3ModoOtp) {
+      if (_p3FaltaAutorizacion(msgEl)) return;
       btn.disabled = true; btn.textContent = 'Enviando código…';
       try {
         const { error } = await _sb.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
         if (error) throw error;
         await fetch('/api/formulario', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ..._formData, email, telefono: tel || null })
+          body: JSON.stringify({ ..._formData, email, telefono: tel || null, consentimiento: true })
         });
         document.getElementById('p3-otp-email-show').textContent = email;
         document.getElementById('p3-form-acc').style.display = 'none';
@@ -1759,6 +1788,7 @@
         msgEl.style.cssText = 'display:block;color:#c62d29';
         msgEl.textContent = 'La contraseña debe tener al menos 8 caracteres.'; return;
       }
+      if (_p3FaltaAutorizacion(msgEl)) return;
       btn.disabled = true; btn.textContent = 'Creando cuenta…';
       try {
         const { error } = await _sb.auth.signUp({
@@ -1768,7 +1798,7 @@
         if (error) throw error;
         await fetch('/api/formulario', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ..._formData, email, telefono: tel || null })
+          body: JSON.stringify({ ..._formData, email, telefono: tel || null, consentimiento: true })
         });
         document.getElementById('guardar-perfil').style.display = 'none';
         document.getElementById('perfil-guardado').style.display = 'block';
@@ -1837,6 +1867,14 @@
       msgEl.textContent = 'Por favor completa inmobiliaria, nombre y correo.';
       return;
     }
+    const lblAcepta = document.getElementById('e-acepta-lbl');
+    if (!document.getElementById('e-acepta').checked) {
+      lblAcepta.classList.add('consent-err');
+      msgEl.className = 'msg-err';
+      msgEl.textContent = 'Marca la casilla de autorización para enviar tu solicitud.';
+      return;
+    }
+    lblAcepta.classList.remove('consent-err');
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Enviando…';
@@ -1853,6 +1891,7 @@
           telefono: fd.get('telefono')?.trim() || '',
           empresa,
           mensaje: '[INMOBILIARIA] ' + (fd.get('mensaje')?.trim() || ''),
+          acepta_privacidad: true,
         }),
       });
       if (!res.ok) throw new Error();

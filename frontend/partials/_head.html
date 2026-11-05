@@ -370,4 +370,11 @@
     @keyframes qs-spin { to{transform:rotate(360deg)} }
     .msg-ok  { background:#e7f6ed; border:1px solid #a7e0bd; color:#166534; border-radius:.6rem; padding:.875rem 1rem; font-size:.875rem; margin-top:.75rem; }
     .msg-err { background:#fdecec; border:1px solid #f5b5b3; color:#a52522; border-radius:.6rem; padding:.875rem 1rem; font-size:.875rem; margin-top:.75rem; }
+
+    /* ── Casilla de autorización de los formularios (consentimiento explícito) ── */
+    .consent { display:flex; gap:.55rem; align-items:flex-start; margin:0 0 .75rem; font-size:.78rem; line-height:1.5; color:var(--text-muted); text-align:left; cursor:pointer; }
+    .consent input { width:1rem; height:1rem; margin-top:.15rem; flex-shrink:0; accent-color:var(--blue); cursor:pointer; }
+    .consent a { color:var(--blue); text-decoration:underline; }
+    .consent.consent-err { color:#a52522; }
+    .consent.consent-err input { outline:2px solid #c62d29; outline-offset:2px; }
   </style>
