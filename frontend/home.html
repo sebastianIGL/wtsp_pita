@@ -1,3 +1,5 @@
+{#- Interruptor: con false se oculta toda la sección «Para inmobiliarias» (descripción y formulario de contacto), el enlace del inicio y el código del formulario. Cambiar a true para mostrarla de nuevo. -#}
+{%- set mostrar_contacto_empresas = false -%}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -335,7 +337,7 @@
             <span><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M8 12.5l3 3 5-6"/></svg> 100% online</span>
             <span><svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" stroke-width="2"/><path d="M8 12.5l3 3 5-6"/></svg> Sin compromiso</span>
           </div>
-          <p class="hero-b2b">¿Eres inmobiliaria? <a href="#contacto-empresa">Solicita información</a></p>
+          {% if mostrar_contacto_empresas %}<p class="hero-b2b">¿Eres inmobiliaria? <a href="#contacto-empresa">Solicita información</a></p>{% endif %}
         </div>
 
         <div class="photo-frame hero-photo">
@@ -977,6 +979,7 @@
     </div>
   </section>
 
+{% if mostrar_contacto_empresas %}
 <!-- ══════════════════ SECCIÓN PARA INMOBILIARIAS ══════════════════════════ -->
 <section id="para-empresas" class="section" aria-labelledby="emp-title">
   <div class="container">
@@ -1060,6 +1063,7 @@
     </div>
   </div>
 </section>
+{% endif %}
 
 </main>
 
@@ -1817,6 +1821,7 @@
     document.getElementById('perfil-guardado').style.display = 'block';
   }
 
+  {% if mostrar_contacto_empresas %}
   // ── Formulario para empresas/inmobiliarias ────────────────────────────────
   document.getElementById('formEmpresa').addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -1863,6 +1868,7 @@
       btn.textContent = 'Solicitar información';
     }
   });
+  {% endif %}
 </script>
 
 </body>
