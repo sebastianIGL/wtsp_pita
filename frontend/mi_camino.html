@@ -158,6 +158,32 @@
       color: white;
     }
 
+
+    /* Subsidio elegido (datos de las fichas) y enlaces «Cómo hacerlo» */
+    .selector { margin-bottom: 1.25rem; }
+    .selector-tit { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .selector-tit small { font-weight: 400; color: var(--text-sub); margin-left: 0.4rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.5rem; }
+    .grupo-nombre { width: 100%; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-sub); margin-top: 0.35rem; }
+    .chip {
+      font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      padding: 0.35rem 0.8rem; border-radius: 9999px; border: 1px solid var(--border);
+      background: var(--surface); color: var(--text-muted); transition: all 0.18s;
+    }
+    .chip:hover { background: var(--surface-h); color: var(--text); }
+    .chip.on { background: var(--violet); border-color: var(--violet); color: #fff; }
+    .chip:focus-visible, .card-link:focus-visible { outline: 2px solid var(--violet-l); outline-offset: 2px; }
+    .req-card.de-ficha { border-color: var(--violet-l); }
+    .tag-ficha {
+      display: inline-block; margin-left: 0.35rem; padding: 0.05rem 0.45rem; border-radius: 9999px;
+      font-size: 0.62rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      background: rgba(124,58,237,0.16); color: var(--violet-l); vertical-align: middle;
+    }
+    .card-link { display: block; margin-top: 0.5rem; font-size: 0.75rem; font-weight: 600; color: var(--violet-l); text-decoration: none; }
+    .card-link:hover { text-decoration: underline; }
+    .ficha-pie { text-align: center; margin-top: 1.25rem; font-size: 0.8rem; color: var(--text-sub); line-height: 1.5; }
+    .ficha-pie a { color: var(--violet-l); font-weight: 600; }
+
     /* World color tokens */
     .mundo-s {
       --card-accent:  #7c3aed;
@@ -373,6 +399,86 @@
     ]
   };
 
+  // ── Datos de las fichas y guías (Fase 7) ─────────────────────
+  // Solo lectura y opcional: si la lectura falla o no hay fichas publicadas, se ve la lista general de siempre.
+  const SEL_KEY = 'quesubsidio-camino-subsidio';
+  const SLUG_OK = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+  let DATOS = { subsidios: [], guias: [], grupos: [] };
+  let elegido = '';
+
+  // Guía que explica cada requisito (solo se enlaza si esa guía está publicada)
+  const GUIA_RSH = 'como-consultar-tu-tramo-del-registro-social-de-hogares';
+  const GUIA_CUENTA = 'como-abrir-tu-cuenta-de-ahorro-para-la-vivienda';
+  const GUIA_UF = 'como-funciona-el-valor-de-la-uf';
+  const GUIA_CREDITO = 'documentos-y-requisitos-del-credito-hipotecario';
+  const ENLACES = {
+    s: { rsh: [[GUIA_RSH, 'Cómo consultar tu tramo']], puntaje: [[GUIA_RSH, 'Cómo consultar tu tramo']], ahorro: [[GUIA_CUENTA, 'Cómo abrir tu cuenta de ahorro'], [GUIA_UF, 'Cómo funciona la UF']] },
+    h: { ingresos: [[GUIA_CREDITO, 'Documentos que suelen pedir']], antigued: [[GUIA_CREDITO, 'Documentos que suelen pedir']], dicom: [[GUIA_CREDITO, 'Qué revisan los bancos']],
+         capacid: [[GUIA_CREDITO, 'Cómo medir tu capacidad de pago']], pie: [[GUIA_CREDITO, 'Qué es el pie'], [GUIA_UF, 'Cómo funciona la UF']], cotiz: [[GUIA_CREDITO, 'Documentos que suelen pedir']] },
+  };
+
+  function esc(t) {
+    return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function datoOk(d) { return d && typeof d.valor === 'string' && d.valor; }
+  function leerDatos(j) {
+    const subs = Array.isArray(j && j.subsidios) ? j.subsidios.filter(x => x && SLUG_OK.test(String(x.slug)) && typeof x.nombre === 'string' && (datoOk(x.ahorro) || datoOk(x.rsh))) : [];
+    const grupos = Array.isArray(j && j.grupos) ? j.grupos.filter(g => g && typeof g.clave === 'string' && typeof g.nombre === 'string') : [];
+    const guias = Array.isArray(j && j.guias) ? j.guias.filter(g => typeof g === 'string' && SLUG_OK.test(g)) : [];
+    return { subsidios: subs, grupos: grupos, guias: guias };
+  }
+  async function cargarFichas() {
+    try {
+      const r = await fetch('/api/mi-camino/subsidios', { headers: { Accept: 'application/json' } });
+      if (!r.ok) return;
+      DATOS = leerDatos(await r.json());
+      let guardado = '';
+      try { guardado = localStorage.getItem(SEL_KEY) || ''; } catch (e) { guardado = ''; }
+      elegido = DATOS.subsidios.some(x => x.slug === guardado) ? guardado : '';
+    } catch (e) { /* sin datos de fichas: lista general */ }
+    render();
+  }
+  function fichaElegida() { return DATOS.subsidios.find(x => x.slug === elegido) || null; }
+  function elegirSubsidio(slug) {
+    elegido = DATOS.subsidios.some(x => x.slug === slug) ? slug : '';
+    try { elegido ? localStorage.setItem(SEL_KEY, elegido) : localStorage.removeItem(SEL_KEY); } catch (e) { /* sin almacenamiento: vale solo en esta visita */ }
+    render();
+  }
+  function textoFicha(f, d) {
+    const partes = [];
+    if (d.pesos) partes.push(esc(d.pesos));
+    partes.push('Según la ficha «' + esc(f.nombre) + '»' + (d.llamado ? ' (' + esc(d.llamado) + ')' : '') + (f.revisado ? ', revisada el ' + esc(f.revisado) : '') + '.');
+    return partes.join(' · ');
+  }
+  // La lista de siempre; con un subsidio elegido, el ahorro y el tramo del RSH salen de su ficha (mismos identificadores: el avance guardado se conserva).
+  function adaptar(r, mundo) {
+    const f = mundo === 's' ? fichaElegida() : null;
+    let item = { ...r, titulo: esc(r.titulo), sub: esc(r.sub), deFicha: false };
+    if (f && r.id === 'ahorro' && datoOk(f.ahorro)) item = { ...item, titulo: 'Ahorro mínimo: ' + esc(f.ahorro.valor), sub: textoFicha(f, f.ahorro), deFicha: true };
+    if (f && r.id === 'puntaje' && datoOk(f.rsh)) item = { ...item, titulo: 'Tu tramo del RSH: ' + esc(f.rsh.valor), sub: textoFicha(f, f.rsh), deFicha: true };
+    item.enlaces = ((ENLACES[mundo] || {})[r.id] || []).filter(e => DATOS.guias.includes(e[0]));
+    return item;
+  }
+  function selectorHtml() {
+    if (mundoActual !== 's' || !DATOS.subsidios.length) return '';
+    const chip = (slug, nombre) => '<button type="button" class="chip' + (elegido === slug ? ' on' : '') + '" data-subsidio="' + esc(slug) + '" aria-pressed="' + (elegido === slug) + '">' + esc(nombre) + '</button>';
+    const grupos = DATOS.grupos.map(g => {
+      const subs = DATOS.subsidios.filter(x => x.grupo === g.clave);
+      return subs.length ? '<span class="grupo-nombre">' + esc(g.nombre) + '</span>' + subs.map(x => chip(x.slug, x.nombre)).join('') : '';
+    }).join('');
+    return '<div class="selector"><p class="selector-tit">¿Qué subsidio te interesa?<small>Opcional</small></p><div class="chips">' + chip('', 'Cualquiera (lista general)') + grupos + '</div></div>';
+  }
+  function pieFichaHtml() {
+    const f = fichaElegida();
+    if (!f) return '';
+    const uf = f.uf && typeof f.uf.fecha === 'string' ? ' Los equivalentes en pesos son aproximados y se calculan con la UF del ' + esc(f.uf.fecha) + '.' : '';
+    return '<p class="ficha-pie"><a href="/subsidios/' + encodeURIComponent(f.slug) + '">Ver la ficha completa de ' + esc(f.nombre) + ' →</a><br>Las cifras vienen de la ficha, con su fuente oficial y la fecha en que la revisamos.' + uf + '</p>';
+  }
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-subsidio]');
+    if (b) elegirSubsidio(b.getAttribute('data-subsidio'));
+  });
+
   const CIRCUM = 2 * Math.PI * 54; // r=54 → circunference
   const STORE_KEY = 'quesubsidio-progreso-c';
   let mundoActual = 's';
@@ -403,7 +509,7 @@
   function render() {
     const p    = cargar();
     const done = p[mundoActual] || [];
-    const reqs = REQS[mundoActual];
+    const reqs = REQS[mundoActual].map(r => adaptar(r, mundoActual));
     const total = reqs.length;
     const count = done.length;
     const pct   = count / total;
@@ -428,7 +534,7 @@
     const cardsHtml = reqs.map(r => {
       const isDone = done.includes(r.id);
       return `
-        <div class="req-card${isDone ? ' done' : ''}" onclick="toggleReq('${r.id}')">
+        <div class="req-card${isDone ? ' done' : ''}${r.deFicha ? ' de-ficha' : ''}" onclick="toggleReq('${r.id}')">
           <div class="card-top">
             <div class="card-icon">${r.icon}</div>
             <div class="card-check">
@@ -437,8 +543,9 @@
               </svg>` : ''}
             </div>
           </div>
-          <div class="card-title">${r.titulo}</div>
+          <div class="card-title">${r.titulo}${r.deFicha ? '<span class="tag-ficha">De la ficha</span>' : ''}</div>
           <div class="card-sub">${r.sub}</div>
+          ${r.enlaces.map(e => `<a class="card-link" href="/guias/${encodeURIComponent(e[0])}" onclick="event.stopPropagation()">${esc(e[1])} →</a>`).join('')}
           <button class="btn-tengo" onclick="event.stopPropagation(); toggleReq('${r.id}')">
             ${isDone ? '✓ Completado' : 'Ya lo tengo'}
           </button>
@@ -465,7 +572,9 @@
           <div class="ring-label">${Math.round(pct * 100)}% completado</div>
           ${badgeHtml}
         </div>
+        ${selectorHtml()}
         <div class="cards-grid">${cardsHtml}</div>
+        ${pieFichaHtml()}
         <p style="text-align:center;margin-top:1.5rem;font-size:0.75rem;color:var(--text-sub)">
           Tu progreso se guarda automáticamente en este dispositivo
         </p>
@@ -477,6 +586,7 @@
   }
 
   render();
+  cargarFichas();
 </script>
 </body>
 </html>

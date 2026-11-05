@@ -154,6 +154,16 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   fechas de llamados. Las fichas ligeras no llevan montos (se reajustan cada año) y aclaran que el beneficio no es de vivienda.
 - Los SQL se generan desde un único conjunto de datos (fuera del repositorio, en la carpeta de trabajo del dueño) que también produce la hoja de verificación con la cita textual de cada cifra.
 
+## «Mi Camino» con las fichas y las guías (Fase 7: opciones A y B)
+- **A. Elegir el subsidio:** la pestaña «Subsidios» de `/perfil` (`frontend/mi_camino.html`) ofrece «¿Qué subsidio te interesa?». Con uno elegido, el requisito de **ahorro** y el del **tramo del RSH** salen de su ficha
+  (con el equivalente en pesos aproximado, el llamado, la fecha de revisión y el enlace a la ficha). Sin elegir, se ve la lista general de siempre. Los identificadores de los requisitos y la clave del avance no cambian:
+  **lo ya marcado se conserva**. La elección se guarda en el dispositivo (`quesubsidio-camino-subsidio`), como el avance.
+- **B. «Cómo hacerlo»:** cada requisito enlaza a la guía que lo explica (tramo del RSH, cuenta de ahorro, UF, documentos del crédito), solo si esa guía está publicada y al día.
+- **Datos:** `GET /api/mi-camino/subsidios` (público, solo lectura, caché de 5 minutos; `app/services/mi_camino.py`). Solo viajan las fichas completas, publicadas, verificadas y al día con un dato de ahorro mínimo o de tope del RSH
+  (dos datos por ficha + fecha de revisión) y los nombres de las guías publicadas. Si la base falla o faltan las tablas responde listas vacías y la página muestra su lista general. La página escapa todo lo que llega de la lectura,
+  valida los nombres y arma el enlace a la ficha ella misma (no usa la ruta que venga en los datos).
+- Fuera de alcance (opción C, no hecha): guardar el avance en la cuenta. `/api/progreso` ya existe pero la página no lo usa.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen

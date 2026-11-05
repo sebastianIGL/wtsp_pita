@@ -3,6 +3,7 @@ contacto y la suscripción al newsletter. Contacto y newsletter tienen límite d
 
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
+import json
 import random
 import time
 import logging
@@ -13,6 +14,7 @@ from app.core import interruptores
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
 from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
+from app.services import mi_camino
 from app.services.consentimientos import registrar_consentimiento
 from app.services.ficha_proyecto import asignar_slugs, es_publico
 from fastapi import APIRouter, Request, Response
@@ -21,6 +23,13 @@ from typing import Any, Dict, List
 logger = logging.getLogger("wtsp_pita")
 
 router = APIRouter()
+
+
+@router.get("/api/mi-camino/subsidios")
+async def api_mi_camino_subsidios():
+    """Datos públicos de solo lectura para «Mi Camino»: el ahorro mínimo y el tope del RSH de las fichas publicadas y verificadas, y las guías publicadas
+    (ver app/services/mi_camino.py). Si la base falla responde listas vacías: la página muestra su lista general."""
+    return Response(content=json.dumps(await mi_camino.datos(), ensure_ascii=False), media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
 
 
 @router.get("/api/proyectos-landing")
