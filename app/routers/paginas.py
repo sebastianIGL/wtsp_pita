@@ -9,6 +9,7 @@ from fastapi import APIRouter, Request, Response
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from app.core import interruptores
 from app.core.config import get_settings
 from app.services import legal
 from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
@@ -20,8 +21,9 @@ router = APIRouter()
 
 
 def _contexto_comun(request: Request) -> dict:
-    """Variables disponibles en todas las plantillas: ``gtm_id`` (None si Tag Manager no está configurado: sin él no se carga nada)."""
-    return {"gtm_id": get_settings().gtm_id}
+    """Variables disponibles en todas las plantillas: ``gtm_id`` (None si Tag Manager no está configurado: sin él no se carga nada) y los
+    interruptores de ``app/core/interruptores.py`` (funciones ocultas por decisión del dueño)."""
+    return {"gtm_id": get_settings().gtm_id, "mostrar_contacto_empresas": interruptores.CONTACTO_EMPRESAS}
 
 
 templates = Jinja2Templates(directory="frontend", context_processors=[_contexto_comun])

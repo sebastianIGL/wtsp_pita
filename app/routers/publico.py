@@ -9,6 +9,7 @@ import logging
 from html import escape as html_escape
 from app.clients.gmail import _gmail_send
 from app.clients.supabase import _supabase_request
+from app.core import interruptores
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
 from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
@@ -77,7 +78,9 @@ async def api_proyectos_landing(limite: int = 12):
 
 @router.post("/api/contacto")
 async def api_contacto(request: Request):
-    """Recibe formulario de contacto de la landing y notifica por email."""
+    """Recibe formulario de contacto de la landing y notifica por email. Cerrada (404) mientras la sección esté oculta (interruptores.py)."""
+    if not interruptores.CONTACTO_EMPRESAS:
+        return Response(content="No disponible", status_code=404)
     ip = ip_cliente(request)
     if not _rate_limit_ok(f"contacto:{ip}", max_req=5, window=60):
         return Response(content="Demasiadas solicitudes, intenta en un minuto", status_code=429)

@@ -11,7 +11,7 @@
   <li><strong>Si completas el formulario de evaluación:</strong> tu nombre, correo y teléfono, el número de integrantes de tu hogar y datos sobre tu situación (tramo del Registro Social de Hogares, historial financiero o deudas, tipo de ingreso, antigüedad laboral, qué documentos tienes, si tienes propiedad), y el resultado de la evaluación.</li>
   <li><strong>Si creas una cuenta:</strong> tu correo y tu contraseña. La contraseña se guarda cifrada en nuestro proveedor de autenticación.</li>
   <li><strong>Si conversas con el asistente de WhatsApp:</strong> tu número de teléfono, tu nombre, los mensajes que intercambiamos, los datos que nos cuentes (por ejemplo, ingresos o ahorro) y los documentos que envíes (fotos o PDF).</li>
-  <li><strong>Si nos escribes desde el formulario de contacto:</strong> tu nombre, correo, teléfono, empresa y mensaje.</li>
+  {% if mostrar_contacto_empresas %}<li><strong>Si nos escribes desde el formulario de contacto:</strong> tu nombre, correo, teléfono, empresa y mensaje.</li>{% endif %}
   <li><strong>Si te suscribes al newsletter:</strong> tu correo.</li>
   <li><strong>Datos técnicos:</strong> la dirección IP y datos de tu navegador, que registran nuestros servidores por seguridad y funcionamiento.</li>
 </ul>

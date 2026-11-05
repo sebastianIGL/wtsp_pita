@@ -100,6 +100,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 
+## Funciones ocultas del sitio público (interruptores)
+- `app/core/interruptores.py` reúne las funciones que el dueño decidió ocultar por ahora. Con `False` la función **no aparece en las páginas y su
+  ruta de la API responde 404** (así no hay formularios ni correos que nadie pidió). El código se conserva: cambiar a `True` y desplegar la
+  vuelve a mostrar. Las plantillas reciben cada valor como `mostrar_<nombre>` desde `_contexto_comun` (`app/routers/paginas.py`).
+- Hoy: `CONTACTO_EMPRESAS` (sección «Para inmobiliarias» de la portada, enlace «¿Eres inmobiliaria?» y `POST /api/contacto`, que enviaba al
+  correo `EMAIL_ADMIN` el aviso «[QueSubsidio] Contacto desde la landing»). La frase del formulario de contacto en `/privacidad` también
+  depende de este valor.
+
 ## Autorización explícita en los formularios públicos
 - Los tres formularios que guardan datos de personas exigen una **casilla sin marcar de antemano**, con el enlace a `/privacidad`: el
   evaluador del paso 3 de `/` (`p3-acepta`, nombra los datos de situación económica; se pide tanto al crear la cuenta con contraseña como
