@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from app.core import interruptores
 from app.core.config import get_settings
 from app.services import legal
+from app.services.directorio import DirectorioNoDisponible, json_ld as json_ld_subsidio, obtener_subsidio, slugs_de_subsidios
 from app.services.estadisticas import formatear_miles, total_clientes
 from app.services.ficha_proyecto import ORIGENES, obtener_ficha, slugs_de_proyectos_nuevos
 from app.services.seo import PAGINAS_PUBLICAS, SITIO_URL, construir_robots, construir_sitemap
@@ -63,6 +64,27 @@ async def page_subsidios(request: Request):
         "page_title": "Subsidios Habitacionales — QueSubsidio",
         "page_description": "Conoce los subsidios DS19, DS49 y DS1 T2/T3: para quién son, qué piden y dónde verificarlos en las fuentes oficiales.",
         "page_path": "/subsidios",
+    })
+
+
+@router.get("/subsidios/{slug}")
+async def page_ficha_subsidio(request: Request, slug: str):
+    """Ficha de un subsidio del directorio (solo las publicadas y verificadas; ver app/services/directorio.py)."""
+    try:
+        ficha = await obtener_subsidio(slug)
+    except DirectorioNoDisponible:
+        return PlainTextResponse("Servicio no disponible", status_code=503, headers={"Retry-After": "300"})
+    if ficha is None:
+        logger.info("Ficha de subsidio | slug=%s | no encontrada", slug[:90])
+        return templates.TemplateResponse(request, "subsidio.html", {
+            "active": "subsidios", "subsidio": None, "robots": "noindex, follow",
+            "page_title": "Subsidio no encontrado — QueSubsidio",
+            "page_description": "Este subsidio no está disponible. Mira los subsidios que sí explicamos.",
+            "page_path": "/subsidios",
+        }, status_code=404)
+    return templates.TemplateResponse(request, "subsidio.html", {
+        "active": "subsidios", "subsidio": ficha, "json_ld": json_ld_subsidio(ficha), "robots": ficha["robots"],
+        "page_title": ficha["titulo"], "page_description": ficha["descripcion"], "page_path": ficha["ruta"],
     })
 
 
@@ -119,7 +141,12 @@ async def sitemap_xml():
     except Exception as e:
         logger.warning("Sitemap: no se pudieron leer los proyectos (%s)", type(e).__name__)
         return PlainTextResponse("Servicio no disponible", status_code=503, headers={"Retry-After": "300"})
-    xml = construir_sitemap(list(PAGINAS_PUBLICAS) + [f"/viviendas/{s}" for s in slugs])
+    try:
+        fichas = [f"/subsidios/{s}" for s in await slugs_de_subsidios()]
+    except Exception as e:                       # el directorio nunca debe romper el sitemap (por ejemplo, si sus tablas aún no existen)
+        logger.warning("Sitemap: no se pudieron leer las fichas de subsidios (%s)", type(e).__name__)
+        fichas = []
+    xml = construir_sitemap(list(PAGINAS_PUBLICAS) + fichas + [f"/viviendas/{s}" for s in slugs])
     return Response(content=xml, media_type="application/xml; charset=utf-8", headers={"Cache-Control": "public, max-age=3600"})
 
 

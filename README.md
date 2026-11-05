@@ -101,6 +101,20 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 
+## Directorio de subsidios (Fase 1: tablas y ficha pública)
+- **Tablas** (`supabase/migraciones/2026-11-05_directorio_subsidios.sql`, la ejecuta el dueño por bloques: A crear + A2 ficha de ejemplo, B comprobar, C revertir,
+  D publicar/ocultar el ejemplo): `Fuente`, `Subsidio`, `SubsidioBloque`, `SubsidioDato` (cada dato con valor, unidad, llamado, fuente, estado y fecha de revisión),
+  `Guia` y `GlosarioTermino` (estas dos se usarán en fases siguientes). Todas con seguridad por filas y sin políticas: solo el servidor las lee.
+- **Ruta pública** `GET /subsidios/{slug}` (`frontend/subsidio.html`, lógica en `app/services/directorio.py`). Solo se lee lo `publicado`. **Reglas al mostrar** (no solo al guardar):
+  todos los datos deben estar `verificado` y cada dato/bloque/ficha citar una fuente que exista y sea un enlace **https de un dominio oficial** (gob.cl, bcn.cl, minvu.cl,
+  cmfchile.cl, sii.cl); si no, la ficha responde 404 y deja un aviso en el log. Si la revisión de la ficha o de algún dato tiene **más de 90 días** (o falta la fecha o el
+  revisor), la ficha se sigue mostrando con un aviso de «pendiente de revisión» y `noindex`, y sale del sitemap.
+- **Equivalentes en pesos:** solo para datos en UF, aproximados, con la UF del día que informa mindicador.cl (`app/services/uf.py`: sin ese valor, o con uno de más de 10 días,
+  no se muestran pesos; nunca se usa un valor de respaldo).
+- **Resiliencia:** lectura guardada 5 minutos; si la base falla se usa la última copia buena (y 503 si nunca hubo una); si las tablas aún no existen se trata como «no hay fichas»
+  (404 normal) y el sitemap sigue funcionando. Las fichas vigentes entran al `sitemap.xml`.
+- **Por ahora** (hasta que exista el editor del panel, fase 2) una ficha se publica o se oculta con el `update` del bloque D del SQL.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen
