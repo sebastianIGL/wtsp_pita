@@ -182,9 +182,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Datos (lecturas públicas, caché de 5 minutos; `app/services/calculadora.py`): `GET /api/calculadora/subsidios` (fichas de COMPRA publicadas, completas y al día, con `ahorro_uf` y
   `precio_maximo_uf` numéricos —el DS19 trae su ahorro solo como texto— y la UF de hoy) y `GET /api/calculadora/proyectos/{slug}` (ahorro/pie, reserva, estacionamiento y, por tipología con
   stock, precio, subsidio informado y plan de pago desde la etapa; nunca el stock). La lista de proyectos sale de `/api/proyectos-landing`.
-- **Regla del dueño (2026-11-05):** con el DS1 Tramo 2 y el Tramo 3 (`calculadora.SUBSIDIOS_QUE_SUMAN`) el ahorro mínimo del subsidio cuenta como parte del pie del proyecto (se necesita el MAYOR
-  de los dos) y se suma el subsidio que informa la inmobiliaria; con cualquier otro subsidio (DS49, DS1 Tramo 1 y 4, DS19) se muestran los dos ahorros por separado, sin sumar nada.
-  El subsidio solo se suma si la tipología lo declara `ds1_t23` (un `ambos` trae un solo monto que no se sabe de cuál es; un `ds19` no es el del DS1) y si el proyecto acepta DS1 T2/T3.
+- **Regla del dueño (2026-11-05, confirmada):** con CUALQUIER subsidio, su ahorro mínimo cuenta como parte del pie del proyecto (se necesita el MAYOR de los dos) y **el pie es ese ahorro MÁS el
+  subsidio**. El monto del subsidio solo se suma si la inmobiliaria lo informa para ESE subsidio y el proyecto lo acepta: `calculadora.TIPO_PROYECTO` dice qué `Tipologia.tipo_subsidio` y qué
+  aceptación (`acepta_ds1_t23`, `acepta_ds19`) corresponden a cada ficha (DS1 Tramo 2 y 3 → `ds1_t23`; DS19 → `ds19`); el DS49 y el DS1 Tramo 1 y 4 no tienen monto informado, así que solo se calcula
+  el ahorro. Un `ambos` trae un solo monto que no se sabe de cuál es y nunca se suma. Sin monto informado no se inventa ninguna cifra. El DS19 trae su ahorro solo como texto (depende del caso): manda el del proyecto.
   La columna `Proyecto.subsidio_ds1_t23_uf` **no se lee**: ninguna pantalla la carga y su ausencia en la base rompería la ficha.
 - El cálculo es la función pura `calcular()` de `frontend/calculadora.html` (probada con `tests/herramientas_frontend/calculadora.js`); lo que viene del servidor se escapa siempre al dibujar.
   Sin UF no se muestran pesos y el ahorro solo se puede escribir en UF; sin directorio la página lo avisa y sigue en pie.

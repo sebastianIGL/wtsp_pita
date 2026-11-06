@@ -6,8 +6,8 @@ persona: lo que ella escribe (su ahorro) no viaja al servidor.
 * **Proyecto:** los datos de un proyecto público que la inmobiliaria carga en el CRM: ahorro/pie que pide, reserva, estacionamiento y, por cada tipología con stock, su
   precio, el subsidio que la inmobiliaria informa y su plan de pago del ahorro (de una vez o en cuotas, con la fecha de entrega). Del stock nunca el número.
 
-Regla del dueño (2026-11-05): con el DS1 Tramo 2 y el Tramo 3, el ahorro mínimo del subsidio cuenta como parte del pie del proyecto y se suma el subsidio. Con cualquier otro
-subsidio (DS49, DS1 Tramo 1 y 4, DS19) la página muestra el ahorro del subsidio y el del proyecto por separado, sin sumarlos, hasta que esa regla se confirme.
+Regla del dueño (2026-11-05, confirmada): con CUALQUIER subsidio, el ahorro mínimo del subsidio cuenta como parte del pie del proyecto (se necesita el mayor de los dos) y el pie es
+ese ahorro MÁS el subsidio. El monto del subsidio solo se suma si la inmobiliaria lo informa para ESE subsidio (``TIPO_PROYECTO``: qué «tipo de subsidio» de la tipología corresponde a cada ficha).
 """
 import logging
 from typing import Any, Dict, List, Optional
@@ -18,8 +18,9 @@ from app.services import uf as servicio_uf
 
 logger = logging.getLogger("wtsp_pita")
 
-SUBSIDIOS_QUE_SUMAN = ("ds1-tramo-2", "ds1-tramo-3")        # decisión del dueño: su ahorro cuenta como parte del pie y se suma el subsidio
-TIPOS_CON_SUBSIDIO_DS1 = ("ds1_t23",)                         # «ambos» trae un solo monto que no se sabe de cuál de los dos es: no se usa para sumar
+# Qué «tipo de subsidio» de la tipología (Tipologia.tipo_subsidio) y qué aceptación del proyecto corresponden a cada ficha. Las demás fichas (DS49, DS1 Tramo 1 y 4) no tienen un monto que
+# la inmobiliaria informe: se calcula el ahorro y no se suma ningún subsidio. «ambos» trae un solo monto que no se sabe de cuál de los dos es: nunca se suma.
+TIPO_PROYECTO = {"ds1-tramo-2": "ds1_t23", "ds1-tramo-3": "ds1_t23", "ds19-integracion-social": "ds19"}
 CLAVE_AHORRO, CLAVE_PRECIO_MAXIMO = "ahorro_minimo", "precio_maximo"
 
 
@@ -45,7 +46,7 @@ async def subsidios() -> Dict[str, Any]:
             "slug": f["slug"], "ruta": f["ruta"], "nombre": f["nombre"], "revisado": f["revisado"],
             "ahorro_uf": ahorro["numero"], "ahorro_texto": ahorro["valor"], "llamado": ahorro["llamado"],
             "precio_maximo_uf": precio["numero"] if precio else None,
-            "suma": f["slug"] in SUBSIDIOS_QUE_SUMAN,
+            "tipo_proyecto": TIPO_PROYECTO.get(f["slug"]),
         })
     uf = None
     try:
@@ -93,7 +94,7 @@ def armar_proyecto(p: Dict[str, Any], slug: str) -> Dict[str, Any]:
         tipologias.append({
             "nombre": str(t.get("nombre") or "Tipología"), "dormitorios": t.get("dormitorios"), "banos": t.get("banos"),
             "valor_uf": _positivo(t.get("valor_uf")),
-            "subsidio": {"tipo": tipo, "monto_uf": monto, "para_ds1": tipo in TIPOS_CON_SUBSIDIO_DS1} if monto and tipo else None,
+            "subsidio": {"tipo": tipo, "monto_uf": monto} if monto and tipo else None,
             "etapas": etapas,
         })
     tipologias.sort(key=lambda t: (t["valor_uf"] is None, t["valor_uf"] or 0, t["nombre"]))
