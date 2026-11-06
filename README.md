@@ -176,6 +176,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Servidor: doce rutas de `/api/directorio/...` aceptan dueño o administrador (`_revisor` en `app/routers/directorio_admin.py`); el resto exige al dueño (403 «Solo el dueño»). El panel (`frontend/admin.html`) muestra el
   «Modo revisión»: oculta lo que solo puede hacer el dueño y bloquea los campos; si alguien llama a la API a mano, el servidor igual responde 403.
 
+## Notas internas del cliente (CRM)
+- Tabla `NotaCliente` (`supabase/migraciones/2026-11-01_nota_cliente.sql`). Rutas en `app/routers/clientes.py`: `GET` y `POST /api/clientes/{id}/notas`,
+  y `PATCH` y `DELETE /api/clientes/{id}/notas/{nota_id}`. Solo las ve y usa quien puede usar al cliente (administrador, owner y el ejecutivo dueño); nunca salen en un correo ni mensaje.
+- **Editar:** solo quien escribió la nota (ni el administrador ni el owner editan notas ajenas; una nota sin autor no la edita nadie). **Borrar:** quien la escribió, el administrador o el
+  owner. El borrado es definitivo (no hay papelera) y la edición no deja marca de «editada»: si se quisiera, hay que agregar una columna `editada_en` (SQL aparte).
+- El servidor valida de nuevo todo: el texto (1 a 2000 caracteres), que la nota pertenezca a ese cliente y quién es el autor; el registro (log) anota quién editó o borró, nunca el texto.
+- En la pantalla (`frontend/index.html`) «Editar» y «Borrar» aparecen solo cuando corresponde; borrar pide confirmación y el texto se muestra siempre escapado.
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen

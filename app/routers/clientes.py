@@ -341,6 +341,7 @@ async def api_conversacion_cliente(cliente_id: int, request: Request):
 # ── Notas internas del equipo sobre un cliente ───────────────────────────────
 # Las ve y las escribe quien puede usar al cliente (mismo criterio que la conversación y los documentos: administrador y owner,
 # y el ejecutivo dueño). Solo son internas: no salen en ningún correo ni mensaje. Se guardan en la tabla NotaCliente.
+# Editar y borrar: ver más abajo quién puede.
 NOTA_MAX = 2000
 _NOTA_SELECT = "id,texto,usuario_id,autor_nombre,creado_en"
 
@@ -348,6 +349,21 @@ _NOTA_SELECT = "id,texto,usuario_id,autor_nombre,creado_en"
 def _nota_publica(fila: Dict[str, Any]) -> Dict[str, Any]:
     return {"id": fila.get("id"), "texto": fila.get("texto") or "", "autor": fila.get("autor_nombre") or "",
             "usuario_id": fila.get("usuario_id"), "creado_en": fila.get("creado_en")}
+
+
+async def _texto_de_nota(request: Request):
+    """(texto, None) con el texto recortado, o (None, respuesta 422) si falta o es demasiado largo. Lo usan crear y editar."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = None
+    texto = body.get("texto") if isinstance(body, dict) else None
+    texto = texto.strip() if isinstance(texto, str) else ""
+    if not texto:
+        return None, Response(content="La nota no puede estar vacía", status_code=422)
+    if len(texto) > NOTA_MAX:
+        return None, Response(content=f"La nota es demasiado larga (máximo {NOTA_MAX} caracteres)", status_code=422)
+    return texto, None
 
 
 @router.get("/api/clientes/{cliente_id}/notas")
@@ -376,16 +392,9 @@ async def api_crear_nota(cliente_id: int, request: Request):
     denegado = await exigir_cliente(perfil, cliente_id)
     if denegado:
         return denegado
-    try:
-        body = await request.json()
-    except Exception:
-        body = None
-    texto = body.get("texto") if isinstance(body, dict) else None
-    texto = texto.strip() if isinstance(texto, str) else ""
-    if not texto:
-        return Response(content="La nota no puede estar vacía", status_code=422)
-    if len(texto) > NOTA_MAX:
-        return Response(content=f"La nota es demasiado larga (máximo {NOTA_MAX} caracteres)", status_code=422)
+    texto, invalido = await _texto_de_nota(request)
+    if invalido:
+        return invalido
     try:
         # El autor y el cliente salen de la sesión y de la ruta, nunca del cuerpo de la petición.
         filas = await _supabase_request(
@@ -402,6 +411,75 @@ async def api_crear_nota(cliente_id: int, request: Request):
         return respuesta_error(e, contexto="api_crear_nota")
     logger.info("Nota agregada | cliente=%s | usuario=%s", cliente_id, perfil.get("id"))      # nunca el texto de la nota
     return _nota_publica(filas[0] if filas else {})
+
+
+async def _nota_del_cliente(cliente_id: int, nota_id: int):
+    """La nota, solo si pertenece a ese cliente (una nota de otro cliente se trata como inexistente). ``None`` si no hay."""
+    filas = await _supabase_request(
+        "GET", "/NotaCliente",
+        params={"id": f"eq.{nota_id}", "cliente_id": f"eq.{cliente_id}", "select": "id,usuario_id", "limit": "1"},
+    ) or []
+    return filas[0] if filas else None
+
+
+def _es_autor(perfil: Dict[str, Any], nota: Dict[str, Any]) -> bool:
+    return bool(nota.get("usuario_id")) and str(nota["usuario_id"]) == str(perfil.get("id"))
+
+
+# Editar: solo quien la escribió (nadie más puede poner palabras en boca de otra persona). Borrar: quien la escribió, o el administrador y el
+# owner. Ambos exigen además poder usar al cliente. Una nota cuyo autor ya no existe solo la puede borrar el administrador o el owner.
+@router.patch("/api/clientes/{cliente_id}/notas/{nota_id}")
+async def api_editar_nota(cliente_id: int, nota_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
+    texto, invalido = await _texto_de_nota(request)
+    if invalido:
+        return invalido
+    try:
+        nota = await _nota_del_cliente(cliente_id, nota_id)
+        if not nota:
+            return Response(content="Nota no encontrada", status_code=404)
+        if not _es_autor(perfil, nota):
+            return Response(content="Solo quien escribió la nota puede editarla", status_code=403)
+        # El filtro por autor también va en la escritura: si la nota cambiara de manos entre la lectura y esta línea, no se toca.
+        filas = await _supabase_request(
+            "PATCH", "/NotaCliente",
+            params={"id": f"eq.{nota_id}", "cliente_id": f"eq.{cliente_id}", "usuario_id": f"eq.{perfil.get('id')}"},
+            json={"texto": texto},
+            extra_headers={"Prefer": "return=representation"},
+        ) or []
+    except Exception as e:
+        return respuesta_error(e, contexto="api_editar_nota")
+    if not filas:
+        return Response(content="Nota no encontrada", status_code=404)
+    logger.info("Nota editada | cliente=%s | nota=%s | usuario=%s", cliente_id, nota_id, perfil.get("id"))      # nunca el texto de la nota
+    return _nota_publica(filas[0])
+
+
+@router.delete("/api/clientes/{cliente_id}/notas/{nota_id}")
+async def api_borrar_nota(cliente_id: int, nota_id: int, request: Request):
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
+    try:
+        nota = await _nota_del_cliente(cliente_id, nota_id)
+        if not nota:
+            return Response(content="Nota no encontrada", status_code=404)
+        if not (_solo_admin(perfil) or _es_autor(perfil, nota)):
+            return Response(content="Solo quien escribió la nota o un administrador pueden borrarla", status_code=403)
+        await _supabase_request("DELETE", "/NotaCliente", params={"id": f"eq.{nota_id}", "cliente_id": f"eq.{cliente_id}"},
+                                extra_headers={"Prefer": "return=minimal"})
+    except Exception as e:
+        return respuesta_error(e, contexto="api_borrar_nota")
+    logger.info("Nota borrada | cliente=%s | nota=%s | usuario=%s", cliente_id, nota_id, perfil.get("id"))
+    return {"ok": True}
 
 
 def _es_cliente_inexistente(e: "httpx.HTTPStatusError") -> bool:

@@ -1695,6 +1695,9 @@
       cargarTipologias()
       cargarEtapas()
       irTab(2)
+      // Lo creado ya está guardado: se suelta el bloqueo ANTES de refrescar la lista. Con la operación aún «en curso», el refresco
+      // se negaba («Termina la operación en curso antes de cambiar de sección») y la lista de proyectos quedaba sin actualizar.
+      _operacionEnCurso = false
       await refrescarPanelProyectos()
     } catch (e) {
       toast(e.message, 'error')
