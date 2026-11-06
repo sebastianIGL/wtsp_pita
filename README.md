@@ -233,6 +233,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   nombre (sin importar mayúsculas ni tildes). No desactiva nada en la base: el CRM y el asistente de WhatsApp los siguen viendo. Para cambiar la
   lista basta editar el archivo; vacía = no se oculta ninguno.
 
+## Proyectos que cada persona puede usar
+- `app/core/autorizacion.py::exigir_proyecto` aplica el mismo criterio que la lista de `GET /api/proyectos`: administrador y owner, cualquier proyecto; el ejecutivo, los que tiene asignados
+  (`proyecto_ids`) o los de una inmobiliaria que tiene asignada (`inmobiliaria_ids`). Lo denegado responde 403 `No tienes acceso a ese proyecto`, y un id mal formado nunca llega a la base.
+- Hoy la usa `POST /api/formulario/{token}/convertir` (se comprueba el proyecto del cuerpo, que manda, o el del formulario). **No la usan todavía** `POST /api/clientes`,
+  `PATCH /api/clientes/{id}` ni `POST /api/inbox/{id}/registrar`: un ejecutivo podría poner un cliente en un proyecto que no ve si llama a la API a mano (la pantalla solo le ofrece los suyos).
+
 ## Autorización explícita en los formularios públicos
 - Los tres formularios que guardan datos de personas exigen una **casilla sin marcar de antemano**, con el enlace a `/privacidad`: el
   evaluador del paso 3 de `/` (`p3-acepta`, nombra los datos de situación económica; se pide tanto al crear la cuenta con contraseña como

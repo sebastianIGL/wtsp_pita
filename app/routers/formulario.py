@@ -6,6 +6,7 @@ Movido desde main.py (Fase 6, tramo 3). Fase 7, grupo 2: crear (10 por minuto) y
 import logging
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
+from app.core.autorizacion import exigir_proyecto
 from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
@@ -124,6 +125,9 @@ async def api_convertir_formulario(token: str, request: Request):
         usuario_id  = body.get("usuario_id") or perfil.get("id")
         if usuario_id != perfil.get("id") and not _solo_admin(perfil):
             return Response(content="Solo administradores pueden asignar el cliente a otro usuario", status_code=403)
+        denegado = await exigir_proyecto(perfil, proyecto_id)          # el proyecto (del cuerpo o del formulario) debe ser uno que esta persona puede usar
+        if denegado:
+            return denegado
 
         cliente_payload: Dict[str, Any] = {
             "Contacto":    nombre,

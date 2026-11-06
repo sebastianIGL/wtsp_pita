@@ -3,7 +3,11 @@
 Regla: administrador y owner ven todo; el ejecutivo solo los clientes cuyo ``usuario_id`` es el suyo; un cliente sin dueño solo lo ven
 administrador y owner. Mensajes, documentos, evaluación y conversación heredan el dueño del cliente. Lo denegado responde 404
 «Cliente no encontrado» (igual que si no existiera: no revela que existe).
+
+Proyectos: ``exigir_proyecto`` aplica el mismo criterio que la lista de ``GET /api/proyectos``: administrador y owner pueden usar cualquiera; el ejecutivo solo los que
+tiene asignados o los de una inmobiliaria que tiene asignada. Un proyecto que no puede usar responde 403 (los proyectos no son secretos: aquí se decide un permiso).
 """
+import re
 from typing import Dict, Optional
 
 from fastapi import Response
@@ -14,6 +18,29 @@ from app.core.permisos import _solo_admin
 
 def _no_encontrado() -> Response:
     return Response(content="Cliente no encontrado", status_code=404)
+
+
+_ID_PROYECTO = re.compile(r"[A-Za-z0-9_-]{1,64}")           # los ids reales son UUID; cualquier otra cosa no es un proyecto y nunca llega a la base
+
+
+async def exigir_proyecto(perfil: Dict, proyecto_id) -> Optional[Response]:
+    """``None`` si el usuario puede usar este proyecto (o si no se indicó ninguno); si no, la respuesta 403 que la ruta debe devolver.
+    Administrador y owner no hacen ninguna consulta; el ejecutivo, ninguna si el proyecto está entre los suyos y una si solo tiene inmobiliarias asignadas."""
+    if _solo_admin(perfil) or proyecto_id is None or proyecto_id == "":
+        return None
+    pid = str(proyecto_id)
+    if isinstance(proyecto_id, (str, int)) and not isinstance(proyecto_id, bool) and _ID_PROYECTO.fullmatch(pid):
+        if pid in {str(p) for p in (perfil.get("proyecto_ids") or []) if p is not None}:
+            return None
+        inmobiliarias = [str(i) for i in (perfil.get("inmobiliaria_ids") or []) if i is not None]
+        if inmobiliarias:
+            filas = await _supabase_request(
+                "GET", "/Proyecto",
+                params={"id": f"eq.{pid}", "inmobiliaria_id": f"in.({','.join(inmobiliarias)})", "select": "id", "limit": "1"},
+            ) or []
+            if filas:
+                return None
+    return Response(content="No tienes acceso a ese proyecto", status_code=403)
 
 
 async def exigir_cliente(perfil: Dict, cliente_id) -> Optional[Response]:
