@@ -212,3 +212,6 @@ __marimo__/
 
 # Permisos personales de Claude Code (locales a cada máquina)
 .claude/settings.json
+
+# Archivos que crea macOS en cada carpeta
+.DS_Store
