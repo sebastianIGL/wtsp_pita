@@ -77,7 +77,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **Indexación:** las fichas de proyectos nuevos se indexan; las de semi-nuevos (copias de publicaciones de terceros) llevan
   `noindex, follow` y no van en el sitemap, pero **no** se bloquean en `robots.txt` (para que el buscador pueda leer el noindex).
   La cabecera común acepta la variable `robots` (por defecto `index, follow`).
-- `GET /sitemap.xml` (`app/services/seo.py`): las páginas públicas (`/`, `/como-funciona`, `/subsidios`, `/viviendas`, `/blog`) y la
+- `GET /sitemap.xml` (`app/services/seo.py`): las páginas públicas (`/`, `/como-funciona`, `/subsidios`, `/viviendas`, `/blog` y las tres legales: `/terminos`, `/privacidad`, `/cookies`) y la
   ficha de cada proyecto nuevo activo; si la base falla responde 503 en vez de un sitemap sin proyectos. `GET /robots.txt`: bloquea
   `/api/` (salvo `/api/proyectos-landing`, con la que /viviendas arma sus tarjetas), el CRM, el login y el webhook, y apunta al sitemap.
   robots.txt es una indicación para buscadores, no protege nada: lo privado se protege con sesión.
@@ -98,6 +98,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Dentro de Tag Manager hay que configurar GA4 y las etiquetas con **comprobaciones de consentimiento** (`analytics_storage`; `ad_storage`, `ad_user_data` y
   `ad_personalization` quedan siempre denegados: si algún día se hacen campañas hay que volver a ofrecer la categoría). El evento
   `qs_cookies_actualizadas` (`{medicion}`) se empuja al `dataLayer` en cada elección.
+- **Eventos de medición** (`window.QSMedir`, definida solo en `partials/_cookies.html`, o sea solo con `GTM_ID`): se anotan **únicamente si la persona aceptó
+  «Medición»** (sin elección o con «Solo necesarias» no se agrega nada al `dataLayer`; al retirar el consentimiento se dejan de anotar). Nombres y campos de lista cerrada:
+  `qs_contenido_visto` (`tipo` ficha|guia|proyecto, `slug`), `qs_cta_evaluar` (`origen`: la ruta, cualquier enlace a `#registro`), `qs_fuente_oficial` (`destino`: solo el
+  sitio, p. ej. `www.minvu.gob.cl`, y `origen`) y `qs_evaluacion_paso` (`paso` ingresos|resultado|cuenta|sin_cuenta, en `home.html` vía `_medir`). Nunca viajan nombre, correo,
+  teléfono, RUT, tramo ni la dirección completa: el filtro descarta cualquier campo que no sea de la lista o cuyo valor no sea texto sencillo. «Mi camino» y el CRM no los emiten.
+  Al agregar un evento hay que ampliar la lista, las pruebas (`tests/herramientas_frontend/cookies.js`, bloque 13) y los textos de `/cookies` y `/privacidad` (subir `legal.ACTUALIZADO` y `VERSION_POLITICA`).
 - Las páginas legales (`/terminos`, `/privacidad`, `/cookies`) son una primera versión: conviene que las revise un abogado. Si se agrega un
   proveedor o una cookie nueva hay que actualizarlas (`app/services/legal.py` guarda la fecha); las pruebas avisan de varios casos.
 

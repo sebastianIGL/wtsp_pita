@@ -1601,6 +1601,9 @@
     document.getElementById('sub-' + btn.dataset.val).classList.add('visible');
   }
 
+  // Medición: solo existe con Tag Manager y solo registra algo si la persona aceptó «Medición». Nunca se envía lo que escribe ni lo que elige.
+  function _medir(evento, datos) { if (window.QSMedir) window.QSMedir(evento, datos); }
+
   function irPaso1() {
     document.getElementById('paso2').classList.remove('activo');
     document.getElementById('paso1').classList.add('activo');
@@ -1616,6 +1619,7 @@
 
     document.getElementById('paso1').classList.remove('activo');
     document.getElementById('paso2').classList.add('activo');
+    _medir('qs_evaluacion_paso', { paso: 'ingresos' });
     document.getElementById('registro').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -1642,6 +1646,7 @@
 
     document.getElementById('paso2').classList.remove('activo');
     document.getElementById('paso3').classList.add('activo');
+    _medir('qs_evaluacion_paso', { paso: 'resultado' });
     document.getElementById('registro').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -1775,6 +1780,7 @@
           body: JSON.stringify({ ..._formData, email, telefono: tel || null, consentimiento: true })
         });
         document.getElementById('guardar-perfil').style.display = 'none';
+        _medir('qs_evaluacion_paso', { paso: 'cuenta' });
         document.getElementById('perfil-guardado').style.display = 'block';
       } catch (e) {
         let msg = e.message || 'Error al crear la cuenta.';
@@ -1802,6 +1808,7 @@
       const { error } = await _sb.auth.verifyOtp({ email, token: code, type: 'email' });
       if (error) throw error;
       document.getElementById('guardar-perfil').style.display = 'none';
+      _medir('qs_evaluacion_paso', { paso: 'cuenta' });
       document.getElementById('perfil-guardado').style.display = 'block';
     } catch (e) {
       msgEl.style.cssText = 'display:block;color:#c62d29';
@@ -1822,6 +1829,7 @@
   function continuarSinGuardar() {
     document.getElementById('guardar-perfil').style.display = 'none';
     document.getElementById('perfil-guardado').innerHTML = '<p style="text-align:center;font-size:0.8rem;color:var(--text-muted);padding:0.875rem 0;">Tu diagnóstico quedó listo. Puedes volver cuando quieras.</p>';
+    _medir('qs_evaluacion_paso', { paso: 'sin_cuenta' });
     document.getElementById('perfil-guardado').style.display = 'block';
   }
 

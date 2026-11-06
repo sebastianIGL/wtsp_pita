@@ -46,7 +46,7 @@
       <label class="qsc-sw"><input type="checkbox" checked disabled aria-label="Necesarias (siempre activas)"><span></span></label>
     </div>
     <div class="qsc-cat">
-      <div><strong>Medición</strong><small>Nos dicen qué páginas se visitan y desde dónde llegan las personas, para mejorar el sitio (Google Analytics).</small></div>
+      <div><strong>Medición</strong><small>Nos dicen qué páginas se visitan, desde dónde llegan las personas y qué acciones hacen (por ejemplo, qué botón pulsan), sin datos personales, para mejorar el sitio (Google Analytics).</small></div>
       <label class="qsc-sw"><input type="checkbox" id="qsc-medicion" aria-label="Medición"><span></span></label>
     </div>
     <div class="qsc-botones">
@@ -63,7 +63,7 @@
   var CLAVE = 'qs_cookies', VERSION = 2, VIGENCIA_MS = 365 * 24 * 60 * 60 * 1000
   var banner = document.getElementById('qsc-banner'), modal = document.getElementById('qsc-modal')
   var chkMedicion = document.getElementById('qsc-medicion')
-  var actual = null, gtmCargado = false, focoPrevio = null
+  var actual = null, gtmCargado = false, focoPrevio = null, vistaEnviada = false
 
   // Consent Mode: todo lo que no es necesario parte DENEGADO. Esta llamada va antes de cualquier otra de Google.
   window.dataLayer = window.dataLayer || []
@@ -104,11 +104,37 @@
       dominios.forEach(function (d) { document.cookie = nombre + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/' + (d ? '; domain=' + d : '') })
     })
   }
+  // Eventos de medición. Solo existen mientras la persona haya aceptado «Medición»: sin esa elección no se agrega nada al dataLayer.
+  // Nunca llevan datos personales ni lo que se escribe en los formularios: solo un nombre de evento y estos pocos campos, con texto sencillo.
+  var CAMPOS = { origen: 1, destino: 1, tipo: 1, slug: 1, paso: 1 }
+  var OFICIALES = /(^|\.)(gob\.cl|bcn\.cl|minvu\.cl|cmfchile\.cl|sii\.cl|bcentral\.cl|sernac\.cl)$/
+  function medir(nombre, datos) {
+    if (!actual || !actual.medicion || !/^qs_[a-z_]{3,40}$/.test(nombre)) return
+    var evento = { event: nombre }
+    Object.keys(datos || {}).forEach(function (k) {
+      var v = datos[k]
+      if (CAMPOS[k] && typeof v === 'string' && /^[a-z0-9._\/-]{1,80}$/i.test(v)) evento[k] = v
+    })
+    window.dataLayer.push(evento)
+  }
+  function contenidoVisto() {
+    var m = /^\/(subsidios|guias|viviendas)\/([a-z0-9-]{1,80})\/?$/.exec(location.pathname)
+    if (m) medir('qs_contenido_visto', { tipo: { subsidios: 'ficha', guias: 'guia', viviendas: 'proyecto' }[m[1]], slug: m[2] })
+  }
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href]')
+    if (!a || banner.contains(a) || modal.contains(a)) return
+    if (/^\/?#registro$/.test(a.getAttribute('href'))) return medir('qs_cta_evaluar', { origen: location.pathname })
+    var u
+    try { u = new URL(a.href, location.href) } catch (x) { return }
+    if (u.hostname !== location.hostname && OFICIALES.test(u.hostname)) medir('qs_fuente_oficial', { destino: u.hostname, origen: location.pathname })
+  })
   function aplicar(v) {
     actual = v
     gtag('consent', 'update', { analytics_storage: v.medicion ? 'granted' : 'denied' })      // publicidad no se ofrece: ad_* queda denegado
     window.dataLayer.push({ event: 'qs_cookies_actualizadas', medicion: v.medicion })
     if (v.medicion) cargarGTM(); else borrarCookiesDeMedicion()
+    if (v.medicion && !vistaEnviada) { vistaEnviada = true; contenidoVisto() }
   }
   function elegir(medicion) {
     aplicar(guardar(medicion))
@@ -149,6 +175,7 @@
   modal.addEventListener('click', function (e) { if (e.target === modal) cerrar() })
 
   window.QSCookies = { abrir: abrir, estado: function () { return actual ? { medicion: actual.medicion } : null } }
+  window.QSMedir = medir          // las páginas lo llaman con window.QSMedir && …: sin Tag Manager no existe y no pasa nada
 
   var guardado = leer()
   if (guardado) aplicar(guardado); else banner.classList.add('qsc-on')

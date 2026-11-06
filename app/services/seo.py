@@ -1,6 +1,6 @@
 """SEO técnico del sitio público: el contenido de ``/sitemap.xml`` y de ``/robots.txt``.
 
-* sitemap.xml: las páginas públicas y la ficha de cada proyecto **nuevo** activo. Las fichas de semi-nuevos no van (llevan noindex), ni las
+* sitemap.xml: las páginas públicas (incluidas las tres legales) y la ficha de cada proyecto **nuevo** activo. Las fichas de semi-nuevos no van (llevan noindex), ni las
   páginas privadas (CRM, login, API).
 * robots.txt: deja pasar todo salvo lo privado y apunta al sitemap. Las fichas de semi-nuevos NO se bloquean aquí a propósito: para que
   un buscador respete su noindex tiene que poder leer la página. Se deja pasar ``/api/proyectos-landing`` porque /viviendas arma sus
@@ -11,7 +11,7 @@ from typing import Iterable
 from xml.sax.saxutils import escape
 
 SITIO_URL = "https://quesubsidio.cl"          # el mismo que usan canonical y og:url (frontend/partials/_head.html)
-PAGINAS_PUBLICAS = ("/", "/como-funciona", "/subsidios", "/viviendas", "/blog")
+PAGINAS_PUBLICAS = ("/", "/como-funciona", "/subsidios", "/viviendas", "/blog", "/terminos", "/privacidad", "/cookies")
 API_PUBLICA = ("/api/proyectos-landing",)
 RUTAS_PRIVADAS = ("/api/", "/panel", "/admin.html", "/index.html", "/login.html", "/reset-password", "/webhook", "/prospectos/")
 
