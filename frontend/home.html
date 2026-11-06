@@ -3,6 +3,53 @@
 <head>
 {% include "partials/_head.html" %}
 
+{#- Las preguntas frecuentes: el texto visible y los datos estructurados (JSON-LD) salen de AQUÍ, para que Google siempre los vea iguales. -#}
+{% set faq_q1 = "¿Qué es el subsidio DS19 en Chile?" %}
+{% set faq_a1 %}
+El <strong>DS19 (Decreto Supremo N°19)</strong> es el Programa de Integración Social y Territorial del Ministerio de Vivienda y Urbanismo (MINVU).
+Son <strong>proyectos de viviendas nuevas construidos en alianza entre el Estado y empresas privadas</strong>, donde conviven familias de distintos niveles socioeconómicos
+y puedes comprar tu primera vivienda con o sin subsidio habitacional. Se postula durante todo el año, en la inmobiliaria del proyecto.
+{% endset %}
+{% set faq_q2 = "¿Cuál es la diferencia entre DS19 y DS1 T2/T3?" %}
+{% set faq_a2 %}
+Son dos subsidios distintos del MINVU dirigidos a diferentes grupos:
+<ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.5rem;">
+  <li><strong>DS19</strong>: son proyectos de integración social donde conviven familias con y sin subsidio. Postulas durante todo el año en la inmobiliaria del proyecto, cuya nómina publica el MINVU.</li>
+  <li><strong>DS1 (Sectores Medios)</strong>: es un subsidio que se postula en los llamados del MINVU y se divide en tres tramos según tu ubicación en el Registro Social de Hogares y el precio de la vivienda (el Tramo 2 llega hasta el 80% del RSH y el Tramo 3 hasta el 90%). Con el subsidio ya adjudicado compras una vivienda, también en un proyecto DS19.</li>
+</ul>
+<p style="margin-top:0.75rem;">
+  Un mismo proyecto inmobiliario puede aceptar ambos subsidios.
+</p>
+{% endset %}
+{% set faq_q3 = "¿Qué significa que un proyecto \"acepta DS1 T2/T3 adjudicado\"?" %}
+{% set faq_a3 %}
+Significa que el proyecto puede recibir compradores que <strong>ya ganaron (tienen adjudicado)</strong> el Subsidio DS1 en el Tramo 2 o el Tramo 3.
+El comprador aplica el subsidio al precio de la vivienda, reduciendo el monto del crédito hipotecario que necesita.
+La vivienda debe cumplir las condiciones del programa, como el precio máximo de cada tramo: pregunta a la inmobiliaria o a un ejecutivo si el proyecto que te interesa lo acepta.
+{% endset %}
+{% set faq_q4 = "¿Quién puede postular al subsidio DS19?" %}
+{% set faq_a4 %}
+Según el MINVU (folleto de mayo de 2026), pueden participar personas que cumplan estos requisitos:
+<ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.4rem;">
+  <li>Tener 18 años o más y cédula de identidad vigente (las personas extranjeras, con residencia definitiva).</li>
+  <li>Tener Registro Social de Hogares y una cuenta de ahorro para la vivienda con el ahorro mínimo (sin subsidio previo: 40 UF si postulas con las condiciones del DS1 Tramo 2, u 80 UF con las del Tramo 3).</li>
+  <li>No haber usado antes un subsidio habitacional ni tener vivienda propia; o bien contar con un subsidio DS49 (modalidad individual) o DS1.</li>
+</ul>
+{% endset %}
+{% set faq_q5 = "¿Cuánto tarda el proceso de subsidio habitacional en Chile?" %}
+{% set faq_a5 %}
+Como referencia aproximada (es una estimación nuestra, no un plazo oficial), el proceso completo puede tomar entre <strong>6 y 18 meses</strong>, dependiendo de la velocidad de cada etapa:
+<ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.4rem;">
+  <li><strong>Postulación y obtención del subsidio</strong>: 2-4 meses (MINVU + Serviu).</li>
+  <li><strong>Selección del proyecto y firma de promesa</strong>: 1-3 meses.</li>
+  <li><strong>Trámite del crédito hipotecario</strong> (si aplica): 1-3 meses (banco o mutuaria).</li>
+  <li><strong>Escrituración y entrega de la vivienda</strong>: 2-6 meses según avance de obra.</li>
+</ul>
+<p style="margin-top:0.75rem;">
+  La agilidad de cada etapa depende de la inmobiliaria, el banco elegido y los tiempos de respuesta del MINVU.
+</p>
+{% endset %}
+
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -29,42 +76,42 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "¿Qué es el subsidio DS19 en Chile?",
+            "name": {{ faq_q1 | tojson }},
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "El DS19 (Decreto Supremo N°19) es el Programa de Integración Social y Territorial del MINVU. Son proyectos de viviendas nuevas construidos en alianza entre el Estado y empresas privadas, donde conviven familias de distintos niveles socioeconómicos y puedes comprar tu primera vivienda con o sin subsidio habitacional. Se postula durante todo el año, en la inmobiliaria del proyecto."
+              "text": {{ faq_a1 | trim | tojson }}
             }
           },
           {
             "@type": "Question",
-            "name": "¿Cuál es la diferencia entre DS19 y DS1 T2/T3?",
+            "name": {{ faq_q2 | tojson }},
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "El DS19 son proyectos de integración social donde conviven familias con y sin subsidio; se postula todo el año en la inmobiliaria del proyecto. El DS1 (Sectores Medios) es un subsidio que se postula en los llamados del MINVU y se divide en tres tramos según el Registro Social de Hogares y el precio de la vivienda. Con un subsidio DS1 ya adjudicado se puede comprar una vivienda, también en un proyecto DS19. Un mismo proyecto inmobiliario puede aceptar ambos."
+              "text": {{ faq_a2 | trim | tojson }}
             }
           },
           {
             "@type": "Question",
-            "name": "¿Qué significa que un proyecto acepta DS1 T2/T3 adjudicado?",
+            "name": {{ faq_q3 | tojson }},
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Significa que el proyecto puede recibir compradores que ya ganaron (tienen adjudicado) el Subsidio DS1 en el Tramo 2 o el Tramo 3. El comprador aplica el subsidio al precio de la vivienda, reduciendo el crédito hipotecario necesario. La vivienda debe cumplir las condiciones del programa, como el precio máximo de cada tramo."
+              "text": {{ faq_a3 | trim | tojson }}
             }
           },
           {
             "@type": "Question",
-            "name": "¿Quién puede postular al subsidio habitacional DS19?",
+            "name": {{ faq_q4 | tojson }},
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Según el MINVU (folleto de mayo de 2026), pueden participar personas de 18 años o más con cédula vigente (extranjeras, con residencia definitiva), con Registro Social de Hogares y una cuenta de ahorro para la vivienda con el ahorro mínimo (sin subsidio previo: 40 UF con las condiciones del DS1 Tramo 2 u 80 UF con las del Tramo 3), que no hayan usado antes un subsidio habitacional ni tengan vivienda propia, o que cuenten con un subsidio DS49 (modalidad individual) o DS1."
+              "text": {{ faq_a4 | trim | tojson }}
             }
           },
           {
             "@type": "Question",
-            "name": "¿Cuánto tarda el proceso de subsidio habitacional en Chile?",
+            "name": {{ faq_q5 | tojson }},
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "Como referencia aproximada (estimación nuestra, no un plazo oficial), el proceso completo toma entre 6 y 18 meses: obtención del subsidio (2-4 meses), selección de proyecto y firma de promesa (1-3 meses), tramitación del crédito hipotecario si aplica (1-3 meses), y escrituración más entrega según avance de obra (2-6 meses). La agilidad depende de la inmobiliaria, el banco y el MINVU."
+              "text": {{ faq_a5 | trim | tojson }}
             }
           }
         ]
@@ -769,76 +816,51 @@
 
         <details class="faq" id="faq1">
           <summary>
-            ¿Qué es el subsidio DS19 en Chile?
+            {{ faq_q1 }}
             <span class="faq-icon" aria-hidden="true">+</span>
           </summary>
           <div class="faq-answer">
-            El <strong>DS19 (Decreto Supremo N°19)</strong> es el Programa de Integración Social y Territorial del Ministerio de Vivienda y Urbanismo (MINVU).
-            Son <strong>proyectos de viviendas nuevas construidos en alianza entre el Estado y empresas privadas</strong>, donde conviven familias de distintos niveles socioeconómicos
-            y puedes comprar tu primera vivienda con o sin subsidio habitacional. Se postula durante todo el año, en la inmobiliaria del proyecto.
+            {{ faq_a1 | trim }}
           </div>
         </details>
 
         <details class="faq" id="faq2">
           <summary>
-            ¿Cuál es la diferencia entre DS19 y DS1 T2/T3?
+            {{ faq_q2 }}
             <span class="faq-icon" aria-hidden="true">+</span>
           </summary>
           <div class="faq-answer">
-            Son dos subsidios distintos del MINVU dirigidos a diferentes grupos:
-            <ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.5rem;">
-              <li><strong>DS19</strong>: son proyectos de integración social donde conviven familias con y sin subsidio. Postulas durante todo el año en la inmobiliaria del proyecto, cuya nómina publica el MINVU.</li>
-              <li><strong>DS1 (Sectores Medios)</strong>: es un subsidio que se postula en los llamados del MINVU y se divide en tres tramos según tu ubicación en el Registro Social de Hogares y el precio de la vivienda (el Tramo 2 llega hasta el 80% del RSH y el Tramo 3 hasta el 90%). Con el subsidio ya adjudicado compras una vivienda, también en un proyecto DS19.</li>
-            </ul>
-            <p style="margin-top:0.75rem;">
-              Un mismo proyecto inmobiliario puede aceptar ambos subsidios.
-            </p>
+            {{ faq_a2 | trim }}
           </div>
         </details>
 
         <details class="faq" id="faq3">
           <summary>
-            ¿Qué significa que un proyecto "acepta DS1 T2/T3 adjudicado"?
+            {{ faq_q3 }}
             <span class="faq-icon" aria-hidden="true">+</span>
           </summary>
           <div class="faq-answer">
-            Significa que el proyecto puede recibir compradores que <strong>ya ganaron (tienen adjudicado)</strong> el Subsidio DS1 en el Tramo 2 o el Tramo 3.
-            El comprador aplica el subsidio al precio de la vivienda, reduciendo el monto del crédito hipotecario que necesita.
-            La vivienda debe cumplir las condiciones del programa, como el precio máximo de cada tramo: pregunta a la inmobiliaria o a un ejecutivo si el proyecto que te interesa lo acepta.
+            {{ faq_a3 | trim }}
           </div>
         </details>
 
         <details class="faq" id="faq4">
           <summary>
-            ¿Quién puede postular al subsidio DS19?
+            {{ faq_q4 }}
             <span class="faq-icon" aria-hidden="true">+</span>
           </summary>
           <div class="faq-answer">
-            Según el MINVU (folleto de mayo de 2026), pueden participar personas que cumplan estos requisitos:
-            <ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.4rem;">
-              <li>Tener 18 años o más y cédula de identidad vigente (las personas extranjeras, con residencia definitiva).</li>
-              <li>Tener Registro Social de Hogares y una cuenta de ahorro para la vivienda con el ahorro mínimo (sin subsidio previo: 40 UF si postulas con las condiciones del DS1 Tramo 2, u 80 UF con las del Tramo 3).</li>
-              <li>No haber usado antes un subsidio habitacional ni tener vivienda propia; o bien contar con un subsidio DS49 (modalidad individual) o DS1.</li>
-            </ul>
+            {{ faq_a4 | trim }}
           </div>
         </details>
 
         <details class="faq" id="faq5">
           <summary>
-            ¿Cuánto tarda el proceso de subsidio habitacional en Chile?
+            {{ faq_q5 }}
             <span class="faq-icon" aria-hidden="true">+</span>
           </summary>
           <div class="faq-answer">
-            Como referencia aproximada (es una estimación nuestra, no un plazo oficial), el proceso completo puede tomar entre <strong>6 y 18 meses</strong>, dependiendo de la velocidad de cada etapa:
-            <ul style="margin:0.75rem 0 0 1.25rem;display:flex;flex-direction:column;gap:0.4rem;">
-              <li><strong>Postulación y obtención del subsidio</strong>: 2-4 meses (MINVU + Serviu).</li>
-              <li><strong>Selección del proyecto y firma de promesa</strong>: 1-3 meses.</li>
-              <li><strong>Trámite del crédito hipotecario</strong> (si aplica): 1-3 meses (banco o mutuaria).</li>
-              <li><strong>Escrituración y entrega de la vivienda</strong>: 2-6 meses según avance de obra.</li>
-            </ul>
-            <p style="margin-top:0.75rem;">
-              La agilidad de cada etapa depende de la inmobiliaria, el banco elegido y los tiempos de respuesta del MINVU.
-            </p>
+            {{ faq_a5 | trim }}
           </div>
         </details>
 

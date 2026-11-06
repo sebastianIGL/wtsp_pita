@@ -206,6 +206,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - El recuadro «Fechas de postulación» de `/subsidios` no publica fechas: remite a la página oficial del MINVU (decisión del dueño, para que nada venza).
 - «3 subsidios que explicamos» (portada) = las tres tarjetas (DS19, DS1, DS49). Lo que dicen los bancos («suelen pedir…») es costumbre del mercado, no norma.
 
+## Preguntas frecuentes de la portada
+- Cada pregunta y su respuesta se escriben **una sola vez**, al comienzo de `frontend/home.html` (`faq_q1…5` y `faq_a1…5`), y de ahí salen tanto el texto visible como los datos estructurados
+  (JSON-LD `FAQPage`): Google exige que coincidan y así no pueden separarse. Para cambiar una, editar solo su bloque `{% set %}`; una prueba compara lo visible con lo estructurado.
+
 ## Cifras de la portada
 - **«personas registradas»** sale de la base: `app/services/estadisticas.py` cuenta las filas de la tabla `Cliente` (una consulta liviana que
   pide solo el total en `Content-Range`), la guarda **una hora** en memoria y, si la base falla o tarda más de 3 s, conserva el último valor
