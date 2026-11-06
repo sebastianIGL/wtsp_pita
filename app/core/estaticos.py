@@ -9,7 +9,7 @@ import posixpath
 from fastapi import HTTPException
 from fastapi.staticfiles import StaticFiles
 
-PAGINAS_JINJA = frozenset({"home.html", "blog.html", "como-funciona.html", "subsidios.html", "subsidio.html", "guias.html", "guia.html", "glosario.html", "viviendas.html"})
+PAGINAS_JINJA = frozenset({"home.html", "blog.html", "como-funciona.html", "subsidios.html", "subsidio.html", "guias.html", "guia.html", "glosario.html", "viviendas.html", "calculadora.html"})
 CARPETA_DE_FRAGMENTOS = "partials"
 
 

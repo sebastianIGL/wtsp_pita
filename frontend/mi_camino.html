@@ -457,6 +457,7 @@
     if (f && r.id === 'ahorro' && datoOk(f.ahorro)) item = { ...item, titulo: 'Ahorro mínimo: ' + esc(f.ahorro.valor), sub: textoFicha(f, f.ahorro), deFicha: true };
     if (f && r.id === 'puntaje' && datoOk(f.rsh)) item = { ...item, titulo: 'Tu tramo del RSH: ' + esc(f.rsh.valor), sub: textoFicha(f, f.rsh), deFicha: true };
     item.enlaces = ((ENLACES[mundo] || {})[r.id] || []).filter(e => DATOS.guias.includes(e[0]));
+    item.calculadora = mundo === 's' && r.id === 'ahorro' && DATOS.subsidios.length ? '/calculadora' + (elegido ? '?subsidio=' + encodeURIComponent(elegido) : '') : null;
     return item;
   }
   function selectorHtml() {
@@ -546,6 +547,7 @@
           <div class="card-title">${r.titulo}${r.deFicha ? '<span class="tag-ficha">De la ficha</span>' : ''}</div>
           <div class="card-sub">${r.sub}</div>
           ${r.enlaces.map(e => `<a class="card-link" href="/guias/${encodeURIComponent(e[0])}" onclick="event.stopPropagation()">${esc(e[1])} →</a>`).join('')}
+          ${r.calculadora ? `<a class="card-link" href="${esc(r.calculadora)}" onclick="event.stopPropagation()">Calcula cuánto te falta →</a>` : ''}
           <button class="btn-tengo" onclick="event.stopPropagation(); toggleReq('${r.id}')">
             ${isDone ? '✓ Completado' : 'Ya lo tengo'}
           </button>

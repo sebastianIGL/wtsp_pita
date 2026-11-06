@@ -194,6 +194,7 @@ def armar_ficha(s: Dict[str, Any], fuentes: Dict[int, Dict[str, Any]], problemas
         if uf and d.get("unidad") == "UF" and n and n > 0:
             pesos = "≈ " + servicio_uf.formatear_pesos(n * uf[0])
         datos.append({"clave": str(d.get("clave") or ""), "etiqueta": str(d.get("etiqueta") or ""), "valor": str(d.get("valor_texto") or ""), "pesos": pesos, "llamado": d.get("llamado"),
+                      "numero": n if n is not None and n > 0 and d.get("unidad") == "UF" else None,        # solo las cifras en UF (la calculadora las usa); el resto viaja como texto
                       "fuentes": [n for n in [num(d["fuente_id"])] if n] if isinstance(d.get("fuente_id"), int) else []})
     lista_fuentes = []
     for fid, n in sorted(numeradas.items(), key=lambda kv: kv[1]):

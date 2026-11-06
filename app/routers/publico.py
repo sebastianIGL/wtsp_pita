@@ -14,7 +14,7 @@ from app.core import interruptores
 from app.core.cache_proyectos import _CACHE_TTL, _cache_proyectos
 from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
-from app.services import mi_camino
+from app.services import calculadora, mi_camino
 from app.services.consentimientos import registrar_consentimiento
 from app.services.ficha_proyecto import asignar_slugs, es_publico
 from fastapi import APIRouter, Request, Response
@@ -30,6 +30,26 @@ async def api_mi_camino_subsidios():
     """Datos públicos de solo lectura para «Mi Camino»: el ahorro mínimo y el tope del RSH de las fichas publicadas y verificadas, y las guías publicadas
     (ver app/services/mi_camino.py). Si la base falla responde listas vacías: la página muestra su lista general."""
     return Response(content=json.dumps(await mi_camino.datos(), ensure_ascii=False), media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/api/calculadora/subsidios")
+async def api_calculadora_subsidios():
+    """Datos públicos de solo lectura para la calculadora de ahorro y pie: los subsidios de compra publicados y al día con su ahorro mínimo y precio máximo, y la UF de hoy
+    (ver app/services/calculadora.py). Si el directorio falla responde la lista vacía y la página lo explica."""
+    return Response(content=json.dumps(await calculadora.subsidios(), ensure_ascii=False), media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/api/calculadora/proyectos/{slug}")
+async def api_calculadora_proyecto(slug: str):
+    """Datos de un proyecto público para la calculadora (404 si no existe, no está activo o está oculto del sitio; 503 si la base falla)."""
+    try:
+        datos = await calculadora.proyecto(slug)
+    except Exception as e:
+        logger.warning("Calculadora | no se pudo leer el proyecto (%s)", type(e).__name__)
+        return Response(content="Servicio no disponible", status_code=503, media_type="text/plain", headers={"Retry-After": "60"})
+    if datos is None:
+        return Response(content="Proyecto no encontrado", status_code=404, media_type="text/plain")
+    return Response(content=json.dumps(datos, ensure_ascii=False), media_type="application/json", headers={"Cache-Control": "public, max-age=300"})
 
 
 @router.get("/api/proyectos-landing")

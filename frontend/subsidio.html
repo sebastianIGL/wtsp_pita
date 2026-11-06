@@ -94,6 +94,7 @@
       {% if s.alcance == "ligera" %}<p class="sf-nota"><strong>Este beneficio no es de vivienda.</strong> La información es orientativa y el trámite se hace en la institución que se indica en los textos de arriba. Si además buscas una vivienda con subsidio, puedes evaluar tu caso aquí.</p>{% endif %}
       <div class="sf-acciones">
         <a href="/#registro" class="btn btn-red">{% if s.alcance == "ligera" %}Evaluar mi caso de vivienda{% else %}Evaluar mi caso{% endif %}</a>
+        {% if s.grupo_clave == "comprar" and s.alcance == "completa" and (s.datos | selectattr("clave", "equalto", "ahorro_minimo") | list) %}<a href="/calculadora?subsidio={{ s.slug }}" class="btn btn-outline">Calcula cuánto te falta ahorrar</a>{% endif %}
         <a href="/subsidios" class="btn btn-outline">Ver todos los subsidios</a>
       </div>
     </div>

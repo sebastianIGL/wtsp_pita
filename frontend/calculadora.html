@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+{% include "partials/_head.html" %}
+<script type="application/ld+json">{{ json_ld | tojson }}</script>
+{% include "partials/_estilos_ficha.html" %}
+<style>
+  .cal-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+  @media (min-width: 920px) { .cal-grid { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
+  .cal-caja { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; min-width: 0; }
+  .cal-caja h2 { font-size: 1.1rem; font-weight: 800; margin-bottom: 0.9rem; }
+  .cal-campo { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 1rem; }
+  .cal-campo label, .cal-campo .cal-etiqueta { font-size: 0.9rem; font-weight: 700; color: var(--ink); }
+  .cal-campo small { font-size: 0.8rem; color: var(--text-subtle); line-height: 1.5; }
+  .cal-campo select, .cal-campo input { width: 100%; font: inherit; font-size: 1rem; padding: 0.65rem 0.8rem; border: 1px solid var(--border-strong); border-radius: 0.6rem; background: #fff; color: var(--ink); }
+  .cal-campo select:focus-visible, .cal-campo input:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  .cal-fila { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem; gap: 0.5rem; }
+  .cal-aviso-uf { font-size: 0.85rem; color: #7c3a05; background: #fff7ed; border: 1px solid #f5c58b; border-radius: 0.6rem; padding: 0.6rem 0.8rem; margin-bottom: 1rem; }
+  .cal-vacio { color: var(--text-muted); font-size: 0.98rem; line-height: 1.6; }
+  .cal-falta { background: var(--blue-soft); border: 1px solid var(--blue-border); border-radius: var(--radius); padding: 1rem 1.1rem; margin-bottom: 1rem; }
+  .cal-falta .cal-grande { display: block; font-size: 1.7rem; font-weight: 800; color: var(--blue); line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .cal-falta .cal-peque { display: block; font-size: 0.9rem; color: var(--text-muted); margin-top: 0.2rem; }
+  .cal-falta.cal-ok { background: var(--green-soft); border-color: #b7e4c7; }
+  .cal-falta.cal-ok .cal-grande { color: var(--green); }
+  .cal-lista { list-style: none; margin: 0 0 1rem; padding: 0; }
+  .cal-lista li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.95rem; line-height: 1.5; }
+  .cal-lista li:last-child { border-bottom: 0; }
+  .cal-lista b { font-variant-numeric: tabular-nums; text-align: right; }
+  .cal-lista small { display: block; color: var(--text-subtle); font-size: 0.8rem; font-weight: 400; }
+  .cal-sub { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-subtle); margin: 1.1rem 0 0.4rem; }
+  .cal-nota { font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 0.5rem 0; }
+  .cal-alerta { font-size: 0.9rem; color: #7c3a05; background: #fff7ed; border: 1px solid #f5c58b; border-radius: 0.6rem; padding: 0.65rem 0.85rem; margin: 0.6rem 0; line-height: 1.5; }
+  .cal-fuente { font-size: 0.8rem; color: var(--text-subtle); line-height: 1.6; margin-top: 0.9rem; }
+  .cal-fuente a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+  .cal-faq h3 { font-size: 1.05rem; font-weight: 800; margin: 1.1rem 0 0.3rem; }
+</style>
+<link rel="stylesheet" href="/css/sitio.css" />
+</head>
+<body>
+
+{% include "partials/_navbar.html" %}
+
+<main>
+  <section class="section-sm">
+    <div class="container sf-cab">
+      <nav class="sf-migas" aria-label="Ruta de navegación">
+        <a href="/">Inicio</a><span aria-hidden="true">›</span><span aria-current="page">Calculadora de ahorro y pie</span>
+      </nav>
+      <div class="chip">Herramienta gratuita</div>
+      <h1>Calculadora de ahorro y pie para comprar vivienda con subsidio</h1>
+      <p class="sf-resumen">Calcula cuánto te falta ahorrar para el subsidio que te interesa y para el proyecto que estás mirando. Usamos las cifras de nuestras fichas de subsidios y los datos que informan las inmobiliarias.
+        <strong>Tus cifras no se guardan:</strong> el cálculo se hace en tu navegador.</p>
+    </div>
+  </section>
+
+  <section class="section-sm" style="padding-top:0">
+    <div class="container cal-grid">
+      <form class="cal-caja" id="cal-form" onsubmit="return false" aria-labelledby="cal-titulo-form">
+        <h2 id="cal-titulo-form">Tus datos</h2>
+        <noscript><p class="cal-alerta">Esta calculadora necesita JavaScript. Mientras tanto, revisa el ahorro mínimo de cada subsidio en <a href="/subsidios">las fichas de subsidios</a>.</p></noscript>
+        <div id="cal-aviso-uf" class="cal-aviso-uf" hidden></div>
+
+        <div class="cal-campo">
+          <label for="cal-subsidio">¿Qué subsidio te interesa?</label>
+          <select id="cal-subsidio"><option value="">Cargando…</option></select>
+          <small id="cal-ayuda-subsidio">Solo aparecen subsidios para comprar con ahorro mínimo confirmado en nuestras fichas.</small>
+        </div>
+
+        <div class="cal-campo">
+          <label for="cal-proyecto">¿Qué proyecto estás mirando? <span style="font-weight:400">(opcional)</span></label>
+          <select id="cal-proyecto"><option value="">Ninguno: solo quiero ver el subsidio</option></select>
+        </div>
+
+        <div class="cal-campo" id="cal-campo-tipologia" hidden>
+          <label for="cal-tipologia">Tipología</label>
+          <select id="cal-tipologia"></select>
+        </div>
+
+        <div class="cal-campo">
+          <span class="cal-etiqueta" id="cal-etiqueta-ahorro">¿Cuánto ahorro tienes hoy?</span>
+          <div class="cal-fila">
+            <input id="cal-ahorro" type="text" inputmode="decimal" autocomplete="off" placeholder="Ej.: 25" aria-labelledby="cal-etiqueta-ahorro" />
+            <select id="cal-unidad" aria-label="Unidad del ahorro"><option value="uf">UF</option><option value="clp">Pesos</option></select>
+          </div>
+          <small>Puede ser 0. Es lo que tienes en tu cuenta de ahorro para la vivienda, en UF o en pesos.</small>
+        </div>
+
+        <div class="cal-campo">
+          <label for="cal-mensual">¿Cuánto puedes ahorrar al mes? <span style="font-weight:400">(opcional, en pesos)</span></label>
+          <input id="cal-mensual" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej.: 50.000" />
+        </div>
+      </form>
+
+      <div class="cal-caja" id="cal-resultado" aria-live="polite" aria-labelledby="cal-titulo-res">
+        <h2 id="cal-titulo-res">Tu resultado</h2>
+        <div id="cal-res-cuerpo"><p class="cal-vacio">Elige un subsidio y cuéntanos cuánto ahorro tienes: aquí verás cuánto te falta, en UF y en pesos, y cuánto tendrías que ahorrar al mes.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sf-sec sf-bloque" style="background:var(--bg2)">
+    <div class="container">
+      <h2>Cómo calculamos</h2>
+      <ul>
+        <li><strong>Subsidios:</strong> el ahorro mínimo y el precio máximo salen de nuestras <a href="/subsidios">fichas de subsidios</a>, contrastadas con fuentes oficiales (MINVU y ChileAtiende) y con su fecha de revisión.</li>
+        <li><strong>Proyectos:</strong> el precio, el ahorro o pie, la reserva, el estacionamiento y el plan de pago los informa cada inmobiliaria. Son referenciales y pueden cambiar sin previo aviso.</li>
+        <li><strong>DS1 Tramo 2 y Tramo 3:</strong> contamos tu ahorro mínimo del subsidio como parte del pie del proyecto y le sumamos el subsidio que informa la inmobiliaria.</li>
+        <li><strong>Otros subsidios:</strong> mostramos el ahorro del subsidio y el del proyecto por separado, sin sumarlos, porque todavía no confirmamos cómo se combinan.</li>
+        <li><strong>Pesos:</strong> los equivalentes usan el valor de la UF del día (fuente: SII).</li>
+      </ul>
+      <div class="cal-faq">
+        <h2 style="margin-top:1.5rem">Preguntas frecuentes</h2>
+        <h3>¿Qué es el ahorro mínimo?</h3>
+        <p>Es el monto que el subsidio exige tener ahorrado en una cuenta de ahorro para la vivienda al momento de postular. Cambia según el subsidio y el llamado. Lo explicamos en la guía <a href="/guias/como-abrir-tu-cuenta-de-ahorro-para-la-vivienda">cómo abrir tu cuenta de ahorro para la vivienda</a>.</p>
+        <h3>¿Qué es el pie?</h3>
+        <p>Es la parte del precio de la vivienda que aporta la familia con su propio ahorro. El resto se cubre con el subsidio y, si todavía falta, con un crédito hipotecario. Cómo se aplica en tu caso lo confirma la inmobiliaria.</p>
+        <h3>¿Se guardan mis cifras?</h3>
+        <p>No. Lo que escribes se queda en tu navegador y no se envía a QueSubsidio ni a nadie. Si quieres que revisemos tu caso, puedes <a href="/#registro">evaluarlo gratis</a>.</p>
+        <h3>¿Esto es una oferta de crédito o una promesa de subsidio?</h3>
+        <p>No. Es una guía orientativa. QueSubsidio no es el MINVU ni un banco, no otorga subsidios y no puede garantizar que obtengas uno. Confirma siempre en la fuente oficial y con la inmobiliaria antes de decidir.</p>
+        <h3>¿Por qué no aparece mi proyecto?</h3>
+        <p>Solo están los proyectos que hoy se muestran en <a href="/viviendas">nuestra vitrina</a>. Si el tuyo no está, usa la calculadora solo con el subsidio y consulta el ahorro que pide la inmobiliaria.</p>
+      </div>
+      <div class="sf-acciones">
+        <a href="/#registro" class="btn btn-red">Evaluar mi caso</a>
+        <a href="/subsidios" class="btn btn-outline">Ver los subsidios</a>
+        <a href="/viviendas" class="btn btn-outline">Ver viviendas</a>
+      </div>
+      <p class="sf-nota">Información orientativa. Los montos, ahorros y topes cambian de un llamado a otro y según el proyecto: confirma siempre en la fuente oficial y con la inmobiliaria antes de postular.</p>
+    </div>
+  </section>
+</main>
+
+{% include "partials/_footer.html" %}
+{% include "partials/_scripts_common.html" %}
+
+<script>
+// ── Cálculo (función pura: no toca la página; ver tests/herramientas_frontend/calculadora.js) ──────────────────────────────────────────────
+// Regla del dueño: con DS1 Tramo 2 y 3 el ahorro del subsidio cuenta como parte del pie y se suma el subsidio (el servidor manda `suma`). Con otros subsidios, por separado.
+function _num(v) { return typeof v === 'number' && isFinite(v) ? v : null }
+
+function _meses(desde, hastaISO) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(hastaISO || '')
+  if (!m) return null
+  const y = +m[1], mo = +m[2] - 1, d = +m[3]
+  return Math.max(0, (y - desde.getFullYear()) * 12 + (mo - desde.getMonth()) - (d < desde.getDate() ? 1 : 0))
+}
+
+function _planDe(etapa, base, uf, mensualCLP, hoy) {
+  const plan = { entrega: etapa.texto || null, modo: etapa.modo || null, cuotas: etapa.cuotas || null, mesesHastaEntrega: etapa.entrega === 'inmediata' ? null : _meses(hoy, etapa.fecha) }
+  plan.cuotaUF = etapa.modo === 'cuotas' && etapa.cuotas ? base / etapa.cuotas : null
+  plan.cuotaCLP = plan.cuotaUF !== null && uf ? plan.cuotaUF * uf : null
+  plan.mesesConTuAhorro = uf && mensualCLP > 0 && base > 0 ? Math.ceil((base * uf) / mensualCLP) : null
+  plan.alcanza = plan.mesesConTuAhorro !== null && plan.mesesHastaEntrega !== null ? plan.mesesConTuAhorro <= plan.mesesHastaEntrega : null
+  return plan
+}
+
+function calcular(e) {
+  const a = _num(e.ahorroUF), uf = _num(e.uf), mensual = _num(e.mensualCLP), hoy = e.hoy || new Date()
+  const sub = e.subsidio || null, pro = e.proyecto || null, tip = e.tipologia || null
+  const S = sub ? _num(sub.ahorro_uf) : null, P = pro ? _num(pro.ahorro_pie_uf) : null, precio = tip ? _num(tip.valor_uf) : null
+  const r = { modo: 'nada', avisos: [], ahorroUF: a, subsidio: null, proyecto: null, requeridoUF: null, quien: null, faltaUF: null, aportes: null, subsidioInformado: null, precioMaximo: null, plan: [], faltaSubsidioUF: null, faltaPieUF: null, mesesSoloSubsidio: null }
+  if (sub) r.subsidio = { slug: sub.slug, nombre: sub.nombre, ahorroUF: S, ahorroTexto: sub.ahorro_texto || null, llamado: sub.llamado || null, ruta: sub.ruta || null, revisado: sub.revisado || null }
+  if (pro) r.proyecto = { slug: pro.slug, nombre: pro.nombre, pieUF: P, ruta: pro.ruta || null, reservaCLP: pro.reserva_clp || null, reservaUF: pro.reserva_uf || null, estacionamientoUF: pro.estacionamiento_uf || null, estacionamientoObligatorio: !!pro.estacionamiento_obligatorio, tipologia: tip ? tip.nombre : null, precioUF: precio }
+  if (sub && precio && _num(sub.precio_maximo_uf)) r.precioMaximo = { uf: sub.precio_maximo_uf, supera: precio > sub.precio_maximo_uf }
+  if (!sub && !pro) return r
+
+  let base = null
+  const suma = !!(sub && sub.suma && S !== null && pro && pro.acepta_ds1_t23)
+  if (sub && pro) {
+    if (sub.suma && !pro.acepta_ds1_t23) r.avisos.push('Este proyecto no indica aceptar el DS1 Tramo 2 ni el Tramo 3, por eso mostramos el ahorro del subsidio y el del proyecto por separado.')
+    if (!suma && !(sub.suma && !pro.acepta_ds1_t23)) r.avisos.push('Para este subsidio todavía no confirmamos cómo se combina su ahorro con el pie del proyecto: te mostramos los dos montos por separado, sin sumarlos.')
+  }
+  if (suma) {
+    r.modo = 'suma'
+    r.requeridoUF = Math.max(S, P || 0); r.quien = P !== null && P > S ? 'proyecto' : 'subsidio'
+    if (P === null) r.avisos.push('El proyecto no informa el ahorro o pie que pide: usamos solo el ahorro mínimo del subsidio.')
+    r.faltaUF = a === null ? null : Math.max(0, r.requeridoUF - a)
+    base = r.faltaUF
+    const info = tip && tip.subsidio ? tip.subsidio : null
+    if (info) {
+      const usado = !!info.para_ds1
+      r.subsidioInformado = { montoUF: info.monto_uf, tipo: info.tipo, usado, motivo: usado ? null : (info.tipo === 'ds19' ? 'es el del DS19, no el del DS1' : 'la inmobiliaria informa un solo monto para varios subsidios y no sabemos cuál corresponde al DS1') }
+      if (usado && precio) {
+        const total = r.requeridoUF + info.monto_uf
+        r.aportes = { ahorroUF: r.requeridoUF, subsidioUF: info.monto_uf, totalUF: total, precioUF: precio, saldoUF: Math.max(0, precio - total), porcentaje: Math.min(100, Math.round((total / precio) * 100)), cubreTodo: total >= precio }
+      }
+    }
+    if (tip && !r.aportes) r.avisos.push(r.subsidioInformado && !r.subsidioInformado.usado ? 'No sumamos el subsidio: ' + r.subsidioInformado.motivo + '.' : 'La inmobiliaria no informa el monto del subsidio DS1 para esta tipología, así que no lo sumamos.')
+  } else if (sub && pro) {
+    r.modo = 'separado'
+    r.faltaSubsidioUF = a === null || S === null ? null : Math.max(0, S - a)
+    r.faltaPieUF = a === null || P === null ? null : Math.max(0, P - a)
+    base = r.faltaPieUF
+    if (P === null) r.avisos.push('El proyecto no informa el ahorro o pie que pide.')
+  } else if (sub) {
+    r.modo = 'solo_subsidio'
+    r.faltaUF = a === null || S === null ? null : Math.max(0, S - a)
+    if (r.faltaUF !== null && uf && mensual > 0 && r.faltaUF > 0) r.mesesSoloSubsidio = Math.ceil((r.faltaUF * uf) / mensual)
+    if (S === null) r.avisos.push('El ahorro de este subsidio depende de tu caso: ' + (sub.ahorro_texto || 'revisa su ficha') + '.')
+  } else {
+    r.modo = 'solo_proyecto'
+    r.faltaPieUF = a === null || P === null ? null : Math.max(0, P - a)
+    base = r.faltaPieUF
+    if (P === null) r.avisos.push('El proyecto no informa el ahorro o pie que pide.')
+  }
+  if (pro && tip && base !== null) r.plan = (tip.etapas || []).map(et => _planDe(et, base, uf, mensual, hoy))
+  return r
+}
+
+// ── Presentación ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+const _nf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 })
+const _nf0 = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 })
+function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])) }
+function fmtUF(n) { return _nf.format(Math.round(n * 10) / 10) + ' UF' }
+function fmtCLP(n) { return n >= 1e6 ? '$' + _nf.format(Math.round(n / 1e5) / 10) + ' millones' : '$' + _nf0.format(Math.round(n / 1000) * 1000) }
+function fmtPesos(uf, valorUF) { return valorUF ? ' ≈ ' + fmtCLP(uf * valorUF) : '' }
+function leerNumero(texto) {
+  const limpio = String(texto || '').trim().replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')
+  if (!limpio || !/^\d*\.?\d+$|^\d+\.?$/.test(limpio)) return null
+  const n = parseFloat(limpio)
+  return isFinite(n) && n >= 0 && n < 1e9 ? n : null
+}
+function _fila(rotulo, valor, nota) { return `<li><span>${rotulo}${nota ? `<small>${nota}</small>` : ''}</span><b>${valor}</b></li>` }
+function _mesesTxt(m) { return m === 1 ? '1 mes' : `${m} meses` }
+
+function dibujar(r, uf) {
+  const out = []
+  const pesos = n => fmtPesos(n, uf)
+  const s = r.subsidio, p = r.proyecto
+  if (r.modo === 'nada') return '<p class="cal-vacio">Elige un subsidio y cuéntanos cuánto ahorro tienes: aquí verás cuánto te falta, en UF y en pesos, y cuánto tendrías que ahorrar al mes.</p>'
+  const falta = r.modo === 'suma' || r.modo === 'solo_subsidio' ? r.faltaUF : null
+  if (falta !== null) {
+    out.push(falta > 0
+      ? `<div class="cal-falta"><span class="cal-peque">Te faltan</span><span class="cal-grande">${esc(fmtUF(falta))}${esc(pesos(falta))}</span><span class="cal-peque">${r.modo === 'suma' ? 'para llegar al ahorro que necesitas' : 'para llegar al ahorro mínimo del subsidio'}</span></div>`
+      : `<div class="cal-falta cal-ok"><span class="cal-grande">¡Ya llegas!</span><span class="cal-peque">Con ${esc(fmtUF(r.ahorroUF))} cumples el ahorro que necesitas.</span></div>`)
+  } else if (r.ahorroUF === null) {
+    out.push('<p class="cal-alerta">Escribe cuánto ahorro tienes hoy (puede ser 0) para ver cuánto te falta.</p>')
+  }
+  const filas = []
+  if (s) {
+    filas.push(_fila(`Ahorro mínimo del subsidio${s.nombre ? ' (' + esc(s.nombre) + ')' : ''}`, s.ahorroUF !== null ? esc(fmtUF(s.ahorroUF)) + esc(pesos(s.ahorroUF)) : esc(s.ahorroTexto || 'Depende de tu caso'), s.llamado ? esc(s.llamado) : ''))
+  }
+  if (p) {
+    filas.push(_fila(`Ahorro o pie que pide el proyecto`, p.pieUF !== null ? esc(fmtUF(p.pieUF)) + esc(pesos(p.pieUF)) : 'No informado', esc(p.nombre) + (p.tipologia ? ' · ' + esc(p.tipologia) : '')))
+    if (p.precioUF) filas.push(_fila('Precio de la vivienda', esc(fmtUF(p.precioUF)) + esc(pesos(p.precioUF))))
+  }
+  if (r.modo === 'suma') filas.push(_fila('Ahorro que tendrías que reunir', esc(fmtUF(r.requeridoUF)) + esc(pesos(r.requeridoUF)), r.quien === 'proyecto' ? 'El del proyecto es mayor y ya incluye el del subsidio' : 'El del subsidio es el mayor'))
+  if (r.modo === 'separado') {
+    if (r.faltaSubsidioUF !== null) filas.push(_fila('Te falta para el subsidio', esc(fmtUF(r.faltaSubsidioUF)) + esc(r.faltaSubsidioUF > 0 ? pesos(r.faltaSubsidioUF) : '')))
+    if (r.faltaPieUF !== null) filas.push(_fila('Te falta para el pie del proyecto', esc(fmtUF(r.faltaPieUF)) + esc(r.faltaPieUF > 0 ? pesos(r.faltaPieUF) : '')))
+  }
+  if (r.modo === 'solo_proyecto' && r.faltaPieUF !== null) filas.push(_fila('Te falta para el pie del proyecto', esc(fmtUF(r.faltaPieUF)) + esc(r.faltaPieUF > 0 ? pesos(r.faltaPieUF) : '')))
+  if (filas.length) out.push(`<ul class="cal-lista">${filas.join('')}</ul>`)
+
+  if (r.precioMaximo && r.precioMaximo.supera) out.push(`<p class="cal-alerta">Esta vivienda cuesta más que el precio máximo del subsidio (${esc(fmtUF(r.precioMaximo.uf))}). Con este subsidio no podrías comprarla.</p>`)
+
+  if (r.aportes) {
+    const a = r.aportes
+    out.push('<div class="cal-sub">Cómo se cubre el precio cuando reúnas el ahorro</div>')
+    out.push(`<ul class="cal-lista">${_fila('Tu ahorro, una vez reunido', esc(fmtUF(a.ahorroUF)))}${_fila('Subsidio informado por la inmobiliaria', esc(fmtUF(a.subsidioUF)), 'Confirma tu monto en el MINVU: depende de tu caso')}${_fila('Suma de ahorro y subsidio', esc(fmtUF(a.totalUF)) + ' · ' + a.porcentaje + '% del precio')}${_fila(a.cubreTodo ? 'Saldo' : 'Saldo del precio por cubrir', a.cubreTodo ? 'Cubierto' : esc(fmtUF(a.saldoUF)) + esc(pesos(a.saldoUF)), a.cubreTodo ? 'Revisa los datos con la inmobiliaria' : 'Por ejemplo, con un crédito hipotecario')}</ul>`)
+  }
+
+  if (r.plan.length) {
+    out.push('<div class="cal-sub">Cómo se paga el ahorro del proyecto</div>')
+    r.plan.forEach(pl => {
+      const lineas = []
+      if (pl.modo === 'cuotas' && pl.cuotaUF !== null) lineas.push(_fila(`En ${pl.cuotas} cuotas mensuales`, esc(fmtUF(pl.cuotaUF)) + esc(pl.cuotaCLP !== null ? ' ≈ ' + fmtCLP(pl.cuotaCLP) : '') + ' al mes'))
+      else if (pl.modo === 'unico') lineas.push(_fila('De una sola vez', 'Todo junto'))
+      else lineas.push(_fila('Forma de pago', 'Consúltala con la inmobiliaria'))
+      if (pl.mesesHastaEntrega !== null) lineas.push(_fila('Tiempo hasta la entrega', esc(_mesesTxt(pl.mesesHastaEntrega))))
+      if (pl.mesesConTuAhorro !== null) lineas.push(_fila('Con tu ahorro mensual llegas en', esc(_mesesTxt(pl.mesesConTuAhorro)), pl.alcanza === null ? '' : (pl.alcanza ? 'Llegas antes de la entrega' : 'No alcanzas a llegar antes de la entrega')))
+      out.push(`<p class="cal-nota"><strong>${esc(pl.entrega || 'Plan de pago')}</strong></p><ul class="cal-lista">${lineas.join('')}</ul>`)
+    })
+  }
+  if (r.mesesSoloSubsidio !== null) out.push(`<ul class="cal-lista">${_fila('Con tu ahorro mensual llegas en', esc(_mesesTxt(r.mesesSoloSubsidio)))}</ul>`)
+
+  if (p && (p.reservaCLP || p.reservaUF || p.estacionamientoUF)) {
+    const ex = []
+    if (p.reservaCLP) ex.push(_fila('Reserva', esc('$' + _nf0.format(p.reservaCLP))))
+    else if (p.reservaUF) ex.push(_fila('Reserva', esc(fmtUF(p.reservaUF))))
+    if (p.estacionamientoUF) ex.push(_fila('Estacionamiento', esc(fmtUF(p.estacionamientoUF)), p.estacionamientoObligatorio ? 'Obligatorio' : 'Opcional'))
+    out.push(`<div class="cal-sub">Otros pagos que informa el proyecto</div><ul class="cal-lista">${ex.join('')}</ul><p class="cal-nota">No los sumamos a lo anterior: pregunta a la inmobiliaria cómo se pagan.</p>`)
+  }
+  r.avisos.forEach(a => out.push(`<p class="cal-alerta">${esc(a)}</p>`))
+  const fuentes = []
+  if (s && s.ruta) fuentes.push(`Subsidio según la ficha <a href="${esc(s.ruta)}">${esc(s.nombre)}</a>${s.revisado ? ', revisada el ' + esc(s.revisado) : ''}.`)
+  if (p && p.ruta) fuentes.push(`Datos del proyecto informados por la inmobiliaria: <a href="${esc(p.ruta)}">${esc(p.nombre)}</a>. Valores referenciales.`)
+  if (uf) fuentes.push(`Pesos con la UF de hoy (${esc(_nf0.format(uf))}).`)
+  out.push(`<p class="cal-fuente">${fuentes.join(' ')} Orientativo: confirma en las fuentes oficiales y con la inmobiliaria. <a href="/#registro">Evalúa tu caso gratis</a>.</p>`)
+  return out.join('')
+}
+
+// ── La página ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+const _$ = id => document.getElementById(id)
+const _estado = { subsidios: [], uf: null, proyecto: null, medido: false }
+
+function _opciones(sel, items, primero) {
+  sel.innerHTML = ''
+  if (primero) sel.appendChild(new Option(primero, ''))
+  items.forEach(([valor, texto]) => sel.appendChild(new Option(texto, valor)))
+}
+
+function _valorUF() { return _estado.uf ? _estado.uf.valor : null }
+
+function refrescar() {
+  const slug = _$('cal-subsidio').value
+  const subsidio = _estado.subsidios.find(x => x.slug === slug) || null
+  const tipologia = _estado.proyecto ? (_estado.proyecto.tipologias[+_$('cal-tipologia').value] || null) : null
+  const uf = _valorUF()
+  const bruto = leerNumero(_$('cal-ahorro').value)
+  const ahorroUF = bruto === null ? null : (_$('cal-unidad').value === 'clp' ? (uf ? bruto / uf : null) : bruto)
+  const r = calcular({ subsidio, proyecto: _estado.proyecto, tipologia, ahorroUF, mensualCLP: leerNumero(_$('cal-mensual').value), uf, hoy: new Date() })
+  _$('cal-res-cuerpo').innerHTML = dibujar(r, uf)
+  if (!_estado.medido && r.modo !== 'nada' && ahorroUF !== null && window.QSMedir) {
+    _estado.medido = true
+    window.QSMedir('qs_calculadora_usada', { tipo: _estado.proyecto ? 'con_proyecto' : 'solo_subsidio', slug: _estado.proyecto ? _estado.proyecto.slug : slug })
+  }
+  const q = new URLSearchParams()                 // en la dirección solo van las elecciones públicas, nunca tus cifras
+  if (slug) q.set('subsidio', slug)
+  if (_estado.proyecto) { q.set('proyecto', _estado.proyecto.slug); if (_$('cal-tipologia').value) q.set('tipologia', _$('cal-tipologia').value) }
+  try { history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '')) } catch (e) { /* sin historial: no importa */ }
+}
+
+async function elegirProyecto(slug, tipologia) {
+  _estado.proyecto = null
+  _$('cal-campo-tipologia').hidden = true
+  if (slug) {
+    try {
+      const res = await fetch('/api/calculadora/proyectos/' + encodeURIComponent(slug))
+      if (!res.ok) throw new Error('sin datos')
+      _estado.proyecto = await res.json()
+    } catch (e) {
+      _$('cal-res-cuerpo').innerHTML = '<p class="cal-alerta">No pudimos cargar los datos de ese proyecto. Intenta de nuevo o usa la calculadora solo con el subsidio.</p>'
+      _$('cal-proyecto').value = ''
+      return
+    }
+    const tips = _estado.proyecto.tipologias
+    if (tips.length) {
+      _opciones(_$('cal-tipologia'), tips.map((t, i) => [String(i), t.nombre + (t.valor_uf ? ' · ' + fmtUF(t.valor_uf) : '')]))
+      if (tipologia != null && tips[+tipologia]) _$('cal-tipologia').value = String(+tipologia)
+      _$('cal-campo-tipologia').hidden = tips.length < 2
+    }
+  }
+  refrescar()
+}
+
+async function iniciar() {
+  const q = new URLSearchParams(location.search)
+  let proyectos = []
+  const [rs, rp] = await Promise.allSettled([fetch('/api/calculadora/subsidios').then(r => r.json()), fetch('/api/proyectos-landing?limite=150').then(r => r.json())])
+  if (rs.status === 'fulfilled') { _estado.subsidios = rs.value.subsidios || []; _estado.uf = rs.value.uf || null }
+  if (rp.status === 'fulfilled') proyectos = (rp.value.proyectos || []).filter(p => p.slug)
+  _opciones(_$('cal-subsidio'), _estado.subsidios.map(x => [x.slug, x.nombre]), _estado.subsidios.length ? 'Elige un subsidio' : 'No pudimos cargar los subsidios')
+  const nuevos = proyectos.filter(p => p.condicion === 'nueva'), semi = proyectos.filter(p => p.condicion !== 'nueva')
+  const sel = _$('cal-proyecto')
+  const grupo = (titulo, lista) => { if (!lista.length) return; const g = document.createElement('optgroup'); g.label = titulo; lista.forEach(p => g.appendChild(new Option(p.nombre + (p.ubicacion ? ' · ' + p.ubicacion : ''), p.slug))); sel.appendChild(g) }
+  grupo('Proyectos nuevos', nuevos); grupo('Viviendas semi-nuevas', semi)
+  const avisoUF = _$('cal-aviso-uf')
+  if (!_estado.uf) { avisoUF.hidden = false; avisoUF.textContent = 'No pudimos leer el valor de la UF de hoy: los equivalentes en pesos no se muestran y el ahorro solo se puede escribir en UF.'; _$('cal-unidad').value = 'uf'; _$('cal-unidad').disabled = true }
+  const sub = q.get('subsidio'); if (sub && _estado.subsidios.some(x => x.slug === sub)) _$('cal-subsidio').value = sub
+  const pro = q.get('proyecto'); if (pro && proyectos.some(p => p.slug === pro)) { _$('cal-proyecto').value = pro; await elegirProyecto(pro, q.get('tipologia')) } else refrescar()
+}
+
+['cal-subsidio', 'cal-tipologia', 'cal-unidad'].forEach(id => _$(id).addEventListener('change', refrescar))
+;['cal-ahorro', 'cal-mensual'].forEach(id => _$(id).addEventListener('input', refrescar))
+_$('cal-proyecto').addEventListener('change', e => elegirProyecto(e.target.value, null))
+iniciar()
+</script>
+
+</body>
+</html>

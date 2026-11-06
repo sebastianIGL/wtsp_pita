@@ -11,7 +11,7 @@ from typing import Iterable
 from xml.sax.saxutils import escape
 
 SITIO_URL = "https://quesubsidio.cl"          # el mismo que usan canonical y og:url (frontend/partials/_head.html)
-PAGINAS_PUBLICAS = ("/", "/como-funciona", "/subsidios", "/viviendas", "/blog", "/terminos", "/privacidad", "/cookies")
+PAGINAS_PUBLICAS = ("/", "/como-funciona", "/subsidios", "/viviendas", "/blog", "/calculadora", "/terminos", "/privacidad", "/cookies")
 API_PUBLICA = ("/api/proyectos-landing",)
 RUTAS_PRIVADAS = ("/api/", "/panel", "/admin.html", "/index.html", "/login.html", "/reset-password", "/webhook", "/prospectos/")
 

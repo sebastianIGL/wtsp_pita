@@ -29,8 +29,8 @@ _SELECT_FICHA = (
     "id,nombre,ubicacion,imagen_url,imagenes,activo,condicion_propiedad,fuente_externo_id,"
     "acepta_ds19,acepta_ds1_t23,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,"
     f"valor_estacionamiento_uf,estacionamiento_obligatorio,{_RELACION_DUENO},"
-    "Tipologia(id,nombre,dormitorios,banos,superficie_util_m2,valor_uf,estado,"
-    "EtapaTipologia(stock,Etapa(nombre,estado,fecha_entrega)))"
+    "Tipologia(id,nombre,dormitorios,banos,superficie_util_m2,valor_uf,monto_subsidio,tipo_subsidio,estado,"
+    "EtapaTipologia(stock,Etapa(nombre,estado,fecha_entrega,tipo_ahorro,num_cuotas)))"
 )
 
 _indice: Dict[str, Any] = {"fichas": None, "ts": 0.0}               # slug → {"id", "nuevo"} de cada proyecto público, 5 min

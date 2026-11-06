@@ -145,6 +145,7 @@
       <dl class="ficha-pago">
         {% for etiqueta, valor in ficha.pago %}<div><dt>{{ etiqueta }}</dt><dd>{{ valor }}</dd></div>{% endfor %}
       </dl>
+      <p style="margin-top:1.1rem"><a href="/calculadora?proyecto={{ ficha.slug }}" class="btn btn-outline">Calcula cuánto te falta ahorrar</a></p>
     </div>
   </section>
   {% endif %}

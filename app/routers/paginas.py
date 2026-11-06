@@ -155,6 +155,24 @@ async def page_viviendas(request: Request):
     })
 
 
+@router.get("/calculadora")
+async def page_calculadora(request: Request):
+    """Calculadora de ahorro y pie: la página es fija (se indexa); los datos los pide el navegador a /api/calculadora/* y el cálculo ocurre allá."""
+    titulo = "Calculadora de ahorro y pie para comprar vivienda con subsidio — QueSubsidio"
+    descripcion = ("Calcula cuánto te falta ahorrar para el subsidio y el proyecto que te interesan (DS1, DS49, DS19), con las cifras de nuestras fichas y los datos de las inmobiliarias. "
+                   "Tus cifras no se guardan.")
+    return templates.TemplateResponse(request, "calculadora.html", {
+        "active": "", "page_title": titulo, "page_description": descripcion, "page_path": "/calculadora",
+        "json_ld": {"@context": "https://schema.org", "@graph": [
+            {"@type": "WebApplication", "name": "Calculadora de ahorro y pie", "url": f"{SITIO_URL}/calculadora", "description": descripcion, "inLanguage": "es-CL",
+             "applicationCategory": "FinanceApplication", "operatingSystem": "Web", "isAccessibleForFree": True,
+             "offers": {"@type": "Offer", "price": "0", "priceCurrency": "CLP"}},
+            {"@type": "BreadcrumbList", "itemListElement": [
+                {"@type": "ListItem", "position": 1, "name": "Inicio", "item": f"{SITIO_URL}/"},
+                {"@type": "ListItem", "position": 2, "name": "Calculadora de ahorro y pie", "item": f"{SITIO_URL}/calculadora"}]}]},
+    })
+
+
 @router.get("/viviendas/{slug}")
 async def page_ficha_proyecto(request: Request, slug: str, o: str = ""):
     """Ficha pública de un proyecto (solo activos). ``?o=viviendas|bot`` dice desde dónde llegó la visita; solo se registra en el log."""

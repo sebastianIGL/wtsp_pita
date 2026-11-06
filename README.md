@@ -77,7 +77,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **Indexación:** las fichas de proyectos nuevos se indexan; las de semi-nuevos (copias de publicaciones de terceros) llevan
   `noindex, follow` y no van en el sitemap, pero **no** se bloquean en `robots.txt` (para que el buscador pueda leer el noindex).
   La cabecera común acepta la variable `robots` (por defecto `index, follow`).
-- `GET /sitemap.xml` (`app/services/seo.py`): las páginas públicas (`/`, `/como-funciona`, `/subsidios`, `/viviendas`, `/blog` y las tres legales: `/terminos`, `/privacidad`, `/cookies`) y la
+- `GET /sitemap.xml` (`app/services/seo.py`): las páginas públicas (`/`, `/como-funciona`, `/subsidios`, `/viviendas`, `/blog`, `/calculadora` y las tres legales: `/terminos`, `/privacidad`, `/cookies`) y la
   ficha de cada proyecto nuevo activo; si la base falla responde 503 en vez de un sitemap sin proyectos. `GET /robots.txt`: bloquea
   `/api/` (salvo `/api/proyectos-landing`, con la que /viviendas arma sus tarjetas), el CRM, el login y el webhook, y apunta al sitemap.
   robots.txt es una indicación para buscadores, no protege nada: lo privado se protege con sesión.
@@ -100,7 +100,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   `qs_cookies_actualizadas` (`{medicion}`) se empuja al `dataLayer` en cada elección.
 - **Eventos de medición** (`window.QSMedir`, definida solo en `partials/_cookies.html`, o sea solo con `GTM_ID`): se anotan **únicamente si la persona aceptó
   «Medición»** (sin elección o con «Solo necesarias» no se agrega nada al `dataLayer`; al retirar el consentimiento se dejan de anotar). Nombres y campos de lista cerrada:
-  `qs_contenido_visto` (`tipo` ficha|guia|proyecto, `slug`), `qs_cta_evaluar` (`origen`: la ruta, cualquier enlace a `#registro`), `qs_fuente_oficial` (`destino`: solo el
+  `qs_contenido_visto` (`tipo` ficha|guia|proyecto, `slug`), `qs_calculadora_usada` (`tipo` solo_subsidio|con_proyecto, `slug` del subsidio o del proyecto; una vez por visita y nunca las cifras), `qs_cta_evaluar` (`origen`: la ruta, cualquier enlace a `#registro`), `qs_fuente_oficial` (`destino`: solo el
   sitio, p. ej. `www.minvu.gob.cl`, y `origen`) y `qs_evaluacion_paso` (`paso` ingresos|resultado|cuenta|sin_cuenta, en `home.html` vía `_medir`). Nunca viajan nombre, correo,
   teléfono, RUT, tramo ni la dirección completa: el filtro descarta cualquier campo que no sea de la lista o cuyo valor no sea texto sencillo. «Mi camino» y el CRM no los emiten.
   Al agregar un evento hay que ampliar la lista, las pruebas (`tests/herramientas_frontend/cookies.js`, bloque 13) y los textos de `/cookies` y `/privacidad` (subir `legal.ACTUALIZADO` y `VERSION_POLITICA`).
@@ -175,6 +175,19 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   («Verificar» y «Verificar todos los datos») y **marcar revisadas** fichas y guías; queda su nombre y la fecha. Quien revisa no publica. Un ejecutivo no accede a nada de esto.
 - Servidor: doce rutas de `/api/directorio/...` aceptan dueño o administrador (`_revisor` en `app/routers/directorio_admin.py`); el resto exige al dueño (403 «Solo el dueño»). El panel (`frontend/admin.html`) muestra el
   «Modo revisión»: oculta lo que solo puede hacer el dueño y bloquea los campos; si alguien llama a la API a mano, el servidor igual responde 403.
+
+## Calculadora de ahorro y pie (`/calculadora`)
+- Página pública e indexable (en el sitemap y enlazada desde el pie, las fichas de subsidios de compra, la ficha de cada proyecto y «Mi Camino»). El cálculo ocurre **en el navegador**: lo que
+  la persona escribe (su ahorro) no viaja al servidor ni queda en la dirección (la dirección solo guarda `?subsidio=`, `?proyecto=` y `?tipologia=`).
+- Datos (lecturas públicas, caché de 5 minutos; `app/services/calculadora.py`): `GET /api/calculadora/subsidios` (fichas de COMPRA publicadas, completas y al día, con `ahorro_uf` y
+  `precio_maximo_uf` numéricos —el DS19 trae su ahorro solo como texto— y la UF de hoy) y `GET /api/calculadora/proyectos/{slug}` (ahorro/pie, reserva, estacionamiento y, por tipología con
+  stock, precio, subsidio informado y plan de pago desde la etapa; nunca el stock). La lista de proyectos sale de `/api/proyectos-landing`.
+- **Regla del dueño (2026-11-05):** con el DS1 Tramo 2 y el Tramo 3 (`calculadora.SUBSIDIOS_QUE_SUMAN`) el ahorro mínimo del subsidio cuenta como parte del pie del proyecto (se necesita el MAYOR
+  de los dos) y se suma el subsidio que informa la inmobiliaria; con cualquier otro subsidio (DS49, DS1 Tramo 1 y 4, DS19) se muestran los dos ahorros por separado, sin sumar nada.
+  El subsidio solo se suma si la tipología lo declara `ds1_t23` (un `ambos` trae un solo monto que no se sabe de cuál es; un `ds19` no es el del DS1) y si el proyecto acepta DS1 T2/T3.
+  La columna `Proyecto.subsidio_ds1_t23_uf` **no se lee**: ninguna pantalla la carga y su ausencia en la base rompería la ficha.
+- El cálculo es la función pura `calcular()` de `frontend/calculadora.html` (probada con `tests/herramientas_frontend/calculadora.js`); lo que viene del servidor se escapa siempre al dibujar.
+  Sin UF no se muestran pesos y el ahorro solo se puede escribir en UF; sin directorio la página lo avisa y sigue en pie.
 
 ## Notas internas del cliente (CRM)
 - Tabla `NotaCliente` (`supabase/migraciones/2026-11-01_nota_cliente.sql`). Rutas en `app/routers/clientes.py`: `GET` y `POST /api/clientes/{id}/notas`,
