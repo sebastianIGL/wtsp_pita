@@ -11,6 +11,7 @@ from app.core.autorizacion import exigir_cliente, exigir_prospecto, exigir_proye
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
+from app.services.clientes_vistas import enriquecer_clientes
 from app.services.documentos import _CAMPOS_CALIFICACION
 from app.services.prospectos import upsert_prospecto
 from app.services.proyectos import obtener_proyecto_por_id
@@ -89,6 +90,7 @@ async def api_listar_clientes(request: Request):
                 r["pendiente_respuesta"] = p.get("pendiente_respuesta")
                 r["prospecto_estado"]    = p.get("estado")
                 r["prospecto_paso"]      = p.get("paso")
+        await enriquecer_clientes(rows)           # tipología que busca y cantidad de notas (vistas «Tabla» y «Pipeline»)
     return rows
 
 
