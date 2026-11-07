@@ -12,6 +12,7 @@ from email import encoders as _email_encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from typing import Dict, List, Optional
 
 from app.core.config import get_settings
@@ -128,7 +129,10 @@ async def _gmail_send(
         msg.attach(MIMEText(html, "html"))
 
     msg["Subject"] = subject
-    msg["From"] = from_addr
+    # Con un nombre con tilde («Matías Rojas <m@x.cl>») pasar el texto tal cual metía la dirección DENTRO del nombre codificado: el correo salía con un remitente ilegible.
+    # formataddr codifica solo el nombre y deja la dirección aparte; con nombres sin tildes el resultado es idéntico al de antes.
+    partes = re.fullmatch(r"(.*)<([^<>]+)>\s*", from_addr.strip(), flags=re.S)
+    msg["From"] = formataddr((partes.group(1).strip().strip('"'), partes.group(2).strip())) if partes else from_addr
     msg["To"] = ", ".join(to)
 
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
