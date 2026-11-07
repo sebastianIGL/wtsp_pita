@@ -11,6 +11,7 @@ from app.core.autorizacion import exigir_cliente, exigir_prospecto, exigir_proye
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
+from app.services import clientes_datos as cd
 from app.services.clientes_vistas import enriquecer_clientes
 from app.services.documentos import _CAMPOS_CALIFICACION
 from app.services.prospectos import upsert_prospecto
@@ -118,6 +119,8 @@ async def api_crear_cliente(request: Request):
             return Response(content="Falta Telefono", status_code=400)
         if not proyecto_id:
             return Response(content="Falta proyecto_id", status_code=400)
+        fuente_cliente = cd.fuente(body.get("fuente")) or "manual"      # de dónde llegó (si no se dice, lo creó una persona a mano)
+        medio_cliente  = cd.medio(body.get("medio"))
         denegado = await exigir_proyecto(perfil, proyecto_id)          # solo en un proyecto que esta persona puede usar
         if denegado:
             return denegado
@@ -161,6 +164,8 @@ async def api_crear_cliente(request: Request):
                 "primer mensaje":     primer_msg,
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
                 "usuario_id":         perfil["id"],
+                "fuente":             fuente_cliente,
+                "medio":              medio_cliente,
             },
             extra_headers={"Prefer": "return=representation"},
         )
@@ -185,6 +190,8 @@ async def api_crear_cliente(request: Request):
 
         return {"ok": True, "cliente": cliente, "wa": wa_result}
 
+    except cd.DatoInvalido as e:
+        return Response(content=str(e), status_code=400)
     except Exception as e:
         return respuesta_error(e, contexto="api_crear_cliente")
 
@@ -197,7 +204,7 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
     denegado = await exigir_cliente(perfil, cliente_id)
     if denegado:
         return denegado
-    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "etapa_tipologia_id", "estado_gestion"}
+    _CAMPOS_PERMITIDOS = {"recordatorio_at", "Contacto", "Correo", "email", "Tramo de renta", "Rut", "es_nuevo", "numero_integrantes", "proyecto_id", "ahorro_uf", "etapa_tipologia_id", "estado_gestion", "recordatorio_nota", "fuente", "medio"}
     if _solo_admin(perfil):
         _CAMPOS_PERMITIDOS = _CAMPOS_PERMITIDOS | {"usuario_id", "archivado"}
     try:
@@ -205,6 +212,14 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
         payload = {k: v for k, v in body.items() if k in _CAMPOS_PERMITIDOS}
         if not payload:
             return Response(content="Sin campos válidos", status_code=400)
+        if "fuente" in payload:
+            payload["fuente"] = cd.fuente(payload["fuente"])
+        if "medio" in payload:
+            payload["medio"] = cd.medio(payload["medio"])
+        if "recordatorio_nota" in payload:
+            payload["recordatorio_nota"] = cd.nota_recordatorio(payload["recordatorio_nota"])
+        if "recordatorio_at" in payload and not payload["recordatorio_at"]:
+            payload["recordatorio_nota"] = None                         # sin fecha no queda una nota suelta
         nuevo_proyecto = payload.get("proyecto_id")
         if nuevo_proyecto not in (None, "") and not _solo_admin(perfil):
             actual = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "proyecto_id", "limit": "1"}) or []
@@ -217,6 +232,8 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
             json=payload,
         )
         return {"ok": True}
+    except cd.DatoInvalido as e:
+        return Response(content=str(e), status_code=400)
     except Exception as e:
         return respuesta_error(e, contexto="api_actualizar_cliente")
 
@@ -309,6 +326,8 @@ async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
             "usuario_id":         perfil["id"],
             "es_nuevo":           True,
             "primer mensaje":     False,
+            "fuente":             "chatbot",                      # escribió al chatbot y estaba en el Inbox
+            "medio":              "chatbot",
         }
 
         nuevo = await _supabase_request("POST", "/Cliente",

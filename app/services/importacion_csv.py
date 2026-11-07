@@ -119,6 +119,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                 "usuario_id": usuario_id,
                                 "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                 "origen_carga": lote_carga,
+                                "fuente": "excel",
                             },
                             extra_headers={"Prefer": "return=representation"})
                         phones_existentes.add(telefono)
@@ -180,6 +181,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                     "usuario_id": usuario_id,
                                     "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                     "origen_carga": lote_carga,
+                                    "fuente": "excel",
                                 },
                                 extra_headers={"Prefer": "return=representation"})
                             phones_existentes.add(telefono)

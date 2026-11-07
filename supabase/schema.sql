@@ -138,9 +138,15 @@ CREATE TABLE public."Cliente" (
   primer_wtsp_en       timestamptz,
   wamid_plantilla      text,
   ahorro_uf            numeric,     -- ahorro actual del cliente (en UF)
-  estado_gestion       text,        -- estado CRM: primer_wtsp | interesado | no_interesado | enviando_docs | en_evaluacion | descartado
+  estado_gestion       text,        -- estado CRM: primer_wtsp | interesado | no_interesado | enviando_docs | en_evaluacion | aprobado | cotizacion_enviada | descartado
   recordatorio_at      timestamptz,
-  "Fecha Ult. Gestión" timestamptz
+  "Fecha Ult. Gestión" timestamptz,
+  -- Vistas «Tabla» y «Pipeline» (supabase/migraciones/2026-11-06_cliente_vistas.sql):
+  creado_en            timestamptz DEFAULT now(),  -- nulo en los clientes anteriores a 2026-11-06
+  fuente               text,        -- de dónde llegó: meta_ads | chatbot | formulario_web | referido | excel | manual | otro (1 a 40 caracteres)
+  medio                text,        -- canal del contacto: whatsapp | chatbot | correo | llamada | presencial
+  estado_gestion_en    timestamptz, -- cuándo cambió estado_gestion (lo pone el disparador cliente_estado_gestion_en)
+  recordatorio_nota    text         -- qué hay que hacer en la fecha del recordatorio (1 a 300 caracteres)
 );
 
 CREATE INDEX idx_cliente_movendo_id ON public."Cliente"(movendo_id);  -- OBSOLETO, sin uso

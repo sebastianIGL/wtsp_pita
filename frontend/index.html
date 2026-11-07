@@ -505,6 +505,14 @@
           <label class="block text-xs sidebar-text mb-1.5">Ahorro (UF)</label>
           <input id="f-ahorro" type="number" min="0" step="0.01" placeholder="Ej: 100.50" class="w-full rounded-lg px-3 py-2 text-sm" />
         </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Fuente</label>
+          <select id="f-fuente" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Medio de contacto</label>
+          <select id="f-medio" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+        </div>
       </div>
 
       <div class="toggle-row flex items-center justify-between rounded-xl px-4 py-3 mt-2">
@@ -1192,6 +1200,7 @@ document.addEventListener('click', (e) => {
 
 // ─── INIT ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  _llenarCatalogosCliente()
   initAuth()
 })
 
@@ -1743,6 +1752,20 @@ const _ETAPA_POR_CLAVE = Object.fromEntries([...ETAPAS, ...ETAPAS_CERRADAS].map(
 const _VALOR_AL_SOLTAR = { contactado: 'primer_wtsp', en_evaluacion: 'en_evaluacion', aprobado: 'aprobado', cotizacion_enviada: 'cotizacion_enviada', no_interesado: 'no_interesado', descartado: 'descartado' }
 const FUENTES = { meta_ads: 'Meta Ads', chatbot: 'Chatbot', formulario_web: 'Formulario web', referido: 'Referido', excel: 'Excel', manual: 'Manual', otro: 'Otro' }
 const MEDIOS = { whatsapp: 'WhatsApp', chatbot: 'Chatbot', correo: 'Correo', llamada: 'Llamada', presencial: 'Presencial' }
+// Listas «Fuente» y «Medio» de los formularios de cliente: las mismas de las vistas (y las únicas que acepta el servidor)
+function _llenarCatalogosCliente() {
+  const llenar = (id, lista, porDefecto) => {
+    const sel = document.getElementById(id)
+    if (!sel) return
+    sel.innerHTML = ''
+    sel.appendChild(new Option('Sin especificar', '', !porDefecto, !porDefecto))
+    Object.entries(lista).forEach(([clave, texto]) => sel.appendChild(new Option(texto, clave, clave === porDefecto, clave === porDefecto)))
+  }
+  llenar('f-fuente', FUENTES, 'manual')                           // lo creado a mano parte como «Manual»; se puede cambiar (p. ej. «Referido»)
+  llenar('f-medio', MEDIOS, '')
+  llenar('ec-fuente', FUENTES, '')
+  llenar('ec-medio', MEDIOS, '')
+}
 const COLAS = [
   { key: 'mi_dia', label: 'Mi día' }, { key: 'nuevos24', label: 'Nuevos 24 h' }, { key: 'sin_contactar', label: 'Sin contactar' },
   { key: 'seguimiento_vencido', label: 'Seguimiento vencido' }, { key: 'cotizados', label: 'Cotizados' }, { key: 'todos', label: 'Todos' },
@@ -2807,6 +2830,8 @@ async function crearCliente(e) {
       'ahorro_uf':          _ahorroVal !== '' ? parseFloat(_ahorroVal) : null,
       'primer mensaje':     pm,
       'Fecha Ult. Gestión': new Date().toISOString(),
+      'fuente':             document.getElementById('f-fuente').value || null,
+      'medio':              document.getElementById('f-medio').value || null,
     })
 
     let msg = '✅ Cliente creado correctamente'
@@ -3526,6 +3551,13 @@ async function confirmarEnvioEval() {
     if (!res.ok) { const t = await res.text(); throw new Error(t) }
     const data = await res.json()
     toast(`✅ Evaluación enviada a ${(data.enviado_a || []).join(', ')}`, 'success')
+    const cEval = clientes.find(x => x.id === _evalClienteId)
+    if (data.estado_gestion && cEval && cEval.estado_gestion !== data.estado_gestion) {
+      cEval.estado_gestion = data.estado_gestion                  // el servidor lo pasó a «En evaluación»
+      cEval.estado_gestion_en = new Date().toISOString()
+      _preservarPagina = true
+      aplicarFiltros()
+    }
   } catch(e) {
     toast(`❌ Error al enviar correo: ${e.message}`, 'error')
   }
@@ -3608,7 +3640,7 @@ function abrirRecordatorio(clienteId, nombre, fechaActual) {
   _recId = clienteId
   document.getElementById('rec-titulo').textContent = nombre
   document.getElementById('rec-fecha').value = fechaActual ? fechaActual.slice(0, 10) : ''
-  document.getElementById('rec-motivo').value = ''
+  document.getElementById('rec-motivo').value = (clientes.find(x => x.id === clienteId) || {}).recordatorio_nota || ''
   document.getElementById('rec-wa-check').checked = false
   document.getElementById('rec-error').classList.add('hidden')
   // Mostrar opción WA solo si el perfil tiene celular configurado
@@ -3633,9 +3665,10 @@ async function guardarRecordatorio() {
   const btn    = document.getElementById('btn-rec-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
   try {
-    await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null })
+    const nota = fecha ? (motivo || null) : null                  // sin fecha no queda una nota suelta
+    await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null, recordatorio_nota: nota })
     const c = clientes.find(x => x.id === _recId)
-    if (c) c.recordatorio_at = fecha || null
+    if (c) { c.recordatorio_at = fecha || null; c.recordatorio_nota = nota }
     if (enviarWA) {
       try {
         await api('POST', `/api/clientes/${_recId}/recordatorio-wa`, { motivo: motivo || 'Sin motivo especificado' })
@@ -3847,6 +3880,7 @@ let _asignarClienteId = null
 
 // ── Editar cliente ──────────────────────────────────────────────
 let _editClienteId = null
+let _edicionOriginal = { fuente: '', medio: '' }
 async function abrirEditarCliente(c) {
   _editClienteId = c.id
   document.getElementById('ec-titulo').textContent   = c.Contacto || 'Cliente'
@@ -3857,6 +3891,9 @@ async function abrirEditarCliente(c) {
   document.getElementById('ec-renta').value          = c['Tramo de renta'] || ''
   document.getElementById('ec-integrantes').value    = c.numero_integrantes ?? ''
   document.getElementById('ec-ahorro').value         = c.ahorro_uf != null  ? c.ahorro_uf : ''
+  document.getElementById('ec-fuente').value         = c.fuente || ''
+  document.getElementById('ec-medio').value          = c.medio  || ''
+  _edicionOriginal = { fuente: document.getElementById('ec-fuente').value, medio: document.getElementById('ec-medio').value }     // para enviar solo lo que la persona cambie
   const sel = document.getElementById('ec-proyecto')
   sel.innerHTML = '<option value="">— Sin proyecto —</option>'
     + proyectos.map(p =>
@@ -3964,6 +4001,9 @@ async function guardarEditarCliente() {
     proyecto_id:        proyRaw   !== '' ? proyRaw             : null,
     etapa_tipologia_id: etapaTipologiaId,
   }
+  const fuenteSel = document.getElementById('ec-fuente').value, medioSel = document.getElementById('ec-medio').value
+  if (fuenteSel !== _edicionOriginal.fuente) payload.fuente = fuenteSel || null
+  if (medioSel  !== _edicionOriginal.medio)  payload.medio  = medioSel  || null
   const btn = document.getElementById('ec-btn-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
   try {
@@ -4851,10 +4891,11 @@ async function guardarRegistrarInbox() {
         <p class="text-xs sidebar-text mt-1">Deja vacío para eliminar el recordatorio.</p>
       </div>
       <div>
-        <label class="block text-xs sidebar-text mb-1.5">Motivo</label>
-        <textarea id="rec-motivo" rows="2" placeholder="ej: Llamar para confirmar visita a sala de ventas"
+        <label class="block text-xs sidebar-text mb-1.5">Próxima acción</label>
+        <textarea id="rec-motivo" rows="2" maxlength="300" placeholder="ej: Llamar para confirmar visita a sala de ventas"
           class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100
                  focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"></textarea>
+        <p class="text-xs sidebar-text mt-1">Se ve en la tabla y en el aviso por WhatsApp.</p>
       </div>
       <!-- Enviar WA (solo si el perfil tiene celular configurado) -->
       <label id="rec-wa-wrap" class="hidden items-center gap-2.5 cursor-pointer select-none">
@@ -5040,6 +5081,14 @@ async function guardarRegistrarInbox() {
         <div class="col-span-2">
           <label class="block text-xs sidebar-text mb-1.5">Ahorro (UF)</label>
           <input id="ec-ahorro" type="number" min="0" step="0.01" placeholder="Ej: 100.50" class="w-full rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Fuente</label>
+          <select id="ec-fuente" class="w-full rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-xs sidebar-text mb-1.5">Medio de contacto</label>
+          <select id="ec-medio" class="w-full rounded-lg px-3 py-2 text-sm"></select>
         </div>
       </div>
       <div>

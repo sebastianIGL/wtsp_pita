@@ -18,6 +18,7 @@ from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
 from app.services.avisos import _notificar_recordatorio_estado
+from app.services.clientes_datos import marcar_en_evaluacion
 from app.services.documentos import _CAMPOS_CALIFICACION, documentos_pendientes
 from app.services.documentos_prospecto import insertar_documento, obtener_documentos_prospecto
 from app.services.evaluacion_email import CONDICION_LABEL, _enviar_email_evaluacion
@@ -501,7 +502,8 @@ async def api_enviar_evaluacion(cliente_id: int, request: Request):
         result = await _enviar_email_evaluacion(
             cliente_id, usuario=perfil, ejecutivos_emails=ejecutivos_emails, nota=nota
         )
-        return {"ok": True, **result}
+        estado = await marcar_en_evaluacion(cliente_id)             # el correo ya salió: el cliente pasa a «En evaluación» (si no está más adelante)
+        return {"ok": True, **result, "estado_gestion": estado}
     except Exception as e:
         return respuesta_error(e, contexto="api_enviar_evaluacion")
     finally:
