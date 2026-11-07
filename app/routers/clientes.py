@@ -7,7 +7,7 @@ import logging
 import httpx
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
-from app.core.autorizacion import exigir_cliente, exigir_prospecto
+from app.core.autorizacion import exigir_cliente, exigir_prospecto, exigir_proyecto
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
@@ -116,6 +116,9 @@ async def api_crear_cliente(request: Request):
             return Response(content="Falta Telefono", status_code=400)
         if not proyecto_id:
             return Response(content="Falta proyecto_id", status_code=400)
+        denegado = await exigir_proyecto(perfil, proyecto_id)          # solo en un proyecto que esta persona puede usar
+        if denegado:
+            return denegado
 
         proyecto = await obtener_proyecto_por_id(proyecto_id)
         if not proyecto:
@@ -200,6 +203,13 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
         payload = {k: v for k, v in body.items() if k in _CAMPOS_PERMITIDOS}
         if not payload:
             return Response(content="Sin campos válidos", status_code=400)
+        nuevo_proyecto = payload.get("proyecto_id")
+        if nuevo_proyecto not in (None, "") and not _solo_admin(perfil):
+            actual = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "proyecto_id", "limit": "1"}) or []
+            if not actual or str(actual[0].get("proyecto_id")) != str(nuevo_proyecto):         # dejarlo donde está no es un cambio: no se exige nada
+                denegado = await exigir_proyecto(perfil, nuevo_proyecto)
+                if denegado:
+                    return denegado
         await _supabase_request("PATCH", "/Cliente",
             params={"id": f"eq.{cliente_id}"},
             json=payload,
@@ -281,6 +291,11 @@ async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
         if not telefono:
             return Response(content="El prospecto no tiene teléfono", status_code=400)
 
+        proyecto_id = body.get("proyecto_id") or p.get("proyecto_id") or None
+        denegado = await exigir_proyecto(perfil, proyecto_id)          # el proyecto elegido, o el del prospecto, debe ser uno que esta persona puede usar
+        if denegado:
+            return denegado
+
         cliente_payload: Dict[str, Any] = {
             "Contacto":           nombre,
             "Telefono":           telefono,
@@ -288,7 +303,7 @@ async def api_registrar_desde_inbox(prospecto_id: str, request: Request):
             "Correo":             body.get("correo")   or None,
             "Tramo de renta":     body.get("rango_sueldo") or p.get("rango_sueldo") or None,
             "numero_integrantes": body.get("numero_integrantes") or p.get("numero_integrantes") or None,
-            "proyecto_id":        body.get("proyecto_id") or p.get("proyecto_id") or None,
+            "proyecto_id":        proyecto_id,
             "usuario_id":         perfil["id"],
             "es_nuevo":           True,
             "primer mensaje":     False,

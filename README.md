@@ -236,8 +236,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ## Proyectos que cada persona puede usar
 - `app/core/autorizacion.py::exigir_proyecto` aplica el mismo criterio que la lista de `GET /api/proyectos`: administrador y owner, cualquier proyecto; el ejecutivo, los que tiene asignados
   (`proyecto_ids`) o los de una inmobiliaria que tiene asignada (`inmobiliaria_ids`). Lo denegado responde 403 `No tienes acceso a ese proyecto`, y un id mal formado nunca llega a la base.
-- Hoy la usa `POST /api/formulario/{token}/convertir` (se comprueba el proyecto del cuerpo, que manda, o el del formulario). **No la usan todavía** `POST /api/clientes`,
-  `PATCH /api/clientes/{id}` ni `POST /api/inbox/{id}/registrar`: un ejecutivo podría poner un cliente en un proyecto que no ve si llama a la API a mano (la pantalla solo le ofrece los suyos).
+- La usan `POST /api/formulario/{token}/convertir` (el proyecto del cuerpo, que manda, o el del formulario), `POST /api/clientes`, `POST /api/clientes/importar` (el `proyecto_id` de la dirección, formato SERVIU), `PATCH /api/clientes/{id}` (solo si el
+  cuerpo cambia `proyecto_id` a otro distinto del actual: dejarlo donde está o quitarlo no exige nada) y `POST /api/inbox/{id}/registrar` (el proyecto elegido o, si no, el del prospecto).
+  **Falta:** la importación por CSV que resuelve el proyecto por el nombre de cada fila (sin `proyecto_id` en la dirección) todavía puede apuntar a proyectos que el ejecutivo no ve.
+  Una pantalla nueva que ponga clientes en un proyecto debe usarla también (la pantalla solo le ofrece al ejecutivo los suyos, pero la API es lo que protege).
 
 ## Autorización explícita en los formularios públicos
 - Los tres formularios que guardan datos de personas exigen una **casilla sin marcar de antemano**, con el enlace a `/privacidad`: el

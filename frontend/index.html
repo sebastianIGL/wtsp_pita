@@ -3953,8 +3953,7 @@ async function guardarRegistrarInbox() {
       rango_sueldo:       document.getElementById('ir-renta').value         || null,
       numero_integrantes: document.getElementById('ir-integrantes').value
                             ? parseInt(document.getElementById('ir-integrantes').value) : null,
-      proyecto_id:        document.getElementById('ir-proyecto').value
-                            ? parseInt(document.getElementById('ir-proyecto').value) : null,
+      proyecto_id:        document.getElementById('ir-proyecto').value || null,        // el id del proyecto es un UUID (texto): nunca pasarlo por parseInt
     }
     await api('POST', `/api/inbox/${_prospectoActual.id}/registrar`, payload)
     toast('Cliente registrado correctamente')

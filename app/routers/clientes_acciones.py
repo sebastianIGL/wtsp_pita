@@ -8,7 +8,7 @@ import io
 import re
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
-from app.core.autorizacion import exigir_cliente
+from app.core.autorizacion import exigir_cliente, exigir_proyecto
 from app.clients.whatsapp import _build_body_params, send_whatsapp_template
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
@@ -34,6 +34,9 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     usuario_id = perfil["id"]
     empresa_id  = request.query_params.get("empresa_id")
     proyecto_id = request.query_params.get("proyecto_id")
+    denegado = await exigir_proyecto(perfil, proyecto_id)          # el proyecto de destino (formato SERVIU) debe ser uno que esta persona puede usar
+    if denegado:
+        return denegado
     # Identificador del lote de carga: permite luego filtrar/borrar solo lo importado en esta corrida
     lote_carga = f"{(file.filename or 'import').strip()} · {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
     asignar_usuario_id = request.query_params.get("asignar_usuario_id")
