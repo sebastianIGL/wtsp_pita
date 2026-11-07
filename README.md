@@ -211,7 +211,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Acciones en bloque (solo en Tabla): enviar plantilla, cambiar etapa, asignar ejecutivo, programar recordatorio y descartar; todas piden confirmación y hacen un `PATCH` por cliente. Plantilla, asignar y descartar solo las ve
   el administrador y el owner (igual que en Original; el servidor igual lo exige). «Cotizar» está en pantalla pero aún no hace nada (avisa que llegará pronto).
 - **Servidor:** `GET /api/clientes` agrega a cada cliente `tipologia_nombre`, `etapa_nombre` y `notas_n` (`app/services/clientes_vistas.py`, en lotes de 250 y de «mejor esfuerzo»: si una consulta falla, esa parte se omite y la lista
-  sale igual; del texto de las notas nunca sale nada, solo el conteo). Las columnas de fecha de creación, fuente y medio, y la nota del recordatorio dependen de columnas nuevas de `Cliente` (SQL aparte); mientras no existan, la pantalla
+  sale igual; del texto de las notas nunca sale nada, solo el conteo). Las columnas de fecha de creación, fuente y medio, y la nota del recordatorio dependen de columnas nuevas de `Cliente` (`supabase/migraciones/2026-11-06_cliente_vistas.sql`, la ejecuta el dueño: A crear, B comprobar, C revertir); mientras no existan, la pantalla
   muestra «Sin fecha de creación» y «—».
 - Pruebas: `tests/test_vistas_frontend.py` y `tests/test_clientes_vistas.py` (pytest) y `tests/herramientas_frontend/vistas.js` (jsdom: funciones puras, dibujo, arrastrar y soltar, acciones en bloque, permisos, textos hostiles y
   comparación de «Original» contra la versión publicada). Recorridos en el navegador: `~/wtsp_capturas` con `QS_VISTAS=1`.
