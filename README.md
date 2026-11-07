@@ -198,6 +198,11 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - El servidor valida de nuevo todo: el texto (1 a 2000 caracteres), que la nota pertenezca a ese cliente y quién es el autor; el registro (log) anota quién editó o borró, nunca el texto.
 - En la pantalla (`frontend/index.html`) «Editar» y «Borrar» aparecen solo cuando corresponde; borrar pide confirmación y el texto se muestra siempre escapado.
 
+## Textos de personas dentro de botones (CRM)
+- El nombre de un cliente (y cualquier texto que escriba una persona) **nunca** va pegado dentro del `onclick` (`'${esc(nombre)}'`): el navegador decodifica el atributo antes de ejecutarlo, así que un nombre como
+  O'Higgins rompía los botones de la fila y uno armado a propósito (`x');código;//`) se ejecutaba. Va en un atributo `data-*` escapado y el botón lo lee: `onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)"`.
+  Lo protegen `tests/test_botones_sin_texto_en_onclick.py` y `tests/herramientas_frontend/nombre_botones.js` (jsdom, con nombres hostiles).
+
 ## Datos de subsidios (DS19, DS1, DS49)
 - Las cifras y requisitos de `/subsidios`, de las tarjetas y preguntas frecuentes de la portada, del evaluador y de «Mi Camino» salen de fuentes oficiales
   (MINVU y ChileAtiende) leídas el **5 de noviembre de 2026**; cada tarjeta cita su enlace y esa fecha de **revisión** (las fichas de ChileAtiende no traen

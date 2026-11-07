@@ -1459,28 +1459,28 @@ function renderTabla(data) {
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Evaluación
       </button>
-      ${esAdmin ? `<button onclick="abrirConversacion(${c.id}, '${esc(c.Contacto)}')" title="Ver conversación"
+      ${esAdmin ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" title="Ver conversación"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
         </svg>
       </button>` : ''}
-      ${esAdmin ? `<button onclick="abrirContexto(${c.id}, '${esc(c.Contacto)}')" title="Contexto del bot"
+      ${esAdmin ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirContexto(+this.dataset.id, this.dataset.nombre)" title="Contexto del bot"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
         </svg>
       </button>` : ''}
-      <button onclick="abrirNotas(${c.id}, '${esc(c.Contacto)}')" title="Notas internas"
+      <button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)" title="Notas internas"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-yellow-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
         </svg>
       </button>
-      <button onclick="abrirRecordatorio(${c.id}, '${esc(c.Contacto)}', '${esc(c.recordatorio_at || '')}')" title="Recordatorio de contacto"
+      <button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" data-fecha="${esc(c.recordatorio_at || '')}" onclick="abrirRecordatorio(+this.dataset.id, this.dataset.nombre, this.dataset.fecha)" title="Recordatorio de contacto"
         class="text-xs p-1.5 rounded-lg glass transition ${c.recordatorio_at ? (_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400 hover:text-red-300' : 'text-amber-400 hover:text-amber-300') : 'sidebar-text hover:text-amber-400'}">
         <svg class="w-4 h-4" fill="${c.recordatorio_at ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1488,7 +1488,7 @@ function renderTabla(data) {
         </svg>
       </button>
       ${_esAdmin(_perfil?.rol) ? `
-      <button onclick="abrirAsignar(${c.id}, '${esc(c.Contacto)}', '${esc(c.usuario_id || '')}')" title="Asignar ejecutivo"
+      <button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" data-usuario="${esc(c.usuario_id || '')}" onclick="abrirAsignar(+this.dataset.id, this.dataset.nombre, this.dataset.usuario)" title="Asignar ejecutivo"
         class="text-xs p-1.5 rounded-lg glass transition ${c.usuario_id ? 'text-blue-400 hover:text-blue-300' : 'sidebar-text hover:text-blue-400'}">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1503,13 +1503,13 @@ function renderTabla(data) {
         </svg>
       </button>
       ${esAdmin ? (_filtroTab === 'descartados'
-        ? `<button onclick="restaurarCliente(${c.id}, '${esc(c.Contacto)}')" title="Restaurar cliente"
+        ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="restaurarCliente(+this.dataset.id, this.dataset.nombre)" title="Restaurar cliente"
             class="text-xs p-1.5 rounded-lg glass text-emerald-400 hover:text-emerald-300 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
             </svg>
           </button>`
-        : `<button onclick="descartarCliente(${c.id}, '${esc(c.Contacto)}')" title="Descartar cliente"
+        : `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="descartarCliente(+this.dataset.id, this.dataset.nombre)" title="Descartar cliente"
             class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 01-2-2V4a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 01-2 2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/>
