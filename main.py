@@ -32,6 +32,7 @@ from app.routers.ejecutivos import router as ejecutivos_router
 from app.routers.ingesta import router as ingesta_router
 from app.routers.documentos import router as documentos_router
 from app.routers.clientes import router as clientes_router
+from app.routers.cotizaciones import router as cotizaciones_router
 from app.routers.clientes_acciones import router as clientes_acciones_router
 from app.routers.health import router as health_router
 from app.routers.directorio_admin import router as directorio_admin_router
@@ -232,6 +233,9 @@ app.include_router(ejecutivos_router)
 
 
 app.include_router(clientes_router)
+
+
+app.include_router(cotizaciones_router)   # «Cotizar»: cotización en PDF por correo y WhatsApp
 
 
 app.include_router(documentos_router)

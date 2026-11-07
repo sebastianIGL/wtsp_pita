@@ -217,6 +217,21 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - Pruebas: `tests/test_vistas_frontend.py` y `tests/test_clientes_vistas.py` (pytest) y `tests/herramientas_frontend/vistas.js` (jsdom: funciones puras, dibujo, arrastrar y soltar, acciones en bloque, permisos, textos hostiles y
   comparación de «Original» contra la versión publicada). Recorridos en el navegador: `~/wtsp_capturas` con `QS_VISTAS=1`.
 
+## Cotizar a un cliente (botón «Cotizar» del panel)
+- **Qué hace:** abre una ventana con la cotización del cliente (valor de su tipología, subsidio, ahorro, pie, crédito estimado y, si se pudo leer la UF del día, los pesos aproximados), permite ver el PDF y la envía **por correo con el PDF adjunto** y/o **por WhatsApp
+  (el PDF como archivo)**. Cada intento por canal queda registrado en la tabla `Cotizacion` (`supabase/migraciones/2026-11-07_cotizacion.sql`, la ejecuta el dueño: A crear, B comprobar, C revertir) con una «foto» de lo cotizado; si la tabla aún no existe el envío igual sale.
+  Si al menos un canal salió bien, el cliente pasa a «Cotización enviada» y se anota la gestión de hoy.
+- **Números** (`app/services/cotizacion.py`; son los mismos del correo de evaluación): **pie = ahorro + subsidio**, crédito = valor − pie (nunca menos de cero), «ahorro mínimo» del proyecto con cuánto faltaría. Sin subsidio informado o sin ahorro se calcula lo que se puede y se avisa
+  en la propia cotización. Falta de tipología/etapa o de valor en UF: no se cotiza y el mensaje dice qué completar. Los pesos solo salen con la UF del día (`app/services/uf.py`); nunca se inventa. El PDF (reportlab, una hoja A4, tipografía estándar Helvetica) y el correo escapan todo texto de personas;
+  lo que no cabe en esa tipografía sale como «?». Incluye un descargo (valores referenciales, sujetos a evaluación del banco y disponibilidad): **conviene que el dueño revise ese texto** (`DESCARGO` en el mismo archivo).
+- **WhatsApp:** Meta solo deja mandar un archivo como mensaje libre dentro de las **24 horas** desde el último mensaje del cliente. La ventana del panel lo comprueba (`Prospecto.ultimo_entrante_en`) y, fuera de plazo, deja el canal desactivado explicando por qué (si Meta igual lo rechaza con el código 131047,
+  se explica igual); el mensaje enviado queda también en la conversación. Mandar una cotización a quien no ha escrito requeriría una plantilla de Meta con documento (no existe todavía).
+- **Permiso:** owner y administrador; los ejecutivos solo si la variable **`COTIZAR_PARA_EJECUTIVOS`** vale `true` (apagada por defecto; con ella encendida, cada ejecutivo cotiza solo a sus clientes). `GET /api/usuarios/me` devuelve `puede_cotizar` y el panel muestra «Cotizar» solo a quien puede; el servidor lo exige igual (403).
+- **Rutas** (`app/routers/cotizaciones.py`): `GET /api/clientes/{id}/cotizacion` (los números ya formateados, los canales y el historial), `GET /api/clientes/{id}/cotizacion/pdf` y `POST /api/clientes/{id}/cotizar` (`{canales: ["correo","whatsapp"], correo}`; responde por canal y no deja enviar dos veces a la vez al mismo cliente).
+  El correo sale desde la cuenta de quien envía (alias o correo del usuario), con su firma. Dependencias nuevas: `reportlab` y `pillow` (fijadas en `requirements.txt`).
+- **Remitente de los correos:** el nombre de quien envía se codifica aparte de su dirección (`app/clients/gmail.py`): antes, con tilde («Matías Rojas»), la dirección quedaba dentro del nombre codificado y el correo salía con un remitente ilegible (afectaba también al correo de evaluación).
+- Pruebas: `tests/test_cotizacion.py`, `tests/test_gmail_remitente.py`, `tests/test_vistas_frontend.py` y `tests/herramientas_frontend/vistas.js` (sección E).
+
 ## Textos de personas dentro de botones (CRM)
 - El nombre de un cliente (y cualquier texto que escriba una persona) **nunca** va pegado dentro del `onclick` (`'${esc(nombre)}'`): el navegador decodifica el atributo antes de ejecutarlo, así que un nombre como
   O'Higgins rompía los botones de la fila y uno armado a propósito (`x');código;//`) se ejecutaba. Va en un atributo `data-*` escapado y el botón lo lee: `onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)"`.

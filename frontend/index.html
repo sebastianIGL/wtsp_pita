@@ -2036,10 +2036,12 @@ function _selectEvaluacion(c) {
   </select>`
 }
 
-function _botonCotizar() {
-  return `<button type="button" onclick="avisarCotizar()" class="ld-cotizar" title="Cotizar llegará pronto">Cotizar</button>`
+// «Cotizar» solo se ofrece a quien tiene permiso (owner y administrador; los ejecutivos cuando se encienda COTIZAR_PARA_EJECUTIVOS): el servidor lo exige igual.
+function _puedeCotizar() { return !!_perfil?.puede_cotizar }
+function _botonCotizar(c) {
+  if (!_puedeCotizar()) return ''
+  return `<button type="button" data-id="${Number(c.id)}" onclick="abrirCotizar(+this.dataset.id)" class="ld-cotizar" title="Enviar una cotización en PDF por correo o WhatsApp">Cotizar</button>`
 }
-function avisarCotizar() { toast('Cotizar estará disponible muy pronto.', 'success') }
 
 const _CELDAS = {
   lead: (c, x) => `<div class="font-medium val-text flex items-center flex-wrap gap-1">${esc(c.Contacto)}${c.es_nuevo ? `<span onclick="marcarVisto(${Number(c.id)}, this)" title="Marcar como visto" class="cursor-pointer badge-nuevo text-xs px-2 py-0.5 rounded-full font-semibold">NUEVO</span>` : ''}</div>
@@ -2060,7 +2062,7 @@ const _CELDAS = {
   notas: (c, x) => { const n = c.notas_n == null ? NaN : Number(c.notas_n); return Number.isFinite(n) ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)" class="text-sm ${n ? 'val-text' : 'sub-text'}" title="Notas internas">${n}</button>` : '<span class="sub-text text-sm">—</span>' },
   dias_gestion: (c, x) => { const d = diasSinGestion(c, x.hoy); return d == null ? '<span class="sub-text text-sm">—</span>' : `<span class="text-sm ${d >= 7 ? 'text-red-400' : 'sidebar-text'}">${d} d</span>` },
   dias_estado: (c, x) => { const d = diasEnEstado(c, x.ahora); return d == null ? '<span class="sub-text text-sm">—</span>' : `<span class="sidebar-text text-sm">${d} d</span>` },
-  acciones: (c, x) => `<div class="flex items-center gap-2">${_accionesFila(c)}${_botonCotizar()}</div>`,
+  acciones: (c, x) => `<div class="flex items-center gap-2">${_accionesFila(c)}${_botonCotizar(c)}</div>`,
 }
 
 function _contextoLeads() {
@@ -2184,7 +2186,7 @@ function _dibujarSeleccion() {
   const admin = _esAdmin(_perfil?.rol)
   barra.innerHTML = `<span class="font-semibold">${n} ${n === 1 ? 'seleccionado' : 'seleccionados'}</span>
     ${admin ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
-    <button type="button" onclick="avisarCotizar()" class="ld-bk" title="Llegará pronto">Enviar cotización</button>
+    ${_puedeCotizar() ? '<button type="button" onclick="cotizarSeleccion()" class="ld-bk" title="Se cotiza de a un cliente">Enviar cotización</button>' : ''}
     <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
     ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuarios.map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
     <label class="ld-bk">Programar recordatorio <input type="date" onchange="accionMasiva('recordatorio', this.value); this.value=''" aria-label="Programar un recordatorio para los seleccionados"></label>
@@ -2254,7 +2256,7 @@ function _tarjeta(c, x) {
     ${resp ? `<div class="text-xs sub-text mt-1.5">${esc(resp)}</div>` : ''}
     <div class="flex items-center gap-2 mt-2.5">
       ${admin ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
-      ${_botonCotizar()}
+      ${_botonCotizar(c)}
       <button type="button" data-ld-menu="${Number(c.id)}" onclick="abrirMenuLead(event, ${Number(c.id)})" class="ld-mas" aria-label="Más acciones de ${esc(c.Contacto)}" aria-haspopup="true">⋯</button>
     </div></div>`
 }
@@ -2367,6 +2369,7 @@ function abrirMenuLead(e, id) {
     admin ? item('conversacion', 'Ver conversación') : '',
     admin ? item('contexto', 'Contexto del bot') : '',
     item('notas', 'Notas internas'),
+    _puedeCotizar() ? item('cotizar', 'Cotizar') : '',
     item('recordatorio', 'Recordatorio'),
     admin ? item('asignar', 'Asignar ejecutivo') : '',
     item('editar', 'Editar cliente'),
@@ -2394,6 +2397,7 @@ function accionMenuLead(accion, id, etapa) {
     case 'evaluacion':   return abrirEvaluacion(id)
     case 'notas':        return abrirNotas(id, nombre)
     case 'recordatorio': return abrirRecordatorio(id, nombre, c.recordatorio_at || '')
+    case 'cotizar':      return _puedeCotizar() && abrirCotizar(id)
     case 'editar':       return abrirEditarCliente(c)
     case 'mover':        return moverLeadAEtapa(id, etapa)
     case 'conversacion': return admin && abrirConversacion(id, nombre)
@@ -2410,6 +2414,149 @@ async function leadsImportarExcel() { await abrirModal(); cambiarTabModalCliente
 function leadsEnviarPlantilla() {
   if (!_seleccionLeads.size) { toast('Marca primero en la tabla los leads a los que quieres escribir.', 'error'); if (_vista !== 'tabla') setVista('tabla'); return }
   abrirSelectorTemplate(null, null, [..._seleccionLeads])
+}
+
+// ── COTIZAR ───────────────────────────────────────────────────────────────────
+// Ventana para enviar al cliente una cotización en PDF por correo y/o WhatsApp. Los números y el PDF los arma el servidor (GET /api/clientes/{id}/cotizacion): aquí solo se muestran.
+// Todo lo que viene del servidor o de personas se pone con esc() (o como texto), nunca como HTML.
+let _cotId = null
+let _cotDatos = null
+let _enviandoCotizacion = false
+const _CORREO_COTIZAR = /^[^@\s<>,;"']+@[^@\s<>,;"']+\.[^@\s<>,;"']+$/
+
+function _cotVer(parte) {
+  for (const id of ['cot-cargando', 'cot-error', 'cot-contenido']) document.getElementById(id).classList.toggle('hidden', id !== parte)
+}
+
+async function abrirCotizar(id) {
+  if (!_puedeCotizar()) return
+  const c = clientes.find(x => x.id === id)
+  _cotId = id
+  _cotDatos = null
+  document.getElementById('cot-titulo').textContent = c ? (c.Contacto || 'Cliente') : 'Cliente'
+  document.getElementById('cot-subtitulo').textContent = ''
+  document.getElementById('cot-resultado').classList.add('hidden')
+  document.getElementById('cot-btn-enviar').disabled = true
+  _cotVer('cot-cargando')
+  document.getElementById('modal-cotizar').classList.remove('hidden')
+  try {
+    const d = await api('GET', `/api/clientes/${id}/cotizacion`)
+    if (_cotId !== id) return                                         // se cerró o se abrió otro mientras llegaba
+    _cotDatos = d
+    _dibujarCotizacion(d)
+  } catch (e) {
+    if (_cotId !== id) return
+    document.getElementById('cot-error-texto').textContent = e.message || 'No se pudo preparar la cotización.'
+    document.getElementById('cot-btn-editar').classList.toggle('hidden', !c)
+    _cotVer('cot-error')
+  }
+}
+
+function _dibujarCotizacion(d) {
+  const cot = d.cotizacion
+  document.getElementById('cot-subtitulo').textContent = [cot.proyecto.nombre, cot.tipologia.nombre, cot.proyecto.entrega].filter(Boolean).join(' · ')
+  document.getElementById('cot-resumen').innerHTML = d.resumen.map(f => `<li class="flex items-center justify-between gap-3 px-4 py-2 border-b eval-divider last:border-b-0 ${f.destacada ? 'font-semibold' : ''}" ${f.destacada ? 'style="background:rgba(14,165,233,.10)"' : ''}>
+      <span class="val-text">${esc(f.rotulo)}</span> <span class="text-right val-text">${esc(f.uf)}${f.pesos ? ` <span class="block text-xs font-normal sub-text">aprox. ${esc(f.pesos)}</span>` : ''}</span></li>`).join('')
+  document.getElementById('cot-otros').innerHTML = d.otros.map(o => `<li>${esc(o.rotulo)}: <b class="val-text">${esc(o.valor)}</b></li>`).join('')
+  document.getElementById('cot-avisos').innerHTML = cot.avisos.map(a => `<li>⚠ ${esc(a)}</li>`).join('')
+  document.getElementById('cot-uf').textContent = cot.uf ? `UF usada: $${new Intl.NumberFormat('es-CL').format(Math.round(cot.uf.valor))}` : 'Sin valor de la UF: la cotización sale solo en UF'
+  const correo = document.getElementById('cot-correo')
+  correo.value = d.canales.correo.destino || ''
+  document.getElementById('cot-canal-correo').checked = true
+  const wa = d.canales.whatsapp, chkWa = document.getElementById('cot-canal-wa')
+  chkWa.checked = false
+  chkWa.disabled = !wa.disponible
+  document.getElementById('cot-wa-detalle').textContent = wa.disponible ? `Al número ${wa.destino}. Vale porque el cliente escribió en las últimas 24 horas.` : (wa.motivo || 'No disponible.')
+  const h = document.getElementById('cot-historial')
+  h.classList.toggle('hidden', !d.historial.length)
+  h.textContent = d.historial.length ? 'Antes: ' + d.historial.map(x => `${x.canal === 'correo' ? 'correo' : 'WhatsApp'} a ${x.destino} (${x.estado === 'enviada' ? 'enviada' : 'con error'}${x.creado_en ? ', ' + String(x.creado_en).slice(0, 10) : ''}${x.usuario_nombre ? ', ' + x.usuario_nombre : ''})`).join(' · ') : ''
+  _cotVer('cot-contenido')
+  actualizarBtnCotizar()
+}
+
+function _cotCanales() {
+  const canales = []
+  if (document.getElementById('cot-canal-correo').checked) canales.push('correo')
+  if (document.getElementById('cot-canal-wa').checked && !document.getElementById('cot-canal-wa').disabled) canales.push('whatsapp')
+  return canales
+}
+
+function actualizarBtnCotizar() {
+  const canales = _cotCanales()
+  const correoOk = !canales.includes('correo') || _CORREO_COTIZAR.test(document.getElementById('cot-correo').value.trim())
+  const btn = document.getElementById('cot-btn-enviar')
+  btn.disabled = _enviandoCotizacion || !_cotDatos || !canales.length || !correoOk
+  btn.textContent = canales.length === 2 ? 'Enviar por correo y WhatsApp' : canales[0] === 'whatsapp' ? 'Enviar por WhatsApp' : canales[0] === 'correo' ? 'Enviar por correo' : 'Enviar cotización'
+}
+
+function cerrarCotizar() {
+  document.getElementById('modal-cotizar').classList.add('hidden')
+  _cotId = null
+  _cotDatos = null
+}
+
+function cotizarEditarCliente() {
+  const c = clientes.find(x => x.id === _cotId)
+  cerrarCotizar()
+  if (c) abrirEditarCliente(c)
+}
+
+function cotizarSeleccion() {
+  if (_seleccionLeads.size !== 1) { toast('Cotiza de a un cliente: marca solo uno, o usa «Cotizar» en su fila.', 'error'); return }
+  abrirCotizar([..._seleccionLeads][0])
+}
+
+async function verPdfCotizacion() {
+  const id = _cotId
+  if (id == null) return
+  const ventana = window.open('', '_blank')                           // se abre de inmediato (con el clic) para que el navegador no la bloquee
+  if (!ventana) { toast('Tu navegador bloqueó la ventana del PDF. Permítela e inténtalo de nuevo.', 'error'); return }
+  try {
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${id}/cotizacion/pdf`, { headers: { Authorization: `Bearer ${_token}` } })
+    if (!res.ok) throw new Error(await res.text())
+    ventana.location.href = URL.createObjectURL(await res.blob())
+  } catch (e) {
+    ventana.close()
+    toast('No se pudo abrir el PDF: ' + e.message, 'error')
+  }
+}
+
+async function enviarCotizacion() {
+  if (_enviandoCotizacion || _cotId == null) return
+  const id = _cotId, canales = _cotCanales()
+  const correo = document.getElementById('cot-correo').value.trim()
+  if (!canales.length) return
+  if (canales.includes('correo') && !_CORREO_COTIZAR.test(correo)) { toast('Escribe un correo válido.', 'error'); return }
+  _enviandoCotizacion = true
+  const btn = document.getElementById('cot-btn-enviar')
+  btn.disabled = true
+  btn.innerHTML = '<span class="spinner"></span> Enviando…'
+  const caja = document.getElementById('cot-resultado')
+  try {
+    const r = await api('POST', `/api/clientes/${id}/cotizar`, { canales, correo: canales.includes('correo') ? correo : undefined })
+    const nombres = { correo: 'Correo', whatsapp: 'WhatsApp' }
+    caja.innerHTML = Object.entries(r.resultados).map(([canal, x]) => x.ok
+      ? `<p style="color:#16a34a">✅ ${nombres[canal]} enviado a ${esc(x.destino)}</p>`
+      : `<p class="err-text">❌ ${nombres[canal]}: ${esc(x.error || 'no se pudo enviar')}</p>`).join('')
+    if (Object.values(r.resultados).some(x => x.ok && x.registrada === false)) caja.innerHTML += '<p class="text-xs sidebar-text">El envío salió bien, pero no quedó anotado en el historial.</p>'
+    caja.classList.remove('hidden')
+    caja.scrollIntoView?.({ block: 'nearest' })                        // el resultado queda a la vista aunque la ventana tenga scroll
+    toast(r.ok ? '✅ Cotización enviada' : '❌ No se pudo enviar la cotización', r.ok ? 'success' : 'error')
+    const c = clientes.find(x => x.id === id)
+    if (r.estado_gestion && c && c.estado_gestion !== r.estado_gestion) {
+      c.estado_gestion = r.estado_gestion                              // el servidor lo pasó a «Cotización enviada»
+      c.estado_gestion_en = new Date().toISOString()
+      _preservarPagina = true
+      aplicarFiltros()
+    }
+  } catch (e) {
+    caja.innerHTML = `<p class="err-text">❌ ${esc(e.message)}</p>`
+    caja.classList.remove('hidden')
+    caja.scrollIntoView?.({ block: 'nearest' })
+    toast('❌ No se pudo enviar la cotización', 'error')
+  }
+  _enviandoCotizacion = false
+  actualizarBtnCotizar()
 }
 
 // ─── TEMPLATE SELECTOR ────────────────────────────
@@ -2885,7 +3032,7 @@ function esc(str) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
-  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas()
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas(); cerrarCotizar()
 })
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
@@ -4913,6 +5060,60 @@ async function guardarRegistrarInbox() {
           Guardar
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL COTIZAR ═══ -->
+<div id="modal-cotizar" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="cot-titulo">
+  <div class="glass rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style="max-height:90vh">
+    <div class="px-6 pt-5 pb-3 flex items-start justify-between border-b eval-divider">
+      <div>
+        <p class="text-xs sidebar-text font-medium">Cotizar</p>
+        <h3 id="cot-titulo" class="font-bold val-text"></h3>
+        <p id="cot-subtitulo" class="text-xs sidebar-text mt-0.5"></p>
+      </div>
+      <button type="button" onclick="cerrarCotizar()" class="sidebar-text hover:val-text transition text-xl leading-none" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="overflow-y-auto px-6 py-4 space-y-4 flex-1">
+      <div id="cot-cargando" class="flex justify-center py-8"><div class="spinner"></div></div>
+      <div id="cot-error" class="hidden">
+        <p id="cot-error-texto" class="text-sm err-text"></p>
+        <button type="button" id="cot-btn-editar" onclick="cotizarEditarCliente()" class="mt-3 text-xs px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition">Editar cliente</button>
+      </div>
+      <div id="cot-contenido" class="hidden space-y-4">
+        <ul id="cot-resumen" class="rounded-xl border eval-divider overflow-hidden text-sm"></ul>
+        <ul id="cot-otros" class="text-xs sidebar-text space-y-0.5"></ul>
+        <ul id="cot-avisos" class="text-xs space-y-0.5" style="color:#d97706"></ul>
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <button type="button" onclick="verPdfCotizacion()" class="text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:val-text transition">Ver PDF</button>
+          <span id="cot-uf" class="text-xs sub-text"></span>
+        </div>
+        <fieldset class="space-y-2">
+          <legend class="block text-xs sidebar-text mb-1.5">Enviar por</legend>
+          <label class="flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" id="cot-canal-correo" class="mt-1 accent-sky-500 w-4 h-4" onchange="actualizarBtnCotizar()" />
+            <span class="flex-1">
+              <span class="text-sm val-text">Correo, con el PDF adjunto</span>
+              <input id="cot-correo" type="email" autocomplete="off" placeholder="correo@cliente.cl" oninput="actualizarBtnCotizar()" class="w-full rounded-lg px-3 py-1.5 text-sm mt-1.5" aria-label="Correo del cliente" />
+            </span>
+          </label>
+          <label class="flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" id="cot-canal-wa" class="mt-1 accent-sky-500 w-4 h-4" onchange="actualizarBtnCotizar()" />
+            <span class="flex-1">
+              <span class="text-sm val-text">WhatsApp, el PDF como archivo</span>
+              <span id="cot-wa-detalle" class="block text-xs sidebar-text mt-0.5"></span>
+            </span>
+          </label>
+        </fieldset>
+        <div id="cot-historial" class="hidden text-xs sub-text"></div>
+        <div id="cot-resultado" class="hidden rounded-xl border eval-divider px-4 py-3 text-sm space-y-1" role="status" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="px-6 py-4 flex gap-3 border-t eval-divider">
+      <button type="button" onclick="cerrarCotizar()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">Cerrar</button>
+      <button type="button" id="cot-btn-enviar" onclick="enviarCotizacion()" disabled
+        class="flex-1 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition disabled:opacity-40 disabled:cursor-not-allowed">Enviar cotización</button>
     </div>
   </div>
 </div>

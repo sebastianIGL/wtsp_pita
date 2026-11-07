@@ -102,6 +102,10 @@ class Settings(BaseSettings):
     google_service_account_json: Optional[str] = Field(None, validation_alias=_alias("GOOGLE_SERVICE_ACCOUNT_JSON"))
     email_admin: Optional[str] = Field(None, validation_alias=_alias("EMAIL_ADMIN"))
 
+    # Quién puede usar «Cotizar» (enviar al cliente una cotización en PDF por correo o WhatsApp). Apagado (por defecto) = solo owner y administrador.
+    # Encendido = también los ejecutivos (sobre los clientes que ya pueden ver).
+    cotizar_para_ejecutivos: bool = Field(False, validation_alias=_alias("COTIZAR_PARA_EJECUTIVOS"))
+
     # ── Integraciones entrantes / salientes ─────────────────────────────────
     ingest_api_key: Optional[str] = Field(None, validation_alias=_alias("INGEST_API_KEY"))
 
@@ -114,7 +118,7 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", validation_alias=_alias("HOST"))
     port: int = Field(8000, validation_alias=_alias("PORT"))
 
-    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", "avisos_persistentes", mode="before")
+    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", "avisos_persistentes", "cotizar_para_ejecutivos", mode="before")
     @classmethod
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)

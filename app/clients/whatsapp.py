@@ -83,6 +83,28 @@ def _build_body_params(pool_vals: Dict[str, str], variables: List[str], param_na
     return [pool_vals.get(k, "") for k in variables]
 
 
+async def send_whatsapp_document(*, to: str, contenido: bytes, filename: str, caption: str, mime_type: str = "application/pdf"):
+    """Envía un archivo (por ejemplo un PDF) como mensaje libre: lo sube a Meta y lo manda con un texto. Solo vale dentro de las 24 horas desde el último mensaje del cliente.
+
+    Como todo envío a Meta, NUNCA se reintenta (un reintento podría duplicar el mensaje al cliente)."""
+    if not TOKEN_ACCESO:
+        raise RuntimeError("Falta WA_ACCESS_TOKEN")
+    if not ID_NUMERO_TELEFONO:
+        raise RuntimeError("Falta WA_PHONE_NUMBER_ID")
+    base = f"https://graph.facebook.com/{VERSION_GRAPH}/{ID_NUMERO_TELEFONO}"
+    async with http_client(60) as client:
+        r = await client.post(f"{base}/media", headers={"Authorization": f"Bearer {TOKEN_ACCESO}"},
+                              data={"messaging_product": "whatsapp", "type": mime_type}, files={"file": (filename, contenido, mime_type)})
+        r.raise_for_status()
+        media_id = (r.json() or {}).get("id")
+        if not media_id:
+            raise RuntimeError("Meta no devolvió el identificador del archivo subido")
+        r2 = await client.post(f"{base}/messages", headers={"Authorization": f"Bearer {TOKEN_ACCESO}", "Content-Type": "application/json"},
+                               json={"messaging_product": "whatsapp", "to": to, "type": "document", "document": {"id": media_id, "filename": filename, "caption": caption}})
+        r2.raise_for_status()
+        return r2.json()
+
+
 async def send_whatsapp_template(
     *,
     to: str,

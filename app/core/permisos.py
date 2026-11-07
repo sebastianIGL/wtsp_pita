@@ -10,6 +10,14 @@ def _solo_admin(perfil: Optional[Dict]) -> bool:
     return bool(perfil and perfil.get("rol") in ("owner", "administrador"))
 
 
+def puede_cotizar(perfil: Optional[Dict]) -> bool:
+    """Owner y administrador siempre; los ejecutivos solo si el interruptor ``COTIZAR_PARA_EJECUTIVOS`` está encendido."""
+    from app.core.config import get_settings
+    if not perfil:
+        return False
+    return _solo_admin(perfil) or (perfil.get("rol") == "ejecutivo" and get_settings().cotizar_para_ejecutivos)
+
+
 def _solo_owner(perfil: Optional[Dict]) -> bool:
     """True solo para owner — operaciones exclusivas del dueño."""
     return bool(perfil and perfil.get("rol") == "owner")

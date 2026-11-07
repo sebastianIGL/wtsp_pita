@@ -71,3 +71,18 @@ async def marcar_en_evaluacion(cliente_id: int) -> Optional[str]:
     except Exception as e:
         logger.warning("Clientes | no se pudo pasar a «En evaluación» tras enviar la evaluación (%s)", type(e).__name__)
         return None
+
+
+async def marcar_cotizacion_enviada(cliente_id: int) -> Optional[str]:
+    """Pasa al cliente a «Cotización enviada» y anota la gestión de hoy después de enviarle una cotización (a cualquier cliente, esté donde esté en el proceso).
+
+    Devuelve ``"cotizacion_enviada"`` o ``None`` si no se pudo cambiar. Nunca lanza: la cotización ya salió y eso no se deshace; un fallo aquí solo se anota en el registro."""
+    from datetime import datetime, timezone
+    try:
+        await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"},
+                                json={"estado_gestion": "cotizacion_enviada", "Fecha Ult. Gestión": datetime.now(timezone.utc).isoformat()},
+                                extra_headers={"Prefer": "return=minimal"})
+        return "cotizacion_enviada"
+    except Exception as e:
+        logger.warning("Clientes | no se pudo pasar a «Cotización enviada» tras cotizar (%s)", type(e).__name__)
+        return None

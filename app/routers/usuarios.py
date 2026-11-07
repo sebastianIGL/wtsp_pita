@@ -11,7 +11,7 @@ from app.clients.whatsapp import TOKEN_ACCESO, VERSION_GRAPH, send_whatsapp_temp
 from app.core.config import get_settings
 from app.core.errors import respuesta_error
 from app.core.http import http_client
-from app.core.permisos import _solo_admin, _solo_owner
+from app.core.permisos import _solo_admin, _solo_owner, puede_cotizar
 from app.core.user_cache import user_cache
 from app.core.utilidades import _normalize_phone
 from app.services.plantillas import TEMPLATE_VARS_MAP
@@ -42,7 +42,7 @@ async def api_usuario_actual(request: Request):
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
-    return perfil
+    return {**perfil, "puede_cotizar": puede_cotizar(perfil)}          # el panel muestra «Cotizar» solo a quien puede usarlo
 
 
 @router.get("/api/usuarios")
