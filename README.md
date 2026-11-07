@@ -198,6 +198,24 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - El servidor valida de nuevo todo: el texto (1 a 2000 caracteres), que la nota pertenezca a ese cliente y quién es el autor; el registro (log) anota quién editó o borró, nunca el texto.
 - En la pantalla (`frontend/index.html`) «Editar» y «Borrar» aparecen solo cuando corresponde; borrar pide confirmación y el texto se muestra siempre escapado.
 
+## Vistas del panel de clientes: Tabla, Pipeline y Original (`frontend/index.html`)
+- El selector de la barra del panel tiene tres vistas sobre **los mismos clientes y los mismos filtros de arriba** (búsqueda, proyecto, ejecutivo, estados, pestañas Mis clientes / Todos / Descartados): **Tabla**
+  (bandeja con 16 columnas, las opcionales se eligen en «Columnas» y se recuerdan en el navegador), **Pipeline** (tablero por etapa con tarjetas que se arrastran) y **Original** (la pantalla de siempre,
+  sin cambios; **siempre se entra en Original**). La pestaña **Inbox** usa su tabla de siempre en las tres.
+- **Etapa** de un cliente (`etapaDe`): *Nuevo* y *Contactado* salen solos de lo que ya pasó por WhatsApp; *En evaluación*, *Aprobado*, *Cotización enviada*, *No interesado* y *Rechazado* salen del **estado de gestión**
+  que cambia el equipo (los bancos responden por ahí). «Cotización enviada» es un estado de gestión nuevo (`cotizacion_enviada`; el servidor no tiene lista cerrada, así que no necesitó cambios).
+  Al soltar una tarjeta se guarda ese estado con `PATCH /api/clientes/{id}`; si el servidor falla, la tarjeta vuelve a su columna. *Nuevo* lo asigna el sistema: no se puede devolver a Nuevo a quien ya fue contactado.
+  *Cerrados* (No interesado y Rechazado) quedan en una sección propia del Pipeline y aparecen en la Tabla al elegir esa etapa, aunque el filtro «Estado gestión» de arriba los esconda por defecto.
+- **Colas** (con su cantidad): Mi día (recordatorio de hoy o vencido), Nuevos 24 h, Sin contactar (= la columna Nuevo), Seguimiento vencido, Cotizados y Todos. Las fechas se calculan con la hora de Chile y se escriben con nombres fijos
+  (nunca dependen del idioma del navegador). «Próxima acción» es el recordatorio del cliente.
+- Acciones en bloque (solo en Tabla): enviar plantilla, cambiar etapa, asignar ejecutivo, programar recordatorio y descartar; todas piden confirmación y hacen un `PATCH` por cliente. Plantilla, asignar y descartar solo las ve
+  el administrador y el owner (igual que en Original; el servidor igual lo exige). «Cotizar» está en pantalla pero aún no hace nada (avisa que llegará pronto).
+- **Servidor:** `GET /api/clientes` agrega a cada cliente `tipologia_nombre`, `etapa_nombre` y `notas_n` (`app/services/clientes_vistas.py`, en lotes de 250 y de «mejor esfuerzo»: si una consulta falla, esa parte se omite y la lista
+  sale igual; del texto de las notas nunca sale nada, solo el conteo). Las columnas de fecha de creación, fuente y medio, y la nota del recordatorio dependen de columnas nuevas de `Cliente` (SQL aparte); mientras no existan, la pantalla
+  muestra «Sin fecha de creación» y «—».
+- Pruebas: `tests/test_vistas_frontend.py` y `tests/test_clientes_vistas.py` (pytest) y `tests/herramientas_frontend/vistas.js` (jsdom: funciones puras, dibujo, arrastrar y soltar, acciones en bloque, permisos, textos hostiles y
+  comparación de «Original» contra la versión publicada). Recorridos en el navegador: `~/wtsp_capturas` con `QS_VISTAS=1`.
+
 ## Textos de personas dentro de botones (CRM)
 - El nombre de un cliente (y cualquier texto que escriba una persona) **nunca** va pegado dentro del `onclick` (`'${esc(nombre)}'`): el navegador decodifica el atributo antes de ejecutarlo, así que un nombre como
   O'Higgins rompía los botones de la fila y uno armado a propósito (`x');código;//`) se ejecutaba. Va en un atributo `data-*` escapado y el botón lo lee: `onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)"`.

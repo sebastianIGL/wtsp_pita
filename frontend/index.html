@@ -118,6 +118,93 @@
     .doc-icon-wrap { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .dark .doc-icon-wrap { background:#1e293b; }
     html:not(.dark) .doc-icon-wrap { background:#e2e8f0; }
+
+    /* ── Estado de gestión: Cotización enviada ── */
+    .eg-cotizacion  { background:rgba(124,58,237,.18);  color:#c4b5fd; border:1px solid rgba(124,58,237,.4);  }
+    html:not(.dark) .eg-cotizacion  { background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe; }
+
+    /* ── Vistas «Tabla» y «Pipeline» ── */
+    .dark { --ld-borde:#334155; --ld-col:rgba(255,255,255,.03); --ld-card:#1e293b; --ld-card-hover:#273449; --ld-suave:#94a3b8; --ld-texto:#e2e8f0; --ld-marca:rgba(14,165,233,.12); }
+    html:not(.dark) { --ld-borde:#cbd5e1; --ld-col:#f1f5f9; --ld-card:#ffffff; --ld-card-hover:#f8fafc; --ld-suave:#64748b; --ld-texto:#1e293b; --ld-marca:rgba(14,165,233,.10); }
+    .ld-pill { display:inline-flex; align-items:center; padding:3px 10px; border-radius:9999px; font-size:.7rem; font-weight:600; white-space:nowrap; border:1px solid transparent; }
+    .ld-et-nuevo { background:rgba(37,99,235,.18); color:#93c5fd; border-color:rgba(37,99,235,.4); }
+    .ld-et-contactado { background:rgba(22,163,74,.16); color:#86efac; border-color:rgba(22,163,74,.4); }
+    .ld-et-en_evaluacion { background:rgba(217,119,6,.16); color:#fcd34d; border-color:rgba(217,119,6,.4); }
+    .ld-et-aprobado { background:rgba(34,197,94,.2); color:#4ade80; border-color:rgba(34,197,94,.45); }
+    .ld-et-cotizacion_enviada { background:rgba(124,58,237,.18); color:#c4b5fd; border-color:rgba(124,58,237,.4); }
+    .ld-et-no_interesado { background:rgba(239,68,68,.15); color:#fca5a5; border-color:rgba(239,68,68,.35); }
+    .ld-et-descartado { background:rgba(71,85,105,.25); color:#94a3b8; border-color:rgba(71,85,105,.45); }
+    html:not(.dark) .ld-et-nuevo { background:#dbeafe; color:#1d4ed8; border-color:#93c5fd; }
+    html:not(.dark) .ld-et-contactado { background:#dcfce7; color:#166534; border-color:#86efac; }
+    html:not(.dark) .ld-et-en_evaluacion { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+    html:not(.dark) .ld-et-aprobado { background:#bbf7d0; color:#14532d; border-color:#4ade80; }
+    html:not(.dark) .ld-et-cotizacion_enviada { background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe; }
+    html:not(.dark) .ld-et-no_interesado { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+    html:not(.dark) .ld-et-descartado { background:#f1f5f9; color:#475569; border-color:#cbd5e1; }
+    .ld-colas { gap:2px; }
+    .ld-c-lead { min-width:190px; }
+    .ld-c-llego { min-width:150px; }
+    .ld-c-contacto { min-width:210px; }
+    .ld-c-evaluacion { min-width:150px; }
+    .ld-c-proxima { min-width:170px; }
+    .ld-c-proyecto, .ld-c-ejecutivo { min-width:130px; }
+    .ld-c-acciones { min-width:330px; }
+    .ld-cola { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; font-size:.78rem; font-weight:500; color:var(--ld-suave); border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; transition:color .15s; }
+    .ld-cola:hover { color:var(--ld-texto); }
+    .ld-cola.on { color:var(--ld-texto); border-bottom-color:#0ea5e9; font-weight:600; }
+    .ld-cola .n { font-size:.68rem; padding:1px 7px; border-radius:9999px; background:var(--ld-col); border:1px solid var(--ld-borde); color:var(--ld-suave); font-variant-numeric:tabular-nums; }
+    .ld-cola .n.rojo { background:rgba(239,68,68,.15); border-color:rgba(239,68,68,.4); color:#f87171; }
+    .ld-chip { display:inline-flex; align-items:center; gap:6px; font-size:.7rem; }
+    .ld-chip > span { color:var(--ld-suave); }
+    .ld-chip select { border-radius:6px; padding:3px 8px; font-size:.7rem; }
+    .ld-kpi { border-radius:16px; padding:14px 16px; display:flex; flex-direction:column; gap:2px; min-width:0; }
+    .ld-kpi b { font-size:1.6rem; line-height:1.15; font-weight:700; font-variant-numeric:tabular-nums; }
+    .ld-kpi small { font-size:.72rem; }
+    .ld-px { display:inline-flex; flex-direction:column; align-items:flex-start; text-align:left; gap:1px; padding:4px 10px; border-radius:8px; font-size:.75rem; font-weight:600; border:1px solid var(--ld-borde); max-width:200px; }
+    .ld-px small { font-size:.68rem; font-weight:400; color:var(--ld-suave); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .ld-px-hoy { background:rgba(245,158,11,.14); color:#fbbf24; border-color:rgba(245,158,11,.4); }
+    .ld-px-vencida { background:rgba(239,68,68,.14); color:#f87171; border-color:rgba(239,68,68,.4); }
+    .ld-px-futura { color:var(--ld-texto); }
+    .ld-px-nada { border-style:dashed; color:var(--ld-suave); font-weight:500; }
+    html:not(.dark) .ld-px-hoy { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+    html:not(.dark) .ld-px-vencida { background:#fee2e2; color:#b91c1c; border-color:#fca5a5; }
+    .ld-px:hover { border-color:#0ea5e9; }
+    .ld-avatar { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:9999px; font-size:.62rem; font-weight:700; background:linear-gradient(135deg,#0ea5e9,#6366f1); color:#fff; flex-shrink:0; }
+    .ld-docs { font-size:.7rem; font-weight:600; padding:2px 8px; border-radius:9999px; white-space:nowrap; }
+    .ld-docs-completos { background:rgba(34,197,94,.16); color:#4ade80; }
+    .ld-docs-enviando { background:rgba(245,158,11,.16); color:#fbbf24; }
+    html:not(.dark) .ld-docs-completos { background:#dcfce7; color:#166534; }
+    html:not(.dark) .ld-docs-enviando { background:#fef3c7; color:#92400e; }
+    .ld-cotizar { font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:8px; border:1px solid rgba(124,58,237,.5); color:#c4b5fd; background:rgba(124,58,237,.12); white-space:nowrap; transition:background .15s; }
+    .ld-cotizar:hover { background:rgba(124,58,237,.25); }
+    html:not(.dark) .ld-cotizar { color:#6b21a8; background:#f3e8ff; border-color:#d8b4fe; }
+    html:not(.dark) .ld-cotizar:hover { background:#e9d5ff; }
+    .ld-seleccion { background:var(--ld-marca); }
+    .ld-bk { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:8px; font-size:.72rem; font-weight:500; border:1px solid var(--ld-borde); background:var(--ld-card); color:var(--ld-texto); cursor:pointer; }
+    .ld-bk:hover { border-color:#0ea5e9; }
+    .ld-bk select, .ld-bk input { font-size:.72rem; padding:2px 6px; border-radius:6px; }
+    .ld-n { font-size:.7rem; padding:1px 8px; border-radius:9999px; background:var(--ld-card); border:1px solid var(--ld-borde); color:var(--ld-suave); font-variant-numeric:tabular-nums; }
+    .kb-tablero { display:flex; gap:12px; overflow-x:auto; align-items:flex-start; }
+    .kb-col { flex:0 0 272px; max-height:68vh; overflow-y:auto; padding:12px; border-radius:14px; background:var(--ld-col); border:1px solid var(--ld-borde); transition:border-color .15s, background .15s; }
+    .kb-soltando .kb-col { border-style:dashed; }
+    .kb-col.sobre { border-color:#0ea5e9; background:var(--ld-marca); }
+    .kb-card { padding:12px; border-radius:12px; margin-bottom:8px; background:var(--ld-card); border:1px solid var(--ld-borde); cursor:grab; transition:background .15s, box-shadow .15s; }
+    .kb-card:hover { background:var(--ld-card-hover); box-shadow:0 2px 8px rgba(0,0,0,.12); }
+    .kb-card:active { cursor:grabbing; }
+    .kb-card.kb-arrastrando { opacity:.4; }
+    .kb-nombre { overflow-wrap:anywhere; }
+    .ld-chip-mini { font-size:.66rem; padding:2px 8px; border-radius:9999px; font-weight:600; white-space:nowrap; }
+    select.ld-chip-mini { padding:2px 8px; }
+    .ld-chip-gris { background:var(--ld-col); border:1px solid var(--ld-borde); color:var(--ld-suave); font-weight:500; }
+    .ld-wa { font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:8px; border:1px solid var(--ld-borde); background:var(--ld-col); color:var(--ld-texto); white-space:nowrap; }
+    .ld-wa:hover { border-color:#10b981; color:#34d399; }
+    .ld-mas { margin-left:auto; width:28px; height:28px; border-radius:8px; border:1px solid var(--ld-borde); color:var(--ld-suave); font-size:1rem; line-height:1; }
+    .ld-mas:hover { border-color:#0ea5e9; color:var(--ld-texto); }
+    #ld-menu { position:fixed; z-index:60; min-width:210px; max-height:70vh; overflow-y:auto; padding:6px; border-radius:12px; background:var(--ld-card); border:1px solid var(--ld-borde); box-shadow:0 12px 32px rgba(0,0,0,.28); }
+    #ld-menu button { display:block; width:100%; text-align:left; padding:6px 10px; border-radius:8px; font-size:.78rem; color:var(--ld-texto); }
+    #ld-menu button:hover { background:var(--ld-marca); }
+    .ld-menu-t { font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ld-suave); padding:8px 10px 2px; }
+    .ld-cola:focus-visible, .ld-px:focus-visible, .ld-bk:focus-visible, .ld-cotizar:focus-visible, .ld-wa:focus-visible, .ld-mas:focus-visible, #ld-menu button:focus-visible, .kb-card:focus-visible, #selector-vista button:focus-visible { outline:2px solid #0ea5e9; outline-offset:2px; }
   </style>
 <link rel="stylesheet" href="/css/crm.css" />
 </head>
@@ -179,13 +266,13 @@
 </header>
 
 <!-- ═══════════════════ HERO ═══════════════════ -->
-<div class="px-8 pt-8 pb-6">
+<div id="hero-original" class="px-8 pt-8 pb-6">
   <h1 class="text-2xl font-bold val-text">Gestión de Clientes</h1>
   <p class="sidebar-text text-sm mt-1">Administra tus prospectos y activa el chatbot de WhatsApp</p>
 </div>
 
 <!-- ═══════════════════ STATS ═══════════════════ -->
-<div class="px-8 pb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+<div id="stats-original" class="px-8 pb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
   <div class="glass rounded-2xl p-5">
     <p class="text-xs sidebar-text uppercase tracking-wider">Total clientes</p>
     <p id="stat-total" class="text-3xl font-bold val-text mt-1">—</p>
@@ -210,6 +297,21 @@
   </div>
 </div>
 
+<!-- ═══════════════════ CABECERA DE «TABLA» Y «PIPELINE» (en «Original» está oculta) ═══════════════════ -->
+<div id="cabecera-leads" class="hidden">
+  <div class="px-8 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold val-text">Leads</h1>
+      <p id="resumen-dia" class="sidebar-text text-sm mt-1"></p>
+    </div>
+    <div class="flex items-center gap-2 flex-wrap">
+      <button type="button" onclick="leadsImportarExcel()" class="filtro-btn rounded-md px-3 py-1.5 text-xs">Importar Excel</button>
+      <button type="button" id="btn-leads-plantilla" onclick="leadsEnviarPlantilla()" class="hidden bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">Enviar plantilla WhatsApp</button>
+    </div>
+  </div>
+  <div id="kpis-leads" class="px-8 pb-6 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"></div>
+</div>
+
 <!-- ═══════════════════ TABLA ═══════════════════ -->
 <div class="px-8 pb-16">
   <div class="glass rounded-2xl overflow-hidden">
@@ -219,6 +321,12 @@
       <div class="flex items-center gap-2">
         <h2 class="font-semibold val-text text-sm">Clientes</h2>
         <span id="badge-count" class="badge-count-bg text-xs px-2 py-0.5 rounded-full">0</span>
+        <!-- Vista: «Tabla» y «Pipeline» son nuevas; «Original» es la pantalla de siempre y es con la que se entra -->
+        <div id="selector-vista" class="flex items-center rounded-md overflow-hidden border border-slate-600 flex-shrink-0" style="font-size:0.7rem" role="group" aria-label="Vista de los clientes">
+          <button type="button" id="vista-tabla" onclick="setVista('tabla')" aria-pressed="false" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap">Tabla</button>
+          <button type="button" id="vista-pipeline" onclick="setVista('pipeline')" aria-pressed="false" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap border-l border-slate-600">Pipeline</button>
+          <button type="button" id="vista-original" onclick="setVista('original')" aria-pressed="true" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap border-l border-slate-600 bg-brand-600 text-white">Original</button>
+        </div>
         <!-- Toggle de pestañas (siempre visible, contenido ajustado por rol) -->
         <div id="toggle-filtro-usuario" class="hidden items-center rounded-md overflow-hidden border border-slate-600 flex-shrink-0" style="font-size:0.7rem">
           <button id="btn-mis-clientes" onclick="setTab('mis')"
@@ -302,6 +410,15 @@
         </thead>
         <tbody id="inbox-tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Vistas «Tabla» y «Pipeline» -->
+    <div id="vista-nueva" class="hidden">
+      <div id="ld-colas" class="ld-colas px-6 pt-3 flex gap-1 flex-wrap border-b" role="group" aria-label="Colas de trabajo"></div>
+      <div id="ld-filtros" class="px-6 py-2.5 flex items-center gap-2 flex-wrap border-b"></div>
+      <div id="ld-seleccion" class="hidden ld-seleccion px-6 py-2 flex items-center gap-2 flex-wrap border-b" role="toolbar" aria-label="Acciones sobre los seleccionados"></div>
+      <div id="ld-contenido"></div>
+      <div id="ld-pie" class="toolbar px-6 py-3 flex items-center justify-between flex-wrap gap-2 border-t text-sm"></div>
     </div>
   </div>
 </div>
@@ -939,6 +1056,7 @@ function setTab(tab) {
   const tabAnterior = _filtroTab
   _filtroTab = tab
   _actualizarToggle()
+  _aplicarVisibilidadVista()
 
   const tablaBody  = document.getElementById('tabla-body').closest('table')
   const tablaInbox = document.getElementById('tabla-inbox')
@@ -1174,6 +1292,7 @@ const _EG_MAP = {
   enviando_docs:   { label: 'Enviando docs',  cls: 'eg-env-docs'    },
   en_evaluacion:   { label: 'En evaluación',  cls: 'eg-evaluacion'  },
   aprobado:        { label: 'Aprobado',       cls: 'eg-aprobado'    },
+  cotizacion_enviada: { label: 'Cotización enviada', cls: 'eg-cotizacion' },
   descartado:      { label: 'Rechazado',      cls: 'eg-descartado'  },
 }
 function _egClass(val) { return (_EG_MAP[val || ''] || _EG_MAP['']).cls }
@@ -1338,7 +1457,7 @@ function _msDate(val) {
   return isNaN(t) ? 0 : t
 }
 
-function clientesFiltrados() {
+function clientesFiltrados(incluirCerrados = false) {
   const q        = document.getElementById('search').value.toLowerCase()
   const qDigits  = q.replace(/\D/g, '')
   const qRut     = q.replace(/[.\-]/g, '')
@@ -1359,6 +1478,7 @@ function clientesFiltrados() {
       const matchEstadoConv = !filtroEstadoConv || computeFunnelGroup(c) === filtroEstadoConv
       const matchEstadoGestion = _filtroEstadoGestionSet.size === 0
         || _filtroEstadoGestionSet.has(c.estado_gestion || '__sin_estado__')
+        || (incluirCerrados && _EG_EXCLUIDOS_DEFECTO.has(c.estado_gestion))
       return matchQ && matchP && matchUsuario && matchEstadoConv && matchEstadoGestion
     })
     .sort((a, b) => {
@@ -1377,8 +1497,15 @@ function clientesFiltrados() {
 
 function aplicarFiltros() {
   if (_filtroTab === 'inbox') { renderTablaInbox(); return }
-  if (!_preservarPagina) paginaActual = 1
+  if (!_preservarPagina) { paginaActual = 1; _paginaLeads = 1; _tarjetasMostradas = {} }
   _preservarPagina = false
+  if (_vista !== 'original') {
+    // «Cerrados» (No interesado / Rechazado) salen del listado por defecto: el Pipeline los ofrece en su propia sección y la Tabla los muestra si se elige esa etapa
+    const cerradoElegido = ETAPAS_CERRADAS.some(e => e.key === _filtrosLeads.etapa)
+    const filtrados = clientesFiltrados(cerradoElegido)
+    renderVistaLeads(filtrados, _vista === 'pipeline' ? clientesFiltrados(true) : filtrados)
+    return
+  }
   const filtrados = clientesFiltrados()
   renderTabla(filtrados)
   renderPaginacion(filtrados.length)
@@ -1397,63 +1524,11 @@ function _badgeEntrega(estado_plantilla) {
   return `<span class="text-[10px] uppercase tracking-wide opacity-50 mr-1">Estado wtsp:</span><span class="text-xs font-medium ${c.cls}">${c.txt}</span>`
 }
 
-function renderTabla(data) {
-  const tbody = document.getElementById('tabla-body')
-  if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center empty-text">No hay clientes con estos filtros.</td></tr>`
-    return
-  }
-  const np = (id) => { const p = proyectos.find(p => p.id === id); return p ? p.nombre : '—' }
-
-  // Paginar
-  const inicio = (paginaActual - 1) * POR_PAGINA
-  const pagina = data.slice(inicio, inicio + POR_PAGINA)
-  _clientesPorId = {}
-  pagina.forEach(c => { _clientesPorId[String(c.id)] = c })
-
-  // Conteo e IDs por grupo del funnel sobre TODO lo filtrado (no solo la página visible)
-  const conteoGrupo = {}
-  _idsPorGrupoFunnel = {}
-  data.forEach(c => {
-    const g = computeFunnelGroup(c)
-    conteoGrupo[g] = (conteoGrupo[g] || 0) + 1
-    ;(_idsPorGrupoFunnel[g] ||= []).push(c.id)
-  })
-
-  let _ultimoGrupo = null
-  tbody.innerHTML = pagina.map(c => {
-    const grupo = computeFunnelGroup(c)
-    let headerHTML = ''
-    if (grupo !== _ultimoGrupo) {
-      _ultimoGrupo = grupo
-      const info = FUNNEL_GROUPS.find(g => g.key === grupo)
-      const btnRemarketing = (['sin_enviar', 'no_recibieron', 'no_respondieron'].includes(grupo) && _esAdmin(_perfil?.rol))
-        ? `<button onclick="abrirSelectorTemplate(null, null, _idsPorGrupoFunnel.${grupo})"
-             class="text-xs px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium normal-case tracking-normal flex items-center gap-1.5">
-             📤 Enviar plantilla a estos ${conteoGrupo[grupo]}
-           </button>`
-        : ''
-      headerHTML = `<tr class="funnel-header-row">
-        <td colspan="7" class="px-6 py-2 text-xs font-semibold uppercase tracking-wider sidebar-text" style="background:rgba(148,163,184,.08)">
-          <div class="flex items-center justify-between gap-3">
-            <span>${info.icon} ${info.label} <span class="opacity-60 font-normal normal-case">(${conteoGrupo[grupo]})</span></span>
-            ${btnRemarketing}
-          </div>
-        </td>
-      </tr>`
-    }
-
-    const estado = computeEstado(c)
-    const badge = estado === 'activo'
-      ? `<span class="badge-activo text-xs px-2.5 py-1 rounded-full font-medium">Activo</span>`
-      : estado === 'timido'
-      ? `<span class="badge-timido text-xs px-2.5 py-1 rounded-full font-medium">Tímido</span>`
-      : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">Sin enviar</span>`
-    const badgeEntrega = _badgeEntrega(c.estado_plantilla)
-
-    const esAdmin = _esAdmin(_perfil?.rol)
-
-    const accion = `<div class="flex items-center gap-2">
+// Los botones de acción de un cliente (Evaluación, conversación, contexto, notas, recordatorio, asignar, editar, descartar/restaurar).
+// La usan la pantalla «Original» y la columna Acciones de la vista «Tabla»: salen idénticos.
+function _accionesFila(c) {
+  const esAdmin = _esAdmin(_perfil?.rol)
+  return `<div class="flex items-center gap-2">
       <button onclick="abrirEvaluacion(${c.id})"
         class="text-xs px-3 py-1.5 rounded-lg bg-sky-200 hover:bg-sky-300 text-sky-900 border border-sky-900 transition flex items-center gap-1.5">
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1517,6 +1592,63 @@ function renderTabla(data) {
           </button>`
       ) : ''}
     </div>`
+}
+
+function renderTabla(data) {
+  const tbody = document.getElementById('tabla-body')
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="px-6 py-12 text-center empty-text">No hay clientes con estos filtros.</td></tr>`
+    return
+  }
+  const np = (id) => { const p = proyectos.find(p => p.id === id); return p ? p.nombre : '—' }
+
+  // Paginar
+  const inicio = (paginaActual - 1) * POR_PAGINA
+  const pagina = data.slice(inicio, inicio + POR_PAGINA)
+  _clientesPorId = {}
+  pagina.forEach(c => { _clientesPorId[String(c.id)] = c })
+
+  // Conteo e IDs por grupo del funnel sobre TODO lo filtrado (no solo la página visible)
+  const conteoGrupo = {}
+  _idsPorGrupoFunnel = {}
+  data.forEach(c => {
+    const g = computeFunnelGroup(c)
+    conteoGrupo[g] = (conteoGrupo[g] || 0) + 1
+    ;(_idsPorGrupoFunnel[g] ||= []).push(c.id)
+  })
+
+  let _ultimoGrupo = null
+  tbody.innerHTML = pagina.map(c => {
+    const grupo = computeFunnelGroup(c)
+    let headerHTML = ''
+    if (grupo !== _ultimoGrupo) {
+      _ultimoGrupo = grupo
+      const info = FUNNEL_GROUPS.find(g => g.key === grupo)
+      const btnRemarketing = (['sin_enviar', 'no_recibieron', 'no_respondieron'].includes(grupo) && _esAdmin(_perfil?.rol))
+        ? `<button onclick="abrirSelectorTemplate(null, null, _idsPorGrupoFunnel.${grupo})"
+             class="text-xs px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium normal-case tracking-normal flex items-center gap-1.5">
+             📤 Enviar plantilla a estos ${conteoGrupo[grupo]}
+           </button>`
+        : ''
+      headerHTML = `<tr class="funnel-header-row">
+        <td colspan="7" class="px-6 py-2 text-xs font-semibold uppercase tracking-wider sidebar-text" style="background:rgba(148,163,184,.08)">
+          <div class="flex items-center justify-between gap-3">
+            <span>${info.icon} ${info.label} <span class="opacity-60 font-normal normal-case">(${conteoGrupo[grupo]})</span></span>
+            ${btnRemarketing}
+          </div>
+        </td>
+      </tr>`
+    }
+
+    const estado = computeEstado(c)
+    const badge = estado === 'activo'
+      ? `<span class="badge-activo text-xs px-2.5 py-1 rounded-full font-medium">Activo</span>`
+      : estado === 'timido'
+      ? `<span class="badge-timido text-xs px-2.5 py-1 rounded-full font-medium">Tímido</span>`
+      : `<span class="badge-sin-enviar text-xs px-2.5 py-1 rounded-full font-medium">Sin enviar</span>`
+    const badgeEntrega = _badgeEntrega(c.estado_plantilla)
+
+    const accion = _accionesFila(c)
 
     const recordatorioClass = c.recordatorio_at
       ? (_esRecordatorioVencido(c.recordatorio_at) ? 'border-l-2 border-red-500' : 'border-l-2 border-amber-400')
@@ -1589,6 +1721,672 @@ function irPagina(n) {
   paginaActual = n
   renderTabla(filtrados)
   renderPaginacion(filtrados.length)
+}
+
+// ─── VISTAS «TABLA» Y «PIPELINE» ──────────────────────
+// «Original» es la pantalla de siempre. «Tabla» y «Pipeline» muestran los MISMOS clientes (la misma lista y los mismos filtros de arriba) de otra forma:
+// una bandeja con más columnas y un tablero por etapa. La vista con que se entra es siempre «Original».
+const _TZ = 'America/Santiago'
+const ETAPAS = [
+  { key: 'nuevo',              label: 'Nuevo',              sub: 'Llegó y aún no hay conversación',     color: '#2563eb' },
+  { key: 'contactado',         label: 'Contactado',         sub: '1er mensaje enviado o llamada',       color: '#16a34a' },
+  { key: 'en_evaluacion',      label: 'En evaluación',      sub: 'Enviado a evaluar crédito/subsidio',  color: '#d97706' },
+  { key: 'aprobado',           label: 'Aprobado',           sub: 'Listo para cotizar',                  color: '#15803d' },
+  { key: 'cotizacion_enviada', label: 'Cotización enviada', sub: 'Por correo o WhatsApp',               color: '#7c3aed' },
+]
+const ETAPAS_CERRADAS = [
+  { key: 'no_interesado', label: 'No interesado', color: '#dc2626' },
+  { key: 'descartado',    label: 'Rechazado',     color: '#64748b' },
+]
+const _ETAPA_POR_CLAVE = Object.fromEntries([...ETAPAS, ...ETAPAS_CERRADAS].map(e => [e.key, e]))
+// Qué valor de «estado de gestión» se guarda al soltar una tarjeta en cada columna (Nuevo no guarda nada: lo asigna el sistema)
+const _VALOR_AL_SOLTAR = { contactado: 'primer_wtsp', en_evaluacion: 'en_evaluacion', aprobado: 'aprobado', cotizacion_enviada: 'cotizacion_enviada', no_interesado: 'no_interesado', descartado: 'descartado' }
+const FUENTES = { meta_ads: 'Meta Ads', chatbot: 'Chatbot', formulario_web: 'Formulario web', referido: 'Referido', excel: 'Excel', manual: 'Manual', otro: 'Otro' }
+const MEDIOS = { whatsapp: 'WhatsApp', chatbot: 'Chatbot', correo: 'Correo', llamada: 'Llamada', presencial: 'Presencial' }
+const COLAS = [
+  { key: 'mi_dia', label: 'Mi día' }, { key: 'nuevos24', label: 'Nuevos 24 h' }, { key: 'sin_contactar', label: 'Sin contactar' },
+  { key: 'seguimiento_vencido', label: 'Seguimiento vencido' }, { key: 'cotizados', label: 'Cotizados' }, { key: 'todos', label: 'Todos' },
+]
+const COLUMNAS_TABLA = [
+  { key: 'lead', label: 'Lead', fija: true }, { key: 'llego', label: 'Llegó' }, { key: 'etapa', label: 'Etapa' }, { key: 'contacto', label: 'Contacto' },
+  { key: 'evaluacion', label: 'Evaluación' }, { key: 'proxima', label: 'Próxima acción' }, { key: 'proyecto', label: 'Proyecto' }, { key: 'ejecutivo', label: 'Ejecutivo' },
+  { key: 'telefono', label: 'Teléfono' }, { key: 'ahorro', label: 'Ahorro' }, { key: 'docs', label: 'Docs' }, { key: 'ultimo', label: 'Último mensaje' },
+  { key: 'notas', label: 'Notas' }, { key: 'dias_gestion', label: 'Días sin gestión' }, { key: 'dias_estado', label: 'Días en este estado' }, { key: 'acciones', label: 'Acciones', fija: true },
+]
+const POR_PAGINA_LEADS = 30
+const TARJETAS_POR_TANDA = 20
+
+let _vista = 'original'                  // 'original' | 'tabla' | 'pipeline'  (siempre se entra en «original»)
+let _cola = 'todos'
+let _ordenLeads = 'llegada_desc'
+let _filtrosLeads = { llegada: '', etapa: '', origen: '' }
+let _seleccionLeads = new Set()
+let _paginaLeads = 1
+let _baseLeads = []                      // los clientes que pasan los filtros de la barra de arriba (antes de las pestañas de abajo y de los filtros propios)
+let _tarjetasMostradas = {}              // etapa → cuántas tarjetas se ven
+let _cerradosAbiertos = false
+let _arrastrando = null
+let _columnasTabla = (() => {
+  try { const g = JSON.parse(localStorage.getItem('crm-columnas-tabla')); if (Array.isArray(g)) return COLUMNAS_TABLA.filter(c => c.fija || g.includes(c.key)).map(c => c.key) } catch (e) { /* sin almacenamiento: todas */ }
+  return COLUMNAS_TABLA.map(c => c.key)
+})()
+
+// ── Funciones puras (se prueban sin la página) ─────────
+// Las fechas se arman con nombres fijos (no con Intl en español): así se ven igual en todos los navegadores y versiones.
+const _MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+const _DIAS_SEM = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
+function _hoyChile(ahora = new Date()) {                 // la fecha de hoy en Chile, AAAA-MM-DD
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: _TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(ahora).map(x => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day}`
+}
+function _soloFecha(v) { return String(v || '').slice(0, 10) }
+function _fechaValida(f) {                               // AAAA-MM-DD que existe en el calendario
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(f)
+  if (!m) return false
+  const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  return d.getUTCFullYear() === +m[1] && d.getUTCMonth() === +m[2] - 1 && d.getUTCDate() === +m[3]
+}
+function _diasEntre(a, b) {                              // días de calendario de a a b (ambos AAAA-MM-DD)
+  const p = s => { const [y, m, d] = s.split('-').map(Number); return Date.UTC(y, m - 1, d) }
+  return Math.round((p(b) - p(a)) / 86400000)
+}
+function _partesFecha(f) { const [y, m, d] = f.split('-').map(Number); return { dia: String(d).padStart(2, '0'), mes: _MESES[m - 1], sem: _DIAS_SEM[new Date(Date.UTC(y, m - 1, d)).getUTCDay()] } }
+function _fechaCorta(f) { const p = _partesFecha(f); return `${p.dia} ${p.mes}` }                       // 2026-11-03 → «03 nov»
+function _diaSemanaCorto(f) { const p = _partesFecha(f); return `${p.sem.slice(0, 3)} ${p.dia} ${p.mes}` }   // 2026-11-05 → «Jue 05 nov»
+function _diaLargo(f) { const p = _partesFecha(f); return `${p.sem} ${p.dia} ${p.mes}` }                // 2026-11-03 → «Martes 03 nov»
+function _ahorroUF(c) {                          // «120,5 UF», o null si no hay un ahorro válido
+  const n = c.ahorro_uf == null || c.ahorro_uf === '' ? NaN : Number(c.ahorro_uf)
+  return Number.isFinite(n) ? `${new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 }).format(n)} UF` : null
+}
+
+function haceTexto(iso, ahora = new Date()) {
+  const t = _msDate(iso)
+  if (!t) return ''
+  const m = Math.floor(Math.max(0, ahora.getTime() - t) / 60000), h = Math.floor(m / 60), d = Math.floor(h / 24)
+  if (m < 1) return 'ahora'
+  if (m < 60) return `hace ${m} min`
+  if (h < 24) return `hace ${h} h`
+  if (d === 1) return 'ayer'
+  if (d < 60) return `hace ${d} días`
+  return `hace ${Math.floor(d / 30)} meses`
+}
+
+// La etapa de un cliente. Nuevo y Contactado salen solos de lo que ya pasó con WhatsApp; las demás salen del estado de gestión que cambia el equipo.
+function etapaDe(c) {
+  const eg = c.estado_gestion || ''
+  if (['cotizacion_enviada', 'aprobado', 'en_evaluacion', 'no_interesado', 'descartado'].includes(eg)) return eg
+  if (['primer_wtsp', 'interesado', 'enviando_docs'].includes(eg)) return 'contactado'
+  return computeFunnelGroup(c) === 'sin_enviar' ? 'nuevo' : 'contactado'
+}
+
+function proximaDe(c, hoy) {
+  const f = _soloFecha(c.recordatorio_at)
+  if (!_fechaValida(f)) return { tipo: 'nada', texto: '', nota: '' }
+  const nota = String(c.recordatorio_nota || '').trim()
+  const d = _diasEntre(hoy, f)
+  if (d === 0) return { tipo: 'hoy', fecha: f, texto: 'Hoy', nota }
+  if (d < 0)   return { tipo: 'vencida', fecha: f, texto: `Vencido · ${_fechaCorta(f)}`, nota }
+  if (d === 1) return { tipo: 'futura', fecha: f, texto: 'Mañana', nota }
+  return { tipo: 'futura', fecha: f, texto: _diaSemanaCorto(f), nota }
+}
+
+function llegoDe(c, ahora) {
+  const fuente = c.fuente ? (FUENTES[c.fuente] || String(c.fuente)) : ''
+  const t = _msDate(c.creado_en)
+  if (!t) return { fecha: '', hace: '', fuente, sinFecha: true }
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: _TZ, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(t).map(x => [x.type, x.value]))
+  const fecha = `${p.day} ${_MESES[Number(p.month) - 1]} · ${p.hour}:${p.minute}`
+  return { fecha, hace: haceTexto(c.creado_en, ahora), fuente, sinFecha: false }
+}
+
+function contactoDe(c, ahora) {
+  const grupo = computeFunnelGroup(c)
+  const info = FUNNEL_GROUPS.find(g => g.key === grupo)
+  const medio = c.medio ? (MEDIOS[c.medio] || String(c.medio)) : (c.primer_wtsp_en ? 'WhatsApp' : '')
+  const plantilla = _soloFecha(c.primer_wtsp_en)
+  const detalle = {
+    sin_enviar:      ['gris',  'Nunca contactado'],
+    no_recibieron:   ['rojo',  'La plantilla no llegó'],
+    no_respondieron: ['ambar', plantilla ? `Sin respuesta · plantilla ${_fechaCorta(plantilla)}` : 'Sin respuesta'],
+    respondieron:    ['verde', `Respondió ${haceTexto(c.ultimo_entrante_en, ahora)}`.trim()],
+    pendientes:      ['ambar', 'Pendiente de responder'],
+    enviando_docs:   ['verde', 'Enviando documentos'],
+    docs_completos:  ['verde', 'Documentos completos'],
+  }[grupo]
+  return { grupo, punto: detalle[0], titulo: medio || info.label, detalle: detalle[1] }
+}
+
+function docsDe(c) {
+  const paso = c.prospecto_paso || ''
+  if (paso === 'DOCS_RECIBIDOS') return { clave: 'completos', texto: 'Completos' }
+  if (paso === 'ESPERA_DOCS' || paso === 'DOCUMENTACION') return { clave: 'enviando', texto: 'Enviando' }
+  return { clave: '', texto: '' }
+}
+
+function diasSinGestion(c, hoy) {
+  const f = _soloFecha(c['Fecha Ult. Gestión'])
+  return /^\d{4}-\d{2}-\d{2}$/.test(f) ? Math.max(0, _diasEntre(f, hoy)) : null
+}
+function diasEnEstado(c, ahora) {
+  const t = _msDate(c.estado_gestion_en)
+  return t ? Math.max(0, Math.floor((ahora.getTime() - t) / 86400000)) : null
+}
+
+function colaCoincide(c, cola, hoy, ahora) {
+  switch (cola) {
+    case 'mi_dia': { const t = proximaDe(c, hoy).tipo; return t === 'hoy' || t === 'vencida' }
+    case 'nuevos24': { const t = _msDate(c.creado_en); return !!t && ahora.getTime() - t <= 86400000 }
+    case 'sin_contactar': return etapaDe(c) === 'nuevo'
+    case 'seguimiento_vencido': return proximaDe(c, hoy).tipo === 'vencida'
+    case 'cotizados': return etapaDe(c) === 'cotizacion_enviada'
+    default: return true
+  }
+}
+
+function filtrarLeads(lista, f, ahora) {
+  return lista.filter(c => {
+    if (f.llegada) {
+      const t = _msDate(c.creado_en)
+      if (f.llegada === 'sin_fecha') { if (t) return false }
+      else { const dias = { '24h': 1, '7d': 7, '30d': 30 }[f.llegada]; if (!t || ahora.getTime() - t > dias * 86400000) return false }
+    }
+    if (f.etapa && etapaDe(c) !== f.etapa) return false
+    if (f.origen) { if (f.origen === '__sin__') { if (c.fuente) return false } else if ((c.fuente || '') !== f.origen) return false }
+    return true
+  })
+}
+
+function ordenarLeads(lista, orden) {
+  const porLlegada = (a, b) => { const ta = _msDate(a.creado_en), tb = _msDate(b.creado_en); if (ta && tb) return tb - ta; if (ta) return -1; if (tb) return 1; return (b.id || 0) - (a.id || 0) }
+  const copia = [...lista]
+  switch (orden) {
+    case 'llegada_asc':  return copia.sort((a, b) => { const ta = _msDate(a.creado_en), tb = _msDate(b.creado_en); if (ta && tb) return ta - tb; if (ta) return -1; if (tb) return 1; return (a.id || 0) - (b.id || 0) })
+    case 'respuesta':    return copia.sort((a, b) => _msDate(b.ultimo_entrante_en) - _msDate(a.ultimo_entrante_en) || porLlegada(a, b))
+    case 'proxima':      return copia.sort((a, b) => { const fa = _soloFecha(a.recordatorio_at), fb = _soloFecha(b.recordatorio_at); if (fa && fb) return fa < fb ? -1 : fa > fb ? 1 : 0; return fa ? -1 : fb ? 1 : porLlegada(a, b) })
+    case 'nombre':       return copia.sort((a, b) => String(a.Contacto || '').localeCompare(String(b.Contacto || ''), 'es'))
+    default:             return copia.sort(porLlegada)
+  }
+}
+
+function kpisDe(lista, ahora) {
+  const k = { total: lista.length, nuevo: 0, contactado: 0, en_evaluacion: 0, aprobado: 0, cotizacion_enviada: 0, cerrados: 0, nuevos24: 0, nuevosAyer: 0, sinContactar: 0, masAntiguoDias: null, hayFechas: false }
+  const ahoraMs = ahora.getTime()
+  lista.forEach(c => {
+    const e = etapaDe(c)
+    if (e === 'no_interesado' || e === 'descartado') k.cerrados++; else k[e]++
+    const t = _msDate(c.creado_en)
+    if (t) {
+      k.hayFechas = true
+      if (ahoraMs - t <= 86400000) k.nuevos24++
+      else if (ahoraMs - t <= 2 * 86400000) k.nuevosAyer++
+    }
+    if (e === 'nuevo' && t) { const d = Math.floor((ahoraMs - t) / 86400000); if (k.masAntiguoDias === null || d > k.masAntiguoDias) k.masAntiguoDias = d }
+  })
+  k.sinContactar = k.nuevo                         // «Sin contactar» es la misma gente de la columna «Nuevo»
+  k.pctContactados = k.total ? Math.round(k.contactado * 100 / k.total) : 0
+  return k
+}
+
+function resumenDelDia(lista, hoy) {
+  let hoyN = 0, vencidos = 0
+  lista.forEach(c => { const t = proximaDe(c, hoy).tipo; if (t === 'hoy') hoyN++; else if (t === 'vencida') vencidos++ })
+  const dia = _diaLargo(hoy)
+  if (!hoyN && !vencidos) return `${dia} · no tienes acciones programadas para hoy`
+  return `${dia} · tienes ${hoyN} ${hoyN === 1 ? 'acción' : 'acciones'} para hoy y ${vencidos} ${vencidos === 1 ? 'seguimiento vencido' : 'seguimientos vencidos'}`
+}
+
+// Qué pasa al soltar una tarjeta en una columna: el valor de «estado de gestión» que se guarda (null = sin estado), o por qué no se puede.
+function valorAlSoltar(c, destino) {
+  if (etapaDe(c) === destino) return { ok: false, igual: true }
+  if (destino === 'nuevo') {
+    return computeFunnelGroup(c) === 'sin_enviar'
+      ? { ok: true, valor: null }
+      : { ok: false, mensaje: 'Nuevo lo asigna el sistema: este cliente ya fue contactado.' }
+  }
+  const valor = _VALOR_AL_SOLTAR[destino]
+  return valor ? { ok: true, valor } : { ok: false, mensaje: 'Etapa desconocida.' }
+}
+
+function _iniciales(nombre) {
+  return String(nombre || '?').trim().split(/\s+/).slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?'
+}
+
+// ── Cambio de vista ───────────────────────────────────
+function _actualizarSelectorVista() {
+  const activo = 'bg-brand-600 text-white', inactivo = 'text-slate-400 hover:text-slate-200', sep = 'border-l border-slate-600'
+  const clase = (v, extra = '') => `px-3 py-1.5 font-medium transition-colors whitespace-nowrap ${extra} ${_vista === v ? activo : inactivo}`
+  document.getElementById('vista-tabla').className = clase('tabla')
+  document.getElementById('vista-pipeline').className = clase('pipeline', sep)
+  document.getElementById('vista-original').className = clase('original', sep)
+  for (const [id, v] of [['vista-tabla', 'tabla'], ['vista-pipeline', 'pipeline'], ['vista-original', 'original']]) document.getElementById(id).setAttribute('aria-pressed', String(_vista === v))
+}
+
+// Muestra u oculta cada pieza según la vista (y la pestaña: «Inbox» siempre usa su tabla de siempre).
+function _aplicarVisibilidadVista() {
+  const nueva = _vista !== 'original', inbox = _filtroTab === 'inbox'
+  const verNueva = nueva && !inbox
+  document.getElementById('hero-original').classList.toggle('hidden', verNueva)
+  document.getElementById('stats-original').classList.toggle('hidden', verNueva)
+  document.getElementById('cabecera-leads').classList.toggle('hidden', !verNueva)
+  document.getElementById('vista-nueva').classList.toggle('hidden', !verNueva)
+  document.getElementById('tabla-body').closest('.overflow-x-auto').classList.toggle('hidden', verNueva)
+  document.getElementById('paginacion')?.classList.toggle('hidden', verNueva)
+  if (!verNueva) _cerrarMenuLead()
+}
+
+function setVista(v) {
+  _vista = ['tabla', 'pipeline', 'original'].includes(v) ? v : 'original'
+  _actualizarSelectorVista()
+  _aplicarVisibilidadVista()
+  if (_filtroTab !== 'inbox') { _preservarPagina = false; aplicarFiltros() }
+}
+
+// ── Dibujo ────────────────────────────────────────────
+function _punto(color) {
+  const c = { gris: '#94a3b8', verde: '#22c55e', ambar: '#f59e0b', rojo: '#ef4444' }[color] || '#94a3b8'
+  return `<span class="inline-block rounded-full flex-shrink-0" style="width:8px;height:8px;background:${c}"></span>`
+}
+
+function _pillEtapa(clave) {
+  const e = _ETAPA_POR_CLAVE[clave] || { label: clave }
+  return `<span class="ld-pill ld-et-${esc(clave)}">${esc(e.label)}</span>`
+}
+
+function _franjaProxima(c, px) {
+  const abrir = `data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" data-fecha="${esc(c.recordatorio_at || '')}" onclick="abrirRecordatorio(+this.dataset.id, this.dataset.nombre, this.dataset.fecha)"`
+  if (px.tipo === 'nada') {
+    return `<button type="button" ${abrir} class="ld-px ld-px-nada"><span>Sin acción</span><small>+ Programar</small></button>`
+  }
+  return `<button type="button" ${abrir} class="ld-px ld-px-${px.tipo}" title="Cambiar el recordatorio"><span>${esc(px.texto)}</span>${px.nota ? `<small>${esc(px.nota)}</small>` : ''}</button>`
+}
+
+// El estado de entrega de la plantilla de WhatsApp, en corto (la versión de «Original» lleva además el prefijo «Estado wtsp:»)
+function _entregaCorta(estado) {
+  const cfg = { enviado: ['✓ Enviado', 'text-slate-400'], entregado: ['✓✓ Entregado', 'text-sky-400'], leido: ['✓✓ Leído', 'text-emerald-400'], fallido: ['✗ Fallido', 'text-red-400'] }[estado]
+  return cfg ? `<span class="text-xs font-medium ${cfg[1]}">${cfg[0]}</span>` : ''
+}
+
+function _selectEvaluacion(c) {
+  const v = c.estado_gestion || ''
+  return `<select data-prev="${esc(v)}" onchange="actualizarEstadoGestion(${Number(c.id)}, this.value, this)" aria-label="Estado de gestión de ${esc(c.Contacto)}" class="eg-badge ${_egClass(v)}">
+    ${Object.entries(_EG_MAP).map(([k, d]) => `<option value="${esc(k)}"${v === k ? ' selected' : ''}>${esc(d.label)}</option>`).join('')}
+  </select>`
+}
+
+function _botonCotizar() {
+  return `<button type="button" onclick="avisarCotizar()" class="ld-cotizar" title="Cotizar llegará pronto">Cotizar</button>`
+}
+function avisarCotizar() { toast('Cotizar estará disponible muy pronto.', 'success') }
+
+const _CELDAS = {
+  lead: (c, x) => `<div class="font-medium val-text flex items-center flex-wrap gap-1">${esc(c.Contacto)}${c.es_nuevo ? `<span onclick="marcarVisto(${Number(c.id)}, this)" title="Marcar como visto" class="cursor-pointer badge-nuevo text-xs px-2 py-0.5 rounded-full font-semibold">NUEVO</span>` : ''}</div>
+    <div class="text-xs sidebar-text mt-0.5">${esc(c.Rut || '—')} · <span title="${esc(c.etapa_nombre || '')}">${esc(c.tipologia_nombre || 'Sin tipología')}</span></div>`,
+  llego: (c, x) => { const l = llegoDe(c, x.ahora); return l.sinFecha
+      ? `<div class="sidebar-text text-sm">—</div><div class="text-xs sub-text mt-0.5">${esc(l.fuente || 'Sin fecha de creación')}</div>`
+      : `<div class="val-text text-sm whitespace-nowrap">${esc(l.fecha)}</div><div class="text-xs sidebar-text mt-0.5">${esc(l.hace)}${l.fuente ? ' · ' + esc(l.fuente) : ''}</div>` },
+  etapa: (c, x) => _pillEtapa(etapaDe(c)),
+  contacto: (c, x) => { const k = contactoDe(c, x.ahora); return `<div class="flex items-center gap-1.5 text-sm val-text whitespace-nowrap">${_punto(k.punto)}<span>${esc(k.titulo)}</span>${_entregaCorta(c.estado_plantilla)}</div><div class="text-xs sidebar-text mt-0.5">${esc(k.detalle)}</div>` },
+  evaluacion: (c, x) => _selectEvaluacion(c),
+  proxima: (c, x) => _franjaProxima(c, proximaDe(c, x.hoy)),
+  proyecto: (c, x) => `<span class="sidebar-text text-sm">${esc(x.proyecto(c.proyecto_id))}</span>`,
+  ejecutivo: (c, x) => c.usuario_id ? `<span class="inline-flex items-center gap-1.5 text-sm val-text"><span class="ld-avatar">${esc(_iniciales(_nombreUsuario(c.usuario_id)))}</span>${esc(_nombreUsuario(c.usuario_id))}</span>` : '<span class="sub-text text-sm">Sin asignar</span>',
+  telefono: (c, x) => `<span class="font-mono text-xs sidebar-text">${esc(c.Telefono || '—')}</span>`,
+  ahorro: (c, x) => _ahorroUF(c) ? `<span class="val-text text-sm whitespace-nowrap">${esc(_ahorroUF(c))}</span>` : '<span class="sub-text text-sm">—</span>',
+  docs: (c, x) => { const d = docsDe(c); return d.clave ? `<span class="ld-docs ld-docs-${d.clave}">${esc(d.texto)}</span>` : '<span class="sub-text text-sm">—</span>' },
+  ultimo: (c, x) => `<span class="sidebar-text text-sm whitespace-nowrap">${esc(haceTexto(c.ultimo_entrante_en, x.ahora) || '—')}</span>`,
+  notas: (c, x) => { const n = c.notas_n == null ? NaN : Number(c.notas_n); return Number.isFinite(n) ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)" class="text-sm ${n ? 'val-text' : 'sub-text'}" title="Notas internas">${n}</button>` : '<span class="sub-text text-sm">—</span>' },
+  dias_gestion: (c, x) => { const d = diasSinGestion(c, x.hoy); return d == null ? '<span class="sub-text text-sm">—</span>' : `<span class="text-sm ${d >= 7 ? 'text-red-400' : 'sidebar-text'}">${d} d</span>` },
+  dias_estado: (c, x) => { const d = diasEnEstado(c, x.ahora); return d == null ? '<span class="sub-text text-sm">—</span>' : `<span class="sidebar-text text-sm">${d} d</span>` },
+  acciones: (c, x) => `<div class="flex items-center gap-2">${_accionesFila(c)}${_botonCotizar()}</div>`,
+}
+
+function _contextoLeads() {
+  const ahora = new Date()
+  return { ahora, hoy: _hoyChile(ahora), proyecto: id => { const p = proyectos.find(p => p.id === id); return p ? p.nombre : '—' } }
+}
+
+function renderVistaLeads(filtrados, conCerrados = filtrados) {
+  _baseLeads = filtrados
+  const x = _contextoLeads()
+  _clientesPorId = {}
+  clientes.forEach(c => { _clientesPorId[String(c.id)] = c })
+
+  // Cabecera y cifras: sobre lo que dejan pasar los filtros de arriba
+  document.getElementById('resumen-dia').textContent = resumenDelDia(filtrados, x.hoy)
+  document.getElementById('kpis-leads').innerHTML = _htmlKpis(kpisDe(filtrados, x.ahora))
+  document.getElementById('btn-leads-plantilla').classList.toggle('hidden', !_esAdmin(_perfil?.rol))
+
+  // Pestañas de colas: cada una con su cantidad
+  const conteo = Object.fromEntries(COLAS.map(q => [q.key, filtrados.filter(c => colaCoincide(c, q.key, x.hoy, x.ahora)).length]))
+  document.getElementById('ld-colas').innerHTML = COLAS.map(q => `<button type="button" onclick="setCola('${q.key}')" aria-pressed="${_cola === q.key}" class="ld-cola ${_cola === q.key ? 'on' : ''}">${esc(q.label)} <span class="n ${q.key === 'seguimiento_vencido' && conteo[q.key] ? 'rojo' : ''}">${conteo[q.key]}</span></button>`).join('')
+
+  const filtradosCola = filtrados.filter(c => colaCoincide(c, _cola, x.hoy, x.ahora))
+  const lista = ordenarLeads(filtrarLeads(filtradosCola, _filtrosLeads, x.ahora), _ordenLeads)
+  const visibles = new Set(lista.map(c => c.id))
+  _seleccionLeads = new Set([..._seleccionLeads].filter(id => visibles.has(id)))
+  document.getElementById('ld-filtros').innerHTML = _htmlFiltrosLeads(filtrados)
+  _dibujarSeleccion()
+
+  if (_vista === 'tabla') { _renderLeadsTabla(lista, x); return }
+  // Pipeline: las columnas de etapas abiertas salen de lo filtrado; las de «Cerrados» ignoran el filtro «Estado gestión» (que por defecto los esconde)
+  const cerrada = c => ETAPAS_CERRADAS.some(e => e.key === etapaDe(c))
+  const cerradas = ordenarLeads(filtrarLeads(conCerrados.filter(c => cerrada(c) && colaCoincide(c, _cola, x.hoy, x.ahora)), _filtrosLeads, x.ahora), _ordenLeads)
+  _renderLeadsPipeline(lista.filter(c => !cerrada(c)).concat(cerradas), x)
+}
+
+function _htmlKpis(k) {
+  const vs = !k.hayFechas ? 'Sin fecha de creación aún' : k.nuevos24 > k.nuevosAyer ? `+${k.nuevos24 - k.nuevosAyer} vs ayer` : k.nuevos24 < k.nuevosAyer ? `−${k.nuevosAyer - k.nuevos24} vs ayer` : 'igual que ayer'
+  const tarjetas = [
+    ['Nuevos 24 h', k.hayFechas ? k.nuevos24 : '—', vs],
+    ['Sin contactar', k.sinContactar, k.masAntiguoDias != null ? `más antiguo: ${k.masAntiguoDias} ${k.masAntiguoDias === 1 ? 'día' : 'días'}` : 'nunca contactados'],
+    ['Contactados', k.contactado, `${k.pctContactados}% del total`],
+    ['En evaluación', k.en_evaluacion, 'enviados a evaluar'],
+    ['Cotizados', k.cotizacion_enviada, 'cotizaciones enviadas'],
+    ['Aprobados', k.aprobado, 'listos para cotizar'],
+  ]
+  return tarjetas.map(([t, n, s]) => `<div class="glass ld-kpi"><p class="text-xs sidebar-text uppercase tracking-wider">${esc(t)}</p><b class="val-text">${esc(String(n))}</b><small class="sidebar-text">${esc(s)}</small></div>`).join('')
+}
+
+function _htmlFiltrosLeads(base) {
+  const opt = (v, t, sel) => `<option value="${esc(v)}"${sel === v ? ' selected' : ''}>${esc(t)}</option>`
+  const fuentes = [...new Set(base.map(c => c.fuente).filter(Boolean))]
+  const sel = (id, titulo, opciones, valor, campo) => `<label class="ld-chip"><span>${esc(titulo)}</span><select id="${id}" onchange="setFiltroLead('${campo}', this.value)" aria-label="${esc(titulo)}">${opciones.map(([v, t]) => opt(v, t, valor)).join('')}</select></label>`
+  return `
+    ${sel('ld-f-llegada', 'Llegada', [['', 'Todas'], ['24h', 'Últimas 24 h'], ['7d', 'Últimos 7 días'], ['30d', 'Últimos 30 días'], ['sin_fecha', 'Sin fecha']], _filtrosLeads.llegada, 'llegada')}
+    ${sel('ld-f-etapa', 'Etapa', [['', 'Todas'], ...ETAPAS.map(e => [e.key, e.label]), ...ETAPAS_CERRADAS.map(e => [e.key, e.label])], _filtrosLeads.etapa, 'etapa')}
+    ${sel('ld-f-origen', 'Origen', [['', 'Todos'], ...fuentes.map(f => [f, FUENTES[f] || f]), ['__sin__', 'Sin origen']], _filtrosLeads.origen, 'origen')}
+    <span class="flex-1"></span>
+    <label class="ld-chip"><span>Ordenar</span><select id="ld-orden" onchange="setOrdenLeads(this.value)" aria-label="Ordenar">
+      ${[['llegada_desc', 'Llegada · más reciente'], ['llegada_asc', 'Llegada · más antigua'], ['respuesta', 'Última respuesta del cliente'], ['proxima', 'Próxima acción'], ['nombre', 'Nombre (A–Z)']].map(([v, t]) => opt(v, t, _ordenLeads)).join('')}
+    </select></label>
+    ${_vista === 'tabla' ? `<div class="relative"><button type="button" id="btn-columnas" onclick="toggleColumnas(event)" class="filtro-btn rounded-md px-2.5 py-1 text-xs flex items-center gap-1.5">Columnas ▾</button><div id="panel-columnas" class="filtro-panel hidden absolute right-0 mt-1 rounded-lg shadow-xl z-30 p-2" style="min-width:190px">
+      ${COLUMNAS_TABLA.filter(c => !c.fija).map(c => `<label class="flex items-center gap-2 text-xs py-1 px-1.5 rounded cursor-pointer"><input type="checkbox" class="rounded accent-brand-600" ${_columnasTabla.includes(c.key) ? 'checked' : ''} onchange="alternarColumna('${c.key}', this.checked)">${esc(c.label)}</label>`).join('')}</div></div>` : ''}`
+}
+
+function _repintarLeads() { _preservarPagina = true; aplicarFiltros() }
+function setCola(k) { _cola = k; _paginaLeads = 1; aplicarFiltros() }
+function setFiltroLead(campo, v) { _filtrosLeads[campo] = v; _paginaLeads = 1; aplicarFiltros() }
+function setOrdenLeads(v) { _ordenLeads = v; _paginaLeads = 1; aplicarFiltros() }
+function toggleColumnas(e) { e.stopPropagation(); document.getElementById('panel-columnas').classList.toggle('hidden') }
+function alternarColumna(k, on) {
+  _columnasTabla = COLUMNAS_TABLA.filter(c => c.fija || (c.key === k ? on : _columnasTabla.includes(c.key))).map(c => c.key)
+  try { localStorage.setItem('crm-columnas-tabla', JSON.stringify(_columnasTabla)) } catch (e) { /* sin almacenamiento: vale solo en esta visita */ }
+  const abierto = !document.getElementById('panel-columnas').classList.contains('hidden')
+  _repintarLeads()
+  if (abierto) document.getElementById('panel-columnas')?.classList.remove('hidden')
+}
+document.addEventListener('click', e => {
+  const panel = document.getElementById('panel-columnas')
+  if (panel && !panel.contains(e.target) && e.target.id !== 'btn-columnas') panel.classList.add('hidden')
+  if (!e.target.closest?.('#ld-menu') && !e.target.closest?.('[data-ld-menu]')) _cerrarMenuLead()
+})
+
+// ── Tabla ─────────────────────────────────────────────
+function _renderLeadsTabla(lista, x) {
+  const total = lista.length
+  const totalPags = Math.max(1, Math.ceil(total / POR_PAGINA_LEADS))
+  if (_paginaLeads > totalPags) _paginaLeads = totalPags
+  const inicio = (_paginaLeads - 1) * POR_PAGINA_LEADS
+  const pagina = lista.slice(inicio, inicio + POR_PAGINA_LEADS)
+  const cols = COLUMNAS_TABLA.filter(c => _columnasTabla.includes(c.key))
+  const todosMarcados = pagina.length > 0 && pagina.every(c => _seleccionLeads.has(c.id))
+  const encabezado = `<tr class="thead-row text-xs uppercase tracking-wider border-b">
+    <th class="px-4 py-3 text-left"><input type="checkbox" aria-label="Seleccionar todos los de esta página" ${todosMarcados ? 'checked' : ''} onchange="seleccionarPaginaLeads(this.checked)"></th>
+    ${cols.map(c => `<th class="px-4 py-3 text-left whitespace-nowrap ld-c-${c.key}">${esc(c.label)}</th>`).join('')}</tr>`
+  const filas = pagina.map(c => `<tr class="trow border-b transition" data-lead="${Number(c.id)}">
+    <td class="px-4 py-3 align-top"><input type="checkbox" aria-label="Seleccionar a ${esc(c.Contacto)}" ${_seleccionLeads.has(c.id) ? 'checked' : ''} onchange="alternarSeleccionLead(${Number(c.id)}, this.checked)"></td>
+    ${cols.map(col => `<td class="px-4 py-3 align-top ld-c-${col.key}">${_CELDAS[col.key](c, x)}</td>`).join('')}</tr>`).join('')
+  document.getElementById('ld-contenido').innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm ld-tabla"><thead>${encabezado}</thead><tbody>${filas || `<tr><td colspan="${cols.length + 1}" class="px-6 py-12 text-center empty-text">No hay leads con estos filtros.</td></tr>`}</tbody></table></div>`
+  const desde = total ? inicio + 1 : 0, hasta = Math.min(total, inicio + POR_PAGINA_LEADS)
+  document.getElementById('ld-pie').innerHTML = `<span class="sidebar-text">Mostrando ${desde}–${hasta} de ${total} leads</span>
+    <span class="sidebar-text">Vista: tabla · <button type="button" class="underline" onclick="setVista('pipeline')">Ver como pipeline</button></span>
+    ${totalPags > 1 ? `<span class="flex gap-2"><button type="button" onclick="irPaginaLeads(${_paginaLeads - 1})" ${_paginaLeads === 1 ? 'disabled' : ''} class="px-3 py-1 rounded-lg text-xs glass sidebar-text disabled:opacity-40">← Anterior</button>
+      <button type="button" onclick="irPaginaLeads(${_paginaLeads + 1})" ${_paginaLeads === totalPags ? 'disabled' : ''} class="px-3 py-1 rounded-lg text-xs glass sidebar-text disabled:opacity-40">Siguiente →</button></span>` : ''}`
+}
+function irPaginaLeads(n) { _paginaLeads = Math.max(1, n); _repintarLeads() }
+
+// ── Selección y acciones en bloque ────────────────────
+function alternarSeleccionLead(id, on) { on ? _seleccionLeads.add(id) : _seleccionLeads.delete(id); _dibujarSeleccion() }
+function seleccionarPaginaLeads(on) {
+  const x = _contextoLeads()
+  const lista = ordenarLeads(filtrarLeads(_baseLeads.filter(c => colaCoincide(c, _cola, x.hoy, x.ahora)), _filtrosLeads, x.ahora), _ordenLeads)
+  lista.slice((_paginaLeads - 1) * POR_PAGINA_LEADS, _paginaLeads * POR_PAGINA_LEADS).forEach(c => on ? _seleccionLeads.add(c.id) : _seleccionLeads.delete(c.id))
+  _repintarLeads()
+}
+function _dibujarSeleccion() {
+  const barra = document.getElementById('ld-seleccion')
+  const n = _seleccionLeads.size
+  barra.classList.toggle('hidden', n === 0 || _vista !== 'tabla')
+  if (n === 0 || _vista !== 'tabla') { barra.innerHTML = ''; return }
+  const admin = _esAdmin(_perfil?.rol)
+  barra.innerHTML = `<span class="font-semibold">${n} ${n === 1 ? 'seleccionado' : 'seleccionados'}</span>
+    ${admin ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
+    <button type="button" onclick="avisarCotizar()" class="ld-bk" title="Llegará pronto">Enviar cotización</button>
+    <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
+    ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuarios.map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
+    <label class="ld-bk">Programar recordatorio <input type="date" onchange="accionMasiva('recordatorio', this.value); this.value=''" aria-label="Programar un recordatorio para los seleccionados"></label>
+    ${admin ? '<button type="button" onclick="accionMasiva(\'descartar\')" class="ld-bk">Descartar</button>' : ''}
+    <button type="button" onclick="_seleccionLeads.clear(); _repintarLeads()" class="ld-bk ml-auto">Quitar selección</button>`
+}
+
+async function accionMasiva(tipo, valor) {
+  const ids = [..._seleccionLeads]
+  if (!ids.length) return
+  if (tipo === 'plantilla') { abrirSelectorTemplate(null, null, ids); return }
+  let cambio, texto
+  if (tipo === 'etapa') {
+    if (!valor) return
+    cambio = { estado_gestion: valor === '__sin__' ? null : valor }
+    texto = `pasar a «${valor === '__sin__' ? 'Sin estado' : (_EG_MAP[valor] || {}).label}»`
+  } else if (tipo === 'asignar') {
+    if (!valor) return
+    cambio = { usuario_id: valor === '__sin__' ? null : valor }
+    texto = valor === '__sin__' ? 'dejar sin ejecutivo' : `asignar a ${_nombreUsuario(valor)}`
+  } else if (tipo === 'recordatorio') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(valor || '')) return
+    cambio = { recordatorio_at: valor }
+    texto = `programar el recordatorio del ${_fechaCorta(valor)}`
+  } else if (tipo === 'descartar') {
+    cambio = { archivado: true }
+    texto = 'descartar (podrás restaurarlos desde «Descartados»)'
+  } else return
+  if (!confirm(`¿${texto.charAt(0).toUpperCase() + texto.slice(1)} a ${ids.length} ${ids.length === 1 ? 'cliente' : 'clientes'}?`)) return
+  let ok = 0, fallos = 0
+  for (const id of ids) {
+    try {
+      await api('PATCH', `/api/clientes/${id}`, cambio)
+      const c = clientes.find(x => x.id === id)
+      if (c) Object.assign(c, cambio, 'estado_gestion' in cambio ? { estado_gestion_en: new Date().toISOString() } : {})
+      ok++
+    } catch (e) { fallos++ }
+  }
+  toast(fallos ? `⚠️ ${ok} actualizados y ${fallos} con error` : `✅ ${ok} ${ok === 1 ? 'actualizado' : 'actualizados'}`, fallos ? 'error' : 'success')
+  _seleccionLeads.clear()
+  if (tipo === 'descartar') await cargarClientes(true); else _repintarLeads()
+}
+
+// ── Pipeline ──────────────────────────────────────────
+function _nombreProyectoActual() {
+  const sel = document.getElementById('filtro-proyecto')
+  if (sel && sel.value) { const p = proyectos.find(p => p.id === sel.value); if (p) return p.nombre }
+  try { const p = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null'); if (p?.nombre) return p.nombre } catch (e) { /* sin proyecto */ }
+  return 'Todos los proyectos'
+}
+
+function _tarjeta(c, x) {
+  const e = etapaDe(c), ev = c.estado_gestion || '', l = llegoDe(c, x.ahora), px = proximaDe(c, x.hoy), d = docsDe(c)
+  const admin = _esAdmin(_perfil?.rol)
+  const ahorro = _ahorroUF(c)
+  const resp = c.ultimo_entrante_en ? `Respondió ${haceTexto(c.ultimo_entrante_en, x.ahora)}` : ''
+  return `<div class="kb-card" draggable="true" data-kb-id="${Number(c.id)}" aria-label="Cliente ${esc(c.Contacto)}">
+    <div class="flex items-start justify-between gap-2"><span class="font-semibold text-sm val-text kb-nombre">${esc(c.Contacto)}</span><span class="text-xs sidebar-text whitespace-nowrap">${esc(l.hace)}</span></div>
+    <div class="text-xs sidebar-text mt-0.5">${esc(c.tipologia_nombre || 'Sin tipología')}${ahorro ? ' · Ahorro ' + esc(ahorro) : ''}</div>
+    <div class="flex flex-wrap items-center gap-1.5 mt-2">
+      ${ev && ev !== e ? `<span class="ld-chip-mini eg-badge ${_egClass(ev)}">${esc((_EG_MAP[ev] || _EG_MAP['']).label)}</span>` : ''}
+      ${l.fuente ? `<span class="ld-chip-mini ld-chip-gris">${esc(l.fuente)}</span>` : ''}
+      ${d.clave ? `<span class="ld-chip-mini ld-docs ld-docs-${d.clave}">Docs ${esc(d.texto.toLowerCase())}</span>` : ''}
+      ${c.usuario_id ? `<span class="ld-avatar" title="${esc(_nombreUsuario(c.usuario_id))}">${esc(_iniciales(_nombreUsuario(c.usuario_id)))}</span>` : ''}
+    </div>
+    <div class="mt-2">${_franjaProxima(c, px)}</div>
+    ${resp ? `<div class="text-xs sub-text mt-1.5">${esc(resp)}</div>` : ''}
+    <div class="flex items-center gap-2 mt-2.5">
+      ${admin ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
+      ${_botonCotizar()}
+      <button type="button" data-ld-menu="${Number(c.id)}" onclick="abrirMenuLead(event, ${Number(c.id)})" class="ld-mas" aria-label="Más acciones de ${esc(c.Contacto)}" aria-haspopup="true">⋯</button>
+    </div></div>`
+}
+
+function _renderLeadsPipeline(lista, x) {
+  const porEtapa = Object.fromEntries([...ETAPAS, ...ETAPAS_CERRADAS].map(e => [e.key, []]))
+  lista.forEach(c => porEtapa[etapaDe(c)].push(c))
+  const columna = (e, conSub = true) => {
+    const items = porEtapa[e.key]
+    const mostrar = _tarjetasMostradas[e.key] || TARJETAS_POR_TANDA
+    return `<section class="kb-col" data-kb-etapa="${e.key}" aria-label="${esc(e.label)}">
+      <header class="flex items-center justify-between"><span class="flex items-center gap-2 font-semibold text-sm val-text"><span class="rounded-full" style="width:8px;height:8px;background:${e.color}"></span>${esc(e.label)}</span><span class="ld-n">${items.length}</span></header>
+      ${conSub && e.sub ? `<p class="text-xs sidebar-text mt-1 mb-2">${esc(e.sub)}</p>` : '<div class="mb-2"></div>'}
+      ${items.slice(0, mostrar).map(c => _tarjeta(c, x)).join('') || '<p class="text-xs sub-text py-4 text-center">Sin clientes</p>'}
+      ${items.length > mostrar ? `<button type="button" onclick="verMasTarjetas('${e.key}')" class="w-full text-xs py-2 rounded-lg glass sidebar-text">Ver ${Math.min(TARJETAS_POR_TANDA, items.length - mostrar)} más (${items.length - mostrar} restantes)</button>` : ''}
+    </section>`
+  }
+  const cerrados = ETAPAS_CERRADAS.reduce((n, e) => n + porEtapa[e.key].length, 0)
+  const tablero = document.getElementById('kb-tablero')
+  const antes = tablero ? { izq: tablero.scrollLeft, cols: Object.fromEntries([...tablero.querySelectorAll('[data-kb-etapa]')].map(c => [c.dataset.kbEtapa, c.scrollTop])) } : null
+  document.getElementById('ld-contenido').innerHTML = `
+    <div class="px-6 pt-4 pb-2 flex items-start justify-between gap-3 flex-wrap">
+      <div><h2 class="font-semibold val-text">Pipeline · ${esc(_nombreProyectoActual())}</h2>
+        <p class="text-xs sidebar-text mt-0.5">Arrastra la tarjeta para cambiar de etapa. El sistema mueve automáticamente Nuevo → Contactado. En el celular usa «⋯ → Mover a».</p></div>
+      <button type="button" onclick="_cerradosAbiertos = !_cerradosAbiertos; _repintarLeads()" class="filtro-btn rounded-md px-2.5 py-1 text-xs" aria-expanded="${_cerradosAbiertos}">Cerrados (${cerrados}) ${_cerradosAbiertos ? '▴' : '▾'}</button>
+    </div>
+    <div id="kb-tablero" class="kb-tablero px-6 pb-4">${ETAPAS.map(e => columna(e)).join('')}${_cerradosAbiertos ? ETAPAS_CERRADAS.map(e => columna(e, false)).join('') : ''}</div>`
+  if (antes) {
+    const t = document.getElementById('kb-tablero')
+    t.scrollLeft = antes.izq
+    t.querySelectorAll('[data-kb-etapa]').forEach(c => { c.scrollTop = antes.cols[c.dataset.kbEtapa] || 0 })
+  }
+  const visibles = ETAPAS.concat(_cerradosAbiertos ? ETAPAS_CERRADAS : []).reduce((n, e) => n + porEtapa[e.key].length, 0)
+  document.getElementById('ld-pie').innerHTML = `<span class="sidebar-text">Mostrando ${visibles} ${visibles === 1 ? 'lead' : 'leads'} en ${ETAPAS.length + (_cerradosAbiertos ? 2 : 0)} columnas</span>
+    <span class="sidebar-text">Vista: pipeline · <button type="button" class="underline" onclick="setVista('tabla')">Ver como tabla</button></span>`
+}
+function verMasTarjetas(k) { _tarjetasMostradas[k] = (_tarjetasMostradas[k] || TARJETAS_POR_TANDA) + TARJETAS_POR_TANDA; _repintarLeads() }
+
+// Arrastrar y soltar
+document.addEventListener('dragstart', e => {
+  const t = e.target.closest?.('[data-kb-id]')
+  if (!t) return
+  _arrastrando = Number(t.dataset.kbId)
+  e.dataTransfer.setData('text/plain', String(_arrastrando))
+  e.dataTransfer.effectAllowed = 'move'
+  t.classList.add('kb-arrastrando')
+  document.getElementById('kb-tablero')?.classList.add('kb-soltando')
+})
+document.addEventListener('dragover', e => {
+  const col = e.target.closest?.('[data-kb-etapa]')
+  if (!col || _arrastrando == null) return
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  document.querySelectorAll('.kb-col.sobre').forEach(c => { if (c !== col) c.classList.remove('sobre') })
+  col.classList.add('sobre')
+})
+document.addEventListener('dragend', () => {
+  _arrastrando = null
+  document.querySelectorAll('.kb-arrastrando').forEach(t => t.classList.remove('kb-arrastrando'))
+  document.querySelectorAll('.kb-col.sobre').forEach(c => c.classList.remove('sobre'))
+  document.getElementById('kb-tablero')?.classList.remove('kb-soltando')
+})
+document.addEventListener('drop', e => {
+  const col = e.target.closest?.('[data-kb-etapa]')
+  if (!col || _arrastrando == null) return
+  e.preventDefault()
+  const id = _arrastrando
+  _arrastrando = null
+  moverLeadAEtapa(id, col.dataset.kbEtapa)
+})
+
+async function moverLeadAEtapa(id, destino) {
+  const c = clientes.find(x => x.id === id)
+  if (!c) return
+  const r = valorAlSoltar(c, destino)
+  if (!r.ok) { if (!r.igual) toast(r.mensaje, 'error'); _repintarLeads(); return }
+  const antes = { estado_gestion: c.estado_gestion, estado_gestion_en: c.estado_gestion_en }
+  c.estado_gestion = r.valor
+  c.estado_gestion_en = new Date().toISOString()
+  _repintarLeads()
+  try {
+    await api('PATCH', `/api/clientes/${id}`, { estado_gestion: r.valor })
+    toast('✅ ' + c.Contacto + ' → ' + (_ETAPA_POR_CLAVE[destino] || {}).label, 'success')    // toast() usa textContent: no interpreta HTML
+  } catch (e) {
+    Object.assign(c, antes)
+    _repintarLeads()
+    toast('❌ No se pudo cambiar la etapa: ' + e.message, 'error')
+  }
+}
+
+// Menú «⋯» de cada tarjeta: las acciones de siempre y «Mover a» (sirve también con teclado y celular). Sus botones solo llevan la acción y la etapa:
+// el nombre y los demás datos se leen del cliente, nunca van pegados dentro de un onclick.
+function _cerrarMenuLead() { document.getElementById('ld-menu')?.remove() }
+function abrirMenuLead(e, id) {
+  e.stopPropagation()
+  const existente = document.getElementById('ld-menu')
+  if (existente && existente.dataset.id === String(id)) { _cerrarMenuLead(); return }
+  _cerrarMenuLead()
+  const c = clientes.find(x => x.id === id)
+  if (!c) return
+  const admin = _esAdmin(_perfil?.rol)
+  const item = (accion, texto, etapa = '') => `<button type="button" role="menuitem" data-accion="${accion}"${etapa ? ` data-etapa="${esc(etapa)}"` : ''}>${esc(texto)}</button>`
+  const etapa = etapaDe(c)
+  const menu = document.createElement('div')
+  menu.id = 'ld-menu'
+  menu.dataset.id = String(id)
+  menu.setAttribute('role', 'menu')
+  menu.innerHTML = [
+    item('evaluacion', 'Evaluación'),
+    admin ? item('conversacion', 'Ver conversación') : '',
+    admin ? item('contexto', 'Contexto del bot') : '',
+    item('notas', 'Notas internas'),
+    item('recordatorio', 'Recordatorio'),
+    admin ? item('asignar', 'Asignar ejecutivo') : '',
+    item('editar', 'Editar cliente'),
+    admin ? (_filtroTab === 'descartados' ? item('restaurar', 'Restaurar cliente') : item('descartar', 'Descartar cliente')) : '',
+    '<p class="ld-menu-t">Mover a</p>',
+    ...[...ETAPAS, ...ETAPAS_CERRADAS].filter(x => x.key !== etapa && x.key !== 'nuevo').map(x => item('mover', x.label, x.key)),
+  ].join('')
+  menu.addEventListener('click', ev => {
+    const b = ev.target.closest('button[data-accion]')
+    if (b) accionMenuLead(b.dataset.accion, id, b.dataset.etapa)
+  })
+  document.body.appendChild(menu)
+  const r = e.currentTarget.getBoundingClientRect()
+  menu.style.top = `${Math.min(window.innerHeight - menu.offsetHeight - 8, r.bottom + 4)}px`
+  menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, r.right - menu.offsetWidth))}px`
+  menu.querySelector('button')?.focus()
+}
+function accionMenuLead(accion, id, etapa) {
+  _cerrarMenuLead()
+  const c = clientes.find(x => x.id === id)
+  if (!c) return
+  const nombre = c.Contacto || ''
+  const admin = _esAdmin(_perfil?.rol)
+  switch (accion) {
+    case 'evaluacion':   return abrirEvaluacion(id)
+    case 'notas':        return abrirNotas(id, nombre)
+    case 'recordatorio': return abrirRecordatorio(id, nombre, c.recordatorio_at || '')
+    case 'editar':       return abrirEditarCliente(c)
+    case 'mover':        return moverLeadAEtapa(id, etapa)
+    case 'conversacion': return admin && abrirConversacion(id, nombre)
+    case 'contexto':     return admin && abrirContexto(id, nombre)
+    case 'asignar':      return admin && abrirAsignar(id, nombre, c.usuario_id || '')
+    case 'descartar':    return admin && descartarCliente(id, nombre)
+    case 'restaurar':    return admin && restaurarCliente(id, nombre)
+  }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') _cerrarMenuLead() })
+
+// Botones del encabezado de las vistas nuevas
+async function leadsImportarExcel() { await abrirModal(); cambiarTabModalCliente('masivo') }
+function leadsEnviarPlantilla() {
+  if (!_seleccionLeads.size) { toast('Marca primero en la tabla los leads a los que quieres escribir.', 'error'); if (_vista !== 'tabla') setVista('tabla'); return }
+  abrirSelectorTemplate(null, null, [..._seleccionLeads])
 }
 
 // ─── TEMPLATE SELECTOR ────────────────────────────
