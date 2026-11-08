@@ -148,7 +148,10 @@
     .ld-c-evaluacion { min-width:150px; }
     .ld-c-proxima { min-width:170px; }
     .ld-c-proyecto, .ld-c-ejecutivo { min-width:130px; }
-    .ld-c-acciones { min-width:330px; }
+    .ld-c-acciones { min-width:420px; }
+    .ld-tabla th.ld-c-acciones, .ld-tabla td.ld-c-acciones { position:sticky; right:0; z-index:1; background:var(--ld-card); box-shadow:-10px 0 10px -10px rgba(0,0,0,.28); }
+    .ld-tabla tr:hover td.ld-c-acciones { background:var(--ld-card-hover); }
+    @media (max-width:900px) { .ld-tabla th.ld-c-acciones, .ld-tabla td.ld-c-acciones { position:static; box-shadow:none; } }
     .ld-cola { display:inline-flex; align-items:center; gap:6px; padding:8px 12px; font-size:.78rem; font-weight:500; color:var(--ld-suave); border-bottom:2px solid transparent; margin-bottom:-1px; white-space:nowrap; transition:color .15s; }
     .ld-cola:hover { color:var(--ld-texto); }
     .ld-cola.on { color:var(--ld-texto); border-bottom-color:#0ea5e9; font-weight:600; }
@@ -1533,7 +1536,7 @@ function _badgeEntrega(estado_plantilla) {
   return `<span class="text-[10px] uppercase tracking-wide opacity-50 mr-1">Estado wtsp:</span><span class="text-xs font-medium ${c.cls}">${c.txt}</span>`
 }
 
-// Los botones de acción de un cliente (Evaluación, conversación, contexto, notas, recordatorio, asignar, editar, descartar/restaurar).
+// Los botones de acción de un cliente (Evaluación, Cotizar —solo con permiso—, conversación, contexto, notas, recordatorio, asignar, editar, descartar/restaurar).
 // La usan la pantalla «Original» y la columna Acciones de la vista «Tabla»: salen idénticos.
 function _accionesFila(c) {
   const esAdmin = _esAdmin(_perfil?.rol)
@@ -1543,6 +1546,7 @@ function _accionesFila(c) {
         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
         Evaluación
       </button>
+      ${_botonCotizar(c)}
       ${esAdmin ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" title="Ver conversación"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2037,7 +2041,7 @@ function _selectEvaluacion(c) {
 }
 
 // «Cotizar» solo se ofrece a quien tiene permiso (owner y administrador; los ejecutivos cuando se encienda COTIZAR_PARA_EJECUTIVOS): el servidor lo exige igual.
-function _puedeCotizar() { return !!_perfil?.puede_cotizar }
+function _puedeCotizar() { const p = _perfil?.puede_cotizar; return p === undefined ? _esAdmin(_perfil?.rol) : !!p }
 function _botonCotizar(c) {
   if (!_puedeCotizar()) return ''
   return `<button type="button" data-id="${Number(c.id)}" onclick="abrirCotizar(+this.dataset.id)" class="ld-cotizar" title="Enviar una cotización en PDF por correo o WhatsApp">Cotizar</button>`
@@ -2062,7 +2066,7 @@ const _CELDAS = {
   notas: (c, x) => { const n = c.notas_n == null ? NaN : Number(c.notas_n); return Number.isFinite(n) ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)" class="text-sm ${n ? 'val-text' : 'sub-text'}" title="Notas internas">${n}</button>` : '<span class="sub-text text-sm">—</span>' },
   dias_gestion: (c, x) => { const d = diasSinGestion(c, x.hoy); return d == null ? '<span class="sub-text text-sm">—</span>' : `<span class="text-sm ${d >= 7 ? 'text-red-400' : 'sidebar-text'}">${d} d</span>` },
   dias_estado: (c, x) => { const d = diasEnEstado(c, x.ahora); return d == null ? '<span class="sub-text text-sm">—</span>' : `<span class="sidebar-text text-sm">${d} d</span>` },
-  acciones: (c, x) => `<div class="flex items-center gap-2">${_accionesFila(c)}${_botonCotizar(c)}</div>`,
+  acciones: (c, x) => `<div class="flex items-center gap-2">${_accionesFila(c)}</div>`,
 }
 
 function _contextoLeads() {
