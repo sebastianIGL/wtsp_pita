@@ -9,7 +9,7 @@ from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.autorizacion import exigir_cliente, exigir_proyecto
 from app.clients.whatsapp import _build_body_params, send_whatsapp_template
-from app.core.errors import respuesta_error
+from app.core.errors import AppError, respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
 from app.services.mensajes import insertar_mensaje
@@ -17,6 +17,7 @@ from app.services.plantillas import TEMPLATE_VARS_MAP, _pool_plantilla
 from app.services.prospectos import upsert_prospecto
 from app.services.carga_clientes import RECOMENDADO_POR_PERSONA, contar_filas, ejecutivos_disponibles, exige_confirmacion, leer_archivo, recomendar, validar_asignado, validar_reparto
 from app.services.importacion_csv import importar_clientes_stream
+from app.services.reparto_existentes import bloques, encontrar_clientes, exige_confirmacion_reparto, ids_del_cuerpo, reasignar
 from app.services.proyectos import obtener_proyecto_por_id
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
@@ -60,6 +61,58 @@ async def api_analizar_importacion(request: Request, file: UploadFile = File(...
         "limite_recomendado": RECOMENDADO_POR_PERSONA, "ejecutivos": ejecutivos,
         "recomendacion": recomendar(se_cargan, len([e for e in ejecutivos if e["rol"] == "ejecutivo"])),
     }
+
+
+_SOLO_ADMIN_REPARTO = "Solo administradores pueden repartir clientes entre ejecutivos."
+
+
+async def _cuerpo_json(request: Request) -> Any:
+    try:
+        return await request.json()
+    except ValueError:
+        raise AppError("No se pudo leer la solicitud. Vuelve a intentarlo.", 400)
+
+
+@router.post("/api/clientes/repartir/analizar")
+async def api_analizar_reparto(request: Request):
+    """Antes de repartir clientes ya cargados: cuántos son, a quién pertenecen hoy, a quién se podrían repartir y qué se recomienda."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content=_SOLO_ADMIN_REPARTO, status_code=403, media_type="text/plain")
+    ids = ids_del_cuerpo(await _cuerpo_json(request))
+    filas = await encontrar_clientes(ids)
+    proyectos = {str(f.get("proyecto_id")) for f in filas.values() if f.get("proyecto_id")}
+    ejecutivos = await ejecutivos_disponibles(next(iter(proyectos)) if len(proyectos) == 1 else None)
+    nombres = {e["id"]: e["nombre"] for e in ejecutivos}
+    hoy: Dict[str, int] = {}
+    for f in filas.values():
+        hoy[str(f.get("usuario_id") or "")] = hoy.get(str(f.get("usuario_id") or ""), 0) + 1
+    return {
+        "total": len(ids), "se_cargan": len(ids), "duplicados": 0, "con_errores": 0, "errores": [], "por_proyecto": {}, "limite_recomendado": RECOMENDADO_POR_PERSONA,
+        "actuales": [{"usuario_id": u or None, "nombre": nombres.get(u) or ("Sin asignar" if not u else "Otra persona"), "cantidad": n} for u, n in sorted(hoy.items(), key=lambda x: -x[1])],
+        "ejecutivos": ejecutivos, "recomendacion": recomendar(len(ids), len([e for e in ejecutivos if e["rol"] == "ejecutivo"]), verbo="repartirían"),
+    }
+
+
+@router.post("/api/clientes/repartir")
+async def api_repartir_clientes(request: Request):
+    """Reparte clientes ya cargados entre ejecutivos: ``{ids: [...], reparto: [{usuario_id, cantidad}], confirmo?}``. Solo administración."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    if not _solo_admin(perfil):
+        return Response(content=_SOLO_ADMIN_REPARTO, status_code=403, media_type="text/plain")
+    cuerpo = await _cuerpo_json(request)
+    ids = ids_del_cuerpo(cuerpo)
+    reparto = await validar_reparto(cuerpo.get("reparto"))
+    bloques(ids, reparto)                                         # que el reparto sume exactamente los clientes elegidos, antes de tocar nada
+    aviso = None if (request.query_params.get("confirmo") == "1" or cuerpo.get("confirmo") is True) else exige_confirmacion_reparto(reparto)
+    if aviso:
+        return Response(content=aviso, status_code=409, media_type="text/plain")
+    await encontrar_clientes(ids)
+    return await reasignar(ids, reparto)
 
 
 @router.post("/api/clientes/importar")

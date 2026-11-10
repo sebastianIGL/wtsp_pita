@@ -29,7 +29,7 @@ _MAX_PAGINAS = 30                    # tope de la lectura de cargas actuales (30
 Reparto = List[Tuple[Optional[str], int]]          # [(usuario_id o None = «sin asignar», cantidad)]
 
 
-def recomendar(total: int, disponibles: int) -> Dict[str, Any]:
+def recomendar(total: int, disponibles: int, verbo: str = "cargarían") -> Dict[str, Any]:
     """La recomendación para ``total`` clientes con ``disponibles`` ejecutivos activos: cuántas personas y cuántos clientes a cada una."""
     if total <= 0:
         return {"personas": 0, "por_persona": 0, "excede": False, "mensaje": ""}
@@ -37,11 +37,11 @@ def recomendar(total: int, disponibles: int) -> Dict[str, Any]:
     personas = 1 if necesarias <= 1 else min(necesarias, max(disponibles, 1))
     por_persona = math.ceil(total / personas)
     if necesarias <= 1:
-        mensaje = f"Se cargarían {total} clientes: puedes asignarlos a una sola persona (lo recomendado es hasta {RECOMENDADO_POR_PERSONA} por persona)."
+        mensaje = f"Se {verbo} {total} clientes: puedes asignarlos a una sola persona (lo recomendado es hasta {RECOMENDADO_POR_PERSONA} por persona)."
     elif disponibles >= necesarias:
-        mensaje = f"Se cargarían {total} clientes. Recomendación: asignar {por_persona} a cada una de {personas} personas."
+        mensaje = f"Se {verbo} {total} clientes. Recomendación: asignar {por_persona} a cada una de {personas} personas."
     else:
-        mensaje = (f"Se cargarían {total} clientes y lo recomendado es hasta {RECOMENDADO_POR_PERSONA} por persona, pero solo hay {disponibles} "
+        mensaje = (f"Se {verbo} {total} clientes y lo recomendado es hasta {RECOMENDADO_POR_PERSONA} por persona, pero solo hay {disponibles} "
                    f"ejecutivo{'s' if disponibles != 1 else ''} activo{'s' if disponibles != 1 else ''}: tocarían {por_persona} a cada uno.")
     return {"personas": personas, "por_persona": por_persona, "excede": por_persona > RECOMENDADO_POR_PERSONA, "mensaje": mensaje}
 
