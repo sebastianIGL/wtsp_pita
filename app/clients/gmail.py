@@ -7,6 +7,7 @@ import asyncio
 import base64
 import json
 import logging
+import mimetypes
 import re
 from email import encoders as _email_encoders
 from email.mime.base import MIMEBase
@@ -86,6 +87,18 @@ def _gmail_get_token_sync(impersonate_email: str) -> str:
     return creds.token
 
 
+_TIPO_VALIDO = re.compile(r"^[a-z0-9][a-z0-9!#$&^_.+-]{0,60}/[a-z0-9][a-z0-9!#$&^_.+-]{0,100}$")
+
+
+def _tipo_adjunto(adjunto: Dict) -> str:
+    """El tipo de archivo con que se adjunta (PDF, imagen…): el que viene con el adjunto si es válido; si no, el que sugiere su nombre; si no, «archivo genérico»."""
+    declarado = str(adjunto.get("content_type") or "").split(";")[0].strip().lower()
+    if _TIPO_VALIDO.fullmatch(declarado) and declarado != "application/octet-stream":
+        return declarado
+    adivinado, _ = mimetypes.guess_type(str(adjunto.get("filename") or ""))
+    return adivinado if adivinado and _TIPO_VALIDO.fullmatch(adivinado) else "application/octet-stream"
+
+
 async def _gmail_send(
     *,
     from_addr: str,
@@ -119,7 +132,8 @@ async def _gmail_send(
         alt.attach(MIMEText(html, "html"))
         msg.attach(alt)
         for a in attachments:
-            part = MIMEBase("application", "octet-stream")
+            tipo, _, subtipo = _tipo_adjunto(a).partition("/")
+            part = MIMEBase(tipo, subtipo)
             part.set_payload(a["content"])
             _email_encoders.encode_base64(part)
             part.add_header("Content-Disposition", "attachment", filename=a["filename"])
