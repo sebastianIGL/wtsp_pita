@@ -196,6 +196,8 @@
     .kb-card:active { cursor:grabbing; }
     .kb-card.kb-arrastrando { opacity:.4; }
     .kb-nombre { overflow-wrap:anywhere; }
+    .aviso-lista { background:rgba(245,158,11,.12); color:#92400e; border-bottom:1px solid rgba(245,158,11,.35); }
+    .dark .aviso-lista { color:#fbbf24; }
     .ld-chip-mini { font-size:.66rem; padding:2px 8px; border-radius:9999px; font-weight:600; white-space:nowrap; }
     select.ld-chip-mini { padding:2px 8px; }
     .ld-chip-gris { background:var(--ld-col); border:1px solid var(--ld-borde); color:var(--ld-suave); font-weight:500; }
@@ -318,6 +320,7 @@
 <!-- ═══════════════════ TABLA ═══════════════════ -->
 <div class="px-8 pb-16">
   <div class="glass rounded-2xl overflow-hidden">
+    <p id="aviso-tope-lista" class="hidden px-6 py-2 text-xs aviso-lista" role="status"></p>
 
     <!-- Toolbar -->
     <div class="toolbar px-6 py-2.5 flex items-center justify-between flex-wrap gap-3 border-b">
@@ -1213,12 +1216,22 @@ async function cargarClientes(preservar = false) {
     if (_filtroTab === 'descartados') partes.push('archivado=true')
     const qs = partes.length ? `?${partes.join('&')}` : ''
     clientes = await api('GET', `/api/clientes${qs}`)
+    _avisarSiHayMasClientes()
     actualizarStats()
     aplicarFiltros()
   } catch(e) {
     document.getElementById('tabla-body').innerHTML =
       `<tr><td colspan="7" class="px-6 py-12 text-center err-text">Error al conectar. ¿Está el servidor activo?</td></tr>`
   }
+}
+
+// La lista trae todos los clientes hasta MAX_CLIENTES_LISTA (los más recientes primero); si se llega al tope, los más antiguos quedan fuera y se avisa.
+function _avisarSiHayMasClientes() {
+  const el = document.getElementById('aviso-tope-lista')
+  if (!el) return
+  const lleno = clientes.length >= MAX_CLIENTES_LISTA
+  el.classList.toggle('hidden', !lleno)
+  el.textContent = lleno ? `Se muestran los ${MAX_CLIENTES_LISTA.toLocaleString('es-CL')} clientes más recientes; hay más. Para ver los más antiguos entra a un proyecto desde el panel.` : ''
 }
 
 function actualizarStats() {
@@ -1718,6 +1731,8 @@ const COLUMNAS_TABLA = [
 ]
 const POR_PAGINA_LEADS = 30
 const TARJETAS_POR_TANDA = 20
+const MAX_CLIENTES_LISTA = 10000     // el servidor no manda más que esto (app/services/clientes_vistas.py): si se llega, se avisa que hay más
+const MUCHAS_TARJETAS = 300          // sobre esto, «Mostrar todas» las tarjetas del Pipeline pregunta antes
 
 const VISTAS = ['tabla', 'pipeline', 'original']
 // Se entra en «Tabla»; el panel puede pedir otra con ?vista=tabla|pipeline|original y el navegador recuerda la última que se eligió.
@@ -1737,6 +1752,7 @@ let _filtrosLeads = { llegada: '', etapa: '', origen: '' }
 let _seleccionLeads = new Set()
 let _paginaLeads = 1
 let _baseLeads = []                      // los clientes que pasan los filtros de la barra de arriba (antes de las pestañas de abajo y de los filtros propios)
+let _porEtapaActual = null                // las tarjetas del Pipeline por etapa, tal como se dibujaron (para contar las ocultas)
 let _tarjetasMostradas = {}              // etapa → cuántas tarjetas se ven
 let _cerradosAbiertos = false
 let _arrastrando = null
@@ -2124,9 +2140,22 @@ function irPaginaLeads(n) { _paginaLeads = Math.max(1, n); _repintarLeads() }
 
 // ── Selección y acciones en bloque ────────────────────
 function alternarSeleccionLead(id, on) { on ? _seleccionLeads.add(id) : _seleccionLeads.delete(id); _dibujarSeleccion() }
-function seleccionarPaginaLeads(on) {
+// Todos los clientes de la lista que se ve (todas las páginas), en el orden en que se ven.
+function _listaTablaCompleta() {
   const x = _contextoLeads()
-  const lista = ordenarLeads(filtrarLeads(_baseLeads.filter(c => colaCoincide(c, _cola, x.hoy, x.ahora)), _filtrosLeads, x.ahora), _ordenLeads)
+  return ordenarLeads(filtrarLeads(_baseLeads.filter(c => colaCoincide(c, _cola, x.hoy, x.ahora)), _filtrosLeads, x.ahora), _ordenLeads)
+}
+function seleccionarTodosLosDeLaLista() { _listaTablaCompleta().forEach(c => _seleccionLeads.add(c.id)); _repintarLeads() }
+// Reparte entre ejecutivos los clientes seleccionados (solo administración): con el filtro de ejecutivo y «Seleccionar los N de esta lista» se reparte lo que quedó a una sola persona.
+function repartirSeleccion() {
+  if (!_esAdmin(_perfil?.rol)) return
+  const ids = _listaTablaCompleta().filter(c => _seleccionLeads.has(c.id)).map(c => c.id)
+  if (!ids.length) return
+  CargaClientes.repartir({ token: () => _token, acento: '#0ea5e9', ids,
+    alTerminar: async () => { _seleccionLeads.clear(); await cargarClientes(true) } })
+}
+function seleccionarPaginaLeads(on) {
+  const lista = _listaTablaCompleta()
   lista.slice((_paginaLeads - 1) * POR_PAGINA_LEADS, _paginaLeads * POR_PAGINA_LEADS).forEach(c => on ? _seleccionLeads.add(c.id) : _seleccionLeads.delete(c.id))
   _repintarLeads()
 }
@@ -2136,12 +2165,15 @@ function _dibujarSeleccion() {
   barra.classList.toggle('hidden', n === 0 || _vista !== 'tabla')
   if (n === 0 || _vista !== 'tabla') { barra.innerHTML = ''; return }
   const admin = _esAdmin(_perfil?.rol)
+  const total = _listaTablaCompleta().length
   barra.innerHTML = `<span class="font-semibold">${n} ${n === 1 ? 'seleccionado' : 'seleccionados'}</span>
+    ${total > n ? `<button type="button" onclick="seleccionarTodosLosDeLaLista()" class="ld-bk">Seleccionar los ${total.toLocaleString('es-CL')} de esta lista</button>` : ''}
     ${admin ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
     ${_puedeCotizar() ? '<button type="button" onclick="cotizarSeleccion()" class="ld-bk" title="Se cotiza de a un cliente">Enviar cotización</button>' : ''}
     <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
     ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuarios.map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
     <label class="ld-bk">Programar recordatorio <input type="date" onchange="accionMasiva('recordatorio', this.value); this.value=''" aria-label="Programar un recordatorio para los seleccionados"></label>
+    ${admin ? '<button type="button" onclick="repartirSeleccion()" class="ld-bk" title="Reparte los seleccionados entre varios ejecutivos">Repartir…</button>' : ''}
     ${admin ? '<button type="button" onclick="accionMasiva(\'descartar\')" class="ld-bk">Descartar</button>' : ''}
     <button type="button" onclick="_seleccionLeads.clear(); _repintarLeads()" class="ld-bk ml-auto">Quitar selección</button>`
 }
@@ -2216,6 +2248,7 @@ function _tarjeta(c, x) {
 function _renderLeadsPipeline(lista, x) {
   const porEtapa = Object.fromEntries([...ETAPAS, ...ETAPAS_CERRADAS].map(e => [e.key, []]))
   lista.forEach(c => porEtapa[etapaDe(c)].push(c))
+  _porEtapaActual = porEtapa
   const columna = (e, conSub = true) => {
     const items = porEtapa[e.key]
     const mostrar = _tarjetasMostradas[e.key] || TARJETAS_POR_TANDA
@@ -2227,12 +2260,14 @@ function _renderLeadsPipeline(lista, x) {
     </section>`
   }
   const cerrados = ETAPAS_CERRADAS.reduce((n, e) => n + porEtapa[e.key].length, 0)
+  const ocultos = _tarjetasOcultas(porEtapa)
   const tablero = document.getElementById('kb-tablero')
   const antes = tablero ? { izq: tablero.scrollLeft, cols: Object.fromEntries([...tablero.querySelectorAll('[data-kb-etapa]')].map(c => [c.dataset.kbEtapa, c.scrollTop])) } : null
   document.getElementById('ld-contenido').innerHTML = `
     <div class="px-6 pt-4 pb-2 flex items-start justify-between gap-3 flex-wrap">
       <div><h2 class="font-semibold val-text">Pipeline · ${esc(_nombreProyectoActual())}</h2>
-        <p class="text-xs sidebar-text mt-0.5">Arrastra la tarjeta para cambiar de etapa. El sistema mueve automáticamente Nuevo → Contactado. En el celular usa «⋯ → Mover a».</p></div>
+        <p class="text-xs sidebar-text mt-0.5">Arrastra la tarjeta para cambiar de etapa. El sistema mueve automáticamente Nuevo → Contactado. En el celular usa «⋯ → Mover a».</p>
+        ${ocultos ? `<p id="kb-ocultos" class="text-xs sidebar-text mt-1">Cada columna muestra primero los clientes más recientes. Hay <b>${ocultos}</b> más antiguos ocultos. <button type="button" onclick="mostrarTodasLasTarjetas()" class="underline">Mostrar todos</button></p>` : ''}</div>
       <button type="button" onclick="_cerradosAbiertos = !_cerradosAbiertos; _repintarLeads()" class="filtro-btn rounded-md px-2.5 py-1 text-xs" aria-expanded="${_cerradosAbiertos}">Cerrados (${cerrados}) ${_cerradosAbiertos ? '▴' : '▾'}</button>
     </div>
     <div id="kb-tablero" class="kb-tablero px-6 pb-4">${ETAPAS.map(e => columna(e)).join('')}${_cerradosAbiertos ? ETAPAS_CERRADAS.map(e => columna(e, false)).join('') : ''}</div>`
@@ -2244,6 +2279,17 @@ function _renderLeadsPipeline(lista, x) {
   const visibles = ETAPAS.concat(_cerradosAbiertos ? ETAPAS_CERRADAS : []).reduce((n, e) => n + porEtapa[e.key].length, 0)
   document.getElementById('ld-pie').innerHTML = `<span class="sidebar-text">Mostrando ${visibles} ${visibles === 1 ? 'lead' : 'leads'} en ${ETAPAS.length + (_cerradosAbiertos ? 2 : 0)} columnas</span>
     <span class="sidebar-text">Vista: pipeline · <button type="button" class="underline" onclick="setVista('tabla')">Ver como tabla</button></span>`
+}
+// Cuántas tarjetas quedan ocultas (las más antiguas de cada columna visible).
+function _tarjetasOcultas(porEtapa) {
+  return ETAPAS.concat(_cerradosAbiertos ? ETAPAS_CERRADAS : []).reduce((n, e) => n + Math.max(0, porEtapa[e.key].length - (_tarjetasMostradas[e.key] || TARJETAS_POR_TANDA)), 0)
+}
+// Muestra todas las tarjetas ocultas; si son muchas, pregunta antes (la pantalla se pone lenta).
+function mostrarTodasLasTarjetas() {
+  const n = _porEtapaActual ? _tarjetasOcultas(_porEtapaActual) : 0
+  if (n > MUCHAS_TARJETAS && !confirm(`Son ${n.toLocaleString('es-CL')} tarjetas más antiguas. Mostrarlas todas puede dejar la pantalla lenta. ¿Mostrarlas igual?`)) return
+  ;[...ETAPAS, ...ETAPAS_CERRADAS].forEach(e => { _tarjetasMostradas[e.key] = 1e9 })
+  _repintarLeads()
 }
 function verMasTarjetas(k) { _tarjetasMostradas[k] = (_tarjetasMostradas[k] || TARJETAS_POR_TANDA) + TARJETAS_POR_TANDA; _repintarLeads() }
 

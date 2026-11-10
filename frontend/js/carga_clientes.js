@@ -4,6 +4,9 @@
  * Después, la administración elige a quién asignarlos: a una persona, repartidos entre varios ejecutivos (con una recomendación) o sin asignar. Si una persona recibiría más de lo
  * recomendado, la ventana avisa y pide confirmar (el servidor lo exige igual). Por último carga con avance en vivo (POST /api/clientes/importar).
  *
+ * También reparte clientes que YA están cargados: CargaClientes.repartir({ token, acento, ids: [ids de clientes, en el orden en que se reparten], alIniciar(), alFinalizar(), alTerminar(resultado) })
+ *   (solo administración; usa POST /api/clientes/repartir/analizar y /api/clientes/repartir, y la misma pantalla de «¿A quién se los asignamos?»).
+ *
  * Uso:  CargaClientes.abrir({ token: () => _token, esAdmin: true|false, acento: '#0ea5e9', contexto: { empresa_id, inmobiliaria_id, proyecto_id },
  *                             alIniciar(), alTerminar(resultado), enviarWhatsApp(ids) /* opcional *\/ })
  * Todo texto que viene del servidor o de personas se escribe con esc() o como texto: nunca como HTML. La ventana no usa manejadores en línea (onclick…): usa delegación de eventos.
@@ -130,13 +133,27 @@
     opts = Object.assign({ esAdmin: false, acento: '#0ea5e9', contexto: {} }, o || {})
     montar()
     modal.style.setProperty('--cc-acento', opts.acento)
-    est = { paso: 'archivo', archivo: null, analisis: null, proyectos: [], proyectoId: opts.contexto.proyecto_id ? String(opts.contexto.proyecto_id) : '', error: '',
+    est = { app: 'cargar', paso: 'archivo', archivo: null, analisis: null, proyectos: [], proyectoId: opts.contexto.proyecto_id ? String(opts.contexto.proyecto_id) : '', error: '',
             modo: 'repartir', unaPersona: '', filas: [], confirmo: false, resultado: null, progreso: null, solicitud: 0 }
     cargando = false
     modal.hidden = false
     cargarProyectos()
     dibujar()
     modal.querySelector('.cc-drop')?.focus()
+  }
+
+  // Reparte clientes que ya están cargados (solo administración): se salta la carga del archivo y va directo a «¿A quién se los asignamos?».
+  function repartir(o) {
+    opts = Object.assign({ acento: '#0ea5e9', contexto: {}, ids: [] }, o || {}, { esAdmin: true })
+    montar()
+    modal.style.setProperty('--cc-acento', opts.acento)
+    est = { app: 'repartir', paso: 'revisando', archivo: null, analisis: null, proyectos: [], proyectoId: '', error: '', modo: 'repartir', unaPersona: '', filas: [],
+            confirmo: false, resultado: null, progreso: null, solicitud: 0, ids: [...(opts.ids || [])] }
+    cargando = false
+    modal.hidden = false
+    dibujar()
+    analizarReparto()
+    modal.querySelector('button')?.focus()
   }
 
   function cerrar() {
@@ -182,7 +199,7 @@
 
   function dibujar() {
     if (!est) return
-    ({ archivo: dibujarArchivo, revisando: dibujarRevisando, asignar: dibujarAsignar, cargando: dibujarCargando, resultado: dibujarResultado })[est.paso]()
+    ({ archivo: dibujarArchivo, revisando: dibujarRevisando, asignar: dibujarAsignar, cargando: dibujarCargando, resultado: dibujarResultado, error: dibujarError })[est.paso]()
   }
 
   function dibujarArchivo() {
@@ -199,14 +216,37 @@
   }
 
   function dibujarRevisando() {
+    if (est.app === 'repartir') {
+      titulo('Preparando el reparto…')
+      cuerpo(`<p class="cc-info" role="status">Estamos revisando los ${num(est.ids.length)} clientes elegidos. Un momento…</p>`)
+      pie(`<button type="button" class="cc-btn" data-cc="cerrar">Cancelar</button>`)
+      return
+    }
     titulo('Revisando el archivo…')
     cuerpo(`<p class="cc-info" role="status">Estamos leyendo <b>${esc(est.archivo?.name || '')}</b> sin cargar nada. Un momento…</p>`)
     pie('')
   }
 
+  function dibujarError() {
+    titulo('No se pudo preparar el reparto')
+    cuerpo(`<div class="cc-error" role="alert">${esc(est.error)}</div>`)
+    pie(`<button type="button" class="cc-btn cc-prim" data-cc="cerrar">Cerrar</button>`)
+  }
+
   function personaPorId(id) { return (est.analisis.ejecutivos || []).find(e => e.id === id) }
 
+  function dibujarAsignarReparto() {
+    const a = est.analisis, limite = a.limite_recomendado || LIMITE_POR_DEFECTO
+    titulo(`Repartir ${num(a.total)} ${a.total === 1 ? 'cliente' : 'clientes'}`)
+    cuerpo(`<p class="cc-suave" style="margin:0"><b>Hoy pertenecen a:</b> ${(a.actuales || []).map(x => `${esc(x.nombre)} (${num(x.cantidad)})`).join(' · ') || '—'}</p>
+      ${seccionAsignacion(a, limite)}
+      ${est.error ? `<div class="cc-error" role="alert">${esc(est.error)}</div>` : ''}`)
+    pie(`<button type="button" class="cc-btn" data-cc="cerrar">Cancelar</button><button type="button" class="cc-btn cc-prim" data-cc="cargar" id="cc-cargar"></button>`)
+    refrescarResumen()
+  }
+
   function dibujarAsignar() {
+    if (est.app === 'repartir') return dibujarAsignarReparto()
     const a = est.analisis, limite = a.limite_recomendado || LIMITE_POR_DEFECTO
     titulo(`Son ${num(a.total)} registros`)
     const proyectos = Object.entries(a.por_proyecto || {})
@@ -244,7 +284,7 @@
       </fieldset>
       <div id="cc-aviso-exceso"></div>
       ${est.modo === 'repartir' ? tablaReparto(personas, rec) : ''}
-      ${est.modo === 'una' ? `<div><label class="cc-et" for="cc-una">Persona</label><select id="cc-una" data-cc="una"><option value="">Yo mismo</option>${personas.map(p => `<option value="${esc(p.id)}"${p.id === est.unaPersona ? ' selected' : ''}>${esc(p.nombre)}${p.clientes_actuales != null ? ` — tiene ${num(p.clientes_actuales)} clientes` : ''}</option>`).join('')}</select></div>` : ''}`
+      ${est.modo === 'una' ? `<div><label class="cc-et" for="cc-una">Persona</label><select id="cc-una" data-cc="una"><option value="">${est.app === 'repartir' ? 'Elige una persona…' : 'Yo mismo'}</option>${personas.map(p => `<option value="${esc(p.id)}"${p.id === est.unaPersona ? ' selected' : ''}>${esc(p.nombre)}${p.clientes_actuales != null ? ` — tiene ${num(p.clientes_actuales)} clientes` : ''}</option>`).join('')}</select></div>` : ''}`
   }
 
   function tablaReparto(personas, rec) {
@@ -275,7 +315,7 @@
         valido = r.valido; exceso = r.sobreLimite; mayor = r.mayor
         const el = modal.querySelector('#cc-resumen-reparto')
         if (el) el.innerHTML = `<span class="cc-total">Asignados ${num(r.asignados)} de ${num(a.se_cargan)}</span>${r.faltan ? ` · <b style="color:var(--cc-aviso)">faltan ${num(r.faltan)}</b>` : ''}${r.sobran ? ` · <b style="color:var(--cc-error)">sobran ${num(r.sobran)}</b>` : ''}`
-      } else if (est.modo === 'una') { exceso = a.se_cargan > limite; mayor = a.se_cargan }
+      } else if (est.modo === 'una') { exceso = a.se_cargan > limite; mayor = a.se_cargan; if (est.app === 'repartir') valido = !!est.unaPersona }
     } else if (a.se_cargan > 0) { exceso = a.se_cargan > limite; mayor = a.se_cargan }
     if (opts.esAdmin && aviso) {
       aviso.innerHTML = exceso && a.se_cargan > 0 ? `<div class="cc-aviso" role="alert"><b>Una persona recibiría ${num(mayor)} clientes</b> y lo recomendado es hasta ${limite}. Conviene repartirlos entre más ejecutivos.
@@ -284,12 +324,18 @@
     if (!exceso) est.confirmo = false
     est.exceso = exceso
     if (boton) {
-      boton.textContent = a.se_cargan > 0 ? `Cargar ${num(a.se_cargan)} cliente${a.se_cargan === 1 ? '' : 's'}` : 'Nada que cargar'
+      boton.textContent = a.se_cargan > 0 ? `${est.app === 'repartir' ? 'Repartir' : 'Cargar'} ${num(a.se_cargan)} cliente${a.se_cargan === 1 ? '' : 's'}` : 'Nada que cargar'
       boton.disabled = !(valido && (!exceso || est.confirmo)) || a.se_cargan === 0
     }
   }
 
   function dibujarCargando() {
+    if (est.app === 'repartir') {
+      titulo('Repartiendo clientes…')
+      cuerpo(`<p class="cc-info" role="status">Estamos asignando los ${num(est.analisis.total)} clientes. No cierres esta ventana hasta que termine.</p>`)
+      pie('')
+      return
+    }
     titulo('Cargando clientes…')
     const p = est.progreso || { n: 0, total: est.analisis?.total || 0, creados: 0, dups: 0, errs: 0 }, pct = p.total > 0 ? Math.round((p.n / p.total) * 100) : 0
     cuerpo(`<div role="status" aria-live="polite"><div style="display:flex;justify-content:space-between;font-size:13px"><span>Fila ${num(p.n)} de ${num(p.total)}</span><b>${pct}%</b></div>
@@ -302,7 +348,19 @@
 
   function nombreDe(id) { return id ? (personaPorId(id)?.nombre || 'Otra persona') : 'Sin asignar' }
 
+  function dibujarResultadoReparto() {
+    const d = est.resultado || {}
+    titulo('Reparto terminado')
+    const asignados = d.asignados ? Object.entries(d.asignados) : []
+    cuerpo(`<div class="cc-tarjetas" style="grid-template-columns:repeat(2,1fr)"><div class="cc-tarjeta"><b style="color:var(--cc-ok)">${num(d.reasignados || 0)}</b><span>Reasignados</span></div>
+      <div class="cc-tarjeta"><b style="color:var(--cc-error)">${num(d.fallidos || 0)}</b><span>Sin guardar</span></div></div>
+      ${asignados.length ? `<div class="cc-info"><b>Quedaron así:</b> ${asignados.map(([id, n]) => `${esc(nombreDe(id))} (${num(n)})`).join(' · ')}</div>` : ''}
+      ${d.fallidos ? `<div class="cc-aviso" role="alert"><b>${num(d.fallidos)} clientes no se pudieron guardar.</b> Puedes repetir el reparto: los que ya quedaron asignados no se ven afectados.${(d.motivos || []).length ? ' Motivo: ' + (d.motivos || []).map(esc).join(' · ') : ''}</div>` : ''}`)
+    pie(`<button type="button" class="cc-btn cc-prim" data-cc="cerrar">Cerrar</button>`)
+  }
+
   function dibujarResultado() {
+    if (est.app === 'repartir') return dibujarResultadoReparto()
     const d = est.resultado || {}
     titulo('Carga terminada')
     const asignados = d.asignados ? Object.entries(d.asignados) : []
@@ -397,6 +455,26 @@
     dibujar()
   }
 
+  async function analizarReparto() {
+    const mia = ++contadorSolicitudes
+    est.solicitud = mia
+    try {
+      const res = await fetch('/api/clientes/repartir/analizar', { method: 'POST', headers: { Authorization: `Bearer ${opts.token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: est.ids }) })
+      if (!res.ok) throw new Error(await res.text())
+      const a = await res.json()
+      if (mia !== est.solicitud) return
+      est.analisis = a
+      est.filas = (a.ejecutivos || []).map(p => ({ id: p.id, marcada: false, cantidad: null }))
+      est.modo = 'repartir'
+      usarRecomendacion(false)
+      est.paso = 'asignar'
+    } catch (err) {
+      if (mia !== est.solicitud) return
+      est.paso = 'error'; est.error = err.message || 'No se pudo preparar el reparto.'
+    }
+    dibujar()
+  }
+
   function usarRecomendacion(redibujar = true) {
     const a = est.analisis, ids = seleccionRecomendada(a.ejecutivos || [], a.recomendacion?.personas || 1)
     const partes = partesIguales(a.se_cargan, ids)
@@ -411,8 +489,30 @@
     dibujar()
   }
 
+  async function repartirYa() {
+    cargando = true
+    est.paso = 'cargando'; est.error = ''
+    dibujar()
+    opts.alIniciar?.()
+    const total = est.analisis.total
+    const reparto = est.modo === 'repartir' ? cuerpoReparto(est.filas) : [{ usuario_id: est.modo === 'una' ? est.unaPersona : null, cantidad: total }]
+    try {
+      const res = await fetch('/api/clientes/repartir' + (est.exceso && est.confirmo ? '?confirmo=1' : ''), {
+        method: 'POST', headers: { Authorization: `Bearer ${opts.token()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: est.ids, reparto }) })
+      if (!res.ok) throw new Error(await res.text())
+      est.resultado = await res.json()
+      est.paso = 'resultado'
+    } catch (err) {
+      est.paso = 'asignar'; est.error = err.message || 'No se pudo repartir.'
+    }
+    cargando = false
+    opts.alFinalizar?.()
+    dibujar()
+  }
+
   async function cargar() {
     if (cargando) return
+    if (est.app === 'repartir') return repartirYa()
     cargando = true
     est.paso = 'cargando'; est.progreso = null; est.error = ''
     dibujar()
@@ -464,5 +564,5 @@
     a.click()
   }
 
-  window.CargaClientes = { abrir, cerrar, _puro: { partesIguales, estadoReparto, seleccionRecomendada, cuerpoReparto } }
+  window.CargaClientes = { abrir, repartir, cerrar, _puro: { partesIguales, estadoReparto, seleccionRecomendada, cuerpoReparto } }
 })()
