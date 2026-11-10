@@ -911,6 +911,14 @@ applyTheme(savedTheme === 'dark')
 // ─── AUTH ─────────────────────────────────────────
 const _esAdmin = r => ['owner', 'administrador'].includes(r)
 
+// «Todos los clientes» del panel (sidebar) abre el CRM sin empresa: los clientes de todos los proyectos que la persona puede ver (el servidor ya filtra por rol).
+// Se guarda como una empresa sin id (_global) y «Todos los proyectos»; todas las consultas de abajo ya entienden «sin empresa» como «sin filtro».
+function _esContextoGlobal(empresa) { return !!(empresa && empresa._global) }
+function _textoMigas(empresa, inmobiliaria, proyecto) {
+  if (_esContextoGlobal(empresa)) return 'Todos los clientes · todas las empresas'
+  return proyecto ? `${empresa.nombre} / ${inmobiliaria.nombre} / ${proyecto.nombre}` : `${empresa.nombre} / ${inmobiliaria.nombre} / Todos los clientes`
+}
+
 async function initAuth() {
   const { data: { session } } = await _supabase.auth.getSession()
   if (!session) { window.location.href = '/login.html'; return }
@@ -927,10 +935,7 @@ async function initAuth() {
   const inmobiliaria = JSON.parse(inmRaw)
   const proyecto     = proyectoRaw ? JSON.parse(proyectoRaw) : null
 
-  const breadcrumb = proyecto
-    ? `${empresa.nombre} / ${inmobiliaria.nombre} / ${proyecto.nombre}`
-    : `${empresa.nombre} / ${inmobiliaria.nombre} / Todos los clientes`
-  document.getElementById('empresa-nombre-header').textContent = breadcrumb
+  document.getElementById('empresa-nombre-header').textContent = _textoMigas(empresa, inmobiliaria, proyecto)
   document.title = `CRM QueSubsidio — ${proyecto ? proyecto.nombre : 'Todos los clientes'}`
 
   _supabase.auth.onAuthStateChange((event, s) => {
@@ -942,7 +947,7 @@ async function initAuth() {
     const [resPerfil, resEmpresas, resInmobiliarias] = await Promise.all([
       fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }),
       fetch('/api/empresas',    { headers: { Authorization: `Bearer ${_token}` } }),
-      fetch(`/api/inmobiliarias?empresa_id=${empresa.id}`, { headers: { Authorization: `Bearer ${_token}` } }),
+      empresa.id ? fetch(`/api/inmobiliarias?empresa_id=${empresa.id}`, { headers: { Authorization: `Bearer ${_token}` } }) : Promise.resolve({ ok: false }),     // en «Todos los clientes» (de todas las empresas) no hay una empresa
     ])
     _perfil = await resPerfil.json()
     const empresas = resEmpresas.ok ? await resEmpresas.json() : []
