@@ -16,7 +16,7 @@ from app.services.mensajes import insertar_mensaje
 from app.services.plantillas import TEMPLATE_VARS_MAP, _pool_plantilla
 from app.services.prospectos import upsert_prospecto
 from app.services.carga_clientes import RECOMENDADO_POR_PERSONA, contar_filas, ejecutivos_disponibles, exige_confirmacion, leer_archivo, recomendar, validar_asignado, validar_reparto
-from app.services.importacion_csv import importar_clientes_stream
+from app.services.importacion_csv import acceso_de, importar_clientes_stream
 from app.services.reparto_existentes import bloques, encontrar_clientes, exige_confirmacion_reparto, ids_del_cuerpo, reasignar
 from app.services.proyectos import obtener_proyecto_por_id
 from datetime import datetime, timedelta, timezone
@@ -46,7 +46,7 @@ async def api_analizar_importacion(request: Request, file: UploadFile = File(...
     total = contar_filas(texto)
     final: Dict[str, Any] = {}
     async for pedazo in importar_clientes_stream(text=texto, delimiter=separador, is_serviu=es_serviu, empresa_id=empresa_id, proyecto_id=proyecto_id, usuario_id=perfil["id"],
-                                                 lote_carga="", total=total, simular=True):
+                                                 lote_carga="", total=total, simular=True, acceso=acceso_de(perfil)):
         if pedazo.startswith("data: "):
             evento = json.loads(pedazo[6:])
             if evento.get("t") in ("done", "error"):
@@ -154,7 +154,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...), 
     return _SR(
         importar_clientes_stream(
             text=text, delimiter=delimiter, is_serviu=is_serviu, empresa_id=empresa_id, proyecto_id=proyecto_id,
-            usuario_id=usuario_id, lote_carga=lote_carga, total=total, reparto=reparto_validado),
+            usuario_id=usuario_id, lote_carga=lote_carga, total=total, reparto=reparto_validado, acceso=acceso_de(perfil)),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

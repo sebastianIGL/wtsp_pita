@@ -23,11 +23,28 @@ TAMANO_PAQUETE = 50      # clientes que se crean de una vez (una sola consulta a
 _PREFER = {"Prefer": "return=representation"}
 
 
-async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False):
+def _puede_usar(acceso, proyecto) -> bool:
+    """¿Este proyecto está entre los que el ejecutivo tiene asignados (directo o por su inmobiliaria)? Mismo criterio de ``exigir_proyecto``."""
+    if str(proyecto.get("id")) in acceso["proyectos"]:
+        return True
+    return proyecto.get("inmobiliaria_id") is not None and str(proyecto["inmobiliaria_id"]) in acceso["inmobiliarias"]
+
+
+def acceso_de(perfil):
+    """Lo que el ejecutivo puede usar, para ``importar_clientes_stream``; ``None`` si es administración (cualquier proyecto)."""
+    from app.core.permisos import _solo_admin
+    if _solo_admin(perfil):
+        return None
+    return {"proyectos": {str(p) for p in (perfil.get("proyecto_ids") or []) if p is not None}, "inmobiliarias": {str(i) for i in (perfil.get("inmobiliaria_ids") or []) if i is not None}}
+
+
+async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False, acceso=None):
     """``reparto`` = [(usuario_id, cantidad)…]: los clientes creados se asignan en bloques seguidos, en el orden del archivo (sin reparto, todos a ``usuario_id``).
+    ``acceso`` = ``None`` (administración: cualquier proyecto) o ``{"proyectos": {...}, "inmobiliarias": {...}}`` con los ids que el ejecutivo puede usar: una fila que apunte (por el nombre de la
+    columna «Proyecto») a otro proyecto se rechaza con su propio mensaje.
     ``simular=True`` hace todo menos escribir: es la revisión previa del archivo (cuántos se cargarían, a qué proyectos, cuántos duplicados y errores)."""
     try:
-        proyecto_params: Dict[str, str] = {"select": "id,nombre,nombres_csv"}
+        proyecto_params: Dict[str, str] = {"select": "id,nombre,nombres_csv,inmobiliaria_id"}
         if empresa_id:
             inmobiliarias = await _supabase_request(
                 "GET", "/Inmobiliaria",
@@ -240,6 +257,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                             errores.append({"fila": fila, "nombre": nombre,
                                             "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
                                             "datos": datos_raw})
+                        elif acceso is not None and not _puede_usar(acceso, proyecto_resuelto):
+                            errores.append({"fila": fila, "nombre": nombre, "motivo": f"No tienes acceso al proyecto '{nombre_proyecto}'", "datos": datos_raw})
                         else:
                             asignar_a = siguiente_usuario()
                             encolar({
