@@ -13,10 +13,13 @@ from typing import Dict
 from app.clients.supabase import _supabase_request
 from app.core.errors import mensaje_publico
 from app.core.utilidades import _norm_row, _norm_row_keys, _normalize_phone
+from app.services.carga_clientes import asignador
 from app.services.proyectos import _buscar_id_proyecto
 
 
-async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total):
+async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False):
+    """``reparto`` = [(usuario_id, cantidad)…]: los clientes creados se asignan en bloques seguidos, en el orden del archivo (sin reparto, todos a ``usuario_id``).
+    ``simular=True`` hace todo menos escribir: es la revisión previa del archivo (cuántos se cargarían, a qué proyectos, cuántos duplicados y errores)."""
     try:
         proyecto_params: Dict[str, str] = {"select": "id,nombre,nombres_csv"}
         if empresa_id:
@@ -67,6 +70,9 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
         proyecto_serviu = proyecto_fijo  # alias para bloque SERVIU
 
         creados, duplicados, errores, ids_creados = 0, [], [], []
+        siguiente_usuario = asignador(usuario_id, reparto)
+        por_proyecto: Dict[str, int] = {}
+        asignados: Dict[str, int] = {}
         reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter)
 
         for i, row in enumerate(reader):
@@ -106,7 +112,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                         duplicados.append({"fila": fila, "nombre": nombre,
                                            "telefono": telefono, "datos": datos_raw})
                     else:
-                        _r = await _supabase_request("POST", "/Cliente",
+                        asignar_a = siguiente_usuario()
+                        _r = None if simular else await _supabase_request("POST", "/Cliente",
                             json={
                                 "proyecto_id": proyecto_serviu["id"],
                                 "Contacto": nombre, "Rut": rut, "Correo": correo,
@@ -116,7 +123,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                 "tipo_subsidio": None,
                                 "tiene_propiedad": None,
                                 "primer mensaje": True, "wtsp_habilitado": True,
-                                "usuario_id": usuario_id,
+                                "usuario_id": asignar_a,
                                 "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                 "origen_carga": lote_carga,
                                 "fuente": "excel",
@@ -126,6 +133,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                         if isinstance(_r, list) and _r:
                             ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
                         creados += 1
+                        por_proyecto[proyecto_serviu.get("nombre") or "—"] = por_proyecto.get(proyecto_serviu.get("nombre") or "—", 0) + 1
+                        asignados[str(asignar_a or "")] = asignados.get(str(asignar_a or ""), 0) + 1
                 else:
                     nr              = _norm_row(row)
                     nombre_proyecto = nr.get("proyecto", "").strip()
@@ -168,7 +177,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                             "motivo": f"Proyecto '{nombre_proyecto}' no encontrado — agrega el alias en nombres_csv",
                                             "datos": datos_raw})
                         else:
-                            _r = await _supabase_request("POST", "/Cliente",
+                            asignar_a = siguiente_usuario()
+                            _r = None if simular else await _supabase_request("POST", "/Cliente",
                                 json={
                                     "proyecto_id": proyecto_resuelto["id"],
                                     "Contacto": nombre, "Rut": rut, "Correo": correo,
@@ -178,7 +188,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                     "tipo_subsidio": tipo_subsidio,
                                     "tiene_propiedad": tiene_propiedad,
                                     "primer mensaje": True, "wtsp_habilitado": True,
-                                    "usuario_id": usuario_id,
+                                    "usuario_id": asignar_a,
                                     "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                     "origen_carga": lote_carga,
                                     "fuente": "excel",
@@ -188,13 +198,20 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                             if isinstance(_r, list) and _r:
                                 ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
                             creados += 1
+                            por_proyecto[proyecto_resuelto.get("nombre") or "—"] = por_proyecto.get(proyecto_resuelto.get("nombre") or "—", 0) + 1
+                            asignados[str(asignar_a or "")] = asignados.get(str(asignar_a or ""), 0) + 1
             except Exception as ex:
                 # mensaje de negocio tal cual; cualquier otro fallo → mensaje genérico con código (detalle en el log)
                 errores.append({"fila": fila, "motivo": mensaje_publico(ex, "api_importar_clientes (fila)")})
 
             yield f"data: {json.dumps({'t':'prog','n':i+1,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
 
-        yield f"data: {json.dumps({'t':'done','ok':True,'creados':creados,'duplicados':len(duplicados),'errores':len(errores),'detalle_errores':errores,'detalle_duplicados':duplicados,'ids_creados':ids_creados})}\n\n"
+        final = {'t': 'done', 'ok': True, 'creados': creados, 'duplicados': len(duplicados), 'errores': len(errores), 'detalle_errores': errores, 'detalle_duplicados': duplicados, 'ids_creados': ids_creados}
+        if reparto:
+            final['asignados'] = asignados                       # cuántos le tocaron a cada persona (clave vacía = sin asignar)
+        if simular:
+            final['por_proyecto'] = por_proyecto                 # a qué proyecto irían
+        yield f"data: {json.dumps(final)}\n\n"
 
     except Exception as e:
         yield f"data: {json.dumps({'t':'error','msg':mensaje_publico(e, 'api_importar_clientes')})}\n\n"

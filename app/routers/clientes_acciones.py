@@ -3,8 +3,7 @@ WhatsApp a un cliente eligiendo la plantilla.
 
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
-import csv
-import io
+import json
 import re
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
@@ -12,21 +11,59 @@ from app.core.autorizacion import exigir_cliente, exigir_proyecto
 from app.clients.whatsapp import _build_body_params, send_whatsapp_template
 from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
-from app.core.utilidades import _norm_col, _normalize_phone
+from app.core.utilidades import _normalize_phone
 from app.services.mensajes import insertar_mensaje
 from app.services.plantillas import TEMPLATE_VARS_MAP, _pool_plantilla
 from app.services.prospectos import upsert_prospecto
+from app.services.carga_clientes import RECOMENDADO_POR_PERSONA, contar_filas, ejecutivos_disponibles, exige_confirmacion, leer_archivo, recomendar, validar_asignado, validar_reparto
 from app.services.importacion_csv import importar_clientes_stream
 from app.services.proyectos import obtener_proyecto_por_id
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, File, Request, Response, UploadFile
-from typing import Any, Dict, List
+from fastapi import APIRouter, File, Form, Request, Response, UploadFile
+from typing import Any, Dict, List, Optional
 
 router = APIRouter()
 
 
+_SIN_PROYECTO_SERVIU = "No hay un proyecto para asignar. Sube este archivo desde dentro de un proyecto."
+
+
+@router.post("/api/clientes/importar/analizar")
+async def api_analizar_importacion(request: Request, file: UploadFile = File(...)):
+    """Revisa el archivo SIN cargar nada: cuántos clientes se cargarían, a qué proyectos, cuántos duplicados y errores hay, a quién se podrían repartir y qué se recomienda."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    empresa_id  = request.query_params.get("empresa_id")
+    proyecto_id = request.query_params.get("proyecto_id")
+    denegado = await exigir_proyecto(perfil, proyecto_id)
+    if denegado:
+        return denegado
+    texto, separador, es_serviu = leer_archivo(await file.read())
+    if es_serviu and not proyecto_id:
+        return Response(content=_SIN_PROYECTO_SERVIU, status_code=400, media_type="text/plain")
+    total = contar_filas(texto)
+    final: Dict[str, Any] = {}
+    async for pedazo in importar_clientes_stream(text=texto, delimiter=separador, is_serviu=es_serviu, empresa_id=empresa_id, proyecto_id=proyecto_id, usuario_id=perfil["id"],
+                                                 lote_carga="", total=total, simular=True):
+        if pedazo.startswith("data: "):
+            evento = json.loads(pedazo[6:])
+            if evento.get("t") in ("done", "error"):
+                final = evento
+    if final.get("t") != "done":
+        return Response(content=final.get("msg") or "No se pudo revisar el archivo.", status_code=500, media_type="text/plain")
+    se_cargan = int(final.get("creados") or 0)
+    ejecutivos = await ejecutivos_disponibles(proyecto_id) if _solo_admin(perfil) else []
+    return {
+        "formato": "serviu" if es_serviu else "general", "total": total, "se_cargan": se_cargan, "duplicados": final["duplicados"], "con_errores": final["errores"],
+        "errores": final["detalle_errores"][:20], "duplicados_ejemplo": final["detalle_duplicados"][:5], "por_proyecto": final.get("por_proyecto") or {},
+        "limite_recomendado": RECOMENDADO_POR_PERSONA, "ejecutivos": ejecutivos,
+        "recomendacion": recomendar(se_cargan, len([e for e in ejecutivos if e["rol"] == "ejecutivo"])),
+    }
+
+
 @router.post("/api/clientes/importar")
-async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
+async def api_importar_clientes(request: Request, file: UploadFile = File(...), reparto: Optional[str] = Form(None)):
     from fastapi.responses import StreamingResponse as _SR
     perfil = await _get_usuario_actual(request)
     if not perfil:
@@ -40,40 +77,31 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...)):
     # Identificador del lote de carga: permite luego filtrar/borrar solo lo importado en esta corrida
     lote_carga = f"{(file.filename or 'import').strip()} · {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}"
     asignar_usuario_id = request.query_params.get("asignar_usuario_id")
-    if asignar_usuario_id and _solo_admin(perfil):
+    reparto_validado = None
+    if reparto and reparto.strip():
+        if not _solo_admin(perfil):
+            return Response(content="Solo administradores pueden repartir los clientes entre varios ejecutivos.", status_code=403, media_type="text/plain")
+        reparto_validado = await validar_reparto(reparto)
+    elif asignar_usuario_id and _solo_admin(perfil):
+        await validar_asignado(asignar_usuario_id)
         usuario_id = asignar_usuario_id
 
-    content = await file.read()
-    try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = content.decode("latin-1")
-
-    # Detectar delimitador: exportaciones desde Excel en configuración regional
-    # es-CL suelen usar ";" (porque la coma se usa como separador decimal).
-    try:
-        delimiter = csv.Sniffer().sniff(text[:4096], delimiters=",;\t").delimiter
-    except csv.Error:
-        delimiter = ","
-
-    # Detectar formato: SERVIU tiene columna "Dv" o "Primer Apellido" (case/tilde-insensible)
-    _peek = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter)
-    _headers = _peek.fieldnames or []
-    _headers_norm = {_norm_col(h) for h in _headers}
-    is_serviu = "dv" in _headers_norm or "primerapellido" in _headers_norm
+    text, delimiter, is_serviu = leer_archivo(await file.read())
 
     if is_serviu and not proyecto_id:
-        return Response(
-            content="No hay un proyecto para asignar. Sube este archivo desde dentro de un proyecto.",
-            status_code=400, media_type="text/plain"
-        )
+        return Response(content=_SIN_PROYECTO_SERVIU, status_code=400, media_type="text/plain")
 
-    total = max(0, sum(1 for l in text.splitlines() if l.strip()) - 1)
+    total = contar_filas(text)
+
+    # Una carga que dejaría a una sola persona por encima de lo recomendado hay que confirmarla (la pantalla ya lo avisó; esto vale también si alguien llama a la ruta directo)
+    aviso = None if request.query_params.get("confirmo") == "1" else exige_confirmacion(total, reparto_validado)
+    if aviso:
+        return Response(content=aviso, status_code=409, media_type="text/plain")
 
     return _SR(
         importar_clientes_stream(
             text=text, delimiter=delimiter, is_serviu=is_serviu, empresa_id=empresa_id, proyecto_id=proyecto_id,
-            usuario_id=usuario_id, lote_carga=lote_carga, total=total),
+            usuario_id=usuario_id, lote_carga=lote_carga, total=total, reparto=reparto_validado),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
