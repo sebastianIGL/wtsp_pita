@@ -154,3 +154,30 @@ async def send_whatsapp_template(
         r = await client.post(url, headers=headers, json=data)
         r.raise_for_status()
         return r.json()
+
+
+def detalle_error_meta(e: BaseException) -> tuple:
+    """(código, mensaje) del error que devolvió Meta, si ``e`` es una respuesta de error de Meta con el cuerpo habitual; si no, (None, None)."""
+    try:
+        err = e.response.json().get("error") or {}          # type: ignore[attr-defined]
+        return err.get("code"), str(err.get("message") or "")[:300]
+    except Exception:
+        return None, None
+
+
+def explicar_error_meta(e: BaseException, plantilla: str) -> Optional[str]:
+    """Una explicación en español de los errores de Meta más comunes al enviar una plantilla (para quien usa el panel); ``None`` si el código no es uno conocido."""
+    codigo, _ = detalle_error_meta(e)
+    if codigo in (132001,):
+        return f"WhatsApp no encuentra la plantilla «{plantilla}» (no existe, no está aprobada o no está en es_CL). Revísala en Meta (WhatsApp Manager) o pide cambiar la variable TEMPLATE_RECORDATORIO_WA."
+    if codigo in (132000, 132005, 132007, 132012, 132015, 132016):
+        return f"La plantilla «{plantilla}» no calza con los datos que se le envían (variables o formato). Revisa en Meta que tenga 3 variables de texto."
+    if codigo == 131030:
+        return "El celular de tu perfil no está en la lista de números permitidos de WhatsApp. Pide a un administrador que lo agregue."
+    if codigo in (131026, 131021):
+        return "WhatsApp no pudo entregar el mensaje al celular de tu perfil. Revisa que el número sea correcto y tenga WhatsApp."
+    if codigo in (190, 102, 10, 200):
+        return "El acceso de la aplicación a WhatsApp venció o no tiene permiso. Avisa a quien administra el sistema."
+    if codigo in (130429, 80007, 131056):
+        return "WhatsApp recibió demasiados envíos seguidos. Intenta de nuevo en unos minutos."
+    return None

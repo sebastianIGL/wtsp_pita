@@ -4,6 +4,7 @@ hipotecaria por correo, y recordatorio por WhatsApp al celular del ejecutivo.
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
 import asyncio
+import httpx
 import re
 import time
 import logging
@@ -11,7 +12,7 @@ from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.autorizacion import exigir_cliente
 from app.clients.supabase_storage import _descargar_documento_storage, _eliminar_documento_storage, subir_a_storage
-from app.clients.whatsapp import send_whatsapp_template
+from app.clients.whatsapp import detalle_error_meta, explicar_error_meta, send_whatsapp_template
 from app.core.config import get_settings
 from app.core.cuerpo_opcional import _cuerpo_opcional_ilegible
 from app.core.errors import respuesta_error
@@ -543,5 +544,12 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
             body_text_params=[nombre, telefono_cliente, motivo],
         )
         return {"ok": True}
+    except httpx.HTTPStatusError as e:
+        codigo, mensaje_meta = detalle_error_meta(e)
+        logger.warning("Recordatorio WA | Meta rechazó la plantilla %s: código %s: %s", TEMPLATE_RECORDATORIO_WA, codigo, mensaje_meta)
+        explicacion = explicar_error_meta(e, TEMPLATE_RECORDATORIO_WA)
+        if explicacion:
+            return Response(content=explicacion, status_code=502, media_type="text/plain")
+        return respuesta_error(e, contexto="api_recordatorio_wa")
     except Exception as e:
         return respuesta_error(e, contexto="api_recordatorio_wa")

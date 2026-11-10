@@ -1744,13 +1744,17 @@ const VISTAS = ['tabla', 'pipeline', 'original']
 function _vistaInicial() {
   try {
     const pedida = new URLSearchParams(location.search).get('vista')
-    if (VISTAS.includes(pedida)) return pedida
+    if (VISTAS.includes(pedida)) {
+      try { localStorage.setItem('crm-vista', pedida) } catch (e) { /* no se pudo recordar */ }       // queda como la última vista elegida: la dirección se limpia (abajo)
+      return pedida
+    }
     const guardada = localStorage.getItem('crm-vista')
     if (VISTAS.includes(guardada)) return guardada
   } catch (e) { /* sin almacenamiento: la de siempre */ }
   return 'tabla'
 }
 let _vista = _vistaInicial()             // 'tabla' | 'pipeline' | 'original'
+try { if (location.search.includes('vista=')) history.replaceState(null, '', location.pathname + location.hash) } catch (e) { /* la dirección queda como está */ }      // la dirección es /index.html a secas: «?vista=» solo sirve para entrar
 let _cola = 'todos'
 let _ordenLeads = 'llegada_desc'
 let _filtrosLeads = { llegada: '', etapa: '', origen: '' }

@@ -202,7 +202,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - El selector de la barra del panel tiene tres vistas sobre **los mismos clientes y los mismos filtros de arriba** (búsqueda, proyecto, ejecutivo, estados, pestañas Mis clientes / Todos / Descartados): **Tabla**
   (bandeja con 16 columnas, las opcionales se eligen en «Columnas» y se recuerdan en el navegador), **Pipeline** (tablero por etapa con tarjetas que se arrastran) y **Original** (la pantalla de siempre,
   sin cambios). **Se entra en Tabla** (el orden del selector es Tabla, Pipeline, Original) y el navegador recuerda la última vista elegida (`localStorage` `crm-vista`); una dirección con `?vista=tabla|pipeline|original` manda
-  sobre lo recordado (así la usa el panel `/panel`). La pestaña **Inbox** usa su tabla de siempre en las tres.
+  sobre lo recordado (así la usa el panel `/panel`); al entrar, la dirección se limpia a `/index.html` y la vista pedida queda recordada. La pestaña **Inbox** usa su tabla de siempre en las tres.
 - **Etapa** de un cliente (`etapaDe`): *Nuevo* y *Contactado* salen solos de lo que ya pasó por WhatsApp; *En evaluación*, *Aprobado*, *Cotización enviada*, *No interesado* y *Rechazado* salen del **estado de gestión**
   que cambia el equipo (los bancos responden por ahí). «Cotización enviada» es un estado de gestión nuevo (`cotizacion_enviada`; el servidor no tiene lista cerrada, así que no necesitó cambios).
   Al soltar una tarjeta se guarda ese estado con `PATCH /api/clientes/{id}`; si el servidor falla, la tarjeta vuelve a su columna. *Nuevo* lo asigna el sistema: no se puede devolver a Nuevo a quien ya fue contactado.
