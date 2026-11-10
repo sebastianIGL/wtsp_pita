@@ -516,8 +516,8 @@ TEMPLATE_RECORDATORIO_WA = get_settings().template_recordatorio_wa
 
 @router.post("/api/clientes/{cliente_id}/recordatorio-wa")
 async def api_recordatorio_wa(cliente_id: int, request: Request):
-    """Envía una plantilla WA al número personal (celular) del ejecutivo
-    recordándole contactar a un cliente específico."""
+    """Envía una plantilla WA al número personal (celular) del ejecutivo recordándole contactar a un cliente específico
+    (la misma plantilla de los avisos automáticos: cliente, motivo/próxima acción y proyecto)."""
     perfil = await _get_usuario_actual(request)
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
@@ -531,17 +531,18 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
         body   = await request.json()
         motivo = (body.get("motivo") or "Sin motivo especificado").strip()
         rows   = await _supabase_request("GET", "/Cliente",
-            params={"id": f"eq.{cliente_id}", "select": "Contacto,Telefono", "limit": "1"})
+            params={"id": f"eq.{cliente_id}", "select": "Contacto,Telefono,Proyecto(nombre)", "limit": "1"})
         if not rows:
             return Response(content="Cliente no encontrado", status_code=404)
         c       = rows[0]
         nombre  = (c.get("Contacto") or "—").strip()
-        telefono_cliente = _normalize_phone(c.get("Telefono") or "") or (c.get("Telefono") or "—")
+        proyecto = ((c.get("Proyecto") or {}).get("nombre") or "Sin proyecto").strip()
+        motivo = " ".join(motivo.split())[:150] or "Sin motivo especificado"        # una variable de plantilla no admite saltos de línea ni tabulaciones
         await send_whatsapp_template(
             to=celular,
             template_name=TEMPLATE_RECORDATORIO_WA,
             language_code="es_CL",
-            body_text_params=[nombre, telefono_cliente, motivo],
+            body_text_params=[nombre, motivo, proyecto],      # la plantilla de los avisos: {{1}} cliente, {{2}} qué hacer, {{3}} proyecto
         )
         return {"ok": True}
     except httpx.HTTPStatusError as e:

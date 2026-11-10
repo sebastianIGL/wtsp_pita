@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     wa_app_secret: Optional[str] = Field(None, validation_alias=_alias("WA_APP_SECRET", "WHATSAPP_APP_SECRET"))
     # False (por defecto) = solo registrar el resultado de la firma. True = rechazar (403) lo que no tenga firma válida.
     wa_signature_enforce: bool = Field(False, validation_alias=_alias("WA_SIGNATURE_ENFORCE"))
-    template_recordatorio_wa: str = Field("recordatorio_cliente", validation_alias=_alias("TEMPLATE_RECORDATORIO_WA"))
+    template_recordatorio_wa: str = Field("recordatorio_wtsp", validation_alias=_alias("TEMPLATE_RECORDATORIO_WA"))
     admin_notify_phone: Optional[str] = Field(None, validation_alias=_alias("ADMIN_NOTIFY_PHONE"))
     # Avisos a ejecutivos con cola en la base (tabla AvisoEjecutivo): sobreviven a un reinicio y no salen dos veces.
     # Apagado (por defecto) = el comportamiento de siempre: el aviso espera dormido en memoria hasta que abre el horario.
