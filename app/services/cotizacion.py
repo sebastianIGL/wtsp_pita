@@ -8,6 +8,7 @@ se muestran si se pudo leer la UF del día (nunca se inventa un valor).
 (columna ``valores`` de ``Cotizacion``) alcanza para reconstruir el mismo PDF.
 """
 import io
+from pathlib import Path
 import re
 import unicodedata
 from datetime import date
@@ -235,6 +236,23 @@ def texto_whatsapp(cot: Dict[str, Any]) -> str:
 
 # ── PDF ───────────────────────────────────────────────────────────────────────
 
+LOGO_PDF = Path(__file__).resolve().parents[2] / "frontend" / "img" / "logo-horizontal.png"
+
+
+def _logo_pdf(ancho: float):
+    """El logo de QueSubsidio para la cabecera del PDF, o ``None`` si el archivo no está (el PDF sale igual, sin logo)."""
+    try:
+        from PIL import Image as _Imagen
+        from reportlab.platypus import Image
+        with _Imagen.open(LOGO_PDF) as im:
+            w, h = im.size
+        logo = Image(str(LOGO_PDF), width=ancho, height=ancho * h / w)
+        logo.hAlign = "LEFT"
+        return logo
+    except Exception:
+        return None
+
+
 def generar_pdf(cot: Dict[str, Any]) -> bytes:
     """El PDF de la cotización (una hoja A4 en lo normal). Solo depende del diccionario de ``armar``: sirve igual con la «foto» guardada."""
     from reportlab.lib import colors
@@ -264,9 +282,16 @@ def generar_pdf(cot: Dict[str, Any]) -> bytes:
     c, p, e, m = cot["cliente"], cot["proyecto"], cot["ejecutivo"], cot["montos"]
     ancho = A4[0] - 36 * mm - 12                      # el ancho útil del marco (descontado su margen interno)
     historia: List[Any] = []
-    cabecera = Table([[P("Cotización", titulo), P(f"Emitida el {fecha_larga(cot['emitida'])}", derecha)],
-                      [P(f"{p['nombre']} · {_linea_vivienda(cot)}", ParagraphStyle("sub", parent=base, fontSize=12, leading=15, textColor=gris)), ""]], colWidths=[ancho * 0.65, ancho * 0.35])
-    cabecera.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "BOTTOM"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("SPAN", (0, 1), (1, 1))]))
+    logo = _logo_pdf(40 * mm)
+    sub = P(f"{p['nombre']} · {_linea_vivienda(cot)}", ParagraphStyle("sub", parent=base, fontSize=12, leading=15, textColor=gris))
+    emitida = P(f"Emitida el {fecha_larga(cot['emitida'])}", derecha)
+    if logo is not None:                              # el logo va a la derecha de la misma cabecera: no suma altura y la cotización sigue cabiendo en una hoja
+        cabecera = Table([[P("Cotización", titulo), logo], [sub, emitida]], colWidths=[ancho * 0.6, ancho * 0.4])
+        cabecera.setStyle(TableStyle([("VALIGN", (0, 0), (-1, 0), "MIDDLE"), ("VALIGN", (0, 1), (-1, 1), "BOTTOM"), ("ALIGN", (1, 0), (1, 0), "RIGHT"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0)]))
+        logo.hAlign = "RIGHT"
+    else:
+        cabecera = Table([[P("Cotización", titulo), emitida], [sub, ""]], colWidths=[ancho * 0.65, ancho * 0.35])
+        cabecera.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "BOTTOM"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("SPAN", (0, 1), (1, 1))]))
     historia += [cabecera, Spacer(1, 4)]
 
     historia.append(P("Cliente", seccion))
