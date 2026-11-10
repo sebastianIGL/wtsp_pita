@@ -45,6 +45,29 @@
     ::-webkit-scrollbar-thumb { border-radius:3px; background:#334155; }
     input:focus, textarea:focus, select:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
 
+    /* ── Usuarios: tarjetas de seguimiento ──────────────────────────────────── */
+    .us-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem; }
+    .us-card { border-radius: 1rem; padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+    .us-card.us-baja { opacity: 0.72; }
+    .us-avatar { width: 2.5rem; height: 2.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; background: #6d28d9; color: #fff; flex-shrink: 0; }
+    .us-chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 9999px; font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
+    .us-chip-ok { background: #14532d; color: #86efac; } .us-chip-aviso { background: #78350f; color: #fcd34d; } .us-chip-alerta { background: #7f1d1d; color: #fecaca; } .us-chip-neutro { background: #334155; color: #cbd5e1; }
+    html:not(.dark) .us-chip-ok { background: #dcfce7; color: #166534; } html:not(.dark) .us-chip-aviso { background: #fef3c7; color: #92400e; }
+    html:not(.dark) .us-chip-alerta { background: #fee2e2; color: #991b1b; } html:not(.dark) .us-chip-neutro { background: #e2e8f0; color: #475569; }
+    .us-metricas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; }
+    .us-metricas.us-tres { grid-template-columns: repeat(3, 1fr); }
+    .us-m { border-radius: 0.6rem; padding: 0.45rem 0.6rem; background: rgba(148,163,184,0.10); border: 1px solid transparent; }
+    .us-m b { display: block; font-size: 1.2rem; line-height: 1.25; font-variant-numeric: tabular-nums; }
+    .us-m span { display: block; font-size: 0.68rem; line-height: 1.2; opacity: 0.75; }
+    .us-m.us-m-aviso { border-color: rgba(245,158,11,.55); background: rgba(245,158,11,.10); } .us-m.us-m-alerta { border-color: rgba(239,68,68,.55); background: rgba(239,68,68,.10); }
+    .us-punto { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 9999px; margin-right: 0.35rem; background: #64748b; }
+    .us-punto.us-ok { background: #34d399; } .us-punto.us-aviso { background: #fbbf24; } .us-punto.us-alerta { background: #f87171; }
+    .us-resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
+    .us-resumen > div { border-radius: 0.8rem; padding: 0.7rem 0.9rem; }
+    .us-resumen b { display: block; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+    .us-resumen span { font-size: 0.72rem; }
+    @media (max-width: 480px) { .us-grid { grid-template-columns: 1fr; } }
+
     /* ── Directorio de subsidios (editor) ───────────────────────────────────── */
     .ds-card { border-radius: 1rem; padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
     .ds-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.2rem; }
@@ -203,23 +226,20 @@
       </button>
     </div>
 
-    <div class="glass rounded-2xl overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="thead-row text-xs uppercase tracking-wider border-b">
-            <th class="text-left px-5 py-3">Nombre</th>
-            <th class="text-left px-5 py-3">RUT</th>
-            <th class="text-left px-5 py-3">Correo</th>
-            <th class="text-left px-5 py-3">Rol</th>
-            <th class="text-left px-5 py-3">Estado</th>
-            <th class="text-left px-5 py-3">Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="tablaUsuarios">
-          <tr><td colspan="6" class="text-center empty-text py-10">Cargando…</td></tr>
-        </tbody>
-      </table>
+    <div id="resumenUsuarios" class="us-resumen"></div>
+    <div class="flex items-center gap-3 flex-wrap mb-4">
+      <input id="buscarUsuario" type="search" placeholder="Buscar por nombre o correo…" oninput="renderUsuarios()" aria-label="Buscar usuario" class="rounded-lg px-3 py-2 text-sm w-64 max-w-full" />
+      <select id="filtroRolUsuario" onchange="renderUsuarios()" aria-label="Filtrar por rol" class="rounded-lg px-3 py-2 text-sm">
+        <option value="todos">Todos</option><option value="ejecutivo">Ejecutivos</option><option value="admin">Administración</option>
+      </select>
+      <select id="ordenUsuarios" onchange="renderUsuarios()" aria-label="Ordenar" class="rounded-lg px-3 py-2 text-sm">
+        <option value="nombre">Ordenar: nombre</option><option value="atencion">Ordenar: necesitan atención</option><option value="leads">Ordenar: más leads</option>
+        <option value="sin_contactar">Ordenar: más sin contactar</option><option value="vencidos">Ordenar: más seguimientos vencidos</option><option value="actividad">Ordenar: menos actividad reciente</option>
+      </select>
+      <button type="button" onclick="cargarUsuarios(true)" class="text-sm sidebar-text hover:text-violet-400 transition">Actualizar</button>
+      <span id="usGenerado" class="text-xs sub-text"></span>
     </div>
+    <div id="cardsUsuarios" class="us-grid"><p class="empty-text py-10">Cargando…</p></div>
   </div>
 
   <!-- TAB: INMOBILIARIAS -->
@@ -1142,41 +1162,115 @@
   }
 
   // ── Usuarios ──────────────────────────────────────────────────────────
-  async function cargarUsuarios() {
-    const res  = await fetch('/api/usuarios', { headers: authHeaders() });
+  let _usuariosLista = [];
+  let _seguimiento = null;          // cifras por ejecutivo (GET /api/usuarios/seguimiento); null = no se pudieron leer
+  const _usuariosPorId = {};
+
+  async function cargarUsuarios(refrescar = false) {
+    const [res, resSeg] = await Promise.all([
+      fetch('/api/usuarios', { headers: authHeaders() }),
+      fetch('/api/usuarios/seguimiento' + (refrescar ? '?refrescar=1' : ''), { headers: authHeaders() }).catch(() => null),
+    ]);
     if (!res.ok) { toast('Error al cargar usuarios: ' + await res.text(), 'error'); return; }
-    const rows = await res.json();
-    const tbody = document.getElementById('tablaUsuarios');
-    if (!rows.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Sin usuarios registrados</td></tr>';
-      return;
-    }
-    tbody.innerHTML = rows.map(u => `
-      <tr class="trow border-b transition">
-        <td class="px-5 py-3 font-medium val-text">${esc(u.nombre)}</td>
-        <td class="px-5 py-3 sidebar-text font-mono text-xs">${esc(u.rut)}</td>
-        <td class="px-5 py-3 val-text">${esc(u.correo)}</td>
-        <td class="px-5 py-3">
-          <span class="px-2.5 py-1 rounded-full text-xs font-medium
-            ${u.rol === 'owner' ? 'bg-amber-900/50 text-amber-300' : u.rol === 'administrador' ? 'bg-purple-900/50 text-purple-300' : 'bg-slate-700 text-slate-300'}">
-            ${u.rol === 'owner' ? 'Owner' : u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'}
-          </span>
-        </td>
-        <td class="px-5 py-3">
-          <span class="flex items-center gap-1.5 text-xs val-text">
-            <span class="w-2 h-2 rounded-full ${u.estado == 1 ? 'bg-emerald-400' : 'bg-red-400'}"></span>
-            ${u.estado == 1 ? 'Activo' : 'Inactivo'}
-          </span>
-        </td>
-        <td class="px-5 py-3">
-          <button onclick='abrirModalEditar(${esc(JSON.stringify(u))})'
-            class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">
-            Editar
-          </button>
-        </td>
-      </tr>
-    `).join('');
+    _usuariosLista = await res.json();
+    _seguimiento = resSeg && resSeg.ok ? await resSeg.json().catch(() => null) : null;
+    _usuariosLista.forEach(u => { _usuariosPorId[u.id] = u; });
+    renderUsuarios();
   }
+
+  const _US_VACIO = { leads: 0, cerrados: 0, sin_contactar: 0, pendientes_respuesta: 0, seguimiento_vencido: 0, para_hoy: 0, en_evaluacion: 0, cotizados: 0, aprobados: 0, nuevos_7d: 0, notas_7d: 0, cotizaciones_30d: 0 };
+  function usMetricas(u) { return Object.assign({}, _US_VACIO, (_seguimiento && _seguimiento.usuarios && _seguimiento.usuarios[u.id]) || {}); }
+
+  // «hace 5 min», «hace 3 h», «hace 2 días»; nivel: ok (menos de un día), aviso (hasta 3 días), alerta (más), none (sin registro)
+  function usActividad(iso, ahora = Date.now()) {
+    const t = iso ? Date.parse(iso) : NaN;
+    if (!isFinite(t)) return { texto: 'Sin registro aún', nivel: 'none', ms: null };
+    const min = Math.max(0, Math.round((ahora - t) / 60000));
+    let texto;
+    if (min < 2) texto = 'hace un momento';
+    else if (min < 60) texto = `hace ${min} min`;
+    else if (min < 60 * 24) texto = `hace ${Math.floor(min / 60)} h`;
+    else if (min < 60 * 24 * 30) { const d = Math.floor(min / 1440); texto = `hace ${d} ${d === 1 ? 'día' : 'días'}`; }
+    else texto = 'hace más de un mes';
+    return { texto, nivel: min < 1440 ? 'ok' : (min < 4320 ? 'aviso' : 'alerta'), ms: t };
+  }
+
+  // Lo que conviene mirar de esa persona, en palabras (máximo 3), de lo más urgente a lo menos
+  function usAtencion(u, m, ahora = Date.now()) {
+    const av = [], plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+    if (u.estado == 0 && m.leads > 0) av.push({ nivel: 'alerta', texto: `Dado de baja con ${plural(m.leads, 'lead', 'leads')}` });
+    if (m.seguimiento_vencido > 0) av.push({ nivel: 'alerta', texto: plural(m.seguimiento_vencido, 'seguimiento vencido', 'seguimientos vencidos') });
+    if (m.sin_contactar > 0) av.push({ nivel: 'aviso', texto: `${plural(m.sin_contactar, 'lead', 'leads')} sin contactar` });
+    if (m.pendientes_respuesta > 0) av.push({ nivel: 'aviso', texto: `${plural(m.pendientes_respuesta, 'cliente espera', 'clientes esperan')} respuesta` });
+    const { texto: cuando, nivel } = usActividad(u.ultimo_acceso, ahora);          // (el texto sale de usActividad y se escapa al dibujar la etiqueta)
+    if (u.estado != 0 && m.leads > 0 && nivel === 'alerta') av.push({ nivel: 'aviso', texto: `Sin entrar al sistema ${cuando}` });
+    return av.slice(0, 3);
+  }
+
+  function usOrdenar(filas, criterio, ahora = Date.now()) {
+    const llave = {
+      nombre: f => String(f.u.nombre || '').toLowerCase(),
+      leads: f => -f.m.leads, sin_contactar: f => -f.m.sin_contactar, vencidos: f => -f.m.seguimiento_vencido,
+      atencion: f => -(f.m.seguimiento_vencido * 1000 + f.m.sin_contactar * 10 + f.m.pendientes_respuesta),
+      actividad: f => { const a = usActividad(f.u.ultimo_acceso, ahora); return a.ms == null ? -Infinity : a.ms; },
+    }[criterio] || (f => 0);
+    return filas.slice().sort((x, y) => { const a = llave(x), b = llave(y); return a < b ? -1 : a > b ? 1 : String(x.u.nombre || '').localeCompare(String(y.u.nombre || ''), 'es'); });
+  }
+
+  function usIniciales(nombre) { return String(nombre || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?'; }
+  function usTile(valor, etiqueta, nivel = '') { return `<div class="us-m ${nivel ? 'us-m-' + nivel : ''}"><b class="val-text">${Number(valor).toLocaleString('es-CL')}</b><span class="sidebar-text">${esc(etiqueta)}</span></div>`; }
+
+  function tarjetaUsuario(u, m, ahora = Date.now()) {
+    const rol = u.rol === 'owner' ? ['Owner', 'aviso'] : u.rol === 'administrador' ? ['Admin', 'neutro'] : ['Ejecutivo', 'neutro'];
+    const act = usActividad(u.ultimo_acceso, ahora), av = usAtencion(u, m, ahora);
+    const estado = u.estado == 1 ? '' : '<span class="us-chip us-chip-alerta">Inactivo</span>';
+    const sinLeads = m.leads === 0 && m.cerrados === 0;
+    const cifras = u.rol === 'ejecutivo' || !sinLeads;          // administración sin leads propios: no se llena la tarjeta de ceros
+    const chips = av.length ? av.map(a => `<span class="us-chip us-chip-${a.nivel}">${esc(a.texto)}</span>`).join('')
+      : (sinLeads ? '<span class="us-chip us-chip-neutro">Sin leads asignados</span>' : '<span class="us-chip us-chip-ok">Al día</span>');
+    return `<article class="glass us-card ${u.estado == 1 ? '' : 'us-baja'}" data-usuario="${esc(u.id)}">
+      <header class="flex items-start gap-3">
+        <div class="us-avatar" aria-hidden="true">${esc(usIniciales(u.nombre))}</div>
+        <div class="min-w-0 flex-1">
+          <h3 class="font-semibold val-text truncate">${esc(u.nombre)}</h3>
+          <p class="text-xs sidebar-text truncate">${esc(u.correo)}</p>
+          <div class="flex gap-1.5 mt-1.5 flex-wrap"><span class="us-chip us-chip-${rol[1]}">${rol[0]}</span>${estado}</div>
+        </div>
+        <button type="button" data-id="${esc(u.id)}" onclick="editarUsuarioDesdeTarjeta(this.dataset.id)" class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">Editar</button>
+      </header>
+      <p class="text-xs sidebar-text"><span class="us-punto ${act.nivel === 'none' ? '' : 'us-' + act.nivel}"></span>Última vez en el sistema: <b class="val-text">${esc(act.texto)}</b></p>
+      ${cifras ? `      <div class="us-metricas">
+        ${usTile(m.leads, 'Leads activos')}${usTile(m.sin_contactar, 'Sin contactar', m.sin_contactar > 0 ? 'aviso' : '')}
+        ${usTile(m.pendientes_respuesta, 'Esperan respuesta', m.pendientes_respuesta > 0 ? 'aviso' : '')}${usTile(m.seguimiento_vencido, 'Seguim. vencidos', m.seguimiento_vencido > 0 ? 'alerta' : '')}
+      </div>
+      <div class="us-metricas us-tres">${usTile(m.en_evaluacion, 'En evaluación')}${usTile(m.cotizados, 'Cotizados')}${usTile(m.aprobados, 'Aprobados')}</div>
+      <p class="text-xs sidebar-text">${_seguimiento ? `Esta semana: <b class="val-text">${m.nuevos_7d}</b> nuevos · <b class="val-text">${m.notas_7d}</b> notas${_seguimiento.cotizaciones_disponibles ? ` · Cotizaciones (30 días): <b class="val-text">${m.cotizaciones_30d}</b>` : ''}` : 'Las cifras no se pudieron cargar. Usa «Actualizar».'}</p>` : ''}
+      <div class="flex gap-1.5 flex-wrap">${chips}</div>
+    </article>`;
+  }
+
+  function renderUsuarios() {
+    const cont = document.getElementById('cardsUsuarios');
+    if (!_usuariosLista.length) { cont.innerHTML = '<p class="empty-text py-10">Sin usuarios registrados</p>'; return; }
+    const q = (document.getElementById('buscarUsuario').value || '').trim().toLowerCase();
+    const rolF = document.getElementById('filtroRolUsuario').value;
+    let filas = _usuariosLista.map(u => ({ u, m: usMetricas(u) })).filter(f =>
+      (!q || String(f.u.nombre || '').toLowerCase().includes(q) || String(f.u.correo || '').toLowerCase().includes(q)) &&
+      (rolF === 'todos' || (rolF === 'ejecutivo' ? f.u.rol === 'ejecutivo' : f.u.rol !== 'ejecutivo')));
+    filas = usOrdenar(filas, document.getElementById('ordenUsuarios').value);
+    cont.innerHTML = filas.length ? filas.map(f => tarjetaUsuario(f.u, f.m)).join('') : '<p class="empty-text py-10">Ningún usuario coincide con la búsqueda.</p>';
+    // resumen de todo el equipo (no depende de los filtros)
+    const todos = _usuariosLista.map(u => ({ u, m: usMetricas(u) }));
+    const suma = k => todos.reduce((n, f) => n + f.m[k], 0);
+    const activos = _usuariosLista.filter(u => u.rol === 'ejecutivo' && u.estado == 1).length;
+    document.getElementById('resumenUsuarios').innerHTML = _seguimiento ? [
+      ['Ejecutivos activos', activos], ['Leads activos', suma('leads')], ['Sin contactar', suma('sin_contactar')], ['Seguimientos vencidos', suma('seguimiento_vencido')],
+      ['Sin ejecutivo asignado', _seguimiento.sin_asignar || 0],
+    ].map(([t, n]) => `<div class="glass"><b class="val-text">${Number(n).toLocaleString('es-CL')}</b><span class="sidebar-text">${esc(t)}</span></div>`).join('') : '';
+    document.getElementById('usGenerado').textContent = _seguimiento && _seguimiento.generado_en ? 'Cifras de ' + new Date(_seguimiento.generado_en).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }) : '';
+  }
+
+  function editarUsuarioDesdeTarjeta(id) { if (_usuariosPorId[id]) abrirModalEditar(_usuariosPorId[id]); }
 
   // ── Datos para asignación ─────────────────────────────────────────────────
   let _allInmobiliarias = [];

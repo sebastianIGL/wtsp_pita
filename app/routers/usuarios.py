@@ -15,6 +15,7 @@ from app.core.permisos import _solo_admin, _solo_owner, puede_cotizar
 from app.core.user_cache import user_cache
 from app.core.utilidades import _normalize_phone
 from app.services.plantillas import TEMPLATE_VARS_MAP
+from app.services.seguimiento_ejecutivos import seguimiento
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict
@@ -43,6 +44,18 @@ async def api_usuario_actual(request: Request):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     return {**perfil, "puede_cotizar": puede_cotizar(perfil)}          # el panel muestra «Cotizar» solo a quien puede usarlo
+
+
+@router.get("/api/usuarios/seguimiento")
+async def api_seguimiento_usuarios(request: Request):
+    """Cifras de cada persona para la pestaña «Usuarios» del panel de administración (leads, sin contactar, seguimientos vencidos…). ``?refrescar=1`` salta la memoria de 60 s."""
+    perfil = await _get_usuario_actual(request)
+    if not _solo_admin(perfil):
+        return Response(content="Solo administradores", status_code=403)
+    try:
+        return await seguimiento(refrescar=request.query_params.get("refrescar") == "1")
+    except Exception as e:
+        return respuesta_error(e, contexto="api_seguimiento_usuarios")
 
 
 @router.get("/api/usuarios")

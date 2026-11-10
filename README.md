@@ -245,6 +245,15 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   clientes y un bloque que falle no frena a los demás (`fallidos`; repetir el reparto es seguro). Hasta 20.000 clientes por vez (`app/services/reparto_existentes.py`). Solo cambia `usuario_id`.
 - Pruebas: `tests/test_carga_clientes.py`, `tests/test_importacion_paquetes.py`, `tests/test_reparto_existentes.py` y `tests/test_carga_clientes_frontend.py` (pytest) y `tests/herramientas_frontend/carga.js` (jsdom: funciones puras, revisión, reparto, avisos, carga con avance, errores, textos hostiles).
 
+## Seguimiento de ejecutivos (panel de administración, pestaña «Usuarios»)
+- La pestaña muestra **una tarjeta por persona** (el botón «Nuevo usuario» y el modal de «Editar» son los de siempre), con buscador, filtro por rol y orden (nombre, necesitan atención, más leads, más sin contactar, más seguimientos vencidos, menos actividad reciente), y arriba un resumen del equipo.
+- **Cifras** (`GET /api/usuarios/seguimiento`, solo administración, `app/services/seguimiento_ejecutivos.py`; se recuerdan 60 s y «Actualizar» las refresca): leads activos (sin los «No interesado» ni «Rechazado», que van aparte como `cerrados`), sin contactar, clientes que esperan respuesta, seguimientos vencidos (fecha de Chile), para hoy,
+  en evaluación, cotizados, aprobados, nuevos y notas de los últimos 7 días, cotizaciones enviadas en 30 días, y cuántos clientes no tienen ejecutivo asignado. Las etapas usan **las mismas reglas del CRM** (`etapaDe` / `computeFunnelGroup`), así un número del panel y el del CRM coinciden. Etiquetas de atención (máx. 3): seguimientos vencidos, sin contactar,
+  esperan respuesta, «sin entrar hace N días» y «dado de baja con N leads» (para reasignarlos).
+- **Última vez en el sistema:** `Usuario.ultimo_acceso`, que se anota como mucho cada 10 minutos cuando la persona usa el sistema (`_registrar_acceso` en `app/clients/supabase_auth.py`; un fallo nunca afecta a quien entra). Requiere el SQL `supabase/migraciones/2026-11-09_usuario_ultimo_acceso.sql` (la ejecuta el dueño: A crear, B comprobar, C revertir);
+  mientras no exista la columna no se intenta anotar nada y la tarjeta dice «Sin registro aún».
+- Pruebas: `tests/test_seguimiento_ejecutivos.py` (pytest) y `tests/herramientas_frontend/usuarios_admin.js` (jsdom).
+
 ## Cotizar a un cliente (botón «Cotizar» del panel)
 - **Qué hace:** abre una ventana con la cotización del cliente (valor de su tipología, subsidio, ahorro, pie, crédito estimado y, si se pudo leer la UF del día, los pesos aproximados), permite ver el PDF y la envía **por correo con el PDF adjunto** y/o **por WhatsApp
   (el PDF como archivo)**. Cada intento por canal queda registrado en la tabla `Cotizacion` (`supabase/migraciones/2026-11-07_cotizacion.sql`, la ejecuta el dueño: A crear, B comprobar, C revertir) con una «foto» de lo cotizado; si la tabla aún no existe el envío igual sale.

@@ -5,6 +5,8 @@ Movido sin cambios desde main.py (Fase 6, tramo 1b).
     30 s en ``app.core.user_cache`` (solo éxitos). El JWT lo verifica Supabase, no se valida localmente.
   * ``_uid_desde_jwt``: lo mismo con la clave anónima, solo para obtener el id (progreso "Mi Camino").
 """
+import logging
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
 
 from fastapi import Request
@@ -14,10 +16,32 @@ from app.core.config import get_settings
 from app.core.http import http_client, request_con_reintentos_get
 from app.core.user_cache import reducir_perfil, user_cache
 
+logger = logging.getLogger("wtsp_pita")
+
 
 def _dado_de_baja(perfil: Dict) -> bool:
     """Solo ``estado`` = 0 es baja; 1, nulo o ausente siguen entrando (no se deja fuera a nadie por un dato incompleto)."""
     return perfil.get("estado") == 0
+
+
+ACCESO_CADA_MINUTOS = 10      # «última vez en el sistema»: se anota como mucho una vez cada tanto por persona
+
+
+async def _registrar_acceso(fila: Dict) -> None:
+    """Anota en ``Usuario.ultimo_acceso`` la última vez que la persona usó el sistema (el panel de administración lo muestra). Solo si la columna existe (la trae la fila:
+    ver supabase/migraciones/2026-11-09_usuario_ultimo_acceso.sql), como mucho cada ``ACCESO_CADA_MINUTOS`` y sin que un fallo afecte a quien entra."""
+    if "ultimo_acceso" not in fila:
+        return
+    try:
+        previo = fila.get("ultimo_acceso")
+        if previo:
+            t = datetime.fromisoformat(str(previo).replace("Z", "+00:00"))
+            if t.tzinfo and datetime.now(timezone.utc) - t < timedelta(minutes=ACCESO_CADA_MINUTOS):
+                return
+        await _supabase_request("PATCH", "/Usuario", params={"id": f"eq.{fila['id']}"},
+                                json={"ultimo_acceso": datetime.now(timezone.utc).isoformat()}, extra_headers={"Prefer": "return=minimal"})
+    except Exception as e:
+        logger.warning("Acceso | no se pudo anotar el último acceso (%s)", type(e).__name__)
 
 
 async def _get_usuario_actual(request: Request) -> Optional[Dict]:
@@ -59,6 +83,7 @@ async def _get_usuario_actual(request: Request) -> Optional[Dict]:
         perfil = reducir_perfil(perfiles[0])
         if _dado_de_baja(perfil):
             return None                    # una baja no se guarda en la caché: cada intento vuelve a consultar
+        await _registrar_acceso(perfiles[0])
         user_cache.guardar(token, user_id, perfil, generacion)
         user_cache.registrar_periodicamente()
         return perfil
