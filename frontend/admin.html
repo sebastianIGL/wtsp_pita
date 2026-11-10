@@ -46,7 +46,7 @@
     input:focus, textarea:focus, select:focus { outline:none; border-color:#7c3aed; box-shadow:0 0 0 2px rgba(124,58,237,.2); }
 
     /* ── Usuarios: tarjetas de seguimiento ──────────────────────────────────── */
-    .us-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem; }
+    .us-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 1rem; align-items: start; }
     .us-card { border-radius: 1rem; padding: 1.1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
     .us-card.us-baja { opacity: 0.72; }
     .us-avatar { width: 2.5rem; height: 2.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; background: #6d28d9; color: #fff; flex-shrink: 0; }
@@ -97,13 +97,14 @@
     .ds-seccion-btn { font-size: 0.85rem; padding: 0.45rem 1rem; border-radius: 0.6rem 0.6rem 0 0; border-bottom: 2px solid transparent; }
     .ds-seccion-btn.ds-activa { border-bottom-color: #7c3aed; color: #a78bfa; font-weight: 700; }
   </style>
+<script src="/js/menu_lateral.js"></script>
 <link rel="stylesheet" href="/css/crm.css" />
 </head>
 <body class="min-h-screen font-sans">
 
 <div class="flex min-h-screen">
   <!-- Sidebar -->
-  <aside class="w-60 shrink-0 header-border border-r flex flex-col">
+  <aside id="menu-lateral" class="w-60 shrink-0 header-border border-r flex flex-col">
     <div class="px-4 py-4 flex items-center gap-2.5 header-border border-b">
       <a href="/panel" class="sidebar-text hover:text-violet-400 transition shrink-0" title="Volver al panel comercial">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,6 +113,9 @@
       </a>
       <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-7 w-auto object-contain" />
       <span class="font-bold val-text text-sm">Admin</span>
+      <button type="button" onclick="alternarMenu()" class="ml-auto sidebar-text hover:text-violet-400 transition shrink-0" title="Ocultar el menú" aria-label="Ocultar el menú">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+      </button>
     </div>
 
     <nav class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
