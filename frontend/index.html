@@ -269,13 +269,13 @@
 </header>
 
 <!-- ═══════════════════ HERO ═══════════════════ -->
-<div id="hero-original" class="px-8 pt-8 pb-6">
+<div id="hero-original" class="hidden px-8 pt-8 pb-6">
   <h1 class="text-2xl font-bold val-text">Gestión de Clientes</h1>
   <p class="sidebar-text text-sm mt-1">Administra tus prospectos y activa el chatbot de WhatsApp</p>
 </div>
 
 <!-- ═══════════════════ STATS ═══════════════════ -->
-<div id="stats-original" class="px-8 pb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+<div id="stats-original" class="hidden px-8 pb-8 grid grid-cols-2 md:grid-cols-4 gap-4">
   <div class="glass rounded-2xl p-5">
     <p class="text-xs sidebar-text uppercase tracking-wider">Total clientes</p>
     <p id="stat-total" class="text-3xl font-bold val-text mt-1">—</p>
@@ -301,7 +301,7 @@
 </div>
 
 <!-- ═══════════════════ CABECERA DE «TABLA» Y «PIPELINE» (en «Original» está oculta) ═══════════════════ -->
-<div id="cabecera-leads" class="hidden">
+<div id="cabecera-leads">
   <div class="px-8 pt-8 pb-4 flex items-start justify-between gap-4 flex-wrap">
     <div>
       <h1 class="text-2xl font-bold val-text">Leads</h1>
@@ -326,9 +326,9 @@
         <span id="badge-count" class="badge-count-bg text-xs px-2 py-0.5 rounded-full">0</span>
         <!-- Vista: «Tabla» y «Pipeline» son nuevas; «Original» es la pantalla de siempre y es con la que se entra -->
         <div id="selector-vista" class="flex items-center rounded-md overflow-hidden border border-slate-600 flex-shrink-0" style="font-size:0.7rem" role="group" aria-label="Vista de los clientes">
-          <button type="button" id="vista-tabla" onclick="setVista('tabla')" aria-pressed="false" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap">Tabla</button>
+          <button type="button" id="vista-tabla" onclick="setVista('tabla')" aria-pressed="true" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap bg-brand-600 text-white">Tabla</button>
           <button type="button" id="vista-pipeline" onclick="setVista('pipeline')" aria-pressed="false" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap border-l border-slate-600">Pipeline</button>
-          <button type="button" id="vista-original" onclick="setVista('original')" aria-pressed="true" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap border-l border-slate-600 bg-brand-600 text-white">Original</button>
+          <button type="button" id="vista-original" onclick="setVista('original')" aria-pressed="false" class="px-3 py-1.5 font-medium transition-colors whitespace-nowrap border-l border-slate-600">Original</button>
         </div>
         <!-- Toggle de pestañas (siempre visible, contenido ajustado por rol) -->
         <div id="toggle-filtro-usuario" class="hidden items-center rounded-md overflow-hidden border border-slate-600 flex-shrink-0" style="font-size:0.7rem">
@@ -416,11 +416,11 @@
     </div>
 
     <!-- Vistas «Tabla» y «Pipeline» -->
-    <div id="vista-nueva" class="hidden">
+    <div id="vista-nueva">
       <div id="ld-colas" class="ld-colas px-6 pt-3 flex gap-1 flex-wrap border-b" role="group" aria-label="Colas de trabajo"></div>
       <div id="ld-filtros" class="px-6 py-2.5 flex items-center gap-2 flex-wrap border-b"></div>
       <div id="ld-seleccion" class="hidden ld-seleccion px-6 py-2 flex items-center gap-2 flex-wrap border-b" role="toolbar" aria-label="Acciones sobre los seleccionados"></div>
-      <div id="ld-contenido"></div>
+      <div id="ld-contenido"><p class="px-6 py-12 text-center empty-text">Cargando clientes…</p></div>
       <div id="ld-pie" class="toolbar px-6 py-3 flex items-center justify-between flex-wrap gap-2 border-t text-sm"></div>
     </div>
   </div>
@@ -546,68 +546,6 @@
       </div>
     </form>
 
-    <div id="tab-masivo-content" class="hidden p-6 overflow-y-auto">
-      <div id="import-form">
-        <div class="text-xs sidebar-text mb-4 space-y-1.5">
-          <div class="flex items-start gap-1.5">
-            <div class="space-y-1">
-              <p><span class="text-red-400 font-semibold">Obligatorias:</span> <span class="val-text font-mono">Contacto, Rut, Teléfono</span></p>
-              <p><span class="text-slate-400 font-semibold">Opcionales:</span> <span class="font-mono">Proyecto, Correo, Tramo de renta, Estado, Tiene subsidio, Tipo subsidio, Tiene propiedad</span></p>
-              <p class="text-slate-500">El orden no importa. Si importas dentro de un proyecto, <span class="font-mono">Proyecto</span> no es necesaria.</p>
-            </div>
-            <details class="relative shrink-0 mt-0.5">
-              <summary class="list-none cursor-pointer inline-flex items-center justify-center w-4 h-4 rounded-full border border-slate-500 text-slate-400 hover:border-brand-400 hover:text-brand-400 transition text-[10px] font-bold select-none">i</summary>
-              <div class="absolute left-0 top-6 z-20 w-80 p-3 glass rounded-xl shadow-xl text-xs space-y-2.5 border border-slate-700/50">
-                <div>
-                  <p class="text-red-400 font-semibold mb-1">Obligatorias</p>
-                  <table class="w-full border-collapse">
-                    <tbody class="divide-y divide-slate-700/40">
-                      <tr><td class="py-0.5 pr-3 text-slate-400 w-20">Nombre</td><td class="font-mono val-text">Contacto · Nombre · cliente</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-400">RUT</td><td class="font-mono val-text">Rut · Run</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-400">Teléfono</td><td class="font-mono val-text">Telefono · Teléfono · Fono · Celular · Movil</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <div>
-                  <p class="text-slate-400 font-semibold mb-1">Opcionales</p>
-                  <table class="w-full border-collapse">
-                    <tbody class="divide-y divide-slate-700/40">
-                      <tr><td class="py-0.5 pr-3 text-slate-500 w-20">Proyecto</td><td class="font-mono sidebar-text">Proyecto · nombre proyecto</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-500">Correo</td><td class="font-mono sidebar-text">Correo · Email · E-mail · Mail</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-500">Renta</td><td class="font-mono sidebar-text">Tramo de renta · Tramo · Renta</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-500">Estado</td><td class="font-mono sidebar-text">Estado</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-500">Subsidio</td><td class="font-mono sidebar-text">Tiene subsidio · Subsidio · Tipo subsidio</td></tr>
-                      <tr><td class="py-0.5 pr-3 text-slate-500">Propiedad</td><td class="font-mono sidebar-text">Tiene propiedad · Propiedad</td></tr>
-                    </tbody>
-                  </table>
-                </div>
-                <p class="text-slate-500">Mayúsculas, tildes y guiones son ignorados al comparar.</p>
-              </div>
-            </details>
-          </div>
-        </div>
-        <form onsubmit="importarCSV(event)" class="space-y-4">
-          <div id="wrap-import-usuario" class="hidden">
-            <label class="block text-xs sidebar-text mb-1.5">Asignar a ejecutivo</label>
-            <select id="import-usuario" class="w-full rounded-lg px-3 py-2 text-sm">
-              <option value="">Yo mismo</option>
-            </select>
-          </div>
-          <div class="doc-drop relative p-5 flex flex-col items-center gap-2 text-center" id="csv-drop">
-            <input type="file" id="csv-file" accept=".csv,text/csv" required class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="onCsvSelect(this)">
-            <svg class="w-8 h-8 sidebar-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-            <p id="csv-file-label" class="text-sm sidebar-text">Arrastra tu CSV aquí o haz clic para seleccionar</p>
-          </div>
-          <div class="flex gap-3">
-            <button type="button" onclick="cerrarModal()" class="cancel-btn flex-1 py-2.5 rounded-lg border text-sm transition">Cancelar</button>
-            <button type="submit" id="btn-importar" class="flex-1 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm transition flex items-center justify-center gap-2">
-              Importar
-            </button>
-          </div>
-        </form>
-      </div>
-      <div id="import-results" class="hidden"></div>
-    </div>
   </div>
 </div>
 
@@ -928,6 +866,7 @@
 </div>
 
 <!-- ═══════════════════ SCRIPT ═══════════════════ -->
+<script src="/js/carga_clientes.js"></script>
 <script>
 const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc'
@@ -1204,6 +1143,8 @@ document.addEventListener('click', (e) => {
 // ─── INIT ─────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   _llenarCatalogosCliente()
+  _actualizarSelectorVista()            // la pantalla parte ya en la vista elegida (sin un destello de otra)
+  _aplicarVisibilidadVista()
   initAuth()
 })
 
@@ -1243,11 +1184,6 @@ async function cargarUsuarios() {
     const sel = document.getElementById('filtro-usuario')
     if (sel) {
       sel.innerHTML = '<option value="">Todos los ejecutivos</option>'
-        + _usuarios.map(u => `<option value="${u.id}">${esc(u.nombre || u.correo)}</option>`).join('')
-    }
-    const selImport = document.getElementById('import-usuario')
-    if (selImport) {
-      selImport.innerHTML = '<option value="">Yo mismo</option>'
         + _usuarios.map(u => `<option value="${u.id}">${esc(u.nombre || u.correo)}</option>`).join('')
     }
     // Carrera de carga: si la lista de clientes llegó antes que los usuarios, la tabla se dibujó con «👤 —» en «asignado».
@@ -1783,7 +1719,18 @@ const COLUMNAS_TABLA = [
 const POR_PAGINA_LEADS = 30
 const TARJETAS_POR_TANDA = 20
 
-let _vista = 'original'                  // 'original' | 'tabla' | 'pipeline'  (siempre se entra en «original»)
+const VISTAS = ['tabla', 'pipeline', 'original']
+// Se entra en «Tabla»; el panel puede pedir otra con ?vista=tabla|pipeline|original y el navegador recuerda la última que se eligió.
+function _vistaInicial() {
+  try {
+    const pedida = new URLSearchParams(location.search).get('vista')
+    if (VISTAS.includes(pedida)) return pedida
+    const guardada = localStorage.getItem('crm-vista')
+    if (VISTAS.includes(guardada)) return guardada
+  } catch (e) { /* sin almacenamiento: la de siempre */ }
+  return 'tabla'
+}
+let _vista = _vistaInicial()             // 'tabla' | 'pipeline' | 'original'
 let _cola = 'todos'
 let _ordenLeads = 'llegada_desc'
 let _filtrosLeads = { llegada: '', etapa: '', origen: '' }
@@ -2002,7 +1949,8 @@ function _aplicarVisibilidadVista() {
 }
 
 function setVista(v) {
-  _vista = ['tabla', 'pipeline', 'original'].includes(v) ? v : 'original'
+  _vista = VISTAS.includes(v) ? v : 'original'
+  try { localStorage.setItem('crm-vista', _vista) } catch (e) { /* la elección vale solo en esta visita */ }
   _actualizarSelectorVista()
   _aplicarVisibilidadVista()
   if (_filtroTab !== 'inbox') { _preservarPagina = false; aplicarFiltros() }
@@ -2414,7 +2362,7 @@ function accionMenuLead(accion, id, etapa) {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') _cerrarMenuLead() })
 
 // Botones del encabezado de las vistas nuevas
-async function leadsImportarExcel() { await abrirModal(); cambiarTabModalCliente('masivo') }
+function leadsImportarExcel() { abrirCargaMasiva() }
 function leadsEnviarPlantilla() {
   if (!_seleccionLeads.size) { toast('Marca primero en la tabla los leads a los que quieres escribir.', 'error'); if (_vista !== 'tabla') setVista('tabla'); return }
   abrirSelectorTemplate(null, null, [..._seleccionLeads])
@@ -2652,130 +2600,19 @@ async function enviarConTemplate() {
   }
 }
 
-// ─── CSV IMPORT (pestaña "Masivo" del modal de clientes) ──
-function prepararImportCSV() {
-  document.getElementById('import-form').classList.remove('hidden')
-  document.getElementById('import-results').classList.add('hidden')
-  document.getElementById('csv-file').value = ''
-  document.getElementById('csv-file-label').textContent = 'Arrastra tu CSV aquí o haz clic para seleccionar'
-  document.getElementById('csv-drop').classList.remove('has-file')
-  document.getElementById('wrap-import-usuario').classList.toggle('hidden', !_esAdmin(_perfil?.rol))
-  document.getElementById('import-usuario').value = ''
-  const btn = document.getElementById('btn-importar')
-  btn.disabled = false; btn.innerHTML = 'Importar'
-}
-
-function onCsvSelect(input) {
-  const file = input.files[0]
-  const drop  = document.getElementById('csv-drop')
-  const label = document.getElementById('csv-file-label')
-  if (file) {
-    drop.classList.add('has-file')
-    label.textContent = `📎 ${file.name}`
-  } else {
-    drop.classList.remove('has-file')
-    label.textContent = 'Arrastra tu CSV aquí o haz clic para seleccionar'
-  }
-}
-
-async function importarCSV(e) {
-  e.preventDefault()
-  const file = document.getElementById('csv-file').files[0]
-  if (!file) return
-  const btn = document.getElementById('btn-importar')
-  btn.disabled = true
-  btn.innerHTML = '<span class="spinner"></span> Importando…'
-  const fd = new FormData()
-  fd.append('file', file)
-  const _proy    = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
-  const _inm     = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
-  const _emp     = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
-  const _importPartes = []
-  if (_proy?.id) _importPartes.push(`proyecto_id=${_proy.id}`)
-  else if (_inm?._todos && _emp?.id) _importPartes.push(`empresa_id=${_emp.id}`)
-  else if (_inm?.id) _importPartes.push(`inmobiliaria_id=${_inm.id}`)
-  const _asignarA = document.getElementById('import-usuario')?.value
-  if (_asignarA) _importPartes.push(`asignar_usuario_id=${_asignarA}`)
-  const importQs = _importPartes.length ? `?${_importPartes.join('&')}` : ''
-  try {
-    const res = await fetch(`/api/clientes/importar${importQs}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${_token}` },
-      body: fd,
-    })
-    if (!res.ok) throw new Error(await res.text())
-
-    // Leer stream SSE
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    let done_data = null
-
-    while (true) {
-      const { value, done } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const parts = buffer.split('\n\n')
-      buffer = parts.pop()
-      for (const part of parts) {
-        const line = part.trim()
-        if (!line.startsWith('data:')) continue
-        const evt = JSON.parse(line.slice(5).trim())
-        if (evt.t === 'prog') {
-          btn.innerHTML = `<span class="spinner"></span> ${evt.creados} creados, ${evt.n}/${evt.total}…`
-        } else if (evt.t === 'done') {
-          done_data = evt
-        } else if (evt.t === 'error') {
-          throw new Error(evt.msg)
-        }
-      }
-    }
-
-    const data = done_data || {}
-    document.getElementById('import-form').classList.add('hidden')
-    const results = document.getElementById('import-results')
-    results.classList.remove('hidden')
-    results.innerHTML = `
-      <div class="space-y-4">
-        <div class="grid grid-cols-3 gap-3 text-center">
-          <div class="glass rounded-xl p-3">
-            <p class="text-2xl font-bold text-emerald-400">${data.creados || 0}</p>
-            <p class="text-xs sidebar-text mt-1">Importados</p>
-          </div>
-          <div class="glass rounded-xl p-3">
-            <p class="text-2xl font-bold text-amber-400">${data.duplicados || 0}</p>
-            <p class="text-xs sidebar-text mt-1">Duplicados</p>
-          </div>
-          <div class="glass rounded-xl p-3">
-            <p class="text-2xl font-bold text-red-400">${data.errores || 0}</p>
-            <p class="text-xs sidebar-text mt-1">Errores</p>
-          </div>
-        </div>
-        ${(data.detalle_errores || []).length ? `
-          <div class="max-h-36 overflow-y-auto space-y-1 p-3 glass rounded-xl">
-            <p class="text-xs sidebar-text font-semibold mb-2">Detalle errores:</p>
-            ${data.detalle_errores.map(d => `<p class="text-xs err-text">• Fila ${d.fila ?? '?'}${d.nombre ? ` (${esc(d.nombre)})` : ''}: ${esc(d.motivo ?? JSON.stringify(d))}</p>`).join('')}
-          </div>` : ''}
-        ${(data.ids_creados || []).length ? `
-          <div class="glass rounded-xl p-3">
-            <p class="text-xs sidebar-text font-semibold mb-2">WhatsApp a importados:</p>
-            <div class="max-h-28 overflow-y-auto space-y-0.5 mb-3">
-              ${data.ids_creados.map(c => `<p class="text-xs sidebar-text truncate">• ${esc(c.nombre)}</p>`).join('')}
-            </div>
-            ${_esAdmin(_perfil?.rol) ? `<button onclick="abrirSelectorTemplate(null, null, [${data.ids_creados.map(c => c.id).join(',')}])"
-              class="w-full text-xs bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded-lg transition font-medium">
-              Enviar WA a todos (${data.ids_creados.length})
-            </button>` : ''}
-          </div>` : ''}
-        <button onclick="cerrarModal()" class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition">
-          Cerrar
-        </button>
-      </div>`
-    await cargarClientes()
-  } catch(e) {
-    toast('❌ ' + e.message, 'error')
-    btn.disabled = false; btn.innerHTML = 'Importar'
-  }
+// ─── CARGA MASIVA (pestaña «Masivo» del modal de clientes y botón «Importar Excel» de las vistas) ──
+// La ventana es la misma del panel (/js/carga_clientes.js): revisa el archivo antes de cargar, recomienda cómo repartirlo entre ejecutivos y carga con avance en vivo.
+function abrirCargaMasiva() {
+  const proy = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
+  const inm  = JSON.parse(sessionStorage.getItem('crm_inmobiliaria') || '{}')
+  const emp  = JSON.parse(sessionStorage.getItem('crm_empresa') || '{}')
+  const admin = _esAdmin(_perfil?.rol)
+  CargaClientes.abrir({
+    token: () => _token, esAdmin: admin, acento: '#0ea5e9',
+    contexto: { empresa_id: emp?.id ?? null, inmobiliaria_id: (inm?.id && !inm._todos) ? inm.id : null, proyecto_id: proy?.id ?? null, proyecto_nombre: proy?.nombre ?? null },
+    alFinalizar: () => cargarClientes(true),
+    enviarWhatsApp: admin ? ids => abrirSelectorTemplate(null, null, ids) : null,
+  })
 }
 
 // ─── MODAL ────────────────────────────────────────
@@ -2784,11 +2621,10 @@ let _cachedTemplatesList = null
 function cambiarTabModalCliente(tab) {
   const activo   = 'border-brand-500 val-text'
   const inactivo = 'border-transparent sidebar-text hover:text-brand-400'
+  if (tab === 'masivo') { cerrarModal(); abrirCargaMasiva(); return }            // la carga masiva tiene su propia ventana
   document.getElementById('form-cliente').classList.toggle('hidden', tab !== 'nuevo')
-  document.getElementById('tab-masivo-content').classList.toggle('hidden', tab !== 'masivo')
   document.getElementById('tab-nuevo-btn').className  = `px-3 py-2 text-sm font-medium border-b-2 transition ${tab === 'nuevo'  ? activo : inactivo}`
   document.getElementById('tab-masivo-btn').className = `px-3 py-2 text-sm font-medium border-b-2 transition ${tab === 'masivo' ? activo : inactivo}`
-  if (tab === 'masivo') prepararImportCSV()
 }
 
 async function abrirModal() {
