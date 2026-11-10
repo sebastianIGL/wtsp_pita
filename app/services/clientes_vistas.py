@@ -6,13 +6,41 @@ sale igual, como antes. Nunca se agrega nada que no sea el nombre de la tipolog�
 import asyncio
 import logging
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from app.clients.supabase import _supabase_request
 
 logger = logging.getLogger("wtsp_pita")
 
 LOTE = 250
+
+
+PAGINA_LECTURA = 1000          # filas por consulta: el tope por defecto de Supabase (si el proyecto lo bajara, la lista se cortaría antes)
+MAX_CLIENTES_LISTA = 10_000    # la lista del CRM no pasa de esto; el CRM avisa cuando se llega (frontend/index.html: MAX_CLIENTES_LISTA)
+
+
+async def leer_en_paginas(ruta: str, params: Dict[str, str], maximo: Optional[int] = None, pedir=None) -> List[Dict[str, Any]]:
+    """Lee todas las filas de una consulta, de a ``PAGINA_LECTURA``, hasta ``maximo``. Sin esto la base corta la respuesta en silencio en
+    su tope (1.000 filas) y los clientes más antiguos desaparecían de la lista. Quita repetidos por ``id`` (si entra un cliente nuevo
+    mientras se lee, las páginas se corren y una misma fila podría salir dos veces)."""
+    maximo = maximo or MAX_CLIENTES_LISTA
+    pedir = pedir or _supabase_request           # quien llama puede pasar su propia función de consulta (así sus pruebas la siguen interceptando)
+    filas: List[Dict[str, Any]] = []
+    while len(filas) < maximo:
+        pedido = min(PAGINA_LECTURA, maximo - len(filas))
+        lote = await pedir("GET", ruta, params={**params, "limit": str(pedido), "offset": str(len(filas))}) or []
+        filas.extend(lote)
+        if len(lote) < pedido:
+            break
+    vistos, unicas = set(), []
+    for f in filas:
+        clave = f.get("id") if isinstance(f, dict) else None
+        if clave is not None:
+            if clave in vistos:
+                continue
+            vistos.add(clave)
+        unicas.append(f)
+    return unicas
 
 
 def _lotes(valores: List[Any]) -> List[List[Any]]:

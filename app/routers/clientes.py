@@ -3,6 +3,7 @@ cliente) y conversaciones y contexto del bot de un cliente o prospecto.
 
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
+import asyncio
 import logging
 import httpx
 from app.clients.supabase import _supabase_request
@@ -12,7 +13,7 @@ from app.core.errors import respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
 from app.services import clientes_datos as cd
-from app.services.clientes_vistas import enriquecer_clientes
+from app.services.clientes_vistas import enriquecer_clientes, leer_en_paginas
 from app.services.documentos import _CAMPOS_CALIFICACION
 from app.services.prospectos import upsert_prospecto
 from app.services.proyectos import obtener_proyecto_por_id
@@ -71,18 +72,22 @@ async def api_listar_clientes(request: Request):
         params["usuario_id"] = f"eq.{perfil['id']}"
     elif usuario_filtro:
         params["usuario_id"] = f"eq.{usuario_filtro}"
-    rows = await _supabase_request("GET", "/Cliente", params=params) or []
+    rows = await leer_en_paginas("/Cliente", params, pedir=_supabase_request)          # todas las filas, no solo las primeras 1.000
     # Merge datos de Prospecto para ordenar por actividad WA y mostrar estado
     if rows:
         telefonos = [r["Telefono"] for r in rows if r.get("Telefono")]
         prospectos: List[Dict] = []
         LOTE_TELEFONOS = 250
-        for i in range(0, len(telefonos), LOTE_TELEFONOS):
-            tel_list = ",".join(telefonos[i:i + LOTE_TELEFONOS])
-            if tel_list:
-                prospectos += await _supabase_request("GET", "/Prospecto",
+        cupo = asyncio.Semaphore(6)                              # de a pocas consultas a la vez: con miles de clientes son decenas de lotes
+
+        async def _prospectos_de(tel_list: str):
+            async with cupo:
+                return await _supabase_request("GET", "/Prospecto",
                     params={"telefono_e164": f"in.({tel_list})",
                             "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado,paso"}) or []
+        lotes_tel = [",".join(telefonos[i:i + LOTE_TELEFONOS]) for i in range(0, len(telefonos), LOTE_TELEFONOS)]
+        for lote in await asyncio.gather(*[_prospectos_de(t) for t in lotes_tel if t]):
+            prospectos += lote
         if prospectos:
             prosp_map = {p["telefono_e164"]: p for p in prospectos}
             for r in rows:

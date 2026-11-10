@@ -7,14 +7,20 @@ como parámetros lo que antes tomaba del entorno de la ruta.
 import csv
 import io
 import json
+import logging
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Any, Dict, List, Optional
 
 from app.clients.supabase import _supabase_request
 from app.core.errors import mensaje_publico
 from app.core.utilidades import _norm_row, _norm_row_keys, _normalize_phone
 from app.services.carga_clientes import asignador
 from app.services.proyectos import _buscar_id_proyecto
+
+logger = logging.getLogger("wtsp_pita")
+
+TAMANO_PAQUETE = 50      # clientes que se crean de una vez (una sola consulta a la base); si un paquete falla se reintenta fila por fila
+_PREFER = {"Prefer": "return=representation"}
 
 
 async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False):
@@ -73,10 +79,72 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
         siguiente_usuario = asignador(usuario_id, reparto)
         por_proyecto: Dict[str, int] = {}
         asignados: Dict[str, int] = {}
+        pendientes: List[Dict[str, Any]] = []            # clientes válidos esperando su paquete (se crean de a ``TAMANO_PAQUETE``)
+        tel_pendientes: set = set()
+
+        def encolar(payload, fila, nombre, telefono, nombre_proyecto, asignar_a):
+            pendientes.append({"payload": payload, "fila": fila, "nombre": nombre, "telefono": telefono, "proyecto": nombre_proyecto, "asignar_a": asignar_a})
+            tel_pendientes.add(telefono)
+            phones_existentes.add(telefono)
+
+        async def ya_cargados(paquete) -> Optional[Dict[Any, Any]]:
+            """Qué clientes del paquete SÍ quedaron en la base (por si la respuesta se perdió pero el paquete entró): {(teléfono, proyecto): id}. None si no se pudo saber."""
+            try:
+                filas = await _supabase_request("GET", "/Cliente", params={
+                    "Telefono": f"in.({','.join(p['telefono'] for p in paquete)})", "origen_carga": f"eq.{lote_carga}", "select": "id,Telefono,proyecto_id"}) or []
+            except Exception:
+                return None
+            return {(f.get("Telefono"), str(f.get("proyecto_id"))): f.get("id") for f in filas}
+
+        async def vaciar():
+            """Crea los clientes pendientes. Primero todos juntos (rápido); si la base rechaza el paquete —lo deshace entero—, uno por uno: solo falla el que trae el problema."""
+            nonlocal creados
+            if not pendientes:
+                return
+            paquete = list(pendientes)
+            pendientes.clear()
+            tel_pendientes.clear()
+            resultados: List[Any] = []                   # (creado?, id o error) de cada cliente, en el orden del archivo
+            if simular:
+                resultados = [(True, None)] * len(paquete)
+            else:
+                try:
+                    r = await _supabase_request("POST", "/Cliente", json=[p["payload"] for p in paquete], extra_headers=_PREFER)
+                    devueltas = r if isinstance(r, list) and len(r) == len(paquete) else [None] * len(paquete)
+                    resultados = [(True, x.get("id") if isinstance(x, dict) else None) for x in devueltas]
+                except Exception as ex_paquete:
+                    logger.warning("Importación | un paquete de %s clientes falló (%s): se reintenta uno por uno", len(paquete), type(ex_paquete).__name__)
+                    ya = await ya_cargados(paquete)
+                    for p in paquete:
+                        if ya is None:                    # no se pudo confirmar qué entró: no se reintenta (podría duplicar clientes)
+                            resultados.append((False, ex_paquete))
+                            continue
+                        clave = (p["telefono"], str(p["payload"]["proyecto_id"]))
+                        if clave in ya:
+                            resultados.append((True, ya[clave]))
+                            continue
+                        try:
+                            r1 = await _supabase_request("POST", "/Cliente", json=p["payload"], extra_headers=_PREFER)
+                            resultados.append((True, r1[0].get("id") if isinstance(r1, list) and r1 and isinstance(r1[0], dict) else None))
+                        except Exception as ex_fila:
+                            resultados.append((False, ex_fila))
+            for p, (ok, dato) in zip(paquete, resultados):
+                if ok:
+                    if dato is not None:
+                        ids_creados.append({"id": dato, "nombre": p["nombre"], "telefono": p["telefono"]})
+                    creados += 1
+                    por_proyecto[p["proyecto"]] = por_proyecto.get(p["proyecto"], 0) + 1
+                    asignados[str(p["asignar_a"] or "")] = asignados.get(str(p["asignar_a"] or ""), 0) + 1
+                else:
+                    phones_existentes.discard(p["telefono"])      # no quedó en la base: un teléfono repetido más abajo ya no sería «duplicado» de este
+                    errores.append({"fila": p["fila"], "motivo": mensaje_publico(dato, "api_importar_clientes (fila)")})
+
         reader = csv.DictReader(io.StringIO(text, newline=""), delimiter=delimiter)
 
+        n_filas = 0
         for i, row in enumerate(reader):
             fila = i + 2
+            n_filas = i + 1
             try:
                 if is_serviu:
                     nrow    = _norm_row_keys(row)
@@ -97,6 +165,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                 nrow.get("fonotrabajo") or "").strip()
                     correo   = (nrow.get("email") or "").strip() or None
                     telefono = _normalize_phone(tel_raw)
+                    if telefono in tel_pendientes:
+                        await vaciar()                    # un teléfono repetido en el mismo archivo: antes de decidir si es duplicado, se crean los pendientes
 
                     datos_raw = {"Nombre": nombre, "Rut": rut or "",
                                  "Teléfono": tel_raw, "E-mail": correo or ""}
@@ -113,28 +183,20 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                            "telefono": telefono, "datos": datos_raw})
                     else:
                         asignar_a = siguiente_usuario()
-                        _r = None if simular else await _supabase_request("POST", "/Cliente",
-                            json={
-                                "proyecto_id": proyecto_serviu["id"],
-                                "Contacto": nombre, "Rut": rut, "Correo": correo,
-                                "Telefono": telefono, "estado_crm": None,
-                                "Tramo de renta": None,
-                                "tiene_subsidio": None,
-                                "tipo_subsidio": None,
-                                "tiene_propiedad": None,
-                                "primer mensaje": True, "wtsp_habilitado": True,
-                                "usuario_id": asignar_a,
-                                "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
-                                "origen_carga": lote_carga,
-                                "fuente": "excel",
-                            },
-                            extra_headers={"Prefer": "return=representation"})
-                        phones_existentes.add(telefono)
-                        if isinstance(_r, list) and _r:
-                            ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
-                        creados += 1
-                        por_proyecto[proyecto_serviu.get("nombre") or "—"] = por_proyecto.get(proyecto_serviu.get("nombre") or "—", 0) + 1
-                        asignados[str(asignar_a or "")] = asignados.get(str(asignar_a or ""), 0) + 1
+                        encolar({
+                            "proyecto_id": proyecto_serviu["id"],
+                            "Contacto": nombre, "Rut": rut, "Correo": correo,
+                            "Telefono": telefono, "estado_crm": None,
+                            "Tramo de renta": None,
+                            "tiene_subsidio": None,
+                            "tipo_subsidio": None,
+                            "tiene_propiedad": None,
+                            "primer mensaje": True, "wtsp_habilitado": True,
+                            "usuario_id": asignar_a,
+                            "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                            "origen_carga": lote_carga,
+                            "fuente": "excel",
+                        }, fila, nombre, telefono, proyecto_serviu.get("nombre") or "—", asignar_a)
                 else:
                     nr              = _norm_row(row)
                     nombre_proyecto = nr.get("proyecto", "").strip()
@@ -143,6 +205,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                     correo          = nr.get("correo", "").strip() or None
                     tel_raw         = nr.get("telefono", "").strip()
                     telefono        = _normalize_phone(tel_raw)
+                    if telefono in tel_pendientes:
+                        await vaciar()
                     estado_crm      = nr.get("estado", "").strip() or None
                     tramo_renta     = nr.get("tramo_renta", "").strip() or None
                     sub_raw         = nr.get("tiene_subsidio", "").strip().lower()
@@ -178,34 +242,32 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                             "datos": datos_raw})
                         else:
                             asignar_a = siguiente_usuario()
-                            _r = None if simular else await _supabase_request("POST", "/Cliente",
-                                json={
-                                    "proyecto_id": proyecto_resuelto["id"],
-                                    "Contacto": nombre, "Rut": rut, "Correo": correo,
-                                    "Telefono": telefono, "estado_crm": estado_crm,
-                                    "Tramo de renta": tramo_renta,
-                                    "tiene_subsidio": tiene_subsidio,
-                                    "tipo_subsidio": tipo_subsidio,
-                                    "tiene_propiedad": tiene_propiedad,
-                                    "primer mensaje": True, "wtsp_habilitado": True,
-                                    "usuario_id": asignar_a,
-                                    "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
-                                    "origen_carga": lote_carga,
-                                    "fuente": "excel",
-                                },
-                                extra_headers={"Prefer": "return=representation"})
-                            phones_existentes.add(telefono)
-                            if isinstance(_r, list) and _r:
-                                ids_creados.append({"id": _r[0]["id"], "nombre": nombre, "telefono": telefono})
-                            creados += 1
-                            por_proyecto[proyecto_resuelto.get("nombre") or "—"] = por_proyecto.get(proyecto_resuelto.get("nombre") or "—", 0) + 1
-                            asignados[str(asignar_a or "")] = asignados.get(str(asignar_a or ""), 0) + 1
+                            encolar({
+                                "proyecto_id": proyecto_resuelto["id"],
+                                "Contacto": nombre, "Rut": rut, "Correo": correo,
+                                "Telefono": telefono, "estado_crm": estado_crm,
+                                "Tramo de renta": tramo_renta,
+                                "tiene_subsidio": tiene_subsidio,
+                                "tipo_subsidio": tipo_subsidio,
+                                "tiene_propiedad": tiene_propiedad,
+                                "primer mensaje": True, "wtsp_habilitado": True,
+                                "usuario_id": asignar_a,
+                                "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
+                                "origen_carga": lote_carga,
+                                "fuente": "excel",
+                            }, fila, nombre, telefono, proyecto_resuelto.get("nombre") or "—", asignar_a)
             except Exception as ex:
                 # mensaje de negocio tal cual; cualquier otro fallo → mensaje genérico con código (detalle en el log)
                 errores.append({"fila": fila, "motivo": mensaje_publico(ex, "api_importar_clientes (fila)")})
 
+            if len(pendientes) >= TAMANO_PAQUETE:
+                await vaciar()
             yield f"data: {json.dumps({'t':'prog','n':i+1,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
 
+        if pendientes:
+            await vaciar()                               # el último paquete, aunque no esté completo
+            yield f"data: {json.dumps({'t':'prog','n':n_filas,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
+        errores.sort(key=lambda e: e["fila"])            # los de un paquete se anotan al cerrarlo: se dejan en el orden del archivo
         final = {'t': 'done', 'ok': True, 'creados': creados, 'duplicados': len(duplicados), 'errores': len(errores), 'detalle_errores': errores, 'detalle_duplicados': duplicados, 'ids_creados': ids_creados}
         if reparto:
             final['asignados'] = asignados                       # cuántos le tocaron a cada persona (clave vacía = sin asignar)
