@@ -8,6 +8,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     .dark body  { background:#0f172a; color:#e2e8f0; }
+    .gasto-vista { border:1px solid rgba(148,163,184,.35); color:#64748b; }
+    .dark .gasto-vista { color:#94a3b8; }
+    .gasto-vista:hover { border-color:#8b5cf6; }
+    .gasto-vista[aria-pressed="true"] { background:#7c3aed; border-color:#7c3aed; color:#fff; }
+    .gasto-pto { display:inline-block; width:.6rem; height:.6rem; border-radius:9999px; }
+    .gasto-barra rect:hover { opacity:.8; }
     .dark .glass { background:rgba(255,255,255,0.04); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); }
     .dark input, .dark textarea, .dark select { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
     .dark input::placeholder, .dark textarea::placeholder { color:#64748b; }
@@ -421,7 +427,7 @@
   <div id="panel-gasto" class="hidden">
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
       <div>
-        <h2 class="text-xl font-semibold val-text">Gasto por cliente</h2>
+        <h2 class="text-xl font-semibold val-text" id="gasto-titulo">Gasto por cliente</h2>
         <p class="sidebar-text text-sm mt-1">Lo que consume la IA del chatbot (Anthropic) y los mensajes de WhatsApp (Meta). El costo se calcula con las tarifas de más abajo.</p>
       </div>
       <button onclick="cargarGasto()" class="text-sm sidebar-text hover:text-violet-400 transition flex items-center gap-1.5">
@@ -445,17 +451,32 @@
         <div><label for="gasto-desde" class="block text-xs sidebar-text mb-1">Desde</label><input id="gasto-desde" type="date" onchange="cargarGasto()" class="rounded-lg px-3 py-2 text-sm"></div>
         <div><label for="gasto-hasta" class="block text-xs sidebar-text mb-1">Hasta</label><input id="gasto-hasta" type="date" onchange="cargarGasto()" class="rounded-lg px-3 py-2 text-sm"></div>
       </div>
-      <div>
-        <label for="gasto-agrupar" class="block text-xs sidebar-text mb-1">Ver por</label>
-        <select id="gasto-agrupar" onchange="cargarGasto()" class="rounded-lg px-3 py-2 text-sm">
-          <option value="cliente">Cliente</option>
-          <option value="proyecto">Proyecto</option>
-          <option value="inmobiliaria">Inmobiliaria</option>
-          <option value="ejecutivo">Ejecutivo</option>
-        </select>
-      </div>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 mb-4" role="group" aria-label="Ver el gasto por">
+      <span class="text-xs sidebar-text mr-1">Ver por</span>
+      <button type="button" data-v="cliente" onclick="gastoVista(this.dataset.v)" aria-pressed="true" class="gasto-vista px-3 py-1.5 rounded-lg text-sm font-medium transition">Clientes</button>
+      <button type="button" data-v="ejecutivo" onclick="gastoVista(this.dataset.v)" aria-pressed="false" class="gasto-vista px-3 py-1.5 rounded-lg text-sm font-medium transition">Ejecutivos</button>
+      <button type="button" data-v="proyecto" onclick="gastoVista(this.dataset.v)" aria-pressed="false" class="gasto-vista px-3 py-1.5 rounded-lg text-sm font-medium transition">Proyectos</button>
+      <button type="button" data-v="inmobiliaria" onclick="gastoVista(this.dataset.v)" aria-pressed="false" class="gasto-vista px-3 py-1.5 rounded-lg text-sm font-medium transition">Inmobiliarias</button>
     </div>
     <div id="gasto-tarjetas" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5"></div>
+    <div id="gasto-graficos" class="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-5">
+      <div class="glass rounded-2xl p-5 lg:col-span-2 min-w-0">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <h3 class="text-sm font-semibold val-text" id="gasto-g1-titulo">Gasto por día</h3>
+          <div class="flex items-center gap-3 text-xs sidebar-text"><span class="inline-flex items-center gap-1.5"><span class="gasto-pto" style="background:#8b5cf6"></span>Anthropic</span><span class="inline-flex items-center gap-1.5"><span class="gasto-pto" style="background:#14b8a6"></span>Meta</span></div>
+        </div>
+        <div id="gasto-g1" class="sidebar-text"></div>
+      </div>
+      <div class="glass rounded-2xl p-5 min-w-0">
+        <h3 class="text-sm font-semibold val-text mb-2">De dónde sale el gasto</h3>
+        <div id="gasto-g2" class="sidebar-text"></div>
+      </div>
+      <div class="glass rounded-2xl p-5 lg:col-span-3 min-w-0">
+        <h3 class="text-sm font-semibold val-text mb-3" id="gasto-g3-titulo">Quién gasta más</h3>
+        <div id="gasto-g3" class="space-y-2.5"></div>
+      </div>
+    </div>
     <div class="glass rounded-2xl overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
@@ -1134,6 +1155,16 @@
   const _GASTO_CATEGORIAS = { marketing: 'marketing', utility: 'utilidad', authentication: 'autenticación', service: 'servicio', gratis: 'gratis' };
   let _gastoTarifas = {};
   let _gastoSolicitud = 0;
+  let _gastoAgrupar = 'cliente';
+  const _GASTO_TITULO = { cliente: 'cliente', proyecto: 'proyecto', inmobiliaria: 'inmobiliaria', ejecutivo: 'ejecutivo' };
+  const _COLOR_ANTHROPIC = '#8b5cf6', _COLOR_META = '#14b8a6';
+
+  function gastoVista(v) {
+    if (!_GASTO_NOMBRE_COL[v]) return;
+    _gastoAgrupar = v;
+    document.querySelectorAll('.gasto-vista').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+    cargarGasto();
+  }
 
   function _gastoFecha(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
@@ -1171,10 +1202,91 @@
       </div>`).join('');
   }
 
+  // Gráficos (SVG a mano: sin librerías). Todo en pesos; el texto toma el color del tema.
+  function _gastoEscala(max) {
+    if (!(max > 0)) return 1;
+    const pot = Math.pow(10, Math.floor(Math.log10(max)));
+    for (const m of [1, 2, 2.5, 5, 10]) if (m * pot >= max) return m * pot;
+    return 10 * pot;
+  }
+  const _fmtCorto = n => n >= 1e6 ? (n / 1e6).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' M' : n >= 1e3 ? (n / 1e3).toLocaleString('es-CL', { maximumFractionDigits: 1 }) + ' mil' : String(Math.round(n));
+  const _MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  function _etiquetaFecha(clave, paso) {
+    const [a, m, dd] = String(clave).split('-').map(Number);
+    return paso === 'mes' ? `${_MESES_CORTOS[m - 1]} ${String(a).slice(2)}` : `${dd} ${_MESES_CORTOS[m - 1]}`;
+  }
+
+  function _gastoGraficoTendencia(serie, k) {
+    const el = document.getElementById('gasto-g1');
+    const pts = (serie && serie.puntos) || [];
+    document.getElementById('gasto-g1-titulo').textContent = serie && serie.paso === 'mes' ? 'Gasto por mes' : 'Gasto por día';
+    if (!pts.length || !pts.some(p => p.total_usd > 0)) { el.innerHTML = '<p class="sub-text text-sm py-10 text-center">Sin consumo en este período</p>'; return; }
+    const W = 640, H = 210, iz = 52, der = 8, arr = 10, aba = 26, ancho = W - iz - der, alto = H - arr - aba;
+    const max = _gastoEscala(Math.max(...pts.map(p => p.total_usd * k)));
+    const y = v => arr + alto - (v / max) * alto;
+    const paso = ancho / pts.length, bw = Math.max(2, Math.min(28, paso * 0.72));
+    let svg = `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="Gasto en pesos por ${serie.paso === 'mes' ? 'mes' : 'día'}">`;
+    for (const f of [0, 0.5, 1]) {
+      const v = max * f;
+      svg += `<line x1="${iz}" x2="${W - der}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" stroke-opacity="${f === 0 ? 0.35 : 0.15}" stroke-dasharray="${f === 0 ? '' : '3 4'}"/><text x="${iz - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="currentColor">$${_fmtCorto(v)}</text>`;
+    }
+    pts.forEach((p, i) => {
+      const x = iz + i * paso + (paso - bw) / 2, a = p.anthropic_usd * k, m = p.meta_usd * k;
+      const ha = (a / max) * alto, hm = (m / max) * alto;
+      const tip = `${_etiquetaFecha(p.clave, serie.paso)}: ${_fmtClp(a + m)} (Anthropic ${_fmtClp(a)} · Meta ${_fmtClp(m)})`;
+      svg += `<g class="gasto-barra"><title>${esc(tip)}</title>` +
+        (hm > 0 ? `<rect x="${x}" y="${y(a + m)}" width="${bw}" height="${hm}" rx="2" fill="${_COLOR_META}"/>` : '') +
+        (ha > 0 ? `<rect x="${x}" y="${y(a)}" width="${bw}" height="${ha}" rx="2" fill="${_COLOR_ANTHROPIC}"/>` : '') +
+        `<rect x="${iz + i * paso}" y="${arr}" width="${paso}" height="${alto}" fill="transparent"/></g>`;
+    });
+    const marcas = pts.length <= 7 ? pts.map((_, i) => i) : [0, Math.floor((pts.length - 1) / 2), pts.length - 1];
+    marcas.forEach(i => { svg += `<text x="${iz + i * paso + paso / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="currentColor">${esc(_etiquetaFecha(pts[i].clave, serie.paso))}</text>`; });
+    el.innerHTML = svg + '</svg>';
+  }
+
+  function _gastoGraficoReparto(t, k) {
+    const el = document.getElementById('gasto-g2');
+    const a = t.anthropic_usd * k, m = t.meta_usd * k, tot = a + m, R = 54, C = 2 * Math.PI * R;
+    if (!(tot > 0)) { el.innerHTML = '<p class="sub-text text-sm py-10 text-center">Sin gasto en este período</p>'; return; }
+    const la = (a / tot) * C, lm = (m / tot) * C;
+    const pct = v => Math.round((v / tot) * 100) + '%';
+    el.innerHTML = `<svg viewBox="0 0 150 150" class="w-40 h-40 mx-auto block" role="img" aria-label="Anthropic ${pct(a)}, Meta ${pct(m)}">
+        <g transform="rotate(-90 75 75)" fill="none" stroke-width="22">
+          <circle cx="75" cy="75" r="${R}" stroke="currentColor" stroke-opacity="0.12"/>
+          ${la > 0 ? `<circle cx="75" cy="75" r="${R}" stroke="${_COLOR_ANTHROPIC}" stroke-dasharray="${la} ${C - la}"><title>Anthropic: ${esc(_fmtClp(a))}</title></circle>` : ''}
+          ${lm > 0 ? `<circle cx="75" cy="75" r="${R}" stroke="${_COLOR_META}" stroke-dasharray="${lm} ${C - lm}" stroke-dashoffset="${-la}"><title>Meta: ${esc(_fmtClp(m))}</title></circle>` : ''}
+        </g>
+        <text x="75" y="72" text-anchor="middle" font-size="10" fill="currentColor">Total</text>
+        <text x="75" y="90" text-anchor="middle" font-size="15" font-weight="600" fill="currentColor" class="val-text">${esc(_fmtClp(tot))}</text>
+      </svg>
+      <ul class="mt-3 space-y-1.5 text-sm">
+        <li class="flex items-center justify-between gap-3"><span class="inline-flex items-center gap-2"><span class="gasto-pto" style="background:${_COLOR_ANTHROPIC}"></span>Anthropic (IA)</span><span class="val-text">${esc(_fmtClp(a))} <span class="sub-text">· ${pct(a)}</span></span></li>
+        <li class="flex items-center justify-between gap-3"><span class="inline-flex items-center gap-2"><span class="gasto-pto" style="background:${_COLOR_META}"></span>Meta (WhatsApp)</span><span class="val-text">${esc(_fmtClp(m))} <span class="sub-text">· ${pct(m)}</span></span></li>
+      </ul>`;
+  }
+
+  function _gastoGraficoTop(grupos, k, agrupar) {
+    const el = document.getElementById('gasto-g3');
+    const nombres = { cliente: 'clientes', proyecto: 'proyectos', inmobiliaria: 'inmobiliarias', ejecutivo: 'ejecutivos' };
+    document.getElementById('gasto-g3-titulo').textContent = 'Quién gasta más · ' + (nombres[agrupar] || 'clientes');
+    const top = grupos.filter(g => g.total_usd > 0).slice(0, 6);
+    if (!top.length) { el.innerHTML = '<p class="sub-text text-sm py-4 text-center">Sin gasto en este período</p>'; return; }
+    const max = Math.max(...top.map(g => g.total_usd));
+    el.innerHTML = top.map(g => {
+      const wa = (g.anthropic_usd / max) * 100, wm = (g.meta_usd / max) * 100;
+      return `<div class="flex items-center gap-3 text-sm" title="${esc(g.nombre)} · Anthropic ${esc(_fmtClp(g.anthropic_usd * k))} · Meta ${esc(_fmtClp(g.meta_usd * k))}">
+        <span class="val-text truncate shrink-0" style="width:30%;max-width:16rem">${esc(g.nombre)}</span>
+        <span class="flex-1 min-w-0 flex h-3 rounded-full overflow-hidden" style="background:rgba(148,163,184,.15)"><span style="width:${wa}%;background:${_COLOR_ANTHROPIC}"></span><span style="width:${wm}%;background:${_COLOR_META}"></span></span>
+        <span class="val-text font-medium shrink-0 text-right" style="min-width:5.5rem">${esc(_fmtClp(g.total_clp))}</span>
+      </div>`;
+    }).join('');
+  }
+
   async function cargarGasto() {
     const pedido = ++_gastoSolicitud;
     const tbody = document.getElementById('gasto-tabla');
-    const agrupar = document.getElementById('gasto-agrupar').value;
+    const agrupar = _gastoAgrupar;
+    document.getElementById('gasto-titulo').textContent = 'Gasto por ' + (_GASTO_TITULO[agrupar] || 'cliente');
     const { desde, hasta } = _gastoRango();
     document.getElementById('gasto-col-nombre').textContent = _GASTO_NOMBRE_COL[agrupar] || 'Cliente';
     tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Cargando…</td></tr>';
@@ -1192,6 +1304,7 @@
     _gastoPintarTarifas(d.tarifas);
     if (!d.disponible) {
       document.getElementById('gasto-tarjetas').innerHTML = '';
+      document.getElementById('gasto-graficos').classList.add('hidden');
       document.getElementById('gasto-pie').textContent = '';
       aviso.textContent = 'Falta crear las tablas del gasto en Supabase. Ejecuta el archivo supabase/migraciones/2026-11-12_gasto_uso.sql (bloque A). Mientras tanto el chatbot y los envíos funcionan igual; solo no se anota el consumo.';
       aviso.classList.remove('hidden');
@@ -1199,6 +1312,10 @@
       return;
     }
     const t = d.totales;
+    document.getElementById('gasto-graficos').classList.remove('hidden');
+    _gastoGraficoTendencia(d.serie, d.tarifas.usd_clp.valor);
+    _gastoGraficoReparto(t, d.tarifas.usd_clp.valor);
+    _gastoGraficoTop(d.grupos, d.tarifas.usd_clp.valor, agrupar);
     const cats = Object.entries(t.meta || {}).map(([c, n]) => `${_fmtNum(n)} ${_GASTO_CATEGORIAS[c] || c}`).join(' · ');
     document.getElementById('gasto-tarjetas').innerHTML =
       _gastoTarjeta('Total del período', t.total_usd, t.total_clp, '') +

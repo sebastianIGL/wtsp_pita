@@ -23,6 +23,7 @@ logger = logging.getLogger("wtsp_pita")
 
 ZONA = ZoneInfo("America/Santiago")
 PAGINA = 1000
+DIAS_MAX_SERIE = 92              # más días que esto: el gráfico de tendencia suma por mes
 MAX_FILAS = 100_000
 _LOTE = 100
 CATEGORIAS_META = ("marketing", "utility", "authentication", "service")
@@ -235,6 +236,45 @@ def _cerrar(acum: Dict[str, Any], tarifas: Dict[str, Dict[str, Any]]) -> Dict[st
             "anthropic_usd": round(ant, 6), "meta_usd": round(meta, 6), "total_usd": round(ant + meta, 6), "total_clp": round((ant + meta) * clp)}
 
 
+def _dia_chile(valor: Any) -> Optional[date]:
+    try:
+        t = datetime.fromisoformat(str(valor).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(ZONA).date()
+
+
+def serie_diaria(filas: List[Dict[str, Any]], tarifas: Dict[str, Dict[str, Any]], desde: Optional[str], hasta: Optional[str]) -> Dict[str, Any]:
+    """El gasto de cada día (hora de Chile) del período, con los días sin consumo en cero; si el período pasa de ``DIAS_MAX_SERIE`` días, se suma por mes."""
+    por_dia: Dict[date, Dict[str, Any]] = {}
+    for f in filas:
+        dia = _dia_chile(f.get("creado_en"))
+        if dia:
+            _sumar(por_dia.setdefault(dia, _vacio()), f)
+    if not por_dia and not (desde and hasta):
+        return {"paso": "dia", "puntos": []}
+    ini = date.fromisoformat(desde) if desde else min(por_dia)
+    fin = date.fromisoformat(hasta) if hasta else max(por_dia)
+    fin = min(fin, datetime.now(ZONA).date()) if hasta else fin
+    por_mes = (fin - ini).days + 1 > DIAS_MAX_SERIE
+    acum: Dict[date, Dict[str, Any]] = {}
+    for dia, a in por_dia.items():
+        if ini <= dia <= fin:
+            k = dia.replace(day=1) if por_mes else dia
+            destino = acum.setdefault(k, _vacio())
+            destino["tokens_entrada"] += a["tokens_entrada"]
+            destino["tokens_salida"] += a["tokens_salida"]
+            for c, n in a["meta"].items():
+                destino["meta"][c] = destino["meta"].get(c, 0) + n
+    puntos: List[Dict[str, Any]] = []
+    k = ini.replace(day=1) if por_mes else ini
+    while k <= fin:
+        ant, meta = costo_usd(acum.get(k) or _vacio(), tarifas)
+        puntos.append({"clave": k.isoformat(), "anthropic_usd": round(ant, 6), "meta_usd": round(meta, 6), "total_usd": round(ant + meta, 6)})
+        k = (k.replace(year=k.year + 1, month=1) if k.month == 12 else k.replace(month=k.month + 1)) if por_mes else k + timedelta(days=1)
+    return {"paso": "mes" if por_mes else "dia", "puntos": puntos}
+
+
 async def resumen(desde: Optional[str], hasta: Optional[str], agrupar: str) -> Dict[str, Any]:
     """El gasto del período, sumado por cliente, proyecto, inmobiliaria o ejecutivo, más los totales y las tarifas usadas."""
     if agrupar not in AGRUPACIONES:
@@ -277,4 +317,4 @@ async def resumen(desde: Optional[str], hasta: Optional[str], agrupar: str) -> D
         _sumar(total, f)
     lista = sorted((_cerrar(g, tarifas) | {"clave": g["clave"], "nombre": g["nombre"]} for g in grupos.values()), key=lambda g: (-g["total_usd"], -g["mensajes_meta"], -g["llamadas"], g["nombre"]))
     return {"disponible": True, "desde": d, "hasta": h, "agrupar": agrupar, "recortado": recortado, "tarifas": tarifas,
-            "primer_registro": await _primer_registro(), "totales": _cerrar(total, tarifas), "grupos": lista[:500], "grupos_total": len(lista)}
+            "primer_registro": await _primer_registro(), "totales": _cerrar(total, tarifas), "serie": serie_diaria(filas, tarifas, d, h), "grupos": lista[:500], "grupos_total": len(lista)}
