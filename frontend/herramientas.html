@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/img/favicon.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Herramientas — CRM Subsidios</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    .dark body  { background:#0f172a; color:#e2e8f0; }
+    .dark .glass { background:rgba(255,255,255,0.04); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,0.08); }
+    .dark input, .dark textarea, .dark select { background:#1e293b; color:#e2e8f0; border:1px solid #334155; }
+    .dark input::placeholder, .dark textarea::placeholder { color:#64748b; }
+    .dark select option { background:#1e293b; color:#e2e8f0; }
+    .dark .val-text   { color:#e2e8f0; }
+    .dark .sub-text   { color:#64748b; }
+    .dark .sidebar-text { color:#94a3b8; }
+    .dark .header-border { border-color:#1e293b; }
+    .dark .trow { border-color:rgba(51,65,85,0.5); }
+    .dark tr:hover td { background:rgba(255,255,255,0.03); }
+    .dark .thead-row th { color:#94a3b8; border-color:#1e293b; }
+    .dark .modal-bg { background:rgba(0,0,0,0.6); }
+    .dark .cancel-btn { border-color:#475569; color:#cbd5e1; }
+    .dark .cancel-btn:hover { background:#1e293b; }
+    .dark .empty-text { color:#64748b; }
+
+    html:not(.dark) body  { background:#f1f5f9; color:#1e293b; }
+    html:not(.dark) .glass { background:rgba(255,255,255,0.85); backdrop-filter:blur(12px); border:1px solid rgba(0,0,0,0.07); box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+    html:not(.dark) input, html:not(.dark) textarea, html:not(.dark) select { background:#fff; color:#1e293b; border:1px solid #cbd5e1; }
+    html:not(.dark) input::placeholder, html:not(.dark) textarea::placeholder { color:#94a3b8; }
+    html:not(.dark) select option { background:#fff; color:#1e293b; }
+    html:not(.dark) .val-text   { color:#1e293b; }
+    html:not(.dark) .sub-text   { color:#94a3b8; }
+    html:not(.dark) .sidebar-text { color:#64748b; }
+    html:not(.dark) .header-border { border-color:#e2e8f0; }
+    html:not(.dark) .trow { border-color:rgba(226,232,240,0.8); }
+    html:not(.dark) tr:hover td { background:rgba(0,0,0,0.02); }
+    html:not(.dark) .thead-row th { color:#64748b; border-color:#e2e8f0; }
+
+    .hr-card { border-radius: 1rem; padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+    .hr-card h3 { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.7rem; color: #a78bfa; }
+    html:not(.dark) .hr-card h3 { color: #6d28d9; }
+    .hr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.7rem 0.9rem; }
+    .hr-grid label { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; color: #94a3b8; }
+    .hr-grid input, .hr-grid select { width: 100%; padding: 0.45rem 0.6rem; border-radius: 0.5rem; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+    .hr-grid .hr-ayuda { font-size: 0.68rem; opacity: 0.65; margin-top: 0.15rem; }
+    .hr-fila { display: flex; justify-content: space-between; gap: 1rem; padding: 0.4rem 0; border-bottom: 1px solid rgba(148,163,184,.2); font-size: 0.88rem; }
+    .hr-fila span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+    .hr-tabla { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
+    .hr-tabla th { text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(148,163,184,.3); }
+    .hr-tabla th:not(:first-child), .hr-tabla td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .hr-tabla td { padding: 0.35rem 0.5rem; border-bottom: 1px solid rgba(148,163,184,.15); }
+    .hr-gana { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; }
+    .hr-gana div { border-radius: 0.7rem; padding: 0.6rem 0.8rem; background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.35); }
+    .hr-gana b { display: block; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+    .hr-gana span { font-size: 0.7rem; opacity: 0.8; }
+    .hr-destacado { background: rgba(124,58,237,.14); border: 1px solid rgba(124,58,237,.4); border-radius: 0.8rem; padding: 0.7rem 0.9rem; }
+    .hr-aviso { border-radius: 0.6rem; padding: 0.5rem 0.75rem; font-size: 0.8rem; background: rgba(245,158,11,.14); border: 1px solid rgba(245,158,11,.4); color: #b45309; margin-top: 0.6rem; }
+    .dark .hr-aviso { color: #fbbf24; }
+    .hr-sub { font-size: 0.72rem; opacity: 0.7; margin-top: 0.8rem; }
+    .hr-cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+    @media (min-width: 1100px) { .hr-cols { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
+  </style>
+  <script src="/js/menu_lateral.js"></script>
+  <link rel="stylesheet" href="/css/crm.css" />
+</head>
+<body class="min-h-screen font-sans">
+
+<div class="flex min-h-screen">
+  <aside id="menu-lateral" class="w-60 shrink-0 header-border border-r flex flex-col">
+    <div class="px-4 py-4 flex items-center gap-2.5 header-border border-b">
+      <a href="/panel" class="sidebar-text hover:text-violet-400 transition shrink-0" title="Volver al panel comercial" aria-label="Volver al panel comercial">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </a>
+      <span class="font-bold val-text text-sm">Herramientas</span>
+      <button type="button" onclick="alternarMenu()" class="ml-auto sidebar-text hover:text-violet-400 transition shrink-0" title="Ocultar el menú" aria-label="Ocultar el menú">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+      </button>
+    </div>
+    <nav class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto" aria-label="Herramientas">
+      <button type="button" id="tab-credito" onclick="mostrarHerramienta('credito')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition bg-violet-600 text-white">Simulador de crédito</button>
+      <button type="button" id="tab-ds1" onclick="mostrarHerramienta('ds1')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">Subsidio DS1 (tramos 2 y 3)</button>
+    </nav>
+    <div class="px-4 py-3 header-border border-t space-y-2.5">
+      <a href="/panel" class="w-full text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition text-center block">Panel Comercial</a>
+      <div class="flex items-center justify-between gap-2">
+        <span id="nombreUsuario" class="text-xs sidebar-text truncate"></span>
+        <button type="button" onclick="toggleTheme()" class="w-8 h-8 rounded-lg flex items-center justify-center glass hover:scale-110 transition shrink-0" title="Cambiar tema" aria-label="Cambiar tema"><span id="theme-icon" class="text-base">🌙</span></button>
+      </div>
+      <button type="button" onclick="cerrarSesion()" class="w-full text-xs px-3 py-1.5 rounded-lg glass sidebar-text hover:text-red-400 transition">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="flex-1 px-8 py-8 max-w-6xl">
+
+  <!-- ═══════════ SIMULADOR DE CRÉDITO HIPOTECARIO ═══════════ -->
+  <section id="herr-credito">
+    <h1 class="text-2xl font-bold val-text mb-1">Simulador de crédito hipotecario</h1>
+    <p class="text-sm sidebar-text mb-5">Dividendo mensual y efecto de los abonos a capital. Cifras referenciales: no incluyen seguros ni comisiones; confirma con el banco.</p>
+    <div class="hr-cols">
+      <div>
+        <div class="glass hr-card"><h3>1. Datos del crédito</h3>
+          <div class="hr-grid">
+            <div><label for="c-valor">Valor de la propiedad (UF)</label><input id="c-valor" type="number" min="0" step="any" value="2700" inputmode="decimal"></div>
+            <div><label for="c-pie">Pie (%)</label><input id="c-pie" type="number" min="0" max="100" step="any" value="20" inputmode="decimal"></div>
+            <div><label for="c-estac">Estacionamiento o bodega (UF)</label><input id="c-estac" type="number" min="0" step="any" value="0" inputmode="decimal"><p class="hr-ayuda">Se suma al crédito (se financia completo).</p></div>
+            <div><label for="c-tasa">Tasa anual efectiva (%)</label><input id="c-tasa" type="number" min="0" step="any" value="4.5" inputmode="decimal"></div>
+            <div><label for="c-plazo">Plazo (años, máx. 40)</label><input id="c-plazo" type="number" min="1" max="40" step="1" value="30" inputmode="numeric"></div>
+            <div><label for="c-fecha">Fecha primera cuota</label><input id="c-fecha" type="date"></div>
+            <div><label for="c-uf">Valor UF ($)</label><input id="c-uf" type="number" min="0" step="any" inputmode="decimal"><p class="hr-ayuda" id="c-uf-ayuda"></p></div>
+          </div>
+        </div>
+        <div class="glass hr-card"><h3>2. Abonos a capital (prepago)</h3>
+          <label class="flex items-center gap-2 text-sm val-text cursor-pointer mb-3"><input id="c-usar-abonos" type="checkbox" class="w-4 h-4 accent-violet-500" style="width:auto"> Simular abonos</label>
+          <div id="c-abonos" class="hr-grid hidden">
+            <div><label for="c-pagadas">Cuotas ya pagadas</label><input id="c-pagadas" type="number" min="0" step="1" value="12" inputmode="numeric"></div>
+            <div><label for="c-unico">Abono único (UF)</label><input id="c-unico" type="number" min="0" step="any" value="0" inputmode="decimal"></div>
+            <div><label for="c-unico-n">Se paga junto a la cuota N°</label><input id="c-unico-n" type="number" min="1" step="1" value="18" inputmode="numeric"></div>
+            <div><label for="c-mensual">Abono mensual adicional (UF)</label><input id="c-mensual" type="number" min="0" step="any" value="0" inputmode="decimal"></div>
+            <div><label for="c-desde">Desde la cuota N°</label><input id="c-desde" type="number" min="1" step="1" value="18" inputmode="numeric"></div>
+            <div><label for="c-hasta">Hasta la cuota N°</label><input id="c-hasta" type="number" min="1" step="1" value="360" inputmode="numeric"></div>
+            <div><label for="c-modalidad">Modalidad del prepago</label><select id="c-modalidad"><option value="plazo">Reducir plazo (mismo dividendo)</option><option value="dividendo">Reducir dividendo (mismo plazo)</option></select></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="glass hr-card"><h3>Resumen del crédito</h3><div id="r-resumen"></div></div>
+        <div class="glass hr-card"><h3>Sin abonos vs con abonos</h3><div id="r-comparacion"></div><div id="r-gana" class="mt-3"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ SUBSIDIO DS1 ═══════════ -->
+  <section id="herr-ds1" class="hidden">
+    <h1 class="text-2xl font-bold val-text mb-1">Subsidio DS1 · Tramo 2 y Tramo 3</h1>
+    <p class="text-sm sidebar-text mb-5">Modalidad adquisición, individual. Calcula el subsidio según el precio de la vivienda y el ahorro acreditado.</p>
+    <div class="hr-cols">
+      <div>
+        <div class="glass hr-card"><h3>Datos</h3>
+          <div class="hr-grid">
+            <div><label for="d-tramo">Tramo</label><select id="d-tramo"><option value="2">Tramo 2</option><option value="3" selected>Tramo 3</option></select></div>
+            <div><label for="d-precio">Precio de la vivienda (UF)</label><input id="d-precio" type="number" min="0" step="any" value="1600" inputmode="decimal"></div>
+            <div><label for="d-ahorro">Ahorro acreditado (UF)</label><input id="d-ahorro" type="number" min="0" step="any" value="80" inputmode="decimal"></div>
+            <div><label for="d-uf">Valor UF ($)</label><input id="d-uf" type="number" min="0" step="any" inputmode="decimal"></div>
+          </div>
+        </div>
+        <details class="glass hr-card"><summary class="cursor-pointer text-sm font-semibold val-text">Parámetros del tramo (editar si cambia el llamado o la región)</summary>
+          <div class="hr-grid mt-3">
+            <div><label for="p-constante">Constante (UF)</label><input id="p-constante" type="number" step="any" inputmode="decimal"></div>
+            <div><label for="p-factor">Factor</label><input id="p-factor" type="number" step="any" inputmode="decimal"></div>
+            <div><label for="p-max">Subsidio máximo (UF)</label><input id="p-max" type="number" step="any" inputmode="decimal"></div>
+            <div><label for="p-precio-max">Precio máximo (UF)</label><input id="p-precio-max" type="number" step="any" inputmode="decimal"></div>
+            <div id="p-fijo-caja"><label for="p-fijo">Monto fijo desde 1.600 UF (UF)</label><input id="p-fijo" type="number" step="any" inputmode="decimal"></div>
+            <div><label for="p-ahorro-min">Ahorro mínimo (UF)</label><input id="p-ahorro-min" type="number" step="any" inputmode="decimal"></div>
+          </div>
+          <button type="button" id="p-restaurar" class="text-xs mt-3 sidebar-text hover:text-violet-400 transition underline">Volver a los valores de referencia</button>
+        </details>
+      </div>
+      <div>
+        <div class="glass hr-card"><h3>Resultado</h3><div id="d-resultado"></div></div>
+        <div class="glass hr-card"><h3 id="d-tabla-titulo">Tabla de referencia</h3><div id="d-tabla"></div></div>
+      </div>
+    </div>
+    <p class="hr-sub" id="d-nota"></p>
+  </section>
+
+  </main>
+</div>
+
+<script src="/js/calculos_credito.js"></script>
+<script>
+  const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc';
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  let _token = null;
+
+  function applyTheme(dark) {
+    document.documentElement.classList.toggle('dark', dark)
+    document.getElementById('theme-icon').textContent = dark ? '🌙' : '☀️'
+    try { localStorage.setItem('theme', dark ? 'dark' : 'light') } catch (e) { /* sin almacenamiento */ }
+  }
+  function toggleTheme() { applyTheme(!document.documentElement.classList.contains('dark')) }
+  let _tema = 'dark'; try { _tema = localStorage.getItem('theme') } catch (e) { /* sin almacenamiento */ }
+  applyTheme(_tema !== 'light')
+  async function cerrarSesion() { await _supabase.auth.signOut(); window.location.href = '/login.html' }
+
+  // ── Formato ──────────────────────────────────────────────
+  const nf = (d) => new Intl.NumberFormat('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d })
+  const fUF = (n, d = 2) => `${nf(d).format(Number.isFinite(n) ? n : 0)} UF`
+  const fCLP = (n) => `$${nf(0).format(Math.round(Number.isFinite(n) ? n : 0))}`
+  const fPct = (n, d = 2) => `${nf(d).format((Number.isFinite(n) ? n : 0) * 100)}%`
+  const num = (id) => { const v = parseFloat(String(document.getElementById(id).value).replace(',', '.')); return Number.isFinite(v) ? v : 0 }
+  const fila = (t, v) => `<div class="hr-fila"><span>${t}</span><span>${v}</span></div>`
+  const fFecha = (iso) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || ''); return m ? `${m[3]}/${m[2]}/${m[1]}` : '—' }
+
+  // ── Pestañas ─────────────────────────────────────────────
+  function mostrarHerramienta(k) {
+    for (const t of ['credito', 'ds1']) {
+      document.getElementById('herr-' + t).classList.toggle('hidden', t !== k)
+      const b = document.getElementById('tab-' + t)
+      b.classList.toggle('bg-violet-600', t === k); b.classList.toggle('text-white', t === k); b.classList.toggle('sidebar-text', t !== k)
+    }
+    try { localStorage.setItem('herramienta', k) } catch (e) { /* sin almacenamiento */ }
+  }
+
+  // ── Simulador de crédito ─────────────────────────────────
+  function recalcularCredito() {
+    const usar = document.getElementById('c-usar-abonos').checked
+    document.getElementById('c-abonos').classList.toggle('hidden', !usar)
+    const plazo = Math.min(40, Math.max(1, Math.round(num('c-plazo')) || 30))
+    const r = CalculosCredito.simularCredito({
+      valorUF: num('c-valor'), piePct: num('c-pie'), estacionamientoUF: num('c-estac'), teaPct: num('c-tasa'), plazoAnios: plazo, primeraCuota: document.getElementById('c-fecha').value, valorUFPesos: num('c-uf'),
+      abonos: usar ? { cuotasPagadas: num('c-pagadas'), unico: num('c-unico'), unicoEnCuota: num('c-unico-n'), mensual: num('c-mensual'), desde: num('c-desde'), hasta: num('c-hasta'), modalidad: document.getElementById('c-modalidad').value } : null,
+    })
+    const conUF = num('c-uf') > 0
+    const pesos = (n) => conUF ? fCLP(n) : '—'
+    const extra = num('c-estac') > 0
+    document.getElementById('r-resumen').innerHTML =
+      fila('Pie', `${fUF(r.pieUF)}`) + (extra ? fila('Valor financiado (propiedad + estacionamiento)', fUF(r.valorFinanciadoUF)) : '') + fila('Monto del crédito', fUF(r.creditoUF)) + fila('Tasa mensual equivalente', fPct(r.tasaMensual, 4)) +
+      fila('Número de cuotas', String(r.cuotas)) +
+      `<div class="hr-destacado mt-3"><div class="text-xs sidebar-text">Dividendo mensual (sin seguros)</div><div class="text-2xl font-bold val-text" style="font-variant-numeric:tabular-nums">${fUF(r.dividendoUF, 4)}</div><div class="text-sm sidebar-text">${pesos(r.dividendoPesos)}</div></div>` +
+      (usar ? fila('Saldo de deuda actual', `${fUF(r.saldoActualUF)} · ${pesos(r.saldoActualPesos)}`) : '')
+    const a = r.sinAbonos, b = r.conAbonos
+    const filaT = (t, x, y, z) => `<tr><td>${t}</td><td>${x}</td><td>${y}</td><td>${z}</td></tr>`
+    document.getElementById('r-comparacion').innerHTML = `<table class="hr-tabla"><thead><tr><th>Indicador</th><th>Sin abonos</th><th>Con abonos</th><th>Diferencia</th></tr></thead><tbody>` +
+      filaT('Número de cuotas', a.cuotas, b.cuotas, a.cuotas - b.cuotas) + filaT('Años de crédito', nf(1).format(a.anios), nf(1).format(b.anios), nf(1).format(a.anios - b.anios)) +
+      filaT('Fecha último dividendo', fFecha(a.fechaUltima), fFecha(b.fechaUltima), '') + filaT('Total intereses (UF)', nf(2).format(a.interesesUF), nf(2).format(b.interesesUF), nf(2).format(a.interesesUF - b.interesesUF)) +
+      filaT('Total intereses ($)', pesos(a.interesesPesos), pesos(b.interesesPesos), pesos(a.interesesPesos - b.interesesPesos)) + filaT('Total abonado a capital (UF)', nf(2).format(a.abonadoUF), nf(2).format(b.abonadoUF), nf(2).format(b.abonadoUF - a.abonadoUF)) +
+      filaT('Total pagado: dividendos + abonos (UF)', nf(2).format(a.pagadoUF), nf(2).format(b.pagadoUF), nf(2).format(a.pagadoUF - b.pagadoUF)) +
+      filaT('Dividendo después del abono (UF)', nf(4).format(a.dividendoDespuesUF), nf(4).format(b.dividendoDespuesUF), nf(4).format(a.dividendoDespuesUF - b.dividendoDespuesUF)) + `</tbody></table>`
+    const g = r.gana
+    document.getElementById('r-gana').innerHTML = usar && b.abonadoUF > 0 ? `<div class="text-xs font-semibold uppercase tracking-wide sidebar-text mb-2">Lo que gana el cliente</div><div class="hr-gana">
+      <div><b>${g.aniosMenos}</b><span>años menos</span></div><div><b>${g.mesesMenos}</b><span>meses menos (adicional)</span></div><div><b>${nf(2).format(g.interesesAhorradosUF)}</b><span>intereses ahorrados (UF)</span></div><div><b>${pesos(g.interesesAhorradosPesos)}</b><span>intereses ahorrados ($)</span></div></div>` +
+      fila('Ahorro en intereses por cada 1 UF abonada', fUF(g.ahorroPorUFAbonada)) + fila('Deuda actual / valor de la propiedad (LTV)', fPct(g.ltv)) + fila('Rebaja mensual de dividendo', fUF(g.rebajaDividendoUF, 4)) : ''
+  }
+
+  // ── Subsidio DS1 ─────────────────────────────────────────
+  const _P = { constante: 'p-constante', factor: 'p-factor', subsidioMax: 'p-max', precioMax: 'p-precio-max', montoFijo: 'p-fijo', ahorroMin: 'p-ahorro-min' }
+  function cargarParametros() {
+    const p = CalculosCredito.PARAMETROS_DS1[num('d-tramo')]
+    for (const [k, id] of Object.entries(_P)) document.getElementById(id).value = p[k] == null ? '' : p[k]
+    document.getElementById('p-fijo-caja').classList.toggle('hidden', p.montoFijo == null)
+  }
+  function recalcularDS1() {
+    const tramo = num('d-tramo') === 2 ? 2 : 3, base = CalculosCredito.PARAMETROS_DS1[tramo]
+    const parametros = {}
+    for (const [k, id] of Object.entries(_P)) { const el = document.getElementById(id); if (base[k] != null || k !== 'montoFijo') parametros[k] = el.value === '' ? base[k] : num(id) }
+    const e = { tramo, precioUF: num('d-precio'), ahorroUF: num('d-ahorro'), valorUFPesos: num('d-uf'), parametros }
+    const r = CalculosCredito.subsidioDS1(e), conUF = num('d-uf') > 0, pesos = (n) => conUF ? fCLP(n) : '—'
+    document.getElementById('d-resultado').innerHTML =
+      fila('Fórmula (K − factor × precio)', `${fUF(r.formulaUF)} · ${pesos(r.formulaUF * num('d-uf'))}`) +
+      `<div class="hr-destacado my-2"><div class="text-xs sidebar-text">Subsidio</div><div class="text-2xl font-bold val-text">${fUF(r.subsidioUF)}</div><div class="text-sm sidebar-text">${pesos(r.subsidioPesos)}</div></div>` +
+      fila('Ahorro', `${fUF(r.ahorroUF)} · ${pesos(r.ahorroPesos)}`) + fila('Crédito hipotecario / aporte', `${fUF(r.creditoUF)} · ${pesos(r.creditoPesos)}`) + fila('Precio total', `${fUF(r.precioUF)} · ${pesos(r.precioPesos)}`) +
+      fila('Estado', r.estado) + r.avisos.map(a => `<div class="hr-aviso">${a.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>`).join('')
+    const precios = tramo === 2 ? [700, 800, 900, 1000, 1200, 1400, 1600] : [1000, 1200, 1400, 1600, 2000, 2400, 2600], ahorroRef = base.ahorroMin
+    document.getElementById('d-tabla-titulo').textContent = `Tabla de referencia · Tramo ${tramo} (ahorro ${ahorroRef} UF)`
+    document.getElementById('d-tabla').innerHTML = `<table class="hr-tabla"><thead><tr><th>Vivienda (UF)</th><th>Subsidio (UF)</th><th>Ahorro (UF)</th><th>Crédito/aporte (UF)</th></tr></thead><tbody>` +
+      CalculosCredito.tablaDS1(tramo, precios, ahorroRef, parametros).map(f => `<tr><td>${nf(0).format(f.precioUF)}</td><td>${nf(2).format(f.subsidioUF)}</td><td>${nf(2).format(f.ahorroUF)}</td><td>${nf(2).format(f.creditoUF)}</td></tr>`).join('') + `</tbody></table>`
+    document.getElementById('d-nota').textContent = tramo === 2
+      ? 'Tramo 2: (850 − 0,375 × Precio) UF, tope 550 UF, precio máx. 1.600 UF. El precio máximo varía según región y llamado: revisa el certificado del beneficiario y ajusta los parámetros.'
+      : 'Tramo 3: (950 − 0,375 × Precio) UF, tope 500 UF, precio máx. 2.600 UF; entre 1.600 y 2.600 UF el subsidio es fijo (350 UF). El precio máximo varía según región y llamado: revisa el certificado del beneficiario y ajusta los parámetros.'
+  }
+
+  // ── Arranque ─────────────────────────────────────────────
+  function primerDiaDelMesSiguiente() { const d = new Date(), m = new Date(d.getFullYear(), d.getMonth() + 1, 1); return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-01` }
+  async function init() {
+    const { data: { session } } = await _supabase.auth.getSession()
+    if (!session) { window.location.href = '/login.html'; return }
+    _token = session.access_token
+    try {
+      const [rp, ru] = await Promise.all([fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }), fetch('/api/uf', { headers: { Authorization: `Bearer ${_token}` } })])
+      if (rp.ok) { const p = await rp.json(); document.getElementById('nombreUsuario').textContent = p.nombre || p.correo || '' }
+      const uf = ru.ok ? await ru.json() : null
+      if (uf && uf.valor) {
+        for (const id of ['c-uf', 'd-uf']) document.getElementById(id).value = uf.valor
+        document.getElementById('c-uf-ayuda').textContent = `UF del ${fFecha(uf.fecha)} (puedes cambiarla)`
+      } else document.getElementById('c-uf-ayuda').textContent = 'No se pudo leer la UF del día: ingrésala para ver los pesos'
+    } catch (e) { /* sin UF: se ingresa a mano */ }
+    recalcularCredito(); recalcularDS1()
+  }
+
+  document.getElementById('c-fecha').value = primerDiaDelMesSiguiente()
+  for (const el of document.querySelectorAll('#herr-credito input, #herr-credito select')) el.addEventListener('input', recalcularCredito)
+  document.getElementById('d-tramo').addEventListener('change', () => { cargarParametros(); recalcularDS1() })
+  for (const el of document.querySelectorAll('#herr-ds1 input, #herr-ds1 select')) el.addEventListener('input', recalcularDS1)
+  document.getElementById('p-restaurar').addEventListener('click', () => { cargarParametros(); recalcularDS1() })
+  cargarParametros(); recalcularCredito(); recalcularDS1()
+  let _guardada = null; try { _guardada = localStorage.getItem('herramienta') } catch (e) { /* sin almacenamiento */ }
+  mostrarHerramienta(_guardada === 'ds1' ? 'ds1' : 'credito')
+  init()
+</script>
+</body>
+</html>

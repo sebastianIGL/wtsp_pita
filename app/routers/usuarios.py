@@ -14,6 +14,7 @@ from app.core.http import http_client
 from app.core.permisos import _solo_admin, _solo_owner, puede_cotizar
 from app.core.user_cache import user_cache
 from app.core.utilidades import _normalize_phone
+from app.services import uf as servicio_uf
 from app.services.plantillas import TEMPLATE_VARS_MAP
 from app.services.seguimiento_ejecutivos import seguimiento
 from datetime import datetime, timezone
@@ -44,6 +45,19 @@ async def api_usuario_actual(request: Request):
     if not perfil:
         return Response(content="Unauthorized", status_code=401)
     return {**perfil, "puede_cotizar": puede_cotizar(perfil)}          # el panel muestra «Cotizar» solo a quien puede usarlo
+
+
+@router.get("/api/uf")
+async def api_uf_del_dia(request: Request):
+    """El valor de la UF de hoy para las herramientas de cálculo (cualquier persona con sesión). ``null`` si no se pudo leer."""
+    if not await _get_usuario_actual(request):
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        hoy_uf = await servicio_uf.uf_del_dia()
+    except Exception:
+        logger.warning("UF | no se pudo leer la UF del día para las herramientas")
+        return None
+    return {"valor": hoy_uf[0], "fecha": hoy_uf[1].isoformat()} if hoy_uf else None
 
 
 @router.get("/api/usuarios/seguimiento")

@@ -254,6 +254,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   clientes y un bloque que falle no frena a los demás (`fallidos`; repetir el reparto es seguro). Hasta 20.000 clientes por vez (`app/services/reparto_existentes.py`). Solo cambia `usuario_id`.
 - Pruebas: `tests/test_carga_clientes.py`, `tests/test_importacion_paquetes.py`, `tests/test_reparto_existentes.py` y `tests/test_carga_clientes_frontend.py` (pytest) y `tests/herramientas_frontend/carga.js` (jsdom: funciones puras, revisión, reparto, avisos, carga con avance, errores, textos hostiles).
 
+## Herramientas de ejecutivos (`/herramientas.html`)
+- Página con menú lateral (accesos desde `/panel` y el encabezado del CRM; cualquier persona con sesión): **Simulador de crédito hipotecario** (dividendo, pie, estacionamiento o bodega que se suma al crédito, abonos a capital «reducir plazo» o «reducir dividendo», «lo que gana el cliente») y **Subsidio DS1 tramos 2 y 3** (fórmula, tope, monto fijo de 350 UF entre 1.600 y 2.600 UF en el tramo 3, ahorro mínimo, tablas de referencia, parámetros editables).
+- Los cálculos son funciones puras en `frontend/js/calculos_credito.js`, **probadas contra las planillas de referencia** (mutuo de 2.700 UF: 193 cuotas con abonos, 1.157,79 UF de intereses, 13 años y 11 meses menos…; tablas del DS1) en `tests/herramientas_frontend/calculos_credito.js`; la página en `herramientas.js` (jsdom). Son solo cálculos: nada se guarda en el servidor.
+- `GET /api/uf` (cualquier persona con sesión) entrega la UF del día para completar el valor en pesos (`null` si no se pudo leer).
+- Pendiente: el **estimador de comisión** (necesita los montos por plan y proyecto; ver el backlog).
+
 ## Seguimiento de ejecutivos (panel de administración, pestaña «Usuarios»)
 - La pestaña muestra **una tarjeta por persona** (el botón «Nuevo usuario» y el modal de «Editar» son los de siempre), con buscador, filtro por rol y orden (nombre, necesitan atención, más leads, más sin contactar, más seguimientos vencidos, menos actividad reciente), y arriba un resumen del equipo.
 - **Cifras** (`GET /api/usuarios/seguimiento`, solo administración, `app/services/seguimiento_ejecutivos.py`; se recuerdan 60 s y «Actualizar» las refresca): leads activos (sin los «No interesado» ni «Rechazado», que van aparte como `cerrados`), sin contactar, clientes que esperan respuesta, seguimientos vencidos (fecha de Chile), para hoy,
