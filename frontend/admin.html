@@ -578,6 +578,7 @@
       <div>
         <label class="block sidebar-text text-xs font-medium mb-1.5">Proyectos permitidos</label>
         <p class="text-xs sub-text mb-2">Si no marcas ninguno, el ejecutivo aparece disponible en todos los proyectos.</p>
+        <input id="buscar-ejec-proy" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto" oninput="filtrarLista('ejec-proyectos-lista', this.value)" class="w-full rounded-lg px-3 py-1.5 text-xs mb-2" />
         <div id="ejec-proyectos-lista" class="space-y-1.5 max-h-40 overflow-y-auto border header-border rounded-lg p-3">
           <p class="text-xs sub-text">Cargando…</p>
         </div>
@@ -651,6 +652,7 @@
           <p class="text-xs sub-text">Cargando…</p>
         </div>
         <p class="text-xs font-semibold sidebar-text uppercase tracking-wide pt-2 border-t header-border">Proyectos</p>
+        <input id="buscar-u-proy" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto" oninput="filtrarLista('u-proy-lista', this.value)" class="w-full rounded-lg px-3 py-1.5 text-xs mb-2" />
         <div id="u-proy-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
           <p class="text-xs sub-text">Cargando…</p>
         </div>
@@ -729,6 +731,7 @@
           <p class="text-xs sub-text">Cargando…</p>
         </div>
         <p class="text-xs font-semibold sidebar-text uppercase tracking-wide pt-2 border-t header-border">Proyectos</p>
+        <input id="buscar-e-proy" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto" oninput="filtrarLista('e-proy-lista', this.value)" class="w-full rounded-lg px-3 py-1.5 text-xs mb-2" />
         <div id="e-proy-lista" class="space-y-1.5 max-h-36 overflow-y-auto">
           <p class="text-xs sub-text">Cargando…</p>
         </div>
@@ -867,6 +870,27 @@
     </label>`
   }
 
+  // Buscador de las listas de proyectos (editar ejecutivo, crear/editar usuario): esconde los que no coinciden, sin desmarcar nada; se vuelve a aplicar cuando la lista se redibuja.
+  const _sinTildes = t => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function filtrarLista(idLista, texto) {
+    const cont = document.getElementById(idLista); if (!cont) return;
+    const q = _sinTildes(texto).trim();
+    let vistos = 0;
+    cont.querySelectorAll('label').forEach(l => { const ok = !q || _sinTildes(l.textContent).includes(q); l.classList.toggle('hidden', !ok); if (ok) vistos++ });
+    let aviso = cont.querySelector('[data-sin-coincidencias]');
+    if (q && !vistos && cont.querySelector('label')) { if (!aviso) { aviso = document.createElement('p'); aviso.dataset.sinCoincidencias = '1'; aviso.className = 'text-xs sub-text italic'; aviso.textContent = 'Ningún proyecto coincide.'; cont.appendChild(aviso) } }
+    else if (aviso) aviso.remove();
+  }
+  const _BUSCADORES = { 'ejec-proyectos-lista': 'buscar-ejec-proy', 'u-proy-lista': 'buscar-u-proy', 'e-proy-lista': 'buscar-e-proy' };
+  document.addEventListener('DOMContentLoaded', () => {
+    for (const [lista, buscador] of Object.entries(_BUSCADORES)) {
+      const cont = document.getElementById(lista); if (!cont) continue;
+      new MutationObserver(() => { const q = document.getElementById(buscador).value; if (q) filtrarLista(lista, q) }).observe(cont, { childList: true });
+    }
+  });
+
+  function _limpiarBuscadores() { Object.values(_BUSCADORES).forEach(id => { const el = document.getElementById(id); if (el) el.value = '' }) }
+
   async function renderProyectosEjecutivo(selectedIds = []) {
     const cont = document.getElementById('ejec-proyectos-lista')
     await cargarOpcionesAsignacion()
@@ -879,6 +903,7 @@
   }
 
   function abrirModalEjecutivo() {
+    _limpiarBuscadores();
     _editandoEjecId = null
     document.getElementById('ejec-id').value = ''
     document.getElementById('ejec-nombre').value = ''
@@ -1355,6 +1380,7 @@
 
   // ── Modal Crear ───────────────────────────────────────────────────────────
   async function abrirModalCrear() {
+    _limpiarBuscadores();
     document.getElementById('formCrearUsuario').reset();
     document.getElementById('errorCrear').classList.add('hidden');
     document.getElementById('u-acceso').classList.add('hidden');
@@ -1409,6 +1435,7 @@
 
   // ── Modal Editar ──────────────────────────────────────────────────────────
   async function abrirModalEditar(u) {
+    _limpiarBuscadores();
     document.getElementById('e-id').value      = u.id;
     document.getElementById('e-nombre').value  = u.nombre;
     document.getElementById('e-celular').value = u.celular || '';

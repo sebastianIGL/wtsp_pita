@@ -4,7 +4,10 @@
 (function () {
   'use strict'
   var CLAVE = 'crm-menu-oculto', raiz = document.documentElement
-  try { if (localStorage.getItem(CLAVE) === '1') raiz.classList.add('menu-oculto') } catch (e) { /* sin almacenamiento: parte visible */ }
+  try {
+    const guardado = localStorage.getItem(CLAVE)
+    if (guardado === '1' || (guardado === null && window.innerWidth < 768)) raiz.classList.add('menu-oculto')      // en el celular, si nunca lo eligió, parte escondido (si no, el menú se come la pantalla)
+  } catch (e) { if (window.innerWidth < 768) raiz.classList.add('menu-oculto') }
   var st = document.createElement('style')
   st.textContent = [
     '#menu-lateral { position: sticky; top: 0; height: 100vh; align-self: flex-start; }',
@@ -13,7 +16,8 @@
     'html.dark #abrir-menu { background: #1e293b; color: #e2e8f0; border-color: #334155; }',
     '#abrir-menu:hover { color: #7c3aed; } #abrir-menu:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }',
     'html.menu-oculto #abrir-menu { display: flex; }',
-    'html.menu-oculto main { padding-left: 4rem !important; }',
+    'html.menu-oculto main { padding-left: 4rem !important; max-width: none !important; }',
+    '@media (max-width: 767px) { main { padding-left: 1rem !important; padding-right: 1rem !important; } html.menu-oculto main { padding-top: 3.5rem !important; padding-left: 1rem !important; } }',          // sin el menú, el contenido aprovecha todo el ancho (antes quedaba angosto con un vacío a la derecha)
   ].join('\n')
   document.head.appendChild(st)
   window.alternarMenu = function () {

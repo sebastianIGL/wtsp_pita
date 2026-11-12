@@ -120,6 +120,23 @@
     html:not(.dark) .doc-icon-wrap { background:#e2e8f0; }
 
     /* ── Estado de gestión: Cotización enviada ── */
+    /* Un cliente en un estado que normalmente no se muestra aparece solo al buscarlo: línea punteada y el estado más destacado */
+    .fila-oculta-estado > td { border-top:2px dashed #94a3b8 !important; border-bottom:2px dashed #94a3b8 !important; }
+    .fila-oculta-estado > td:first-child { border-left:2px dashed #94a3b8 !important; } .fila-oculta-estado > td:last-child { border-right:2px dashed #94a3b8 !important; }
+    .kb-card.fila-oculta-estado { border:2px dashed #94a3b8; }
+    .eg-badge.eg-destacado { font-size:.82rem; font-weight:700; padding:.2rem .75rem; box-shadow:0 0 0 2px rgba(148,163,184,.5); }
+    .eg-sin-contactar { background:rgba(37,99,235,.15); color:#93c5fd; border:1px solid rgba(37,99,235,.35); }
+    .eg-primer-llamado { background:rgba(20,184,166,.15); color:#5eead4; border:1px solid rgba(20,184,166,.35); }
+    .eg-no-califica { background:rgba(234,88,12,.15); color:#fdba74; border:1px solid rgba(234,88,12,.35); }
+    .eg-cierre-perdido { background:rgba(190,18,60,.17); color:#fda4af; border:1px solid rgba(190,18,60,.4); }
+    .eg-sin-rsh { background:rgba(234,179,8,.15); color:#fde047; border:1px solid rgba(234,179,8,.35); }
+    .eg-creando-rsh { background:rgba(6,182,212,.15); color:#67e8f9; border:1px solid rgba(6,182,212,.35); }
+    html:not(.dark) .eg-sin-contactar { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+    html:not(.dark) .eg-primer-llamado { background:#ccfbf1; color:#115e59; border-color:#5eead4; }
+    html:not(.dark) .eg-no-califica { background:#ffedd5; color:#9a3412; border-color:#fdba74; }
+    html:not(.dark) .eg-cierre-perdido { background:#ffe4e6; color:#9f1239; border-color:#fda4af; }
+    html:not(.dark) .eg-sin-rsh { background:#fef9c3; color:#854d0e; border-color:#fde047; }
+    html:not(.dark) .eg-creando-rsh { background:#cffafe; color:#155e75; border-color:#67e8f9; }
     .eg-cotizacion  { background:rgba(124,58,237,.18);  color:#c4b5fd; border:1px solid rgba(124,58,237,.4);  }
     html:not(.dark) .eg-cotizacion  { background:#f3e8ff; color:#6b21a8; border-color:#d8b4fe; }
 
@@ -196,6 +213,12 @@
     .kb-card:active { cursor:grabbing; }
     .kb-card.kb-arrastrando { opacity:.4; }
     .kb-nombre { overflow-wrap:anywhere; }
+    .kb-nota { margin-top:.5rem; padding:.4rem .55rem; border-radius:.5rem; background:var(--ld-col); border:1px solid var(--ld-borde); font-size:.72rem; line-height:1.3; color:var(--ld-texto, inherit); }
+    .kb-nota span { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
+    .kb-nota small { display:block; margin-top:.2rem; opacity:.65; font-size:.66rem; }
+    .kb-card { cursor:pointer; }
+    .ficha-fila { display:flex; justify-content:space-between; gap:1rem; padding:.45rem 0; border-bottom:1px solid var(--ld-borde, rgba(148,163,184,.25)); font-size:.85rem; }
+    .ficha-fila dt { opacity:.7; flex-shrink:0; } .ficha-fila dd { text-align:right; overflow-wrap:anywhere; font-weight:500; }
     .aviso-lista { background:rgba(245,158,11,.12); color:#92400e; border-bottom:1px solid rgba(245,158,11,.35); }
     .dark .aviso-lista { color:#fbbf24; }
     .ld-chip-mini { font-size:.66rem; padding:2px 8px; border-radius:9999px; font-weight:600; white-space:nowrap; }
@@ -1200,6 +1223,18 @@ async function cargarUsuarios() {
   } catch(e) { console.warn('Usuarios:', e) }
 }
 
+// A quién se le puede asignar un cliente de ese proyecto: administración y owner siempre; un ejecutivo solo si tiene ese proyecto asignado (directo o por su inmobiliaria).
+function _puedeTenerProyecto(u, proyectoId) {
+  if (u.rol !== 'ejecutivo' || !proyectoId) return true
+  if ((u.proyecto_ids || []).some(p => String(p) === String(proyectoId))) return true
+  const inm = (proyectos.find(p => String(p.id) === String(proyectoId)) || {}).inmobiliaria_id
+  return inm != null && (u.inmobiliaria_ids || []).some(i => String(i) === String(inm))
+}
+function _usuariosParaClientes(clientesElegidos, incluirIds = []) {
+  const proys = [...new Set(clientesElegidos.map(c => c.proyecto_id).filter(Boolean))]
+  return _usuarios.filter(u => incluirIds.includes(u.id) || proys.every(p => _puedeTenerProyecto(u, p)))
+}
+
 function _nombreUsuario(id) {
   if (!id) return '—'
   const u = _usuarios.find(u => u.id === id)
@@ -1252,13 +1287,19 @@ function actualizarStats() {
 // 'timido'     → plantilla enviada > 24h y sin respuesta posterior
 const _EG_MAP = {
   '':              { label: 'Sin estado',     cls: 'eg-sin-estado'  },
+  sin_contactar:   { label: 'Sin contactar',  cls: 'eg-sin-contactar' },
+  primer_llamado:  { label: 'Primer llamado', cls: 'eg-primer-llamado' },
   primer_wtsp:     { label: 'Primer WA',      cls: 'eg-primer-wtsp' },
   interesado:      { label: 'Interesado',     cls: 'eg-interesado'  },
-  no_interesado:   { label: 'No interesado',  cls: 'eg-no-interes'  },
+  sin_rsh:         { label: 'Sin RSH',        cls: 'eg-sin-rsh'     },
+  creando_rsh:     { label: 'Creando RSH',    cls: 'eg-creando-rsh' },
   enviando_docs:   { label: 'Enviando docs',  cls: 'eg-env-docs'    },
   en_evaluacion:   { label: 'En evaluación',  cls: 'eg-evaluacion'  },
   aprobado:        { label: 'Aprobado',       cls: 'eg-aprobado'    },
   cotizacion_enviada: { label: 'Cotización enviada', cls: 'eg-cotizacion' },
+  no_interesado:   { label: 'No interesado',  cls: 'eg-no-interes'  },
+  no_califica:     { label: 'No califica',    cls: 'eg-no-califica' },
+  cierre_perdido:  { label: 'Cierre perdido', cls: 'eg-cierre-perdido' },
   descartado:      { label: 'Rechazado',      cls: 'eg-descartado'  },
 }
 function _egClass(val) { return (_EG_MAP[val || ''] || _EG_MAP['']).cls }
@@ -1269,7 +1310,7 @@ const _ESTADOS_GESTION_FILTRO = Object.entries(_EG_MAP).map(([val, info]) => ({
   label: info.label,
 }))
 // Por defecto se excluyen "No interesado" y "Rechazado"
-const _EG_EXCLUIDOS_DEFECTO = new Set(['no_interesado', 'descartado'])
+const _EG_EXCLUIDOS_DEFECTO = new Set(['no_interesado', 'no_califica', 'cierre_perdido', 'descartado'])
 let _filtroEstadoGestionSet = new Set(
   _ESTADOS_GESTION_FILTRO.map(o => o.value).filter(v => !_EG_EXCLUIDOS_DEFECTO.has(v))
 )
@@ -1317,6 +1358,8 @@ async function actualizarEstadoGestion(id, val, sel) {
     const newCls = _egClass(val)
     sel.className = `eg-badge ${newCls}`
     await api('PATCH', `/api/clientes/${id}`, { estado_gestion: val || null })
+    const c = clientes.find(x => x.id === id)                        // la lista en memoria también cambia: si no, al volver a dibujar (nota, edición, otra pestaña) se vería el estado anterior
+    if (c) { c.estado_gestion = val || null; c.estado_gestion_en = new Date().toISOString() }
   } catch(e) {
     sel.value = prev
     sel.className = `eg-badge ${_egClass(prev)}`
@@ -1423,6 +1466,10 @@ function _msDate(val) {
   return isNaN(t) ? 0 : t
 }
 
+// ¿Está en un estado que el filtro «Estado gestión» normalmente esconde? (solo se ve cuando se busca por nombre, RUT o teléfono)
+function _ocultoPorEstado(c) { return _filtroEstadoGestionSet.size > 0 && !_filtroEstadoGestionSet.has(c.estado_gestion || '__sin_estado__') }
+const _AVISO_OCULTO = 'Este cliente está en un estado que normalmente no se muestra; aparece porque lo buscaste'
+
 function clientesFiltrados(incluirCerrados = false) {
   const q        = document.getElementById('search').value.toLowerCase()
   const qDigits  = q.replace(/\D/g, '')
@@ -1445,6 +1492,7 @@ function clientesFiltrados(incluirCerrados = false) {
       const matchEstadoGestion = _filtroEstadoGestionSet.size === 0
         || _filtroEstadoGestionSet.has(c.estado_gestion || '__sin_estado__')
         || (incluirCerrados && _EG_EXCLUIDOS_DEFECTO.has(c.estado_gestion))
+        || !!q.trim()                                           // buscando a alguien: aparece aunque esté en un estado que normalmente no se muestra (se ve con línea punteada)
       return matchQ && matchP && matchUsuario && matchEstadoConv && matchEstadoGestion
     })
     .sort((a, b) => {
@@ -1633,7 +1681,7 @@ function renderTabla(data) {
               style="background:${_bc.bg};color:${_bc.color};border:1px solid ${_bc.border}">${_bc.icon} ${_bc.text}</span>`
       : ''
 
-    return headerHTML + `<tr class="trow border-b transition ${recordatorioClass}">
+    return headerHTML + `<tr class="trow border-b transition ${recordatorioClass}${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
       <td class="px-6 py-4 font-medium val-text">
         <span class="inline-flex items-center gap-1 flex-wrap">${esc(c.Contacto)}${badgeNuevo}${badgeContacto}</span>
         ${c.recordatorio_at ? `<div class="text-xs mt-0.5 ${_esRecordatorioVencido(c.recordatorio_at) ? 'text-red-400' : 'text-amber-400'}">📅 ${_formatFechaRecordatorio(c.recordatorio_at)}</div>` : ''}
@@ -1652,7 +1700,7 @@ function renderTabla(data) {
         <div class="flex flex-col gap-1.5">
           <select data-prev="${esc(c.estado_gestion||'')}"
             onchange="actualizarEstadoGestion(${c.id}, this.value, this)"
-            class="eg-badge ${_egClass(c.estado_gestion||'')}">
+            class="eg-badge ${_egClass(c.estado_gestion||'')}${_ocultoPorEstado(c) ? ' eg-destacado' : ''}">
             ${Object.entries(_EG_MAP).map(([v,d]) => `<option value="${v}"${(c.estado_gestion||'')==v?' selected':''}>${d.label}</option>`).join('')}
           </select>
           ${badgeEntrega}
@@ -1702,12 +1750,14 @@ const ETAPAS = [
   { key: 'cotizacion_enviada', label: 'Cotización enviada', sub: 'Por correo o WhatsApp',               color: '#7c3aed' },
 ]
 const ETAPAS_CERRADAS = [
-  { key: 'no_interesado', label: 'No interesado', color: '#dc2626' },
-  { key: 'descartado',    label: 'Rechazado',     color: '#64748b' },
+  { key: 'no_interesado',  label: 'No interesado',  color: '#dc2626' },
+  { key: 'no_califica',    label: 'No califica',    color: '#ea580c' },
+  { key: 'cierre_perdido', label: 'Cierre perdido', color: '#be123c' },
+  { key: 'descartado',     label: 'Rechazado',      color: '#64748b' },
 ]
 const _ETAPA_POR_CLAVE = Object.fromEntries([...ETAPAS, ...ETAPAS_CERRADAS].map(e => [e.key, e]))
 // Qué valor de «estado de gestión» se guarda al soltar una tarjeta en cada columna (Nuevo no guarda nada: lo asigna el sistema)
-const _VALOR_AL_SOLTAR = { contactado: 'primer_wtsp', en_evaluacion: 'en_evaluacion', aprobado: 'aprobado', cotizacion_enviada: 'cotizacion_enviada', no_interesado: 'no_interesado', descartado: 'descartado' }
+const _VALOR_AL_SOLTAR = { contactado: 'primer_wtsp', en_evaluacion: 'en_evaluacion', aprobado: 'aprobado', cotizacion_enviada: 'cotizacion_enviada', no_interesado: 'no_interesado', no_califica: 'no_califica', cierre_perdido: 'cierre_perdido', descartado: 'descartado' }
 const FUENTES = { meta_ads: 'Meta Ads', chatbot: 'Chatbot', formulario_web: 'Formulario web', referido: 'Referido', excel: 'Excel', manual: 'Manual', otro: 'Otro' }
 const MEDIOS = { whatsapp: 'WhatsApp', chatbot: 'Chatbot', correo: 'Correo', llamada: 'Llamada', presencial: 'Presencial' }
 // Listas «Fuente» y «Medio» de los formularios de cliente: las mismas de las vistas (y las únicas que acepta el servidor)
@@ -1764,6 +1814,8 @@ let _baseLeads = []                      // los clientes que pasan los filtros d
 let _porEtapaActual = null                // las tarjetas del Pipeline por etapa, tal como se dibujaron (para contar las ocultas)
 let _tarjetasMostradas = {}              // etapa → cuántas tarjetas se ven
 let _cerradosAbiertos = false
+// Al buscar a alguien, la sección «Cerrados» del Pipeline se abre sola (si no, no se vería a quien está en un estado cerrado)
+function _cerradosVisibles() { return _cerradosAbiertos || !!(document.getElementById('search')?.value || '').trim() }
 let _arrastrando = null
 let _columnasTabla = (() => {
   try { const g = JSON.parse(localStorage.getItem('crm-columnas-tabla')); if (Array.isArray(g)) return COLUMNAS_TABLA.filter(c => c.fija || g.includes(c.key)).map(c => c.key) } catch (e) { /* sin almacenamiento: todas */ }
@@ -1813,8 +1865,8 @@ function haceTexto(iso, ahora = new Date()) {
 // La etapa de un cliente. Nuevo y Contactado salen solos de lo que ya pasó con WhatsApp; las demás salen del estado de gestión que cambia el equipo.
 function etapaDe(c) {
   const eg = c.estado_gestion || ''
-  if (['cotizacion_enviada', 'aprobado', 'en_evaluacion', 'no_interesado', 'descartado'].includes(eg)) return eg
-  if (['primer_wtsp', 'interesado', 'enviando_docs'].includes(eg)) return 'contactado'
+  if (['cotizacion_enviada', 'aprobado', 'en_evaluacion', 'no_interesado', 'no_califica', 'cierre_perdido', 'descartado'].includes(eg)) return eg
+  if (['primer_wtsp', 'primer_llamado', 'interesado', 'sin_rsh', 'creando_rsh', 'enviando_docs'].includes(eg)) return 'contactado'     // «Sin contactar» y «Sin estado» no deciden: manda lo que ya pasó por WhatsApp
   return computeFunnelGroup(c) === 'sin_enviar' ? 'nuevo' : 'contactado'
 }
 
@@ -2008,7 +2060,7 @@ function _entregaCorta(estado) {
 
 function _selectEvaluacion(c) {
   const v = c.estado_gestion || ''
-  return `<select data-prev="${esc(v)}" onchange="actualizarEstadoGestion(${Number(c.id)}, this.value, this)" aria-label="Estado de gestión de ${esc(c.Contacto)}" class="eg-badge ${_egClass(v)}">
+  return `<select data-prev="${esc(v)}" onchange="actualizarEstadoGestion(${Number(c.id)}, this.value, this)" aria-label="Estado de gestión de ${esc(c.Contacto)}" class="eg-badge ${_egClass(v)}${_ocultoPorEstado(c) ? ' eg-destacado' : ''}">
     ${Object.entries(_EG_MAP).map(([k, d]) => `<option value="${esc(k)}"${v === k ? ' selected' : ''}>${esc(d.label)}</option>`).join('')}
   </select>`
 }
@@ -2135,7 +2187,7 @@ function _renderLeadsTabla(lista, x) {
   const encabezado = `<tr class="thead-row text-xs uppercase tracking-wider border-b">
     <th class="px-4 py-3 text-left"><input type="checkbox" aria-label="Seleccionar todos los de esta página" ${todosMarcados ? 'checked' : ''} onchange="seleccionarPaginaLeads(this.checked)"></th>
     ${cols.map(c => `<th class="px-4 py-3 text-left whitespace-nowrap ld-c-${c.key}">${esc(c.label)}</th>`).join('')}</tr>`
-  const filas = pagina.map(c => `<tr class="trow border-b transition" data-lead="${Number(c.id)}">
+  const filas = pagina.map(c => `<tr class="trow border-b transition${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}" data-lead="${Number(c.id)}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
     <td class="px-4 py-3 align-top"><input type="checkbox" aria-label="Seleccionar a ${esc(c.Contacto)}" ${_seleccionLeads.has(c.id) ? 'checked' : ''} onchange="alternarSeleccionLead(${Number(c.id)}, this.checked)"></td>
     ${cols.map(col => `<td class="px-4 py-3 align-top ld-c-${col.key}">${_CELDAS[col.key](c, x)}</td>`).join('')}</tr>`).join('')
   document.getElementById('ld-contenido').innerHTML = `<div class="overflow-x-auto"><table class="w-full text-sm ld-tabla"><thead>${encabezado}</thead><tbody>${filas || `<tr><td colspan="${cols.length + 1}" class="px-6 py-12 text-center empty-text">No hay leads con estos filtros.</td></tr>`}</tbody></table></div>`
@@ -2180,7 +2232,7 @@ function _dibujarSeleccion() {
     ${admin ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
     ${_puedeCotizar() ? '<button type="button" onclick="cotizarSeleccion()" class="ld-bk" title="Se cotiza de a un cliente">Enviar cotización</button>' : ''}
     <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
-    ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuarios.map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
+    ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuariosParaClientes(clientes.filter(c => _seleccionLeads.has(c.id))).map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
     <label class="ld-bk">Programar recordatorio <input type="date" onchange="accionMasiva('recordatorio', this.value); this.value=''" aria-label="Programar un recordatorio para los seleccionados"></label>
     ${admin ? '<button type="button" onclick="repartirSeleccion()" class="ld-bk" title="Reparte los seleccionados entre varios ejecutivos">Repartir…</button>' : ''}
     ${admin ? '<button type="button" onclick="accionMasiva(\'descartar\')" class="ld-bk">Descartar</button>' : ''}
@@ -2231,12 +2283,21 @@ function _nombreProyectoActual() {
   return 'Todos los proyectos'
 }
 
+// La última nota interna, debajo del cliente (para leerla sin abrirla); si hay más, dice cuántas.
+function _notaDeTarjeta(c, x) {
+  const n = c.nota_ultima
+  if (!n || !String(n.texto || '').trim()) return ''
+  const mas = Number(c.notas_n) > 1 ? ` · ${Number(c.notas_n) - 1} más` : ''
+  const cuando = haceTexto(n.creado_en, x.ahora)
+  return `<div class="kb-nota" data-kb-nota="${Number(c.id)}"><span>📝 ${esc(n.texto)}</span><small>${esc([n.autor, cuando].filter(Boolean).join(' · '))}${mas}</small></div>`
+}
+
 function _tarjeta(c, x) {
   const e = etapaDe(c), ev = c.estado_gestion || '', l = llegoDe(c, x.ahora), px = proximaDe(c, x.hoy), d = docsDe(c)
   const admin = _esAdmin(_perfil?.rol)
   const ahorro = _ahorroUF(c)
   const resp = c.ultimo_entrante_en ? `Respondió ${haceTexto(c.ultimo_entrante_en, x.ahora)}` : ''
-  return `<div class="kb-card" draggable="true" data-kb-id="${Number(c.id)}" aria-label="Cliente ${esc(c.Contacto)}">
+  return `<div class="kb-card${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}" draggable="true" data-kb-id="${Number(c.id)}" aria-label="Cliente ${esc(c.Contacto)}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
     <div class="flex items-start justify-between gap-2"><span class="font-semibold text-sm val-text kb-nombre">${esc(c.Contacto)}</span><span class="text-xs sidebar-text whitespace-nowrap">${esc(l.hace)}</span></div>
     <div class="text-xs sidebar-text mt-0.5">${esc(c.tipologia_nombre || 'Sin tipología')}${ahorro ? ' · Ahorro ' + esc(ahorro) : ''}</div>
     <div class="flex flex-wrap items-center gap-1.5 mt-2">
@@ -2246,6 +2307,7 @@ function _tarjeta(c, x) {
       ${c.usuario_id ? `<span class="ld-avatar" title="${esc(_nombreUsuario(c.usuario_id))}">${esc(_iniciales(_nombreUsuario(c.usuario_id)))}</span>` : ''}
     </div>
     <div class="mt-2">${_franjaProxima(c, px)}</div>
+    ${_notaDeTarjeta(c, x)}
     ${resp ? `<div class="text-xs sub-text mt-1.5">${esc(resp)}</div>` : ''}
     <div class="flex items-center gap-2 mt-2.5">
       ${admin ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
@@ -2277,21 +2339,21 @@ function _renderLeadsPipeline(lista, x) {
       <div><h2 class="font-semibold val-text">Pipeline · ${esc(_nombreProyectoActual())}</h2>
         <p class="text-xs sidebar-text mt-0.5">Arrastra la tarjeta para cambiar de etapa. El sistema mueve automáticamente Nuevo → Contactado. En el celular usa «⋯ → Mover a».</p>
         ${ocultos ? `<p id="kb-ocultos" class="text-xs sidebar-text mt-1">Cada columna muestra primero los clientes más recientes. Hay <b>${ocultos}</b> más antiguos ocultos. <button type="button" onclick="mostrarTodasLasTarjetas()" class="underline">Mostrar todos</button></p>` : ''}</div>
-      <button type="button" onclick="_cerradosAbiertos = !_cerradosAbiertos; _repintarLeads()" class="filtro-btn rounded-md px-2.5 py-1 text-xs" aria-expanded="${_cerradosAbiertos}">Cerrados (${cerrados}) ${_cerradosAbiertos ? '▴' : '▾'}</button>
+      <button type="button" onclick="_cerradosAbiertos = !_cerradosAbiertos; _repintarLeads()" class="filtro-btn rounded-md px-2.5 py-1 text-xs" aria-expanded="${_cerradosVisibles()}">Cerrados (${cerrados}) ${_cerradosVisibles() ? '▴' : '▾'}</button>
     </div>
-    <div id="kb-tablero" class="kb-tablero px-6 pb-4">${ETAPAS.map(e => columna(e)).join('')}${_cerradosAbiertos ? ETAPAS_CERRADAS.map(e => columna(e, false)).join('') : ''}</div>`
+    <div id="kb-tablero" class="kb-tablero px-6 pb-4">${ETAPAS.map(e => columna(e)).join('')}${_cerradosVisibles() ? ETAPAS_CERRADAS.map(e => columna(e, false)).join('') : ''}</div>`
   if (antes) {
     const t = document.getElementById('kb-tablero')
     t.scrollLeft = antes.izq
     t.querySelectorAll('[data-kb-etapa]').forEach(c => { c.scrollTop = antes.cols[c.dataset.kbEtapa] || 0 })
   }
-  const visibles = ETAPAS.concat(_cerradosAbiertos ? ETAPAS_CERRADAS : []).reduce((n, e) => n + porEtapa[e.key].length, 0)
+  const visibles = ETAPAS.concat(_cerradosVisibles() ? ETAPAS_CERRADAS : []).reduce((n, e) => n + porEtapa[e.key].length, 0)
   document.getElementById('ld-pie').innerHTML = `<span class="sidebar-text">Mostrando ${visibles} ${visibles === 1 ? 'lead' : 'leads'} en ${ETAPAS.length + (_cerradosAbiertos ? 2 : 0)} columnas</span>
     <span class="sidebar-text">Vista: pipeline · <button type="button" class="underline" onclick="setVista('tabla')">Ver como tabla</button></span>`
 }
 // Cuántas tarjetas quedan ocultas (las más antiguas de cada columna visible).
 function _tarjetasOcultas(porEtapa) {
-  return ETAPAS.concat(_cerradosAbiertos ? ETAPAS_CERRADAS : []).reduce((n, e) => n + Math.max(0, porEtapa[e.key].length - (_tarjetasMostradas[e.key] || TARJETAS_POR_TANDA)), 0)
+  return ETAPAS.concat(_cerradosVisibles() ? ETAPAS_CERRADAS : []).reduce((n, e) => n + Math.max(0, porEtapa[e.key].length - (_tarjetasMostradas[e.key] || TARJETAS_POR_TANDA)), 0)
 }
 // Muestra todas las tarjetas ocultas; si son muchas, pregunta antes (la pantalla se pone lenta).
 function mostrarTodasLasTarjetas() {
@@ -2301,6 +2363,39 @@ function mostrarTodasLasTarjetas() {
   _repintarLeads()
 }
 function verMasTarjetas(k) { _tarjetasMostradas[k] = (_tarjetasMostradas[k] || TARJETAS_POR_TANDA) + TARJETAS_POR_TANDA; _repintarLeads() }
+
+// Un clic sobre una tarjeta (fuera de sus botones) abre la ficha del cliente con sus datos de contacto
+document.addEventListener('click', e => {
+  const t = e.target.closest?.('.kb-card')
+  if (!t || e.target.closest('button, a, select, input, textarea, label')) return
+  abrirFichaLead(Number(t.dataset.kbId))
+})
+
+function _filaFicha(rotulo, valor, html = false) {
+  const v = valor == null || String(valor).trim() === '' ? '<span class="sub-text">—</span>' : (html ? valor : esc(String(valor)))
+  return `<div class="ficha-fila"><dt>${esc(rotulo)}</dt><dd>${v}</dd></div>`
+}
+function abrirFichaLead(id) {
+  const c = clientes.find(x => x.id === id)
+  if (!c) return
+  const p = proyectos.find(x => x.id === c.proyecto_id)
+  const tel = c.Telefono ? `<a href="https://api.whatsapp.com/send?phone=${encodeURIComponent(c.Telefono)}" target="_blank" rel="noopener" class="text-emerald-500 hover:underline">${esc(c.Telefono)}</a>` : ''
+  const correo = (c.Correo || c.email) ? `<a href="mailto:${encodeURIComponent(c.Correo || c.email)}" class="text-sky-500 hover:underline">${esc(c.Correo || c.email)}</a>` : ''
+  const eg = _EG_MAP[c.estado_gestion || ''] || _EG_MAP['']
+  const x = _contextoLeads(), px = proximaDe(c, x.hoy)
+  document.getElementById('ficha-titulo').textContent = c.Contacto || 'Cliente'
+  const filas = [['RUT', c.Rut], ['Teléfono', tel, true], ['Correo', correo, true], ['Proyecto', p ? p.nombre : ''], ['Tipología', c.tipologia_nombre], ['Etapa', c.etapa_nombre],
+    ['Estado', `<span class="eg-badge ${eg.cls}">${esc(eg.label)}</span>`, true], ['Ejecutivo', c.usuario_id ? _nombreUsuario(c.usuario_id) : ''], ['Ahorro', _ahorroUF(c)],
+    ['Próxima acción', px.tipo === 'nada' ? '' : [px.texto, px.nota].filter(Boolean).join(' · ')]]                  // cada valor se escapa dentro de _filaFicha (salvo los que ya son HTML armado aquí con esc())
+  const ultima = c.nota_ultima && c.nota_ultima.texto ? c.nota_ultima : null
+  document.getElementById('ficha-cuerpo').innerHTML = `<dl>${filas.map(([r, v, h]) => _filaFicha(r, v, h)).join('')}</dl>` + (ultima
+    ? `<div class="kb-nota mt-3" style="font-size:.8rem"><span style="-webkit-line-clamp:6">📝 ${esc(ultima.texto)}</span><small>${esc([ultima.autor, haceTexto(ultima.creado_en, x.ahora)].filter(Boolean).join(' · '))}</small></div>` : '')
+  document.getElementById('ficha-notas').dataset.id = String(c.id); document.getElementById('ficha-notas').dataset.nombre = c.Contacto || ''
+  document.getElementById('ficha-editar').dataset.id = String(c.id)
+  document.getElementById('modal-ficha').classList.remove('hidden')
+}
+function cerrarFichaLead() { document.getElementById('modal-ficha').classList.add('hidden') }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarFichaLead() })
 
 // Arrastrar y soltar
 document.addEventListener('dragstart', e => {
@@ -3871,6 +3966,8 @@ async function cargarNotas() {
     const notas = await api('GET', `/api/clientes/${id}/notas`)
     if (id !== _notasClienteId) return          // mientras cargaba se cerró o se abrió otro cliente
     renderNotas(notas)
+    const cli = clientes.find(x => x.id === id)                  // el conteo y la última nota de las tarjetas también se actualizan
+    if (cli && Array.isArray(notas)) { cli.notas_n = notas.length; cli.nota_ultima = notas[0] ? { texto: String(notas[0].texto || '').slice(0, 200), creado_en: notas[0].creado_en, autor: notas[0].autor } : null; if (_vista === 'pipeline') _repintarLeads() }
   } catch(e) {
     if (id !== _notasClienteId) return
     lista.innerHTML = `<p class="text-center err-text text-sm py-6">${esc(e.message)}</p>`
@@ -4066,7 +4163,7 @@ function abrirAsignar(clienteId, nombre, usuarioActualId) {
   document.getElementById('asignar-error').classList.add('hidden')
   const sel = document.getElementById('asignar-usuario')
   sel.innerHTML = '<option value="">— Sin asignar —</option>'
-  _usuarios.forEach(u => {
+  _usuariosParaClientes(clientes.filter(x => x.id === clienteId), usuarioActualId ? [usuarioActualId] : []).forEach(u => {        // solo quienes tienen el proyecto del cliente (y quien ya lo tiene)
     const opt = new Option(`${u.nombre} (${u.rol === 'owner' ? 'Owner' : u.rol === 'administrador' ? 'Admin' : 'Ejecutivo'})`, u.id)
     if (u.id === usuarioActualId) opt.selected = true
     sel.appendChild(opt)
@@ -5014,6 +5111,20 @@ async function guardarRegistrarInbox() {
 </div>
 
 <!-- ═══ MODAL ASIGNAR EJECUTIVO ═══ -->
+<div id="modal-ficha" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="ficha-titulo" onclick="if (event.target === this) cerrarFichaLead()">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl p-5">
+    <div class="flex items-start justify-between mb-3 gap-3">
+      <div><p class="text-xs sidebar-text font-medium">Ficha del cliente</p><h3 id="ficha-titulo" class="text-lg font-semibold val-text"></h3></div>
+      <button type="button" onclick="cerrarFichaLead()" class="sidebar-text hover:val-text transition text-xl leading-none" aria-label="Cerrar">✕</button>
+    </div>
+    <div id="ficha-cuerpo" class="val-text"></div>
+    <div class="flex gap-2 mt-4">
+      <button type="button" id="ficha-notas" onclick="cerrarFichaLead(); abrirNotas(+this.dataset.id, this.dataset.nombre)" class="flex-1 filtro-btn rounded-lg px-3 py-2 text-sm">Ver notas</button>
+      <button type="button" id="ficha-editar" onclick="cerrarFichaLead(); abrirEditarCliente(clientes.find(c => c.id === +this.dataset.id))" class="flex-1 filtro-btn rounded-lg px-3 py-2 text-sm">Editar cliente</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-asignar" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
   <div class="glass rounded-2xl w-full max-w-xs shadow-2xl p-5">
     <div class="flex items-center justify-between mb-4">
