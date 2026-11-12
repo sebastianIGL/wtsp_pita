@@ -1551,14 +1551,14 @@ function _accionesFila(c) {
         Evaluación
       </button>
       ${_botonCotizar(c)}
-      ${esAdmin ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" title="Ver conversación"
+      ${_puedeChatbot() ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" title="Ver conversación"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
         </svg>
       </button>` : ''}
-      ${esAdmin ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirContexto(+this.dataset.id, this.dataset.nombre)" title="Contexto del bot"
+      ${_puedeChatbot() ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirContexto(+this.dataset.id, this.dataset.nombre)" title="Contexto del bot"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-violet-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1641,7 +1641,7 @@ function renderTabla(data) {
     if (grupo !== _ultimoGrupo) {
       _ultimoGrupo = grupo
       const info = FUNNEL_GROUPS.find(g => g.key === grupo)
-      const btnRemarketing = (['sin_enviar', 'no_recibieron', 'no_respondieron'].includes(grupo) && _esAdmin(_perfil?.rol))
+      const btnRemarketing = (['sin_enviar', 'no_recibieron', 'no_respondieron'].includes(grupo) && _puedeChatbot())
         ? `<button onclick="abrirSelectorTemplate(null, null, _idsPorGrupoFunnel.${grupo})"
              class="text-xs px-2.5 py-1 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-medium normal-case tracking-normal flex items-center gap-1.5">
              📤 Enviar plantilla a estos ${conteoGrupo[grupo]}
@@ -2068,6 +2068,9 @@ function _selectEvaluacion(c) {
 }
 
 // «Cotizar» solo se ofrece a quien tiene permiso (owner y administrador; los ejecutivos cuando se encienda COTIZAR_PARA_EJECUTIVOS): el servidor lo exige igual.
+// El chatbot de WhatsApp (ver la conversación y el contexto del bot, y enviar plantillas) está abierto a todas las personas con sesión: administración, owner y ejecutivos.
+// El servidor limita a cada ejecutivo a sus propios clientes (exigir_cliente), así que desde aquí solo se muestran los botones.
+function _puedeChatbot() { return !!_perfil }
 function _puedeCotizar() { const p = _perfil?.puede_cotizar; return p === undefined ? _esAdmin(_perfil?.rol) : !!p }
 function _botonCotizar(c) {
   if (!_puedeCotizar()) return ''
@@ -2110,7 +2113,7 @@ function renderVistaLeads(filtrados, conCerrados = filtrados) {
   // Cabecera y cifras: sobre lo que dejan pasar los filtros de arriba
   document.getElementById('resumen-dia').textContent = resumenDelDia(filtrados, x.hoy)
   document.getElementById('kpis-leads').innerHTML = _htmlKpis(kpisDe(filtrados, x.ahora))
-  document.getElementById('btn-leads-plantilla').classList.toggle('hidden', !_esAdmin(_perfil?.rol))
+  document.getElementById('btn-leads-plantilla').classList.toggle('hidden', !_puedeChatbot())
 
   // Pestañas de colas: cada una con su cantidad
   const conteo = Object.fromEntries(COLAS.map(q => [q.key, filtrados.filter(c => colaCoincide(c, q.key, x.hoy, x.ahora)).length]))
@@ -2231,7 +2234,7 @@ function _dibujarSeleccion() {
   const total = _listaTablaCompleta().length
   barra.innerHTML = `<span class="font-semibold">${n} ${n === 1 ? 'seleccionado' : 'seleccionados'}</span>
     ${total > n ? `<button type="button" onclick="seleccionarTodosLosDeLaLista()" class="ld-bk">Seleccionar los ${total.toLocaleString('es-CL')} de esta lista</button>` : ''}
-    ${admin ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
+    ${_puedeChatbot() ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
     ${_puedeCotizar() ? '<button type="button" onclick="cotizarSeleccion()" class="ld-bk" title="Se cotiza de a un cliente">Enviar cotización</button>' : ''}
     <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
     ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuariosParaClientes(clientes.filter(c => _seleccionLeads.has(c.id))).map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
@@ -2312,7 +2315,7 @@ function _tarjeta(c, x) {
     ${_notaDeTarjeta(c, x)}
     ${resp ? `<div class="text-xs sub-text mt-1.5">${esc(resp)}</div>` : ''}
     <div class="flex items-center gap-2 mt-2.5">
-      ${admin ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
+      ${_puedeChatbot() ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
       ${_botonCotizar(c)}
       <button type="button" data-ld-menu="${Number(c.id)}" onclick="abrirMenuLead(event, ${Number(c.id)})" class="ld-mas" aria-label="Más acciones de ${esc(c.Contacto)}" aria-haspopup="true">⋯</button>
     </div></div>`
@@ -2470,8 +2473,8 @@ function abrirMenuLead(e, id) {
   menu.setAttribute('role', 'menu')
   menu.innerHTML = [
     item('evaluacion', 'Evaluación'),
-    admin ? item('conversacion', 'Ver conversación') : '',
-    admin ? item('contexto', 'Contexto del bot') : '',
+    _puedeChatbot() ? item('conversacion', 'Ver conversación') : '',
+    _puedeChatbot() ? item('contexto', 'Contexto del bot') : '',
     item('notas', 'Notas internas'),
     _puedeCotizar() ? item('cotizar', 'Cotizar') : '',
     item('recordatorio', 'Recordatorio'),
@@ -2504,8 +2507,8 @@ function accionMenuLead(accion, id, etapa) {
     case 'cotizar':      return _puedeCotizar() && abrirCotizar(id)
     case 'editar':       return abrirEditarCliente(c)
     case 'mover':        return moverLeadAEtapa(id, etapa)
-    case 'conversacion': return admin && abrirConversacion(id, nombre)
-    case 'contexto':     return admin && abrirContexto(id, nombre)
+    case 'conversacion': return _puedeChatbot() && abrirConversacion(id, nombre)
+    case 'contexto':     return _puedeChatbot() && abrirContexto(id, nombre)
     case 'asignar':      return admin && abrirAsignar(id, nombre, c.usuario_id || '')
     case 'descartar':    return admin && descartarCliente(id, nombre)
     case 'restaurar':    return admin && restaurarCliente(id, nombre)
@@ -3728,7 +3731,7 @@ async function abrirConversacion(clienteId, nombre) {
   document.getElementById('conv-body').innerHTML = `<div class="flex justify-center py-10"><div class="spinner"></div></div>`
   document.getElementById('conv-paso').textContent = ''
   const btnConvWA = document.getElementById('btn-conv-wa')
-  if (btnConvWA) btnConvWA.classList.toggle('hidden', !_esAdmin(_perfil?.rol))
+  if (btnConvWA) btnConvWA.classList.toggle('hidden', !_puedeChatbot())
   document.getElementById('modal-conversacion').classList.remove('hidden')
   try {
     const data = await api('GET', `/api/clientes/${clienteId}/conversacion`)
