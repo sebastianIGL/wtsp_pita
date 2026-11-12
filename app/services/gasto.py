@@ -35,8 +35,8 @@ TARIFAS_DEFECTO: Dict[str, Dict[str, Any]] = {
     "meta_marketing": {"valor": 0.0889, "unidad": "USD por mensaje entregado", "titulo": "Meta · plantilla de marketing"},
     "meta_utility": {"valor": 0.02, "unidad": "USD por mensaje entregado", "titulo": "Meta · plantilla de utilidad"},
     "meta_authentication": {"valor": 0.02, "unidad": "USD por mensaje entregado", "titulo": "Meta · plantilla de autenticación"},
-    "meta_service": {"valor": 0.0, "unidad": "USD por mensaje (dentro de las 24 h es gratis)", "titulo": "Meta · conversación de servicio"},
-    "usd_clp": {"valor": 950.0, "unidad": "pesos chilenos por 1 dólar", "titulo": "Valor del dólar"},
+    "meta_service": {"valor": 0.02, "unidad": "USD por mensaje de servicio cobrado (desde el 1-oct-2026 los primeros 1.000 al mes por número son gratis y Meta no los cobra)", "titulo": "Meta · conversación de servicio"},
+    "usd_clp": {"valor": 980.0, "unidad": "pesos chilenos por 1 dólar", "titulo": "Valor del dólar"},
 }
 
 
@@ -75,14 +75,16 @@ async def registrar_anthropic(*, prospecto: Optional[Dict[str, Any]], proyecto: 
 
 
 async def registrar_meta(status: Dict[str, Any]) -> None:
-    """Anota un mensaje que Meta cobra (o cobraría) según la categoría de su aviso de estado. Se ignora el que no trae precio."""
+    """Anota un mensaje según la categoría con la que Meta lo cobra en su aviso de estado (``gratis`` si Meta no lo cobra). Se ignora el que no trae precio."""
     precio = status.get("pricing") if isinstance(status, dict) else None
     wamid = status.get("id") if isinstance(status, dict) else None
     categoria = str((precio or {}).get("category") or "").lower()
     if not precio or not wamid or not categoria:
         return
-    if precio.get("billable") is False and categoria != "service":
-        categoria = "service"                       # Meta dice que no lo cobra (p. ej. dentro de una ventana ya paga): cuenta como gratis
+    # Meta cobra solo lo que marca como «regular» (antes, billable=true); lo demás (ventana de anuncio, primeros 1.000 de servicio al mes, etc.) es gratis y se anota aparte.
+    cobrable = (str(precio.get("type")).lower() == "regular") if precio.get("type") is not None else precio.get("billable") is not False
+    if not cobrable:
+        categoria = "gratis"
     cliente_id, proyecto_id, prospecto_id = None, None, None
     telefono = str(status.get("recipient_id") or "").strip()
     try:
