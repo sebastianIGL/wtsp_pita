@@ -8,6 +8,7 @@ import logging
 from typing import Dict
 
 from app.clients.supabase import _supabase_request
+from app.services import gasto
 
 logger = logging.getLogger("wtsp_pita")
 
@@ -32,6 +33,8 @@ async def _procesar_status(status: Dict) -> None:
         logger.warning("WA status FAILED wamid=%s code=%s msg=%s", wamid, err_code, err_msg)
     else:
         logger.info("WA status recibido: %s | wamid=%s | ts=%s", meta_estado, wamid, timestamp)
+
+    await gasto.registrar_meta(status)         # el consumo de Meta por cliente (nunca falla; si el aviso no trae precio, no hace nada)
 
     estado_crm = _META_ESTADO_MAP.get(meta_estado)
     if not estado_crm:

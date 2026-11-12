@@ -139,6 +139,11 @@
         <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
         Subsidios
       </button>
+      <button onclick="mostrarTab('gasto')" id="tab-gasto"
+        class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
+        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Gasto
+      </button>
       <div class="my-2 border-t header-border"></div>
       <button onclick="mostrarTab('logs')" id="tab-logs"
         class="tab-btn flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition w-full sidebar-text hover:text-violet-400">
@@ -409,6 +414,70 @@
           <tr><td colspan="5" class="text-center empty-text py-10">Cargando…</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- TAB: GASTO (Anthropic + Meta por cliente) -->
+  <div id="panel-gasto" class="hidden">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+      <div>
+        <h2 class="text-xl font-semibold val-text">Gasto por cliente</h2>
+        <p class="sidebar-text text-sm mt-1">Lo que consume la IA del chatbot (Anthropic) y los mensajes de WhatsApp (Meta). El costo se calcula con las tarifas de más abajo.</p>
+      </div>
+      <button onclick="cargarGasto()" class="text-sm sidebar-text hover:text-violet-400 transition flex items-center gap-1.5">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualizar
+      </button>
+    </div>
+    <div id="gasto-aviso" class="hidden glass rounded-xl px-4 py-3 mb-4 text-sm val-text"></div>
+    <div class="flex flex-wrap items-end gap-3 mb-4">
+      <div>
+        <label for="gasto-periodo" class="block text-xs sidebar-text mb-1">Período</label>
+        <select id="gasto-periodo" onchange="gastoCambioPeriodo()" class="rounded-lg px-3 py-2 text-sm">
+          <option value="mes">Este mes</option>
+          <option value="mes_pasado">Mes pasado</option>
+          <option value="30">Últimos 30 días</option>
+          <option value="todo">Todo lo registrado</option>
+          <option value="otro">Elegir fechas…</option>
+        </select>
+      </div>
+      <div id="gasto-fechas" class="hidden flex items-end gap-2">
+        <div><label for="gasto-desde" class="block text-xs sidebar-text mb-1">Desde</label><input id="gasto-desde" type="date" onchange="cargarGasto()" class="rounded-lg px-3 py-2 text-sm"></div>
+        <div><label for="gasto-hasta" class="block text-xs sidebar-text mb-1">Hasta</label><input id="gasto-hasta" type="date" onchange="cargarGasto()" class="rounded-lg px-3 py-2 text-sm"></div>
+      </div>
+      <div>
+        <label for="gasto-agrupar" class="block text-xs sidebar-text mb-1">Ver por</label>
+        <select id="gasto-agrupar" onchange="cargarGasto()" class="rounded-lg px-3 py-2 text-sm">
+          <option value="cliente">Cliente</option>
+          <option value="proyecto">Proyecto</option>
+          <option value="inmobiliaria">Inmobiliaria</option>
+          <option value="ejecutivo">Ejecutivo</option>
+        </select>
+      </div>
+    </div>
+    <div id="gasto-tarjetas" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5"></div>
+    <div class="glass rounded-2xl overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="thead-row text-xs uppercase tracking-wider border-b">
+            <th class="text-left px-5 py-3" id="gasto-col-nombre">Cliente</th>
+            <th class="text-right px-5 py-3">Respuestas IA</th>
+            <th class="text-right px-5 py-3">Anthropic</th>
+            <th class="text-right px-5 py-3">Mensajes Meta</th>
+            <th class="text-right px-5 py-3">Meta</th>
+            <th class="text-right px-5 py-3">Total</th>
+          </tr>
+        </thead>
+        <tbody id="gasto-tabla"><tr><td colspan="6" class="text-center empty-text py-10">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+    <p id="gasto-pie" class="sub-text text-xs mt-2"></p>
+
+    <div class="glass rounded-2xl p-5 mt-6">
+      <h3 class="text-base font-semibold val-text">Tarifas</h3>
+      <p class="sidebar-text text-sm mt-1 mb-4">Con estos valores se calcula el costo. Los que dicen «por confirmar» son valores de partida: revísalos con tu factura de Anthropic y la tarifa de Meta para Chile y guárdalos.</p>
+      <div id="gasto-tarifas" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+      <button onclick="guardarTarifasGasto()" id="gasto-guardar" class="mt-4 px-4 py-2 rounded-lg text-sm font-medium bg-violet-600 text-white hover:bg-violet-500 transition">Guardar y confirmar tarifas</button>
     </div>
   </div>
 
@@ -814,7 +883,7 @@
 
   // ── Tabs ─────────────────────────────────────────────────────────────────
   function mostrarTab(tab) {
-    ['usuarios', 'inmobiliarias', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping', 'subsidios'].forEach(t => {
+    ['usuarios', 'gasto', 'inmobiliarias', 'logs', 'plantillas', 'logswa', 'ejecutivos', 'scraping', 'subsidios'].forEach(t => {
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
       const btn = document.getElementById(`tab-${t}`);
       btn.classList.toggle('bg-violet-600', t === tab);
@@ -829,6 +898,7 @@
     if (tab === 'ejecutivos') cargarEjecutivos();
     if (tab === 'scraping') cargarLogsScraping();
     if (tab === 'subsidios') cargarSubsidios();
+    if (tab === 'gasto') cargarGasto();
   }
 
   // ── Ejecutivos bancarios ──────────────────────────────────────────────────
@@ -1057,6 +1127,118 @@
         <td class="px-5 py-3 text-red-400 text-xs">${r.error_message || '—'}</td>
       </tr>`;
     }).join('');
+  }
+
+  // ── Gasto por cliente (Anthropic + Meta) ───────────────────────────────────
+  const _GASTO_NOMBRE_COL = { cliente: 'Cliente', proyecto: 'Proyecto', inmobiliaria: 'Inmobiliaria', ejecutivo: 'Ejecutivo' };
+  const _GASTO_CATEGORIAS = { marketing: 'marketing', utility: 'utilidad', authentication: 'autenticación', service: 'servicio (gratis)' };
+  let _gastoTarifas = {};
+  let _gastoSolicitud = 0;
+
+  function _gastoFecha(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+
+  function _gastoRango() {
+    const periodo = document.getElementById('gasto-periodo').value;
+    const hoy = new Date();
+    if (periodo === 'mes') return { desde: _gastoFecha(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: _gastoFecha(hoy) };
+    if (periodo === 'mes_pasado') return { desde: _gastoFecha(new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)), hasta: _gastoFecha(new Date(hoy.getFullYear(), hoy.getMonth(), 0)) };
+    if (periodo === '30') return { desde: _gastoFecha(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - 29)), hasta: _gastoFecha(hoy) };
+    if (periodo === 'otro') return { desde: document.getElementById('gasto-desde').value, hasta: document.getElementById('gasto-hasta').value };
+    return { desde: '', hasta: '' };
+  }
+
+  function gastoCambioPeriodo() {
+    document.getElementById('gasto-fechas').classList.toggle('hidden', document.getElementById('gasto-periodo').value !== 'otro');
+    cargarGasto();
+  }
+
+  const _fmtUsd = n => 'US$ ' + Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _fmtClp = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-CL');
+  const _fmtNum = n => Number(n || 0).toLocaleString('es-CL');
+  const _gastoCelda = (usd, clp) => `<span class="val-text font-medium">${_fmtClp(clp)}</span><br><span class="sub-text text-xs">${_fmtUsd(usd)}</span>`;
+
+  function _gastoTarjeta(titulo, usd, clp, detalle) {
+    return `<div class="glass rounded-xl p-4"><p class="text-xs sidebar-text">${esc(titulo)}</p><p class="text-xl font-semibold val-text mt-1">${_fmtClp(clp)}</p><p class="sub-text text-xs">${_fmtUsd(usd)}</p>${detalle ? `<p class="sub-text text-xs mt-1">${esc(detalle)}</p>` : ''}</div>`;
+  }
+
+  function _gastoPintarTarifas(tarifas) {
+    _gastoTarifas = tarifas || {};
+    document.getElementById('gasto-tarifas').innerHTML = Object.entries(_gastoTarifas).map(([clave, t]) => `
+      <div>
+        <label for="tarifa-${esc(clave)}" class="block text-xs sidebar-text mb-1">${esc(t.titulo)} ${t.confirmada ? '' : '<span class="text-amber-500 font-medium">· por confirmar</span>'}</label>
+        <input id="tarifa-${esc(clave)}" data-clave="${esc(clave)}" type="number" min="0" step="any" value="${esc(t.valor)}" class="tarifa-gasto w-full rounded-lg px-3 py-2 text-sm">
+        <p class="sub-text text-xs mt-1">${esc(t.unidad)}</p>
+      </div>`).join('');
+  }
+
+  async function cargarGasto() {
+    const pedido = ++_gastoSolicitud;
+    const tbody = document.getElementById('gasto-tabla');
+    const agrupar = document.getElementById('gasto-agrupar').value;
+    const { desde, hasta } = _gastoRango();
+    document.getElementById('gasto-col-nombre').textContent = _GASTO_NOMBRE_COL[agrupar] || 'Cliente';
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Cargando…</td></tr>';
+    const aviso = document.getElementById('gasto-aviso');
+    aviso.classList.add('hidden');
+    const q = new URLSearchParams({ agrupar });
+    if (desde) q.set('desde', desde);
+    if (hasta) q.set('hasta', hasta);
+    let res;
+    try { res = await fetch('/api/gasto?' + q.toString(), { headers: authHeaders() }); }
+    catch (e) { if (pedido === _gastoSolicitud) tbody.innerHTML = '<tr><td colspan="6" class="text-center text-red-400 py-10">No se pudo conectar. Intenta de nuevo.</td></tr>'; return; }
+    if (pedido !== _gastoSolicitud) return;                         // llegó tarde: ya se pidió otra cosa
+    if (!res.ok) { tbody.innerHTML = `<tr><td colspan="6" class="text-center text-red-400 py-10">${esc(await res.text())}</td></tr>`; return; }
+    const d = await res.json();
+    _gastoPintarTarifas(d.tarifas);
+    if (!d.disponible) {
+      document.getElementById('gasto-tarjetas').innerHTML = '';
+      document.getElementById('gasto-pie').textContent = '';
+      aviso.textContent = 'Falta crear las tablas del gasto en Supabase. Ejecuta el archivo supabase/migraciones/2026-11-12_gasto_uso.sql (bloque A). Mientras tanto el chatbot y los envíos funcionan igual; solo no se anota el consumo.';
+      aviso.classList.remove('hidden');
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Aún no hay datos</td></tr>';
+      return;
+    }
+    const t = d.totales;
+    const cats = Object.entries(t.meta || {}).map(([c, n]) => `${_fmtNum(n)} ${_GASTO_CATEGORIAS[c] || c}`).join(' · ');
+    document.getElementById('gasto-tarjetas').innerHTML =
+      _gastoTarjeta('Total del período', t.total_usd, t.total_clp, '') +
+      _gastoTarjeta('Anthropic (IA)', t.anthropic_usd, Math.round(t.anthropic_usd * d.tarifas.usd_clp.valor), `${_fmtNum(t.llamadas)} respuestas · ${_fmtNum(t.tokens_entrada + t.tokens_salida)} tokens`) +
+      _gastoTarjeta('Meta (WhatsApp)', t.meta_usd, Math.round(t.meta_usd * d.tarifas.usd_clp.valor), cats || 'Sin mensajes') +
+      `<div class="glass rounded-xl p-4"><p class="text-xs sidebar-text">Mensajes de pago de Meta</p><p class="text-xl font-semibold val-text mt-1">${_fmtNum(t.mensajes_meta_pagados)}</p><p class="sub-text text-xs">de ${_fmtNum(t.mensajes_meta)} registrados</p></div>`;
+    if (!d.grupos.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center empty-text py-10">Sin consumo registrado en este período</td></tr>';
+    } else {
+      const k = d.tarifas.usd_clp.valor;
+      tbody.innerHTML = d.grupos.map(g => `<tr class="trow border-b transition">
+        <td class="px-5 py-3 val-text">${esc(g.nombre)}</td>
+        <td class="px-5 py-3 text-right sidebar-text">${_fmtNum(g.llamadas)}</td>
+        <td class="px-5 py-3 text-right whitespace-nowrap">${_gastoCelda(g.anthropic_usd, g.anthropic_usd * k)}</td>
+        <td class="px-5 py-3 text-right sidebar-text">${_fmtNum(g.mensajes_meta)}</td>
+        <td class="px-5 py-3 text-right whitespace-nowrap">${_gastoCelda(g.meta_usd, g.meta_usd * k)}</td>
+        <td class="px-5 py-3 text-right whitespace-nowrap">${_gastoCelda(g.total_usd, g.total_clp)}</td>
+      </tr>`).join('');
+    }
+    const partes = [];
+    if (d.primer_registro) partes.push('El consumo se registra desde el ' + new Date(d.primer_registro).toLocaleDateString('es-CL', { dateStyle: 'long' }) + '; antes no hay datos.');
+    else partes.push('Todavía no hay consumo registrado.');
+    if (d.grupos_total > d.grupos.length) partes.push(`Se muestran los ${d.grupos.length} con más gasto, de ${d.grupos_total}.`);
+    if (d.recortado) partes.push('El período tiene demasiados registros: elige uno más corto para ver todo.');
+    if (Object.values(d.tarifas).some(x => !x.confirmada)) partes.push('Hay tarifas por confirmar: los montos son una estimación.');
+    document.getElementById('gasto-pie').textContent = partes.join(' ');
+  }
+
+  async function guardarTarifasGasto() {
+    const cuerpo = {};
+    document.querySelectorAll('.tarifa-gasto').forEach(i => { cuerpo[i.dataset.clave] = i.value; });
+    const btn = document.getElementById('gasto-guardar');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/gasto/tarifas', { method: 'PUT', headers: authHeaders(), body: JSON.stringify(cuerpo) });
+      if (!res.ok) { toast(await res.text(), 'error'); return; }
+      toast('Tarifas guardadas');
+      cargarGasto();
+    } catch (e) { toast('No se pudo guardar. Intenta de nuevo.', 'error'); }
+    finally { btn.disabled = false; }
   }
 
   // ── Scraping ──────────────────────────────────────────────────────────

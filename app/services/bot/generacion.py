@@ -18,6 +18,7 @@ except ImportError:
 from app.clients.supabase import _supabase_request
 from app.core.config import get_settings
 from app.core.llm import PRESUPUESTO_TOTAL_S, cliente_anthropic
+from app.services import gasto
 from app.services.bot.contexto import _construir_mind, _resumir_proyecto
 from app.services.bot.prompts import PASOS_CONFIG
 from app.services.bot.respuesta import _interpretar_respuesta
@@ -299,4 +300,5 @@ En datos_extraidos puedes incluir además: "nuevo_proyecto_id": "<uuid>" cuando 
     logger.info("Respuesta del modelo", extra={"modelo": _modelo,
                                                "duration_ms": round((time.perf_counter() - _t0) * 1000, 1)})
 
+    await gasto.registrar_anthropic(prospecto=prospecto, proyecto=proyecto, modelo=_modelo, uso=getattr(response, "usage", None))    # nunca falla: solo anota el consumo
     return _interpretar_respuesta(response.content[0].text, lista_documentos_requeridos)
