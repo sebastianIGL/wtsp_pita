@@ -16,6 +16,7 @@
     'html.dark #abrir-menu { background: #1e293b; color: #e2e8f0; border-color: #334155; }',
     '#abrir-menu:hover { color: #7c3aed; } #abrir-menu:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }',
     'html.menu-oculto #abrir-menu { display: flex; }',
+    'html.menu-oculto #marco-barra { padding-left: 3.5rem; }',
     'html.menu-oculto main { padding-left: 4rem !important; max-width: none !important; }',
     '@media (max-width: 767px) { main { padding-left: 1rem !important; padding-right: 1rem !important; } html.menu-oculto main { padding-top: 3.5rem !important; padding-left: 1rem !important; } }',          // sin el menú, el contenido aprovecha todo el ancho (antes quedaba angosto con un vacío a la derecha)
   ].join('\n')

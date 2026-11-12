@@ -62,6 +62,8 @@
     @media (min-width: 1100px) { .hr-cols { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); } }
   </style>
   <script src="/js/menu_lateral.js"></script>
+  <script>if (/[?&]embed=1(&|$)/.test(location.search)) document.documentElement.classList.add('embed')</script>
+  <style>html.embed #cabecera-crm, html.embed #menu-lateral, html.embed #abrir-menu { display: none !important; } html.embed body main { padding-left: 2rem !important; max-width: 72rem !important; }</style>
   <link rel="stylesheet" href="/css/crm.css" />
 </head>
 <body class="min-h-screen font-sans">
@@ -182,7 +184,8 @@
   function toggleTheme() { applyTheme(!document.documentElement.classList.contains('dark')) }
   let _tema = 'dark'; try { _tema = localStorage.getItem('theme') } catch (e) { /* sin almacenamiento */ }
   applyTheme(_tema !== 'light')
-  async function cerrarSesion() { await _supabase.auth.signOut(); window.location.href = '/login.html' }
+  if (document.documentElement.classList.contains('embed')) window.addEventListener('storage', e => { if (e.key === 'theme') applyTheme(e.newValue !== 'light') })   // dentro del panel, el tema lo cambia el menú del panel
+  async function cerrarSesion() { await _supabase.auth.signOut(); window.top.location.href = '/login.html' }
 
   // ── Formato ──────────────────────────────────────────────
   const nf = (d) => new Intl.NumberFormat('es-CL', { minimumFractionDigits: d, maximumFractionDigits: d })
@@ -265,7 +268,7 @@
   function primerDiaDelMesSiguiente() { const d = new Date(), m = new Date(d.getFullYear(), d.getMonth() + 1, 1); return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-01` }
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession()
-    if (!session) { window.location.href = '/login.html'; return }
+    if (!session) { window.top.location.href = '/login.html'; return }
     _token = session.access_token
     try {
       const [rp, ru] = await Promise.all([fetch('/api/usuarios/me', { headers: { Authorization: `Bearer ${_token}` } }), fetch('/api/uf', { headers: { Authorization: `Bearer ${_token}` } })])
@@ -286,7 +289,8 @@
   document.getElementById('p-restaurar').addEventListener('click', () => { cargarParametros(); recalcularDS1() })
   cargarParametros(); recalcularCredito(); recalcularDS1()
   let _guardada = null; try { _guardada = localStorage.getItem('herramienta') } catch (e) { /* sin almacenamiento */ }
-  mostrarHerramienta(_guardada === 'ds1' ? 'ds1' : 'credito')
+  const _pedida = new URLSearchParams(location.search).get('t')      // el panel elige la herramienta con ?t=credito|ds1
+  mostrarHerramienta(_pedida === 'ds1' || _pedida === 'credito' ? _pedida : (_guardada === 'ds1' ? 'ds1' : 'credito'))
   init()
 </script>
 </body>

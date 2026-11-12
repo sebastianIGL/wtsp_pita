@@ -234,12 +234,14 @@
     .ld-menu-t { font-size:.66rem; text-transform:uppercase; letter-spacing:.06em; color:var(--ld-suave); padding:8px 10px 2px; }
     .ld-cola:focus-visible, .ld-px:focus-visible, .ld-bk:focus-visible, .ld-cotizar:focus-visible, .ld-wa:focus-visible, .ld-mas:focus-visible, #ld-menu button:focus-visible, .kb-card:focus-visible, #selector-vista button:focus-visible { outline:2px solid #0ea5e9; outline-offset:2px; }
   </style>
+<script>if (/[?&]embed=1(&|$)/.test(location.search)) document.documentElement.classList.add('embed')</script>
+<style>html.embed #cabecera-crm, html.embed #menu-lateral, html.embed #abrir-menu { display: none !important; }</style>
 <link rel="stylesheet" href="/css/crm.css" />
 </head>
 <body class="min-h-screen font-sans transition-colors duration-200">
 
 <!-- ═══════════════════ HEADER ═══════════════════ -->
-<header class="header-border border-b px-8 py-4 flex items-center justify-between">
+<header id="cabecera-crm" class="header-border border-b px-8 py-4 flex items-center justify-between">
   <div class="flex items-center gap-3">
     <img src="https://vomqfihcrhjcvxjsloob.supabase.co/storage/v1/object/public/proyectos-imagenes/neuryto.jpeg" alt="CRM QueSubsidio" class="h-9 w-auto object-contain" />
     <p id="empresa-nombre-header" class="text-xs sub-text">Cargando…</p>
@@ -928,6 +930,8 @@ function applyTheme(dark) {
 function toggleTheme() {
   applyTheme(!document.documentElement.classList.contains('dark'))
 }
+// dentro del panel (modo incrustado) el tema se cambia desde el menú del panel: se sigue lo que ese guarde
+if (document.documentElement.classList.contains('embed')) window.addEventListener('storage', e => { if (e.key === 'theme') applyTheme(e.newValue === 'dark') })
 
 // Cargar tema guardado (default: claro de día)
 const savedTheme = localStorage.getItem('theme')
@@ -946,15 +950,15 @@ function _textoMigas(empresa, inmobiliaria, proyecto) {
 
 async function initAuth() {
   const { data: { session } } = await _supabase.auth.getSession()
-  if (!session) { window.location.href = '/login.html'; return }
+  if (!session) { window.top.location.href = '/login.html'; return }
   _token = session.access_token
 
   // Empresa seleccionada — si no hay, volver a elegir
   const empresaRaw     = sessionStorage.getItem('crm_empresa')
   const inmRaw         = sessionStorage.getItem('crm_inmobiliaria')
   const proyectoRaw    = sessionStorage.getItem('crm_proyecto')
-  if (!empresaRaw) { window.location.href = '/panel'; return }
-  if (!inmRaw)     { window.location.href = '/panel'; return }
+  if (!empresaRaw) { window.top.location.href = '/panel'; return }
+  if (!inmRaw)     { window.top.location.href = '/panel'; return }
 
   const empresa      = JSON.parse(empresaRaw)
   const inmobiliaria = JSON.parse(inmRaw)
@@ -964,7 +968,7 @@ async function initAuth() {
   document.title = `CRM QueSubsidio — ${proyecto ? proyecto.nombre : 'Todos los clientes'}`
 
   _supabase.auth.onAuthStateChange((event, s) => {
-    if (!s) { window.location.href = '/login.html'; return }
+    if (!s) { window.top.location.href = '/login.html'; return }
     _token = s.access_token
   })
 
@@ -1003,7 +1007,7 @@ async function initAuth() {
   let _inact
   function resetInact() {
     clearTimeout(_inact)
-    _inact = setTimeout(async () => { await _supabase.auth.signOut(); window.location.href = '/login.html' }, 3 * 60 * 60 * 1000)
+    _inact = setTimeout(async () => { await _supabase.auth.signOut(); window.top.location.href = '/login.html' }, 3 * 60 * 60 * 1000)
   }
   ;['click','keydown','mousemove','touchstart'].forEach(ev => document.addEventListener(ev, resetInact))
   resetInact()
@@ -1080,7 +1084,7 @@ function setTab(tab) {
 async function cerrarSesion() {
   await _supabase.auth.signOut()
   sessionStorage.removeItem('crm_empresa')
-  window.location.href = '/login.html'
+  window.top.location.href = '/login.html'
 }
 
 async function toggleMenuEmpresas() {

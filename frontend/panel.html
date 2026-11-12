@@ -55,7 +55,9 @@
     .arbol-chevron.abierto { transform: rotate(90deg); }
     .empresa-card { transition: transform .15s, box-shadow .15s; }
     .empresa-card:hover { transform: translateY(-3px); }
-  </style>
+    .atajo-activo { box-shadow: inset 0 0 0 2px rgba(16,185,129,.7); }
+  .atajo-herr.activa { background:#7c3aed; color:#fff !important; }
+</style>
 <script src="/js/menu_lateral.js"></script>
 <link rel="stylesheet" href="/css/crm.css" />
 </head>
@@ -84,10 +86,15 @@
     </div>
 
     <div class="px-2.5 pt-2">
-      <a href="/herramientas.html" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium sidebar-text hover:text-violet-400 transition">
+      <button type="button" id="btn-herramientas" onclick="alternarHerramientas()" aria-expanded="false" aria-controls="sub-herramientas" class="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium sidebar-text hover:text-violet-400 transition">
         <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h-6m6 0v.01M9 11v.01M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
         Herramientas
-      </a>
+        <svg id="flecha-herramientas" class="w-3.5 h-3.5 ml-auto shrink-0 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <div id="sub-herramientas" class="hidden ml-5 pl-2 mt-0.5 space-y-0.5 border-l header-border">
+        <button type="button" data-h="credito" onclick="abrirHerramienta(this.dataset.h)" class="atajo-herr w-full text-left px-3 py-1.5 rounded-lg text-sm transition sidebar-text hover:text-violet-400">Simulador de crédito</button>
+        <button type="button" data-h="ds1" onclick="abrirHerramienta(this.dataset.h)" class="atajo-herr w-full text-left px-3 py-1.5 rounded-lg text-sm transition sidebar-text hover:text-violet-400">Subsidio DS1 (tramos 2 y 3)</button>
+      </div>
     </div>
 
     <nav id="arbol-empresas" class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto">
@@ -114,11 +121,17 @@
   </aside>
 
   <!-- Main -->
-  <main class="flex-1 px-8 py-8 max-w-6xl overflow-y-auto overflow-x-hidden">
+  <main id="contenido-principal" class="flex-1 px-8 py-8 max-w-6xl overflow-y-auto overflow-x-hidden">
     <div id="breadcrumb" class="flex items-center gap-2 text-sm sidebar-text mb-1"></div>
     <h1 id="titulo-panel" class="text-2xl font-bold val-text mb-6">Selecciona una empresa</h1>
     <div id="contenido-panel"></div>
   </main>
+
+  <!-- Marco: el CRM y las herramientas se muestran aquí dentro, para que el menú lateral no desaparezca al entrar a un proyecto -->
+  <section id="marco" class="hidden flex-1 min-w-0 flex flex-col h-screen" aria-label="Contenido">
+    <div id="marco-barra" class="shrink-0 px-6 h-12 flex items-center border-b header-border text-sm sidebar-text"><span id="marco-titulo" class="truncate"></span></div>
+    <iframe id="marco-iframe" title="Contenido" class="flex-1 min-h-0 w-full border-0"></iframe>
+  </section>
 </div>
 
 <!-- ═══════════════ MODAL: NUEVA EMPRESA ═══════════════ -->
@@ -576,6 +589,7 @@
       await intentarAutoSkip()
       if (!_empresaSel) renderPanelDefault()
     }
+    restaurarMarco()
   }
 
   // Ejecutivo con una sola opción en cualquier nivel → auto-seleccionar sin que tenga que clicar
@@ -706,6 +720,7 @@
   }
 
   async function seleccionarEmpresaNodo(emp, actualizarPanel) {
+    if (actualizarPanel) cerrarMarco()
     _empresaSel = emp
     _inmobiliariaSel = null
     _expanded.add('emp:' + emp.id)
@@ -728,6 +743,7 @@
 
   async function seleccionarInmobiliariaNodo(emp, inm, actualizarPanel) {
     if (bloqueadoPorOperacion()) return
+    if (actualizarPanel) cerrarMarco()
     if (_empresaSel?.id !== emp.id) await seleccionarEmpresaNodo(emp, false)
     _inmobiliariaSel = inm
     sessionStorage.setItem('crm_inmobiliaria', JSON.stringify(inm))
@@ -944,10 +960,66 @@
       </tr>`).join('')
   }
 
-  // ═══════════════════════════ HOJAS: navegación real a index.html ═══════════════════════════
+  // ═══════════════════════════ MARCO: el CRM y las herramientas dentro del panel ═══════════════════════════
+  let _marco = null          // { url, titulo, atajo } de lo que se está mostrando dentro del marco; null = la vista normal del panel
+  const _HERRAMIENTAS = { credito: 'Simulador de crédito', ds1: 'Subsidio DS1 (tramos 2 y 3)' }
+
+  function pintarAtajos() {
+    document.getElementById('atajo-todos-clientes').firstElementChild.classList.toggle('atajo-activo', _marco?.atajo === 'todos')
+    document.querySelectorAll('.atajo-herr').forEach(b => b.classList.toggle('activa', _marco?.atajo === 'herr:' + b.dataset.h))
+    if (_marco?.atajo?.startsWith('herr:')) abrirListaHerramientas(true)
+  }
+  function abrirListaHerramientas(abrir) {
+    document.getElementById('sub-herramientas').classList.toggle('hidden', !abrir)
+    document.getElementById('btn-herramientas').setAttribute('aria-expanded', String(abrir))
+    document.getElementById('flecha-herramientas').style.transform = abrir ? 'rotate(180deg)' : ''
+  }
+  function alternarHerramientas() {
+    abrirListaHerramientas(document.getElementById('sub-herramientas').classList.contains('hidden'))
+  }
+
+  function mostrarMarco(m) {
+    _marco = m
+    document.getElementById('contenido-principal').classList.add('hidden')
+    document.getElementById('marco').classList.remove('hidden')
+    document.getElementById('marco-titulo').textContent = m.titulo
+    document.getElementById('marco-iframe').contentWindow.location.replace(m.url)      // siempre se recarga: el CRM usa la misma dirección para proyectos distintos
+    try { sessionStorage.setItem('crm_marco', JSON.stringify(m)) } catch (_) { /* sin almacenamiento */ }
+    pintarAtajos()
+  }
+  function cerrarMarco() {
+    if (!_marco) return
+    _marco = null
+    try { sessionStorage.removeItem('crm_marco') } catch (_) { /* sin almacenamiento */ }
+    document.getElementById('marco-iframe').contentWindow.location.replace('about:blank')
+    document.getElementById('marco').classList.add('hidden')
+    document.getElementById('contenido-principal').classList.remove('hidden')
+    pintarAtajos()
+  }
+  function soltarSeleccionDelArbol() {
+    _empresaSel = null; _inmobiliariaSel = null
+    renderArbol()
+  }
+  function abrirHerramienta(clave) {
+    if (!_HERRAMIENTAS[clave] || bloqueadoPorOperacion()) return
+    soltarSeleccionDelArbol()
+    mostrarMarco({ url: `/herramientas.html?embed=1&t=${clave}`, titulo: 'Herramientas / ' + _HERRAMIENTAS[clave], atajo: 'herr:' + clave })
+  }
+  function restaurarMarco() {
+    if (_marco) return
+    try {
+      const m = JSON.parse(sessionStorage.getItem('crm_marco') || 'null')
+      if (m && typeof m.url === 'string' && m.url.startsWith('/') && !m.url.startsWith('//')) {
+        if (m.atajo !== 'proyecto') soltarSeleccionDelArbol()          // «Todos los clientes» y las herramientas no están dentro de ninguna empresa
+        mostrarMarco(m)
+      }
+    } catch (_) { /* dato corrupto: se ignora */ }
+  }
+
+  // ═══════════════════════════ HOJAS: el CRM se abre dentro del marco ═══════════════════════════
   function irAClientesDeProyecto(row) {
     sessionStorage.setItem('crm_proyecto', JSON.stringify(row))
-    window.location.href = '/index.html'
+    mostrarMarco({ url: '/index.html?embed=1', titulo: [_empresaSel?.nombre, _inmobiliariaSel?._todos ? null : _inmobiliariaSel?.nombre, row.nombre].filter(Boolean).join(' / '), atajo: 'proyecto' })
   }
   // «Todos los clientes» del menú lateral: de todas las empresas y proyectos que la persona puede ver (sin empresa ni proyecto elegidos).
   function irATodosGlobal(vista) {
@@ -955,7 +1027,8 @@
     sessionStorage.setItem('crm_empresa', JSON.stringify({ nombre: 'Todas las empresas', _global: true }))
     sessionStorage.setItem('crm_inmobiliaria', JSON.stringify({ _todos: true, nombre: 'Todos los proyectos' }))
     sessionStorage.removeItem('crm_proyecto')
-    window.location.href = '/index.html' + (['tabla', 'pipeline', 'original'].includes(vista) ? `?vista=${vista}` : '')
+    soltarSeleccionDelArbol()
+    mostrarMarco({ url: '/index.html?embed=1' + (['tabla', 'pipeline', 'original'].includes(vista) ? `&vista=${vista}` : ''), titulo: 'Todos los clientes', atajo: 'todos' })
   }
 
   // ═══════════════════════════ EMPRESA — crear (admin/owner) ═══════════════════════════
