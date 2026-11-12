@@ -170,6 +170,7 @@ async def api_crear_cliente(request: Request):
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
                 "usuario_id":         perfil["id"],
                 "fuente":             fuente_cliente,
+                "estado_gestion":     "sin_contactar",
                 "medio":              medio_cliente,
             },
             extra_headers={"Prefer": "return=representation"},

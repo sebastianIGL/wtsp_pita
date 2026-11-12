@@ -140,6 +140,7 @@ async def api_convertir_formulario(token: str, request: Request):
             "primer mensaje": True,
             "wtsp_habilitado": bool(telefono),
             "fuente": "formulario_web",
+            "estado_gestion": "sin_contactar",
         }
         cliente_payload = {k: v for k, v in cliente_payload.items() if v is not None}
 

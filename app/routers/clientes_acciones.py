@@ -15,6 +15,7 @@ from app.core.utilidades import _normalize_phone
 from app.services.mensajes import insertar_mensaje
 from app.services.plantillas import TEMPLATE_VARS_MAP, _pool_plantilla
 from app.services.prospectos import upsert_prospecto
+from app.services import clientes_datos as cd
 from app.services.carga_clientes import RECOMENDADO_POR_PERSONA, contar_filas, ejecutivos_disponibles, exige_confirmacion, leer_archivo, recomendar, validar_asignado, validar_reparto
 from app.services.importacion_csv import acceso_de, importar_clientes_stream
 from app.services.reparto_existentes import bloques, encontrar_clientes, exige_confirmacion_reparto, ids_del_cuerpo, reasignar
@@ -251,6 +252,8 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
             "wamid_plantilla":  wamid_enviado,
             "estado_plantilla": "enviado",
         }
+        if (c.get("estado_gestion") or None) in cd.ESTADOS_SIN_CONTACTO:
+            patch_cliente["estado_gestion"] = "primer_wtsp"            # ya se le escribió: deja de ser «Sin contactar» sin que nadie lo cambie a mano
         # Auto-agendar recordatorio 24h después si no hay uno ya programado
         if not c.get("recordatorio_at"):
             patch_cliente["recordatorio_at"] = (ahora_wtsp + timedelta(hours=24)).isoformat()

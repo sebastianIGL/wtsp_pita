@@ -15,6 +15,7 @@ logger = logging.getLogger("wtsp_pita")
 LOTE = 250
 
 
+NOTA_RESUMEN = 200             # de la última nota de cada cliente sale solo el comienzo (las tarjetas del Pipeline la muestran)
 PAGINA_LECTURA = 1000          # filas por consulta: el tope por defecto de Supabase (si el proyecto lo bajara, la lista se cortaría antes)
 MAX_CLIENTES_LISTA = 10_000    # la lista del CRM no pasa de esto; el CRM avisa cuando se llega (frontend/index.html: MAX_CLIENTES_LISTA)
 
@@ -79,25 +80,33 @@ async def _notas(filas: List[Dict[str, Any]]) -> None:
 
     async def uno(lote: List[int]):
         try:
-            return await _supabase_request("GET", "/NotaCliente", params={"cliente_id": f"in.({','.join(str(i) for i in lote)})", "select": "cliente_id", "limit": "10000"}) or []
+            return await _supabase_request("GET", "/NotaCliente", params={"cliente_id": f"in.({','.join(str(i) for i in lote)})", "select": "cliente_id,texto,creado_en,autor_nombre", "order": "creado_en.desc", "limit": "10000"}) or []
         except Exception as e:
             logger.info("Clientes | no se pudieron contar las notas de un lote (%s)", type(e).__name__)
             return None
 
     cuenta: Counter = Counter()
+    ultima: Dict[int, Dict[str, Any]] = {}
     hubo = False
     for lote in await asyncio.gather(*[uno(l) for l in _lotes(ids)]):
         if lote is None:
             continue
         hubo = True
-        cuenta.update(int(n["cliente_id"]) for n in lote if isinstance(n, dict) and n.get("cliente_id") is not None)
+        for n in lote:
+            if isinstance(n, dict) and n.get("cliente_id") is not None:
+                cid = int(n["cliente_id"])
+                cuenta[cid] += 1
+                if cid not in ultima:                                   # vienen de la más nueva a la más antigua: la primera de cada cliente es la última nota
+                    ultima[cid] = {"texto": str(n.get("texto") or "").strip()[:NOTA_RESUMEN], "creado_en": n.get("creado_en"), "autor": n.get("autor_nombre")}
     if hubo:
         for f in filas:
             f["notas_n"] = cuenta.get(int(f["id"]), 0)
+            if int(f["id"]) in ultima:
+                f["nota_ultima"] = ultima[int(f["id"])]
 
 
 async def enriquecer_clientes(filas: List[Dict[str, Any]]) -> None:
-    """Agrega a cada fila ``tipologia_nombre``, ``etapa_nombre`` y ``notas_n`` cuando se pueden saber. Nunca lanza."""
+    """Agrega a cada fila ``tipologia_nombre``, ``etapa_nombre``, ``notas_n`` y ``nota_ultima`` (el comienzo de su última nota) cuando se pueden saber. Nunca lanza."""
     if not filas:
         return
     try:

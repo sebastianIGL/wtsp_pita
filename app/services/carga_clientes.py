@@ -167,7 +167,7 @@ async def cargas_actuales(ids: List[str]) -> Optional[Dict[str, int]]:
 
 
 async def ejecutivos_disponibles(proyecto_id: Optional[str]) -> List[Dict[str, Any]]:
-    """Las personas activas a quienes se puede repartir (ejecutivos primero, luego administración), con cuántos clientes tienen hoy y si tienen asignado el proyecto de destino."""
+    """Las personas activas a quienes se puede repartir (ejecutivos primero, luego administración), con cuántos clientes tienen hoy y si tienen asignado el proyecto de destino. Si hay un proyecto de destino, solo se ofrecen los ejecutivos que lo tienen asignado."""
     filas = await _supabase_request("GET", "/Usuario", params={"estado": "eq.1", "select": "id,nombre,rol,proyecto_ids,inmobiliaria_ids", "order": "nombre.asc"}) or []
     inmobiliaria = None
     if proyecto_id and isinstance(proyecto_id, str) and _ID_USUARIO.fullmatch(proyecto_id):
@@ -181,6 +181,8 @@ async def ejecutivos_disponibles(proyecto_id: Optional[str]) -> List[Dict[str, A
             asignado = proyecto_id in {str(p) for p in (f.get("proyecto_ids") or [])} or (inmobiliaria is not None and inmobiliaria in {str(i) for i in (f.get("inmobiliaria_ids") or [])})
         else:
             asignado = None
+        if proyecto_id and f.get("rol") == "ejecutivo" and not asignado:
+            continue                                       # un ejecutivo que no tiene ese proyecto asignado no aparece como opción (administración sí, siempre)
         salida.append({"id": uid, "nombre": f.get("nombre") or "Sin nombre", "rol": f.get("rol"), "clientes_actuales": cargas.get(uid, 0) if cargas is not None else None,
                        "tiene_proyecto": asignado if f.get("rol") == "ejecutivo" else None})
     orden = {"ejecutivo": 0, "administrador": 1, "owner": 2}

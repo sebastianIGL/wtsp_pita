@@ -213,6 +213,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                             "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                             "origen_carga": lote_carga,
                             "fuente": "excel",
+                            "estado_gestion": "sin_contactar",
                         }, fila, nombre, telefono, proyecto_serviu.get("nombre") or "—", asignar_a)
                 else:
                     nr              = _norm_row(row)
@@ -274,6 +275,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                                 "Fecha Ult. Gestión": datetime.now(timezone.utc).date().isoformat(),
                                 "origen_carga": lote_carga,
                                 "fuente": "excel",
+                                "estado_gestion": "sin_contactar",
                             }, fila, nombre, telefono, proyecto_resuelto.get("nombre") or "—", asignar_a)
             except Exception as ex:
                 # mensaje de negocio tal cual; cualquier otro fallo → mensaje genérico con código (detalle en el log)

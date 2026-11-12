@@ -16,6 +16,9 @@ MEDIOS = ("whatsapp", "chatbot", "correo", "llamada", "presencial")
 NOTA_MAX = 300
 # Quien ya está más adelante en el proceso no vuelve atrás por enviar de nuevo su evaluación.
 ESTADOS_QUE_NO_RETROCEDEN = ("aprobado", "cotizacion_enviada")
+# «Estado de gestión» de quien aún no fue contactado: nada o «Sin contactar». Al enviarle el primer WhatsApp pasa solo a «Primer WA»; los demás estados los cambia la persona y no se tocan.
+ESTADOS_SIN_CONTACTO = (None, "", "sin_contactar")
+ESTADOS_CERRADOS = ("no_interesado", "no_califica", "cierre_perdido", "descartado")        # los que salen de las listas normales
 
 
 class DatoInvalido(ValueError):
