@@ -1,6 +1,6 @@
 """Cotizar a un cliente (botón «Cotizar» del panel): ver la cotización, bajar su PDF y enviarla por correo (PDF adjunto) y/o por WhatsApp (PDF como mensaje libre).
 
-* **Permiso:** owner y administrador; los ejecutivos solo si ``COTIZAR_PARA_EJECUTIVOS`` está encendido (``app/core/permisos.puede_cotizar``) y, como siempre, solo sobre sus clientes.
+* **Permiso:** cualquier persona con sesión (``app/core/permisos.puede_cotizar``); un ejecutivo, como siempre, solo sobre sus clientes.
 * **WhatsApp:** Meta solo deja mandar un mensaje libre dentro de las 24 horas desde el último mensaje del cliente; fuera de ese plazo el canal queda no disponible y se explica por qué.
 * Cada intento (por canal) queda registrado en la tabla ``Cotizacion`` con una «foto» de lo cotizado; si esa tabla aún no existe el envío igual sale y solo se anota en el registro.
 * Si al menos un canal salió bien, el cliente pasa a «Cotización enviada».

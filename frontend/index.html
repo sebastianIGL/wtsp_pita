@@ -2067,11 +2067,11 @@ function _selectEvaluacion(c) {
   </select>`
 }
 
-// «Cotizar» solo se ofrece a quien tiene permiso (owner y administrador; los ejecutivos cuando se encienda COTIZAR_PARA_EJECUTIVOS): el servidor lo exige igual.
+// «Cotizar» se ofrece a toda persona con sesión (un ejecutivo, solo con sus clientes): el servidor lo exige igual.
 // El chatbot de WhatsApp (ver la conversación y el contexto del bot, y enviar plantillas) está abierto a todas las personas con sesión: administración, owner y ejecutivos.
 // El servidor limita a cada ejecutivo a sus propios clientes (exigir_cliente), así que desde aquí solo se muestran los botones.
 function _puedeChatbot() { return !!_perfil }
-function _puedeCotizar() { const p = _perfil?.puede_cotizar; return p === undefined ? _esAdmin(_perfil?.rol) : !!p }
+function _puedeCotizar() { const p = _perfil?.puede_cotizar; return p === undefined ? !!_perfil : !!p }
 function _botonCotizar(c) {
   if (!_puedeCotizar()) return ''
   return `<button type="button" data-id="${Number(c.id)}" onclick="abrirCotizar(+this.dataset.id)" class="ld-cotizar" title="Enviar una cotización en PDF por correo o WhatsApp">Cotizar</button>`
