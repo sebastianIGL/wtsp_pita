@@ -51,6 +51,17 @@ async def api_listar_proyectos(request: Request):
         if not visibles:
             return []
         params["id"] = f"in.({','.join(visibles)})"
+        # Los filtros de la pantalla (una inmobiliaria o «todos los de una empresa») se aplican también aquí: sin esto, cada inmobiliaria mostraba todos los proyectos del ejecutivo.
+        if inmobiliaria_id:
+            params["inmobiliaria_id"] = f"eq.{inmobiliaria_id}"
+        elif empresa_id:
+            de_empresa = await _supabase_request(
+                "GET", "/Inmobiliaria",
+                params={"empresa_id": f"eq.{empresa_id}", "select": "id"},
+            ) or []
+            if not de_empresa:
+                return []
+            params["inmobiliaria_id"] = f"in.({','.join(str(i['id']) for i in de_empresa)})"
     rows = await _supabase_request("GET", "/Proyecto", params=params)
     return rows or []
 
