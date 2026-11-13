@@ -905,6 +905,7 @@
 
 <!-- ═══════════════════ SCRIPT ═══════════════════ -->
 <script src="/js/carga_clientes.js"></script>
+<script src="/js/cotizar_lote.js"></script>
 <script>
 const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co'
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc'
@@ -2246,7 +2247,7 @@ function _dibujarSeleccion() {
   barra.innerHTML = `<span class="font-semibold">${n} ${n === 1 ? 'seleccionado' : 'seleccionados'}</span>
     ${total > n ? `<button type="button" onclick="seleccionarTodosLosDeLaLista()" class="ld-bk">Seleccionar los ${total.toLocaleString('es-CL')} de esta lista</button>` : ''}
     ${_puedeChatbot() ? '<button type="button" onclick="accionMasiva(\'plantilla\')" class="ld-bk">Enviar plantilla WhatsApp</button>' : ''}
-    ${_puedeCotizar() ? '<button type="button" onclick="cotizarSeleccion()" class="ld-bk" title="Se cotiza de a un cliente">Enviar cotización</button>' : ''}
+    ${_puedeCotizar() ? '<button type="button" onclick="cotizarSeleccion()" class="ld-bk" title="Cotiza a todos los marcados (revisa antes de enviar)">Enviar cotización</button>' : ''}
     <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
     ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuariosParaClientes(clientes.filter(c => _seleccionLeads.has(c.id))).map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
     <label class="ld-bk">Programar recordatorio <input type="date" onchange="accionMasiva('recordatorio', this.value); this.value=''" aria-label="Programar un recordatorio para los seleccionados"></label>
@@ -2639,9 +2640,12 @@ function cotizarEditarCliente() {
   if (c) abrirEditarCliente(c)
 }
 
+// Con un cliente marcado se abre su cotización (para revisarla); con varios, la ventana de «Cotizar a varios» (revisa a todos y envía de a uno con avance en vivo; /js/cotizar_lote.js).
 function cotizarSeleccion() {
-  if (_seleccionLeads.size !== 1) { toast('Cotiza de a un cliente: marca solo uno, o usa «Cotizar» en su fila.', 'error'); return }
-  abrirCotizar([..._seleccionLeads][0])
+  const ids = [..._seleccionLeads]                                    // los mismos que cuenta la barra («N seleccionados»), igual que «Enviar plantilla»
+  if (!ids.length) return
+  if (ids.length === 1) { abrirCotizar(ids[0]); return }
+  CotizarLote.abrir({ token: () => _token, acento: '#0ea5e9', ids, alTerminar: async () => { await cargarClientes(true) } })
 }
 
 async function verPdfCotizacion() {

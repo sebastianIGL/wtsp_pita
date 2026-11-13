@@ -222,6 +222,8 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
             payload["fuente"] = cd.fuente(payload["fuente"])
         if "medio" in payload:
             payload["medio"] = cd.medio(payload["medio"])
+        if "estado_gestion" in payload:
+            payload["estado_gestion"] = cd.estado_gestion(payload["estado_gestion"])
         if "recordatorio_nota" in payload:
             payload["recordatorio_nota"] = cd.nota_recordatorio(payload["recordatorio_nota"])
         if "recordatorio_at" in payload and not payload["recordatorio_at"]:

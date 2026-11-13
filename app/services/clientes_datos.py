@@ -1,7 +1,7 @@
 """Datos de un cliente que usan las vistas «Tabla» y «Pipeline» del panel: de dónde llegó (fuente), por qué canal se le habla (medio), la nota de su recordatorio y el paso automático a
 «En evaluación» cuando se envía su evaluación.
 
-Las listas de fuente y medio son cerradas (las mismas que muestra la pantalla: ``FUENTES`` y ``MEDIOS`` de ``frontend/index.html``; una prueba las compara). Lo demás que llegue se rechaza
+Las listas de fuente, medio y estado de gestión son cerradas (las mismas que muestra la pantalla: ``FUENTES`` y ``MEDIOS`` de ``frontend/index.html``; una prueba las compara). Lo demás que llegue se rechaza
 con un mensaje claro en vez de guardarse.
 """
 import logging
@@ -18,6 +18,9 @@ NOTA_MAX = 300
 ESTADOS_QUE_NO_RETROCEDEN = ("aprobado", "cotizacion_enviada")
 # «Estado de gestión» de quien aún no fue contactado: nada o «Sin contactar». Al enviarle el primer WhatsApp pasa solo a «Primer WA»; los demás estados los cambia la persona y no se tocan.
 ESTADOS_SIN_CONTACTO = (None, "", "sin_contactar")
+# Los únicos «Estado de gestión» que se aceptan al guardar (los mismos de ``_EG_MAP`` de ``frontend/index.html``; una prueba los compara). «Sin estado» se guarda como vacío (``None``).
+ESTADOS_GESTION = ("sin_contactar", "primer_llamado", "primer_wtsp", "interesado", "sin_rsh", "creando_rsh", "enviando_docs", "en_evaluacion", "aprobado",
+                   "cotizacion_enviada", "no_interesado", "no_califica", "cierre_perdido", "descartado")
 ESTADOS_CERRADOS = ("no_interesado", "no_califica", "cierre_perdido", "descartado")        # los que salen de las listas normales
 
 
@@ -41,6 +44,11 @@ def fuente(valor: Any) -> Optional[str]:
 def medio(valor: Any) -> Optional[str]:
     """El medio de contacto, ``None`` si viene vacío. Si no es de la lista, ``DatoInvalido``."""
     return _de_lista(valor, MEDIOS, "Medio no válido")
+
+
+def estado_gestion(valor: Any) -> Optional[str]:
+    """El estado de gestión, ``None`` si viene vacío («Sin estado»). Si no es de la lista, ``DatoInvalido``."""
+    return _de_lista(valor, ESTADOS_GESTION, "Estado de gestión no válido")
 
 
 def nota_recordatorio(valor: Any) -> Optional[str]:

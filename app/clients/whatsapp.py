@@ -105,6 +105,33 @@ async def send_whatsapp_document(*, to: str, contenido: bytes, filename: str, ca
         return r2.json()
 
 
+async def send_whatsapp_template_documento(*, to: str, template_name: str, language_code: str, contenido: bytes, filename: str,
+                                           body_text_params: List[Any], mime_type: str = "application/pdf"):
+    """Envía una plantilla aprobada por Meta que lleva un documento (por ejemplo la cotización en PDF) en el encabezado: sirve también fuera de las 24 horas.
+
+    Sube el archivo a Meta y lo manda como encabezado de la plantilla. Como todo envío a Meta, NUNCA se reintenta (un reintento podría duplicar el mensaje al cliente)."""
+    if not TOKEN_ACCESO:
+        raise RuntimeError("Falta WA_ACCESS_TOKEN")
+    if not ID_NUMERO_TELEFONO:
+        raise RuntimeError("Falta WA_PHONE_NUMBER_ID")
+    base = f"https://graph.facebook.com/{VERSION_GRAPH}/{ID_NUMERO_TELEFONO}"
+    async with http_client(60) as client:
+        r = await client.post(f"{base}/media", headers={"Authorization": f"Bearer {TOKEN_ACCESO}"},
+                              data={"messaging_product": "whatsapp", "type": mime_type}, files={"file": (filename, contenido, mime_type)})
+        r.raise_for_status()
+        media_id = (r.json() or {}).get("id")
+        if not media_id:
+            raise RuntimeError("Meta no devolvió el identificador del archivo subido")
+        componentes: List[Any] = [{"type": "header", "parameters": [{"type": "document", "document": {"id": media_id, "filename": filename}}]}]
+        if body_text_params:
+            componentes.append({"type": "body", "parameters": [{"type": "text", "text": p} for p in body_text_params]})
+        r2 = await client.post(f"{base}/messages", headers={"Authorization": f"Bearer {TOKEN_ACCESO}", "Content-Type": "application/json"},
+                               json={"messaging_product": "whatsapp", "to": to, "type": "template",
+                                     "template": {"name": template_name, "language": {"code": language_code}, "components": componentes}})
+        r2.raise_for_status()
+        return r2.json()
+
+
 async def send_whatsapp_template(
     *,
     to: str,
