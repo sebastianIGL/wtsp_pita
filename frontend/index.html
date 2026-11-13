@@ -217,6 +217,18 @@
     .kb-nota span { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; overflow-wrap:anywhere; }
     .kb-nota small { display:block; margin-top:.2rem; opacity:.65; font-size:.66rem; }
     .kb-card { cursor:pointer; }
+    .kb-col { transition:border-color .15s, background .15s, flex-basis .2s ease; }
+    .kb-col:has(.kb-abierta) { flex-basis:340px; max-height:90vh; }
+    .kb-card.kb-abierta { cursor:default; background:var(--ld-card-hover); border-color:#0ea5e9; box-shadow:0 0 0 1px #0ea5e9, 0 12px 30px rgba(14,165,233,.18); }
+    .kb-ficha { margin-top:.75rem; padding-top:.35rem; border-top:1px dashed var(--ld-borde); animation:kbAbrir .22s ease-out; cursor:auto; }
+    .kb-ficha dl { display:grid; grid-template-columns:1fr 1fr; column-gap:.9rem; }
+    .kb-ficha .ficha-fila { flex-direction:column; gap:.05rem; padding:.3rem 0; font-size:.8rem; }
+    .kb-ficha .ficha-fila dt { font-size:.66rem; text-transform:uppercase; letter-spacing:.04em; }
+    .kb-ficha .ficha-fila dd { text-align:left; }
+    .kb-ficha .ficha-ancha { grid-column:1 / -1; }
+    .kb-ficha-acciones { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.75rem; }
+    @keyframes kbAbrir { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+    @media (prefers-reduced-motion: reduce) { .kb-ficha { animation:none; } .kb-col { transition:none; } }
     .ficha-fila { display:flex; justify-content:space-between; gap:1rem; padding:.45rem 0; border-bottom:1px solid var(--ld-borde, rgba(148,163,184,.25)); font-size:.85rem; }
     .ficha-fila dt { opacity:.7; flex-shrink:0; } .ficha-fila dd { text-align:right; overflow-wrap:anywhere; font-weight:500; }
     .aviso-lista { background:rgba(245,158,11,.12); color:#92400e; border-bottom:1px solid rgba(245,158,11,.35); }
@@ -335,10 +347,6 @@
     <div>
       <h1 class="text-2xl font-bold val-text">Leads</h1>
       <p id="resumen-dia" class="sidebar-text text-sm mt-1"></p>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap">
-      <button type="button" onclick="leadsImportarExcel()" class="filtro-btn rounded-md px-3 py-1.5 text-xs">Importar Excel</button>
-      <button type="button" id="btn-leads-plantilla" onclick="leadsEnviarPlantilla()" class="hidden bg-brand-600 hover:bg-brand-700 text-white text-xs font-medium px-3 py-1.5 rounded-md transition">Enviar plantilla WhatsApp</button>
     </div>
   </div>
   <div id="kpis-leads" class="px-8 pb-6 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3"></div>
@@ -2117,7 +2125,6 @@ function renderVistaLeads(filtrados, conCerrados = filtrados) {
   // Cabecera y cifras: sobre lo que dejan pasar los filtros de arriba
   document.getElementById('resumen-dia').textContent = resumenDelDia(filtrados, x.hoy)
   document.getElementById('kpis-leads').innerHTML = _htmlKpis(kpisDe(filtrados, x.ahora))
-  document.getElementById('btn-leads-plantilla').classList.toggle('hidden', !_puedeChatbot())
 
   // Pestañas de colas: cada una con su cantidad
   const conteo = Object.fromEntries(COLAS.map(q => [q.key, filtrados.filter(c => colaCoincide(c, q.key, x.hoy, x.ahora)).length]))
@@ -2306,7 +2313,8 @@ function _tarjeta(c, x) {
   const admin = _esAdmin(_perfil?.rol)
   const ahorro = _ahorroUF(c)
   const resp = c.ultimo_entrante_en ? `Respondió ${haceTexto(c.ultimo_entrante_en, x.ahora)}` : ''
-  return `<div class="kb-card${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}" draggable="true" data-kb-id="${Number(c.id)}" aria-label="Cliente ${esc(c.Contacto)}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
+  const abierta = _fichaAbierta === c.id
+  return `<div class="kb-card${abierta ? ' kb-abierta' : ''}${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}" draggable="${abierta ? 'false' : 'true'}" data-kb-id="${Number(c.id)}" aria-expanded="${abierta}" aria-label="Cliente ${esc(c.Contacto)}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
     <div class="flex items-start justify-between gap-2"><span class="font-semibold text-sm val-text kb-nombre">${esc(c.Contacto)}</span><span class="text-xs sidebar-text whitespace-nowrap">${esc(l.hace)}</span></div>
     <div class="text-xs sidebar-text mt-0.5">${esc(c.tipologia_nombre || 'Sin tipología')}${ahorro ? ' · Ahorro ' + esc(ahorro) : ''}</div>
     <div class="flex flex-wrap items-center gap-1.5 mt-2">
@@ -2322,7 +2330,7 @@ function _tarjeta(c, x) {
       ${_puedeChatbot() ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
       ${_botonCotizar(c)}
       <button type="button" data-ld-menu="${Number(c.id)}" onclick="abrirMenuLead(event, ${Number(c.id)})" class="ld-mas" aria-label="Más acciones de ${esc(c.Contacto)}" aria-haspopup="true">⋯</button>
-    </div></div>`
+    </div>${abierta ? _fichaTarjeta(c, x) : ''}</div>`
 }
 
 function _renderLeadsPipeline(lista, x) {
@@ -2373,37 +2381,59 @@ function mostrarTodasLasTarjetas() {
 }
 function verMasTarjetas(k) { _tarjetasMostradas[k] = (_tarjetasMostradas[k] || TARJETAS_POR_TANDA) + TARJETAS_POR_TANDA; _repintarLeads() }
 
-// Un clic sobre una tarjeta (fuera de sus botones) abre la ficha del cliente con sus datos de contacto
+// Un clic sobre una tarjeta (fuera de sus botones) la abre en el mismo lugar: crece y muestra los datos de contacto, la última nota y las acciones del cliente. Otro clic la cierra.
+let _fichaAbierta = null
 document.addEventListener('click', e => {
   const t = e.target.closest?.('.kb-card')
-  if (!t || e.target.closest('button, a, select, input, textarea, label')) return
-  abrirFichaLead(Number(t.dataset.kbId))
+  if (!t || e.target.closest('button, a, select, input, textarea, label, .kb-ficha')) return
+  alternarFichaLead(Number(t.dataset.kbId))
 })
 
-function _filaFicha(rotulo, valor, html = false) {
+function _filaFicha(rotulo, valor, html = false, ancha = false) {
   const v = valor == null || String(valor).trim() === '' ? '<span class="sub-text">—</span>' : (html ? valor : esc(String(valor)))
-  return `<div class="ficha-fila"><dt>${esc(rotulo)}</dt><dd>${v}</dd></div>`
+  return `<div class="ficha-fila${ancha ? ' ficha-ancha' : ''}"><dt>${esc(rotulo)}</dt><dd>${v}</dd></div>`
 }
-function abrirFichaLead(id) {
-  const c = clientes.find(x => x.id === id)
-  if (!c) return
-  const p = proyectos.find(x => x.id === c.proyecto_id)
+function _fichaTarjeta(c, x) {
+  const p = proyectos.find(y => y.id === c.proyecto_id)
   const tel = c.Telefono ? `<a href="https://api.whatsapp.com/send?phone=${encodeURIComponent(c.Telefono)}" target="_blank" rel="noopener" class="text-emerald-500 hover:underline">${esc(c.Telefono)}</a>` : ''
   const correo = (c.Correo || c.email) ? `<a href="mailto:${encodeURIComponent(c.Correo || c.email)}" class="text-sky-500 hover:underline">${esc(c.Correo || c.email)}</a>` : ''
   const eg = _EG_MAP[c.estado_gestion || ''] || _EG_MAP['']
-  const x = _contextoLeads(), px = proximaDe(c, x.hoy)
-  document.getElementById('ficha-titulo').textContent = c.Contacto || 'Cliente'
+  const px = proximaDe(c, x.hoy)
   const filas = [['RUT', c.Rut], ['Teléfono', tel, true], ['Correo', correo, true], ['Proyecto', p ? p.nombre : ''], ['Tipología', c.tipologia_nombre], ['Etapa', c.etapa_nombre],
     ['Estado', `<span class="eg-badge ${eg.cls}">${esc(eg.label)}</span>`, true], ['Ejecutivo', c.usuario_id ? _nombreUsuario(c.usuario_id) : ''], ['Ahorro', _ahorroUF(c)],
     ['Próxima acción', px.tipo === 'nada' ? '' : [px.texto, px.nota].filter(Boolean).join(' · ')]]                  // cada valor se escapa dentro de _filaFicha (salvo los que ya son HTML armado aquí con esc())
   const ultima = c.nota_ultima && c.nota_ultima.texto ? c.nota_ultima : null
-  document.getElementById('ficha-cuerpo').innerHTML = `<dl>${filas.map(([r, v, h]) => _filaFicha(r, v, h)).join('')}</dl>` + (ultima
-    ? `<div class="kb-nota mt-3" style="font-size:.8rem"><span style="-webkit-line-clamp:6">📝 ${esc(ultima.texto)}</span><small>${esc([ultima.autor, haceTexto(ultima.creado_en, x.ahora)].filter(Boolean).join(' · '))}</small></div>` : '')
-  document.getElementById('ficha-notas').dataset.id = String(c.id); document.getElementById('ficha-notas').dataset.nombre = c.Contacto || ''
-  document.getElementById('ficha-editar').dataset.id = String(c.id)
-  document.getElementById('modal-ficha').classList.remove('hidden')
+  const id = Number(c.id), nombre = esc(c.Contacto || '')
+  return `<div class="kb-ficha" data-kb-ficha="${id}"><dl>${filas.map(([r, v, h]) => _filaFicha(r, v, h, ['Correo', 'Proyecto', 'Próxima acción'].includes(r))).join('')}</dl>${ultima
+    ? `<div class="kb-nota mt-3" style="font-size:.8rem"><span style="-webkit-line-clamp:6">📝 ${esc(ultima.texto)}</span><small>${esc([ultima.autor, haceTexto(ultima.creado_en, x.ahora)].filter(Boolean).join(' · '))}</small></div>` : ''}
+    <div class="kb-ficha-acciones">
+      ${_puedeChatbot() ? `<button type="button" data-id="${id}" data-nombre="${nombre}" onclick="abrirSelectorTemplate(+this.dataset.id, this.dataset.nombre)" class="ld-wa" data-ficha="plantilla">Enviar plantilla</button>` : ''}
+      <button type="button" data-id="${id}" data-nombre="${nombre}" onclick="abrirNotas(+this.dataset.id, this.dataset.nombre)" class="ld-wa" data-ficha="notas">Notas</button>
+      <button type="button" data-id="${id}" onclick="abrirEditarCliente(clientes.find(c => c.id === +this.dataset.id))" class="ld-wa" data-ficha="editar">Editar</button>
+      <button type="button" onclick="cerrarFichaLead()" class="ld-wa" data-ficha="cerrar">Cerrar</button>
+    </div></div>`
 }
-function cerrarFichaLead() { document.getElementById('modal-ficha').classList.add('hidden') }
+// Vuelve a dibujar solo esa tarjeta (el resto del tablero no se toca)
+function _refrescarTarjeta(id) {
+  const el = document.querySelector(`.kb-card[data-kb-id="${Number(id)}"]`), c = clientes.find(y => y.id === id)
+  if (!el || !c) return
+  const caja = document.createElement('div')
+  caja.innerHTML = _tarjeta(c, _contextoLeads())
+  el.replaceWith(caja.firstElementChild)
+}
+function alternarFichaLead(id) {
+  const antes = _fichaAbierta
+  _fichaAbierta = antes === id ? null : id
+  if (antes != null && antes !== id) _refrescarTarjeta(antes)
+  _refrescarTarjeta(id)
+  if (_fichaAbierta != null) document.querySelector(`.kb-card[data-kb-id="${Number(id)}"]`)?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+}
+function cerrarFichaLead() {
+  const antes = _fichaAbierta
+  if (antes == null) return
+  _fichaAbierta = null
+  _refrescarTarjeta(antes)
+}
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarFichaLead() })
 
 // Arrastrar y soltar
@@ -2479,6 +2509,7 @@ function abrirMenuLead(e, id) {
     item('evaluacion', 'Evaluación'),
     _puedeChatbot() ? item('conversacion', 'Ver conversación') : '',
     _puedeChatbot() ? item('contexto', 'Contexto del bot') : '',
+    _puedeChatbot() ? item('plantilla', 'Enviar plantilla WhatsApp') : '',
     item('notas', 'Notas internas'),
     _puedeCotizar() ? item('cotizar', 'Cotizar') : '',
     item('recordatorio', 'Recordatorio'),
@@ -2513,6 +2544,7 @@ function accionMenuLead(accion, id, etapa) {
     case 'mover':        return moverLeadAEtapa(id, etapa)
     case 'conversacion': return _puedeChatbot() && abrirConversacion(id, nombre)
     case 'contexto':     return _puedeChatbot() && abrirContexto(id, nombre)
+    case 'plantilla':    return _puedeChatbot() && abrirSelectorTemplate(id, nombre)
     case 'asignar':      return admin && abrirAsignar(id, nombre, c.usuario_id || '')
     case 'descartar':    return admin && descartarCliente(id, nombre)
     case 'restaurar':    return admin && restaurarCliente(id, nombre)
@@ -2520,12 +2552,7 @@ function accionMenuLead(accion, id, etapa) {
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') _cerrarMenuLead() })
 
-// Botones del encabezado de las vistas nuevas
-function leadsImportarExcel() { abrirCargaMasiva() }
-function leadsEnviarPlantilla() {
-  if (!_seleccionLeads.size) { toast('Marca primero en la tabla los leads a los que quieres escribir.', 'error'); if (_vista !== 'tabla') setVista('tabla'); return }
-  abrirSelectorTemplate(null, null, [..._seleccionLeads])
-}
+// Un solo camino para cargar clientes (botón «Nuevo cliente» → pestaña «Masivo») y para escribirles (dentro de cada cliente, o en la barra al marcar varios): la cabecera ya no trae botones sueltos.
 
 // ── COTIZAR ───────────────────────────────────────────────────────────────────
 // Ventana para enviar al cliente una cotización en PDF por correo y/o WhatsApp. Los números y el PDF los arma el servidor (GET /api/clientes/{id}/cotizacion): aquí solo se muestran.
@@ -2759,7 +2786,7 @@ async function enviarConTemplate() {
   }
 }
 
-// ─── CARGA MASIVA (pestaña «Masivo» del modal de clientes y botón «Importar Excel» de las vistas) ──
+// ─── CARGA MASIVA (pestaña «Masivo» del modal de clientes) ──
 // La ventana es la misma del panel (/js/carga_clientes.js): revisa el archivo antes de cargar, recomienda cómo repartirlo entre ejecutivos y carga con avance en vivo.
 function abrirCargaMasiva() {
   const proy = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
@@ -5120,20 +5147,6 @@ async function guardarRegistrarInbox() {
 </div>
 
 <!-- ═══ MODAL ASIGNAR EJECUTIVO ═══ -->
-<div id="modal-ficha" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="ficha-titulo" onclick="if (event.target === this) cerrarFichaLead()">
-  <div class="glass rounded-2xl w-full max-w-md shadow-2xl p-5">
-    <div class="flex items-start justify-between mb-3 gap-3">
-      <div><p class="text-xs sidebar-text font-medium">Ficha del cliente</p><h3 id="ficha-titulo" class="text-lg font-semibold val-text"></h3></div>
-      <button type="button" onclick="cerrarFichaLead()" class="sidebar-text hover:val-text transition text-xl leading-none" aria-label="Cerrar">✕</button>
-    </div>
-    <div id="ficha-cuerpo" class="val-text"></div>
-    <div class="flex gap-2 mt-4">
-      <button type="button" id="ficha-notas" onclick="cerrarFichaLead(); abrirNotas(+this.dataset.id, this.dataset.nombre)" class="flex-1 filtro-btn rounded-lg px-3 py-2 text-sm">Ver notas</button>
-      <button type="button" id="ficha-editar" onclick="cerrarFichaLead(); abrirEditarCliente(clientes.find(c => c.id === +this.dataset.id))" class="flex-1 filtro-btn rounded-lg px-3 py-2 text-sm">Editar cliente</button>
-    </div>
-  </div>
-</div>
-
 <div id="modal-asignar" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
   <div class="glass rounded-2xl w-full max-w-xs shadow-2xl p-5">
     <div class="flex items-center justify-between mb-4">
