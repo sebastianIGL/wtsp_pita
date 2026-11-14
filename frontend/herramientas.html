@@ -183,7 +183,7 @@
           <tfoot id="m-total"></tfoot>
         </table>
       </div>
-      <p class="hr-sub">Comisión por venta = ticket (UF) × porcentaje × valor de la UF. Los bonos se ganan por cada grupo de ventas <b>completas</b> (no por cada venta suelta) y, si hay dos, se suman. Además debe cumplirse la condición de pago indicada en cada plan. Cifras referenciales.</p>
+      <p class="hr-sub">Comisión por venta = ticket (UF) × porcentaje × valor de la UF. El bono es <b>único</b>: se gana solo el más alto que alcances (si llegas al de 3 ventas, no se suma el de 2) y no se repite por tener más ventas. Además debe cumplirse la condición de pago indicada en cada plan. Cifras referenciales.</p>
       <div id="m-sin-plan" class="hr-aviso hidden"></div>
     </div>
   </section>
@@ -298,13 +298,13 @@
     const filas = _planes.map(p => ({ plan: p, ventas: _ventas[p.clave] }))
     document.getElementById('m-filas').innerHTML = _planes.map(p => {
       const r = CalculosComision.calcularPlan(p, _ventas[p.clave], uf)
-      const bonos = [p.bono_2_clp ? `${fCLP(p.bono_2_clp)} cada 2 ventas` : '', p.bono_3_clp ? `${fCLP(p.bono_3_clp)} cada 3 ventas` : ''].filter(Boolean).join('<br>') || '<span class="sidebar-text">Sin bonos</span>'
+      const bonos = [p.bono_2_clp ? `${fCLP(p.bono_2_clp)} con 2 ventas` : '', p.bono_3_clp ? `${fCLP(p.bono_3_clp)} con 3 o más` : ''].filter(Boolean).join('<br>') || '<span class="sidebar-text">Sin bonos</span>'
       const mas = p.proyectos_total > p.proyectos.length ? ` y ${p.proyectos_total - p.proyectos.length} más` : ''
       return `<tr data-plan="${esc(p.clave)}">
         <td style="text-align:left"><b>${esc(p.nombre)}</b><br><span class="sidebar-text" style="font-size:.72rem">${esc(p.condicion || '')}</span><br><span class="sidebar-text" style="font-size:.7rem">${esc(p.proyectos.join(', '))}${mas}</span></td>
         <td>${esc(fUF(p.ticket_uf, 0))}</td><td>${esc(nf(2).format(p.porcentaje))}%</td><td style="white-space:nowrap">${bonos}</td>
         <td><input type="number" min="0" step="1" inputmode="numeric" data-ventas="${esc(p.clave)}" value="${esc(_ventas[p.clave] ?? '')}" placeholder="0" aria-label="Ventas estimadas de ${esc(p.nombre)}" style="width:5rem;padding:.35rem .5rem;border-radius:.5rem;text-align:right"></td>
-        <td>${r.porVenta == null ? '—' : esc(fCLP(r.porVenta))}</td><td>${esc(fCLP(r.bonos.total))}${r.bonos.total ? `<br><span class="sidebar-text" style="font-size:.7rem">${r.bonos.veces2 ? r.bonos.veces2 + '×2 ' : ''}${r.bonos.veces3 ? r.bonos.veces3 + '×3' : ''}</span>` : ''}</td>
+        <td>${r.porVenta == null ? '—' : esc(fCLP(r.porVenta))}</td><td>${esc(fCLP(r.bonos.total))}${r.bonos.total ? `<br><span class="sidebar-text" style="font-size:.7rem">bono de ${r.bonos.nivel} ventas</span>` : ''}</td>
         <td><b>${r.total == null ? '—' : esc(fCLP(r.total))}</b></td></tr>`
     }).join('')
     const t = CalculosComision.calcularTotal(filas, uf)
@@ -338,7 +338,7 @@
     document.querySelectorAll('#m-filas tr[data-plan]').forEach(tr => {
       const p = _planes.find(x => x.clave === tr.dataset.plan), r = CalculosComision.calcularPlan(p, _ventas[p.clave], uf), td = tr.querySelectorAll('td')
       td[5].textContent = r.porVenta == null ? '—' : fCLP(r.porVenta)
-      td[6].textContent = fCLP(r.bonos.total) + (r.bonos.total ? ` (${[r.bonos.veces2 ? r.bonos.veces2 + '×2' : '', r.bonos.veces3 ? r.bonos.veces3 + '×3' : ''].filter(Boolean).join(' ')})` : '')
+      td[6].textContent = fCLP(r.bonos.total) + (r.bonos.total ? ` (bono de ${r.bonos.nivel} ventas)` : '')
       td[7].innerHTML = `<b>${r.total == null ? '—' : esc(fCLP(r.total))}</b>`
     })
     const t = CalculosComision.calcularTotal(filas, uf), pie = document.querySelectorAll('#m-total td')

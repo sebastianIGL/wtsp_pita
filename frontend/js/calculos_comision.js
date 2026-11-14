@@ -2,10 +2,10 @@
  * Son funciones puras (sin pantalla) para poder probarlas contra la planilla «Estimador de Comisión Broker — Venta de Propiedades Valores BRUTOS».
  *
  *   comisión por venta ($) = ticket (UF) × porcentaje ÷ 100 × valor de la UF
- *   bono «cada 2 ventas»   = monto × (ventas ÷ 2, hacia abajo)      — se gana por cada 2 ventas COMPLETAS, no por cada venta
- *   bono «cada 3-5 ventas» = monto × (ventas ÷ 3, hacia abajo)      — igual: por cada 3 ventas completas
- *   total ($)              = ventas × comisión por venta + bonos
- * Los dos bonos se suman. Todo sin redondear: se redondea solo al mostrar (así el total calza con la planilla al peso). */
+ *   bono único             = solo UNO, el más alto que se alcance: con 3 ventas o más, el bono «de 3 ventas»; con 2 (y menos de 3), el bono «de 2 ventas»; con menos de 2, ninguno.
+ *                            Los bonos NO se suman entre sí ni se repiten por tener más ventas.
+ *   total ($)              = ventas × comisión por venta + bono *
+ * Todo sin redondear: se redondea solo al mostrar (así el total calza con la planilla al peso). */
 (function (raiz) {
   'use strict'
 
@@ -18,11 +18,12 @@
     return t * (p / 100) * u
   }
 
+  // El bono único que corresponde: ``nivel`` es 3, 2 o 0 (ninguno).
   function bonos(plan, ventas) {
     const n = ventasValidas(ventas)
     const b2 = num(plan && plan.bono_2_clp) || 0, b3 = num(plan && plan.bono_3_clp) || 0
-    const veces2 = b2 > 0 ? Math.floor(n / 2) : 0, veces3 = b3 > 0 ? Math.floor(n / 3) : 0
-    return { veces2, veces3, bono2: veces2 * b2, bono3: veces3 * b3, total: veces2 * b2 + veces3 * b3 }
+    const nivel = n >= 3 && b3 > 0 ? 3 : (n >= 2 && b2 > 0 ? 2 : 0)
+    return { nivel, total: nivel === 3 ? b3 : (nivel === 2 ? b2 : 0) }
   }
 
   // Una fila del estimador. ``porVenta`` y ``total`` son null si falta el valor de la UF.
