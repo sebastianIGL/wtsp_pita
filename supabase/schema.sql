@@ -1,6 +1,6 @@
 -- ================================================================
 -- Schema de referencia — CRM QueSubsidio
--- Actualizado: 2026-11-14, leído de la base real (columnas, restricciones, índices, funciones y disparadores)
+-- Actualizado: 2026-11-14, leído de la base real (columnas, restricciones, índices, funciones y disparadores) y comprobado tabla por tabla
 -- ================================================================
 -- Este archivo es DOCUMENTACIÓN del estado real de la BD: no se ejecuta como migración.
 -- Para aplicar cambios usa Supabase Dashboard → SQL Editor (los cambios van en supabase/migraciones/).
@@ -84,7 +84,7 @@ CREATE TABLE public."Etapa" (
 );
 
 -- ── Tipologías ───────────────────────────────────────────────────
--- (Restricciones de esta tabla: ver «Por confirmar» al final.)
+-- Ojo: el valor por defecto de estado ('activa') NO cumple la restricción check (activo | agotado | inactivo): siempre hay que indicar el estado al crear una tipología.
 CREATE TABLE public."Tipologia" (
   id                 serial PRIMARY KEY,
   nombre             text NOT NULL,
@@ -92,14 +92,14 @@ CREATE TABLE public."Tipologia" (
   banos              int,
   superficie_util_m2 numeric,
   valor_uf           numeric,
-  estado             text DEFAULT 'activa',               -- 'activa' | 'agotada' | 'inactiva'
+  estado             text DEFAULT 'activa' CHECK (estado IN ('activo', 'agotado', 'inactivo')),
   raw_data           jsonb,
   created_at         timestamptz DEFAULT now(),
-  proyecto_id        uuid NOT NULL,
+  proyecto_id        uuid NOT NULL REFERENCES public."Proyecto"(id),
   tipo_subsidio      text DEFAULT 'ninguno',              -- 'ninguno' | 'ds19' | 'ds1_t23' | 'ambos'
   terreno_m2         numeric,
   monto_subsidio     numeric,
-  cuotas_ahorro      int,
+  cuotas_ahorro      int CHECK (cuotas_ahorro >= 0),
   estacionamientos   int,
   bodegas            int
 );
@@ -114,27 +114,26 @@ CREATE TABLE public."EtapaTipologia" (
 );
 
 -- ── Usuarios CRM ─────────────────────────────────────────────────
--- (Restricciones de esta tabla: ver «Por confirmar» al final.)
+-- Ojo: el valor por defecto de rol ('usuario') NO cumple la restricción check (owner | administrador | ejecutivo | cliente): siempre hay que indicar el rol al crear una persona.
 CREATE TABLE public."Usuario" (
-  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid(),   -- igual al id de auth.users
+  id                   uuid PRIMARY KEY DEFAULT gen_random_uuid() REFERENCES auth.users(id) ON DELETE CASCADE,   -- igual al id de auth.users
   nombre               text NOT NULL,
-  rut                  text NOT NULL,
-  correo               text NOT NULL,
+  rut                  text NOT NULL UNIQUE,
+  correo               text NOT NULL UNIQUE,
   celular              text,
-  estado               smallint DEFAULT 1,
-  rol                  text DEFAULT 'usuario',                        -- 'owner' | 'administrador' | 'ejecutivo'
+  estado               smallint DEFAULT 1 CHECK (estado IN (0, 1)),
+  rol                  text DEFAULT 'usuario' CHECK (rol IN ('owner', 'administrador', 'ejecutivo', 'cliente')),
   password_provisional boolean DEFAULT true,
   created_at           timestamptz DEFAULT now(),
   updated_at           timestamptz DEFAULT now(),
-  empresa_id           int,
-  industria_id         int,
+  empresa_id           int REFERENCES public."Empresa"(id),
+  industria_id         int REFERENCES public."Industria"(id),
   email_alias          text,                                          -- alias Gmail para envíos (domain-wide delegation)
   inmobiliaria_ids     int[]  DEFAULT '{}',                           -- acceso a inmobiliarias específicas
   proyecto_ids         uuid[] DEFAULT '{}',                           -- acceso a proyectos específicos
   ultimo_acceso        timestamptz                                    -- última vez en el sistema (pestaña «Usuarios»)
 );
-CREATE UNIQUE INDEX perfiles_correo_key ON public."Usuario"(correo);
-CREATE UNIQUE INDEX perfiles_rut_key    ON public."Usuario"(rut);
+-- (Los índices únicos perfiles_correo_key y perfiles_rut_key de la base son los de las restricciones UNIQUE de correo y rut.)
 
 -- ── Clientes CRM ─────────────────────────────────────────────────
 -- Nombres de columna heredados del sistema anterior (con mayúsculas y espacios).
@@ -518,9 +517,9 @@ CREATE TABLE public.log_correos (
   tipo          text NOT NULL,
   destinatario  text NOT NULL,
   asunto        text,
-  estado        text NOT NULL,
+  estado        text NOT NULL CHECK (estado IN ('enviado', 'error')),
   detalle_error text,
-  usuario_id    uuid,
+  usuario_id    uuid REFERENCES public."Usuario"(id) ON DELETE SET NULL,
   created_at    timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_log_correos_created_at   ON public.log_correos(created_at DESC);
@@ -534,7 +533,7 @@ CREATE TABLE public.newsletter (
   creado_en timestamptz DEFAULT now()
 );
 CREATE TABLE public.progreso_usuario (
-  user_id    uuid NOT NULL,
+  user_id    uuid NOT NULL REFERENCES auth.users(id),
   mundo      text NOT NULL,
   req_id     text NOT NULL,
   completado boolean DEFAULT true,
@@ -621,11 +620,3 @@ BEGIN
   END LOOP;
 END;
 $$;
-
-
--- ================================================================
--- Por confirmar (la lectura de restricciones se cortó en 100 filas)
--- ================================================================
--- Faltan las llaves foráneas y restricciones check de: Tipologia (¿proyecto_id → Proyecto?), Usuario (¿empresa_id, industria_id?), TarifaGasto, log_correos,
--- log_depas, newsletter, progreso_usuario y SubsidioBloque/SubsidioDato (estas dos, tomadas de la migración 2026-11-05_directorio_subsidios.sql).
--- Consulta para completarlo: supabase/leer_esquema.sql, punto 2, limitada a esas tablas.
