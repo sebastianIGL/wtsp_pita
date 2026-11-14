@@ -14,6 +14,13 @@ from pg_constraint
 where connamespace = 'public'::regnamespace
 order by 1, 2, 3;
 
+-- 2b. Lo mismo, solo para las tablas cuyas restricciones quedaron cortadas por el limite de 100 filas del editor
+select conrelid::regclass::text as tabla, contype as tipo, pg_get_constraintdef(oid) as definicion
+from pg_constraint
+where connamespace = 'public'::regnamespace
+  and conrelid::regclass::text in ('"SubsidioBloque"', '"SubsidioDato"', '"TarifaGasto"', '"Tipologia"', '"Usuario"', 'log_correos', 'log_depas', 'newsletter', 'progreso_usuario')
+order by 1, 2, 3;
+
 -- 3. Indices
 select tablename as tabla, indexdef as definicion
 from pg_indexes
