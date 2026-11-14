@@ -18,6 +18,7 @@ from app.core.utilidades import _normalize_phone, _safe_httpx_error
 from app.services.avisos import _notificar_ejecutivo_wa
 from app.services.bot import _obtener_otros_proyectos, generar_respuesta_ia
 from app.services.documentos_prospecto import etiquetar_documentos_sin_tipo, obtener_documentos_prospecto
+from app.services import baja_whatsapp
 from app.services.horarios import _dentro_horario_bot
 from app.services.mensajes import insertar_mensaje, obtener_historial_mensajes
 from app.services.prospectos import (
@@ -110,6 +111,15 @@ async def _procesar_webhook(msg: Dict, es_reintento: bool = False, responder: bo
                 telefono_e164=from_number,
                 ultimo_texto_entrante=text,
             )
+
+        # Baja de WhatsApp: «BAJA» la registra y se confirma; mientras esté de baja no se le responde (el mensaje queda guardado para el ejecutivo); «ALTA» la deshace.
+        respuesta_baja = await baja_whatsapp.atender_mensaje(text, prospecto)
+        if respuesta_baja is not None:
+            if respuesta_baja:
+                await send_whatsapp_message(to=from_number, text=respuesta_baja)
+                if prospecto_id:
+                    await insertar_mensaje(prospecto_id=prospecto_id, direccion="saliente", text=respuesta_baja, cliente_id=cliente_id_prospecto)
+            return
 
         # Mensajes anteriores de un lote del mismo número: solo se guardan; responde el último del lote.
         if not responder:

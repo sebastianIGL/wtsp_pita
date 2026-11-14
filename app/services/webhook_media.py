@@ -28,7 +28,8 @@ async def _procesar_media(
     prospecto: Optional[Dict],
     prospecto_id: Optional[str],
 ):
-    """Descarga el media de WhatsApp, lo clasifica y lo sube a Supabase Storage."""
+    """Descarga el media de WhatsApp, lo clasifica y lo sube a Supabase Storage. Si la persona pidió la baja de WhatsApp, el archivo se guarda igual pero no se le manda ninguna confirmación."""
+    de_baja = bool((prospecto or {}).get("opt_out"))
     try:
         media_info = msg.get(msg_type, {})
         media_id   = media_info.get("id", "")
@@ -141,6 +142,8 @@ async def _procesar_media(
                 if paso_actual not in ("ESPERA_DOCS", "DOCS_RECIBIDOS"):
                     await actualizar_datos_prospecto(prospecto_id, {}, "ESPERA_DOCS")
 
+        if de_baja:
+            return
         await send_whatsapp_message(to=from_number, text=confirmacion)
 
         if prospecto_id:
@@ -152,6 +155,8 @@ async def _procesar_media(
 
     except Exception as e:
         logger.exception(f"Error procesando media: {e}")
+        if de_baja:
+            return
         try:
             await send_whatsapp_message(
                 to=from_number,

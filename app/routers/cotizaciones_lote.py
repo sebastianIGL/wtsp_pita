@@ -27,6 +27,7 @@ from app.core.permisos import puede_cotizar
 from app.core.utilidades import _normalize_phone
 from app.routers import cotizaciones as cot_router
 from app.services import cotizacion as cz
+from app.services.baja_whatsapp import MSG_NO_ESCRIBIR
 from app.services.clientes_datos import marcar_cotizacion_enviada
 from app.services.mensajes import insertar_mensaje
 
@@ -149,8 +150,9 @@ async def api_revisar_lote(request: Request):
             fila.update(ok=True, nombre=cot["cliente"]["nombre"], correo=cot["cliente"].get("correo") if _correo_valido(cot["cliente"].get("correo")) else None, telefono=telefono,
                         proyecto=cot["proyecto"]["nombre"], tipologia=cot["tipologia"]["nombre"])
             if telefono:
-                abierta = cot_router.ventana_abierta(((await cot_router._prospecto(telefono)) or {}).get("ultimo_entrante_en"))
-                fila["whatsapp"] = "ventana" if abierta else ("plantilla" if hay_plantilla else "no")
+                pros = (await cot_router._prospecto(telefono)) or {}
+                abierta = cot_router.ventana_abierta(pros.get("ultimo_entrante_en"))
+                fila["whatsapp"] = "baja" if pros.get("opt_out") else ("ventana" if abierta else ("plantilla" if hay_plantilla else "no"))
             clientes.append(fila)
         return {"clientes": clientes, "plantilla_configurada": hay_plantilla, "maximo": MAX_LOTE}
     except Exception as e:
@@ -186,6 +188,8 @@ async def _enviar_uno(perfil: Dict[str, Any], cid: int, canales: List[str], nomb
             prospecto = await cot_router._prospecto(telefono)
             if not telefono:
                 resultados["whatsapp"] = {"ok": False, "destino": "", "error": cot_router.MSG_SIN_TELEFONO}
+            elif (prospecto or {}).get("opt_out"):
+                resultados["whatsapp"] = {"ok": False, "destino": telefono, "error": MSG_NO_ESCRIBIR}
             elif cot_router.ventana_abierta((prospecto or {}).get("ultimo_entrante_en")):
                 resultados["whatsapp"] = await cot_router._por_whatsapp(cot, cid, telefono, prospecto, pdf)
             elif _plantilla():

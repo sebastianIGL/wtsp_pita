@@ -27,6 +27,7 @@ from app.core.utilidades import _normalize_phone
 from app.services import cotizacion as cz
 from app.services import uf as servicio_uf
 from app.services.clientes_datos import marcar_cotizacion_enviada
+from app.services.baja_whatsapp import MSG_NO_ESCRIBIR
 from app.services.mensajes import insertar_mensaje
 
 logger = logging.getLogger("wtsp_pita")
@@ -86,7 +87,7 @@ async def _prospecto(telefono: Optional[str]) -> Optional[Dict[str, Any]]:
     if not telefono:
         return None
     try:
-        filas = await _supabase_request("GET", "/Prospecto", params={"telefono_e164": f"eq.{telefono}", "select": "id,ultimo_entrante_en", "limit": "1"}) or []
+        filas = await _supabase_request("GET", "/Prospecto", params={"telefono_e164": f"eq.{telefono}", "select": "id,ultimo_entrante_en,opt_out", "limit": "1"}) or []
         return filas[0] if filas else None
     except Exception:
         logger.warning("Cotizar | no se pudo leer el prospecto para saber si WhatsApp está disponible")
@@ -175,6 +176,8 @@ def _explicar_meta(e: httpx.HTTPStatusError) -> Optional[str]:
 async def _por_whatsapp(cot: Dict[str, Any], cliente_id: int, telefono: Optional[str], prospecto: Optional[Dict[str, Any]], pdf: bytes) -> Dict[str, Any]:
     if not telefono:
         return {"ok": False, "destino": "", "error": MSG_SIN_TELEFONO}
+    if (prospecto or {}).get("opt_out"):
+        return {"ok": False, "destino": telefono, "error": MSG_NO_ESCRIBIR}               # pidió la baja de WhatsApp
     if not ventana_abierta((prospecto or {}).get("ultimo_entrante_en")):
         return {"ok": False, "destino": telefono, "error": MSG_FUERA_DE_VENTANA}
     texto = cz.texto_whatsapp(cot)

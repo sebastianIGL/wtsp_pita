@@ -9,6 +9,7 @@ from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
 from app.core.autorizacion import exigir_cliente, exigir_proyecto
 from app.clients.whatsapp import _build_body_params, send_whatsapp_template
+from app.services.baja_whatsapp import MSG_NO_ESCRIBIR, esta_de_baja
 from app.core.errors import AppError, respuesta_error
 from app.core.permisos import _solo_admin
 from app.core.utilidades import _normalize_phone
@@ -186,6 +187,8 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         proyecto_id = c.get("proyecto_id") or ""
         if not telefono:
             return Response(content="Cliente sin teléfono", status_code=400)
+        if await esta_de_baja(telefono):                                  # pidió la baja de WhatsApp: no se le escribe (ni con plantilla)
+            return Response(content=MSG_NO_ESCRIBIR, status_code=409, media_type="text/plain")
 
         proyecto = None
         if proyecto_id:

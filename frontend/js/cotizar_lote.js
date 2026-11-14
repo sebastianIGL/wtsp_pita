@@ -19,11 +19,12 @@
     return {
       total: clientes.length, listos: listos.length, no: clientes.length - listos.length,
       conCorreo: listos.filter(c => c.correo).length, sinCorreo: listos.filter(c => !c.correo).length,
-      wa: listos.filter(c => c.whatsapp !== 'no').length, sinWa: listos.filter(c => c.whatsapp === 'no' && c.telefono).length, sinTelefono: listos.filter(c => !c.telefono).length,
+      wa: listos.filter(c => c.whatsapp === 'ventana' || c.whatsapp === 'plantilla').length, sinWa: listos.filter(c => (c.whatsapp === 'no' || c.whatsapp === 'baja') && c.telefono).length, sinTelefono: listos.filter(c => !c.telefono).length,
       puedeEnviar: listos.length > 0 && canales.length > 0,
     }
   }
   function textoWhatsapp(c, plantillaConfigurada) {
+    if (c.whatsapp === 'baja') return 'No: pidió la baja'
     if (c.whatsapp === 'ventana') return 'Sí, dentro de las 24 h'
     if (c.whatsapp === 'plantilla') return plantillaConfigurada ? 'Sí, con plantilla' : 'No'
     return c.telefono ? 'No: fuera de las 24 h' : 'Sin teléfono'
