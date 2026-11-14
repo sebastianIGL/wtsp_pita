@@ -133,6 +133,7 @@ async def api_crear_cliente(request: Request):
         proyecto = await obtener_proyecto_por_id(proyecto_id)
         if not proyecto:
             return Response(content="Proyecto no encontrado", status_code=400)
+        await cd.validar_tipologia_de_proyecto(body.get("etapa_tipologia_id") or None, proyecto_id)      # la tipología y etapa tienen que ser de ESE proyecto
 
         # Evitar duplicados: mismo teléfono + mismo proyecto
         existente = await _supabase_request(
@@ -228,6 +229,12 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
             payload["recordatorio_nota"] = cd.nota_recordatorio(payload["recordatorio_nota"])
         if "recordatorio_at" in payload and not payload["recordatorio_at"]:
             payload["recordatorio_nota"] = None                         # sin fecha no queda una nota suelta
+        if "etapa_tipologia_id" in payload or "proyecto_id" in payload:        # la tipología y etapa del cliente tienen que ser de SU proyecto (el nuevo, si lo cambia)
+            actual_cli = (await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "proyecto_id,etapa_tipologia_id", "limit": "1"}) or [{}])[0]
+            proyecto_final = payload["proyecto_id"] if "proyecto_id" in payload else actual_cli.get("proyecto_id")
+            tipologia_final = payload["etapa_tipologia_id"] if "etapa_tipologia_id" in payload else actual_cli.get("etapa_tipologia_id")
+            cambia = "proyecto_id" in payload and str(proyecto_final or "") != str(actual_cli.get("proyecto_id") or "") and "etapa_tipologia_id" not in payload
+            await cd.validar_tipologia_de_proyecto(tipologia_final, proyecto_final, cambia_proyecto=cambia)
         nuevo_proyecto = payload.get("proyecto_id")
         if nuevo_proyecto not in (None, "") and not _solo_admin(perfil):
             actual = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "proyecto_id", "limit": "1"}) or []

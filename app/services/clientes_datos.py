@@ -51,6 +51,32 @@ def estado_gestion(valor: Any) -> Optional[str]:
     return _de_lista(valor, ESTADOS_GESTION, "Estado de gestión no válido")
 
 
+MSG_TIPOLOGIA_AJENA = "La tipología y la etapa elegidas no son de ese proyecto. Elige las del proyecto del cliente."
+MSG_TIPOLOGIA_SIN_PROYECTO = "Para elegir una tipología el cliente tiene que tener un proyecto."
+MSG_CAMBIO_DE_PROYECTO = "Al cambiar de proyecto elige también la tipología y la etapa de ese proyecto (las que tenía son de otro)."
+
+
+async def validar_tipologia_de_proyecto(etapa_tipologia_id: Any, proyecto_id: Any, *, cambia_proyecto: bool = False) -> None:
+    """Comprueba que la tipología+etapa (``EtapaTipologia``) pertenece al proyecto del cliente. Sin tipología (``None`` o vacío) no hay nada que comprobar.
+    ``cambia_proyecto``: el proyecto se está cambiando y la tipología que quedaba es la de antes (el mensaje explica que hay que elegir otra). ``DatoInvalido`` si no calza."""
+    if etapa_tipologia_id is None or (isinstance(etapa_tipologia_id, str) and not etapa_tipologia_id.strip()):
+        return
+    try:
+        et = int(etapa_tipologia_id)
+    except (TypeError, ValueError):
+        raise DatoInvalido("La tipología elegida no es válida")
+    if isinstance(etapa_tipologia_id, bool) or et < 1:
+        raise DatoInvalido("La tipología elegida no es válida")
+    if proyecto_id is None or str(proyecto_id).strip() == "":
+        raise DatoInvalido(MSG_TIPOLOGIA_SIN_PROYECTO)
+    filas = await _supabase_request("GET", "/EtapaTipologia", params={"id": f"eq.{et}", "select": "id,Tipologia(proyecto_id),Etapa(proyecto_id)", "limit": "1"}) or []
+    fila = filas[0] if filas else None
+    de_tipologia = str(((fila or {}).get("Tipologia") or {}).get("proyecto_id") or "")
+    de_etapa = str(((fila or {}).get("Etapa") or {}).get("proyecto_id") or "")
+    if not fila or de_tipologia != str(proyecto_id) or de_etapa != str(proyecto_id):
+        raise DatoInvalido(MSG_CAMBIO_DE_PROYECTO if cambia_proyecto else MSG_TIPOLOGIA_AJENA)
+
+
 def nota_recordatorio(valor: Any) -> Optional[str]:
     """La nota de un recordatorio (qué hay que hacer): sin espacios de más, de 1 a 300 caracteres; ``None`` si viene vacía."""
     if valor is None:
