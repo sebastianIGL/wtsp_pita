@@ -38,6 +38,7 @@ from app.routers.clientes_acciones import router as clientes_acciones_router
 from app.routers.health import router as health_router
 from app.routers.directorio_admin import router as directorio_admin_router
 from app.routers.gasto import router as gasto_router
+from app.routers.comisiones import router as comisiones_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging
 from app.core.user_cache import user_cache
 from app.core.errors import registrar_error
@@ -245,6 +246,7 @@ app.include_router(documentos_router)
 
 
 app.include_router(directorio_admin_router)   # editor del directorio de subsidios (solo el dueño)
+app.include_router(comisiones_router)   # estimador de comisiones (planes por proyecto)
 app.include_router(gasto_router)   # pestaña «Gasto» del panel de administración (IA y WhatsApp por cliente)
 app.include_router(paginas_router)
 

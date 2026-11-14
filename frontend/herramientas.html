@@ -82,6 +82,7 @@
     <nav class="flex-1 px-2.5 py-3 space-y-0.5 overflow-y-auto" aria-label="Herramientas">
       <button type="button" id="tab-credito" onclick="mostrarHerramienta('credito')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition bg-violet-600 text-white">Simulador de crédito</button>
       <button type="button" id="tab-ds1" onclick="mostrarHerramienta('ds1')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">Subsidio DS1 (tramos 2 y 3)</button>
+      <button type="button" id="tab-comisiones" onclick="mostrarHerramienta('comisiones')" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition sidebar-text hover:text-violet-400">Estimador de comisiones</button>
     </nav>
     <div class="px-4 py-3 header-border border-t space-y-2.5">
       <a href="/panel" class="w-full text-xs px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium transition text-center block">Panel Comercial</a>
@@ -166,10 +167,32 @@
     <p class="hr-sub" id="d-nota"></p>
   </section>
 
+  <!-- ═══════════ ESTIMADOR DE COMISIONES ═══════════ -->
+  <section id="herr-comisiones" class="hidden">
+    <h1 class="text-2xl font-bold val-text mb-1">Estimador de comisiones</h1>
+    <p class="text-sm sidebar-text mb-5">Cuánto gana un broker por cada venta que concreta en tus proyectos. Valores brutos (antes de impuestos). Anota cuántas ventas esperas concretar en cada plan y se calcula solo.</p>
+    <div class="glass hr-card"><h3>Valor de la UF</h3>
+      <div class="hr-grid"><div><label for="m-uf">Valor UF ($)</label><input id="m-uf" type="number" min="0" step="any" inputmode="decimal"><p class="hr-ayuda" id="m-uf-ayuda"></p></div></div>
+    </div>
+    <div id="m-estado" class="sidebar-text text-sm">Cargando planes…</div>
+    <div id="m-contenido" class="hidden">
+      <div class="glass hr-card" style="overflow-x:auto">
+        <table class="hr-tabla" id="m-tabla" style="min-width:760px">
+          <thead><tr><th>Plan</th><th>Ticket</th><th>Comisión</th><th>Bonos</th><th>Ventas estimadas</th><th>Por venta</th><th>Bonos ganados</th><th>Total</th></tr></thead>
+          <tbody id="m-filas"></tbody>
+          <tfoot id="m-total"></tfoot>
+        </table>
+      </div>
+      <p class="hr-sub">Comisión por venta = ticket (UF) × porcentaje × valor de la UF. Los bonos se ganan por cada grupo de ventas <b>completas</b> (no por cada venta suelta) y, si hay dos, se suman. Además debe cumplirse la condición de pago indicada en cada plan. Cifras referenciales.</p>
+      <div id="m-sin-plan" class="hr-aviso hidden"></div>
+    </div>
+  </section>
+
   </main>
 </div>
 
 <script src="/js/calculos_credito.js"></script>
+<script src="/js/calculos_comision.js"></script>
 <script>
   const SUPABASE_URL  = 'https://vomqfihcrhjcvxjsloob.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbXFmaWhjcmhqY3Z4anNsb29iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI5OTM3MDQsImV4cCI6MjA4ODU2OTcwNH0.uBgd-aOeochLcomuQM8o_R-Sfl_JJ-7WsB1-wSwLGIc';
@@ -198,7 +221,7 @@
 
   // ── Pestañas ─────────────────────────────────────────────
   function mostrarHerramienta(k) {
-    for (const t of ['credito', 'ds1']) {
+    for (const t of ['credito', 'ds1', 'comisiones']) {
       document.getElementById('herr-' + t).classList.toggle('hidden', t !== k)
       const b = document.getElementById('tab-' + t)
       b.classList.toggle('bg-violet-600', t === k); b.classList.toggle('text-white', t === k); b.classList.toggle('sidebar-text', t !== k)
@@ -264,6 +287,64 @@
       : 'Tramo 3: (950 − 0,375 × Precio) UF, tope 500 UF, precio máx. 2.600 UF; entre 1.600 y 2.600 UF el subsidio es fijo (350 UF). El precio máximo varía según región y llamado: revisa el certificado del beneficiario y ajusta los parámetros.'
   }
 
+  // ── Estimador de comisiones ──────────────────────────────
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+  let _planes = []
+  let _ventas = {}
+  try { _ventas = JSON.parse(localStorage.getItem('comisiones_ventas') || '{}') || {} } catch (e) { _ventas = {} }
+  const _ufComision = () => { const v = parseFloat(String(document.getElementById('m-uf').value).replace(',', '.')); return Number.isFinite(v) && v > 0 ? v : null }
+  function recalcularComisiones() {
+    const uf = _ufComision()
+    const filas = _planes.map(p => ({ plan: p, ventas: _ventas[p.clave] }))
+    document.getElementById('m-filas').innerHTML = _planes.map(p => {
+      const r = CalculosComision.calcularPlan(p, _ventas[p.clave], uf)
+      const bonos = [p.bono_2_clp ? `${fCLP(p.bono_2_clp)} cada 2 ventas` : '', p.bono_3_clp ? `${fCLP(p.bono_3_clp)} cada 3 ventas` : ''].filter(Boolean).join('<br>') || '<span class="sidebar-text">Sin bonos</span>'
+      const mas = p.proyectos_total > p.proyectos.length ? ` y ${p.proyectos_total - p.proyectos.length} más` : ''
+      return `<tr data-plan="${esc(p.clave)}">
+        <td style="text-align:left"><b>${esc(p.nombre)}</b><br><span class="sidebar-text" style="font-size:.72rem">${esc(p.condicion || '')}</span><br><span class="sidebar-text" style="font-size:.7rem">${esc(p.proyectos.join(', '))}${mas}</span></td>
+        <td>${esc(fUF(p.ticket_uf, 0))}</td><td>${esc(nf(2).format(p.porcentaje))}%</td><td style="white-space:nowrap">${bonos}</td>
+        <td><input type="number" min="0" step="1" inputmode="numeric" data-ventas="${esc(p.clave)}" value="${esc(_ventas[p.clave] ?? '')}" placeholder="0" aria-label="Ventas estimadas de ${esc(p.nombre)}" style="width:5rem;padding:.35rem .5rem;border-radius:.5rem;text-align:right"></td>
+        <td>${r.porVenta == null ? '—' : esc(fCLP(r.porVenta))}</td><td>${esc(fCLP(r.bonos.total))}${r.bonos.total ? `<br><span class="sidebar-text" style="font-size:.7rem">${r.bonos.veces2 ? r.bonos.veces2 + '×2 ' : ''}${r.bonos.veces3 ? r.bonos.veces3 + '×3' : ''}</span>` : ''}</td>
+        <td><b>${r.total == null ? '—' : esc(fCLP(r.total))}</b></td></tr>`
+    }).join('')
+    const t = CalculosComision.calcularTotal(filas, uf)
+    document.getElementById('m-total').innerHTML = `<tr><td style="text-align:left"><b>Total estimado</b></td><td></td><td></td><td></td><td><b>${esc(t.ventas)}</b></td><td></td><td><b>${esc(fCLP(t.bonos))}</b></td><td><b>${t.total == null ? '—' : esc(fCLP(t.total))}</b></td></tr>`
+    document.getElementById('m-uf-ayuda').textContent = uf ? '' : 'Ingresa el valor de la UF para ver los montos en pesos'
+  }
+  async function cargarComisiones() {
+    const estado = document.getElementById('m-estado')
+    try {
+      const res = await fetch('/api/comisiones/planes', { headers: { Authorization: `Bearer ${_token}` } })
+      if (!res.ok) throw new Error(await res.text())
+      const d = await res.json()
+      if (!d.disponible) { estado.textContent = 'El estimador aún no está configurado. Pídele a quien administra el sistema que cargue los planes de comisión.'; return }
+      _planes = d.planes || []
+      if (!_planes.length) { estado.textContent = 'No hay planes de comisión para tus proyectos.'; return }
+      estado.classList.add('hidden'); document.getElementById('m-contenido').classList.remove('hidden')
+      const sp = document.getElementById('m-sin-plan')
+      if ((d.sin_plan || []).length) { sp.textContent = 'Proyectos sin plan de comisión (revisar): ' + d.sin_plan.join(', '); sp.classList.remove('hidden') }
+      recalcularComisiones()
+    } catch (e) { estado.textContent = 'No se pudieron cargar los planes de comisión: ' + (e.message || 'error'); }
+  }
+  document.getElementById('m-uf').addEventListener('input', recalcularComisiones)
+  document.getElementById('m-filas').addEventListener('input', e => {
+    const c = e.target.dataset && e.target.dataset.ventas
+    if (!c) return
+    _ventas[c] = e.target.value === '' ? undefined : e.target.value
+    try { localStorage.setItem('comisiones_ventas', JSON.stringify(_ventas)) } catch (x) { /* sin almacenamiento */ }
+    // solo se recalculan los números: re-dibujar la fila haría perder el cursor del campo que se está escribiendo
+    const filas = _planes.map(p => ({ plan: p, ventas: _ventas[p.clave] }))
+    const uf = _ufComision()
+    document.querySelectorAll('#m-filas tr[data-plan]').forEach(tr => {
+      const p = _planes.find(x => x.clave === tr.dataset.plan), r = CalculosComision.calcularPlan(p, _ventas[p.clave], uf), td = tr.querySelectorAll('td')
+      td[5].textContent = r.porVenta == null ? '—' : fCLP(r.porVenta)
+      td[6].textContent = fCLP(r.bonos.total) + (r.bonos.total ? ` (${[r.bonos.veces2 ? r.bonos.veces2 + '×2' : '', r.bonos.veces3 ? r.bonos.veces3 + '×3' : ''].filter(Boolean).join(' ')})` : '')
+      td[7].innerHTML = `<b>${r.total == null ? '—' : esc(fCLP(r.total))}</b>`
+    })
+    const t = CalculosComision.calcularTotal(filas, uf), pie = document.querySelectorAll('#m-total td')
+    pie[4].innerHTML = `<b>${esc(t.ventas)}</b>`; pie[6].innerHTML = `<b>${esc(fCLP(t.bonos))}</b>`; pie[7].innerHTML = `<b>${t.total == null ? '—' : esc(fCLP(t.total))}</b>`
+  })
+
   // ── Arranque ─────────────────────────────────────────────
   function primerDiaDelMesSiguiente() { const d = new Date(), m = new Date(d.getFullYear(), d.getMonth() + 1, 1); return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-01` }
   async function init() {
@@ -275,11 +356,12 @@
       if (rp.ok) { const p = await rp.json(); document.getElementById('nombreUsuario').textContent = p.nombre || p.correo || '' }
       const uf = ru.ok ? await ru.json() : null
       if (uf && uf.valor) {
-        for (const id of ['c-uf', 'd-uf']) document.getElementById(id).value = uf.valor
+        for (const id of ['c-uf', 'd-uf', 'm-uf']) document.getElementById(id).value = uf.valor
         document.getElementById('c-uf-ayuda').textContent = `UF del ${fFecha(uf.fecha)} (puedes cambiarla)`
       } else document.getElementById('c-uf-ayuda').textContent = 'No se pudo leer la UF del día: ingrésala para ver los pesos'
     } catch (e) { /* sin UF: se ingresa a mano */ }
     recalcularCredito(); recalcularDS1()
+    cargarComisiones()
   }
 
   document.getElementById('c-fecha').value = primerDiaDelMesSiguiente()
@@ -289,8 +371,8 @@
   document.getElementById('p-restaurar').addEventListener('click', () => { cargarParametros(); recalcularDS1() })
   cargarParametros(); recalcularCredito(); recalcularDS1()
   let _guardada = null; try { _guardada = localStorage.getItem('herramienta') } catch (e) { /* sin almacenamiento */ }
-  const _pedida = new URLSearchParams(location.search).get('t')      // el panel elige la herramienta con ?t=credito|ds1
-  mostrarHerramienta(_pedida === 'ds1' || _pedida === 'credito' ? _pedida : (_guardada === 'ds1' ? 'ds1' : 'credito'))
+  const _pedida = new URLSearchParams(location.search).get('t')      // el panel elige la herramienta con ?t=credito|ds1|comisiones
+  mostrarHerramienta(['ds1', 'credito', 'comisiones'].includes(_pedida) ? _pedida : (['ds1', 'comisiones'].includes(_guardada) ? _guardada : 'credito'))
   init()
 </script>
 </body>
