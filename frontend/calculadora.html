@@ -104,7 +104,7 @@
       <ul>
         <li><strong>Subsidios:</strong> el ahorro mínimo y el precio máximo salen de nuestras <a href="/subsidios">fichas de subsidios</a>, contrastadas con fuentes oficiales (MINVU y ChileAtiende) y con su fecha de revisión.</li>
         <li><strong>Proyectos:</strong> el precio, el ahorro o pie, la reserva, el estacionamiento y el plan de pago los informa cada inmobiliaria. Son referenciales y pueden cambiar sin previo aviso.</li>
-        <li><strong>El pie:</strong> con cualquier subsidio contamos tu ahorro mínimo como parte del pie del proyecto (necesitas el mayor de los dos) y el pie es ese ahorro más el subsidio.</li>
+        <li><strong>El pie:</strong> el pie del proyecto se paga con tu ahorro más el subsidio. Por eso el ahorro que debes reunir es el pie menos el subsidio (nunca menos que el ahorro mínimo del subsidio). En viviendas sin subsidio, como las seminuevas, el pie es solo tu ahorro.</li>
         <li><strong>El subsidio que sumamos:</strong> es el que informa la inmobiliaria para esa vivienda y para ese subsidio. Si no lo informa, calculamos solo el ahorro y no inventamos ninguna cifra.</li>
         <li><strong>Pesos:</strong> los equivalentes usan el valor de la UF del día (fuente: SII).</li>
       </ul>
@@ -136,7 +136,9 @@
 
 <script>
 // ── Cálculo (función pura: no toca la página; ver tests/herramientas_frontend/calculadora.js) ──────────────────────────────────────────────
-// Regla del dueño (confirmada): con CUALQUIER subsidio, su ahorro mínimo cuenta como parte del pie del proyecto (se necesita el mayor de los dos) y el pie es ese ahorro MÁS el subsidio.
+// Regla del dueño (2026-11-16, opción A): el pie del proyecto se paga SIEMPRE con ahorro + subsidio. Si el subsidio se suma, el ahorro que hay que reunir es el pie del proyecto MENOS el subsidio,
+// pero nunca menos que el ahorro mínimo del subsidio (entonces el pie queda sobre el que pide el proyecto). Sin subsidio que sumar (p. ej. una vivienda seminueva) el pie es solo el ahorro: el del proyecto.
+// Si el ahorro mínimo del subsidio depende del caso (p. ej. DS19) y el subsidio cubre todo el pie, no se inventa una cifra: se dice que depende.
 // El monto del subsidio solo se suma si la inmobiliaria lo informa para ESE subsidio (el servidor manda `tipo_proyecto`) y el proyecto lo acepta.
 const _ACEPTA = { ds1_t23: 'acepta_ds1_t23', ds19: 'acepta_ds19' }
 const _TIPO_NOMBRE = { ds1_t23: 'DS1 Tramo 2 y 3', ds19: 'DS19', ambos: 'varios subsidios' }
@@ -171,18 +173,31 @@ function calcular(e) {
   let base = null
   if (pro) {
     r.modo = sub ? 'con_proyecto' : 'solo_proyecto'
-    if (S !== null || P !== null) {
+    // ¿Se puede sumar el subsidio que informa la inmobiliaria? (es lo mismo que decide más abajo qué se suma al pie)
+    const tipo = sub ? sub.tipo_proyecto || null : null
+    const acepta = !tipo || !!pro[_ACEPTA[tipo]]
+    const info = tip && tip.subsidio ? tip.subsidio : null
+    const M = sub && tip && acepta && info && !!tipo && info.tipo === tipo && _num(info.monto_uf) !== null ? info.monto_uf : null
+    if (M !== null && P !== null) {
+      const resto = P - M                                                // el pie del proyecto, menos lo que pone el subsidio
+      if (S !== null) {
+        r.requeridoUF = Math.max(S, resto)
+        r.quien = S >= resto ? 'subsidio_cubre_pie' : 'pie_menos_subsidio'
+      } else if (resto > 0) {
+        r.requeridoUF = resto; r.quien = 'pie_menos_subsidio'
+        r.avisos.push('El ahorro mínimo de este subsidio depende de tu caso (' + (sub.ahorro_texto || 'revisa su ficha') + '): si es mayor que esa cifra, necesitarás ese.')
+      } else {
+        r.avisos.push('El subsidio cubre el pie del proyecto. El ahorro mínimo que necesitas depende de tu caso (' + (sub.ahorro_texto || 'revisa su ficha') + ').')
+      }
+    } else if (S !== null || P !== null) {
       r.requeridoUF = Math.max(S || 0, P || 0)
       r.quien = P !== null && P > (S || 0) ? 'proyecto' : (S !== null ? 'subsidio' : 'proyecto')
     }
     if (P === null) r.avisos.push('El proyecto no informa el ahorro o pie que pide' + (S !== null ? ': usamos solo el ahorro mínimo del subsidio.' : '.'))
-    if (sub && S === null) r.avisos.push('El ahorro de este subsidio depende de tu caso (' + (sub.ahorro_texto || 'revisa su ficha') + '): usamos el del proyecto.')
+    if (sub && S === null && !(M !== null && P !== null)) r.avisos.push('El ahorro de este subsidio depende de tu caso (' + (sub.ahorro_texto || 'revisa su ficha') + '): usamos el del proyecto.')
     r.faltaUF = a === null || r.requeridoUF === null ? null : Math.max(0, r.requeridoUF - a)
     base = r.faltaUF
-    const tipo = sub ? sub.tipo_proyecto || null : null
-    const acepta = !tipo || !!pro[_ACEPTA[tipo]]
     if (sub && !acepta) r.avisos.push('Este proyecto no indica aceptar el ' + (sub.nombre || 'subsidio') + ': no sumamos el subsidio.')
-    const info = tip && tip.subsidio ? tip.subsidio : null
     if (sub && tip && acepta) {
       if (!info) {
         r.avisos.push(tipo ? 'La inmobiliaria no informa el monto del subsidio para esta tipología, así que no lo sumamos.' : 'La inmobiliaria no informa un monto para este subsidio, así que no lo sumamos al pie.')
@@ -244,7 +259,7 @@ function dibujar(r, uf) {
     filas.push(_fila(`Ahorro o pie que pide el proyecto`, p.pieUF !== null ? esc(fmtUF(p.pieUF)) + esc(pesos(p.pieUF)) : 'No informado', esc(p.nombre) + (p.tipologia ? ' · ' + esc(p.tipologia) : '')))
     if (p.precioUF) filas.push(_fila('Precio de la vivienda', esc(fmtUF(p.precioUF)) + esc(pesos(p.precioUF))))
   }
-  if (r.requeridoUF !== null) filas.push(_fila('Ahorro que tendrías que reunir', esc(fmtUF(r.requeridoUF)) + esc(pesos(r.requeridoUF)), r.quien === 'proyecto' ? (s && s.ahorroUF !== null ? 'El del proyecto es mayor y ya incluye el del subsidio' : 'El del proyecto') : 'El del subsidio es el mayor'))
+  if (r.requeridoUF !== null) filas.push(_fila('Ahorro que tendrías que reunir', esc(fmtUF(r.requeridoUF)) + esc(pesos(r.requeridoUF)), r.quien === 'pie_menos_subsidio' ? 'El pie del proyecto menos el subsidio' : (r.quien === 'subsidio_cubre_pie' ? 'El mínimo del subsidio: el subsidio ya cubre el pie del proyecto' : (r.quien === 'proyecto' ? (s && s.ahorroUF !== null ? 'El del proyecto es mayor y ya incluye el del subsidio' : 'El del proyecto') : 'El del subsidio es el mayor'))))
   if (filas.length) out.push(`<ul class="cal-lista">${filas.join('')}</ul>`)
 
   if (r.precioMaximo && r.precioMaximo.supera) out.push(`<p class="cal-alerta">Esta vivienda cuesta más que el precio máximo del subsidio (${esc(fmtUF(r.precioMaximo.uf))}). Con este subsidio no podrías comprarla.</p>`)

@@ -61,12 +61,12 @@ async def _desde_mindicador(c) -> Tuple[float, date]:
     valor = float(punto["valor"])
     if not _UF_MIN <= valor <= _UF_MAX:
         raise ValueError("valor fuera de rango")
-    return valor, (date.fromisoformat(str(punto["fecha"])[:10]) if punto.get("fecha") else date.today())
+    return valor, (date.fromisoformat(str(punto["fecha"])[:10]) if punto.get("fecha") else _hoy_chile())
 
 
 def _vigente() -> Optional[Tuple[float, date]]:
     """El valor guardado, solo si su fecha tiene como mucho DIAS_MAXIMOS días: un valor viejo no se presenta como «aproximado de hoy»."""
-    if not _cache["valor"] or (date.today() - _cache["fecha"]).days > DIAS_MAXIMOS:
+    if not _cache["valor"] or (_hoy_chile() - _cache["fecha"]).days > DIAS_MAXIMOS:
         return None
     return _cache["valor"], _cache["fecha"]
 

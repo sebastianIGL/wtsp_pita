@@ -6,8 +6,10 @@ persona: lo que ella escribe (su ahorro) no viaja al servidor.
 * **Proyecto:** los datos de un proyecto público que la inmobiliaria carga en el CRM: ahorro/pie que pide, reserva, estacionamiento y, por cada tipología con stock, su
   precio, el subsidio que la inmobiliaria informa y su plan de pago del ahorro (de una vez o en cuotas, con la fecha de entrega). Del stock nunca el número.
 
-Regla del dueño (2026-11-05, confirmada): con CUALQUIER subsidio, el ahorro mínimo del subsidio cuenta como parte del pie del proyecto (se necesita el mayor de los dos) y el pie es
-ese ahorro MÁS el subsidio. El monto del subsidio solo se suma si la inmobiliaria lo informa para ESE subsidio (``TIPO_PROYECTO``: qué «tipo de subsidio» de la tipología corresponde a cada ficha).
+Regla del dueño (2026-11-16, opción A): el pie del proyecto se paga SIEMPRE con ahorro + subsidio. Si el subsidio se suma, el ahorro que debe reunir la familia es el pie del proyecto MENOS el
+subsidio, pero nunca menos que el ahorro mínimo del subsidio (en ese caso el pie queda sobre el que pide el proyecto). Sin subsidio que sumar (p. ej. una vivienda seminueva) el pie es solo el ahorro.
+Si el ahorro mínimo del subsidio depende del caso (DS19) y el subsidio cubre todo el pie, la página no inventa una cifra: dice que depende. El monto del subsidio solo se suma si la inmobiliaria lo
+informa para ESE subsidio (``TIPO_PROYECTO``: qué «tipo de subsidio» de la tipología corresponde a cada ficha). El cálculo está en la página (frontend/calculadora.html), no en el servidor.
 """
 import logging
 from typing import Any, Dict, List, Optional
