@@ -21,6 +21,7 @@ from app.services.webhook import DELAY_RESPUESTA_SEGUNDOS, _procesar_grupo, _pro
 from app.services.recovery import _recovery_loop
 from app.services.avisos_cola import bucle_avisos
 from app.services.temperatura import bucle_temperatura
+from app.services.seguimiento_auto import bucle_seguimiento
 from app.routers.paginas import router as paginas_router
 from app.routers.progreso import router as progreso_router
 from app.routers.publico import router as publico_router
@@ -63,12 +64,14 @@ async def _lifespan(app: FastAPI):
     asyncio.create_task(_recovery_loop())
     tarea_avisos = asyncio.create_task(bucle_avisos())   # cola persistente de avisos (inactiva con AVISOS_PERSISTENTES apagado)
     tarea_temperatura = asyncio.create_task(bucle_temperatura())   # temperatura de cada cliente: se recalcula cada 10 minutos
+    tarea_seguimiento = asyncio.create_task(bucle_seguimiento())   # sin atender 24 h / remarketing 7 días (apagado con SEGUIMIENTO_AUTOMATICO apagado)
     try:
         yield
     finally:
         tarea_avisos.cancel()
         tarea_temperatura.cancel()
-        await asyncio.gather(tarea_avisos, tarea_temperatura, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
+        tarea_seguimiento.cancel()
+        await asyncio.gather(tarea_avisos, tarea_temperatura, tarea_seguimiento, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
         await cerrar_http()
         await cerrar_anthropic()
         user_cache.vaciar()

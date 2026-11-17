@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     # Apagado (por defecto) = el comportamiento de siempre: el aviso espera dormido en memoria hasta que abre el horario.
     # Requiere haber ejecutado antes la migración (tabla AvisoEjecutivo y función reclamar_avisos).
     avisos_persistentes: bool = Field(False, validation_alias=_alias("AVISOS_PERSISTENTES"))
+    # Seguimiento automático (app/services/seguimiento_auto.py): APAGADO por defecto. Encendido, cada 10 minutos (de 9 a 19 h de Chile) avisa al ejecutivo y a administración de los clientes sin atender
+    # por más de 24 h y, si hay plantillas configuradas, les escribe: una plantilla «por defecto» a quien sigue sin atender y una de «remarketing» a quien lleva más de 7 días sin responder.
+    # Requiere haber ejecutado supabase/migraciones/2026-11-17_seguimiento_y_recotizacion.sql. Plantillas de Meta de solo texto; vacías = no se escribe a los clientes (solo se avisa al equipo).
+    seguimiento_automatico: bool = Field(False, validation_alias=_alias("SEGUIMIENTO_AUTOMATICO"))
+    template_sin_atender_wa: str = Field("", validation_alias=_alias("TEMPLATE_SIN_ATENDER_WA"))
+    template_remarketing_wa: str = Field("", validation_alias=_alias("TEMPLATE_REMARKETING_WA"))
     # ID del contenedor de Google Tag Manager (GTM-XXXXXXX) para la medición del sitio PÚBLICO. Sin él (o con un valor que no tenga ese
     # formato) no se carga nada de Google ni se muestra el aviso de cookies. Con él, Tag Manager solo se carga si la persona lo acepta.
     gtm_id: Optional[str] = Field(None, validation_alias=_alias("GTM_ID"))
@@ -119,7 +125,7 @@ class Settings(BaseSettings):
     host: str = Field("0.0.0.0", validation_alias=_alias("HOST"))
     port: int = Field(8000, validation_alias=_alias("PORT"))
 
-    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", "avisos_persistentes", mode="before")
+    @field_validator("enable_docs", "expose_error_detail", "wa_signature_enforce", "avisos_persistentes", "seguimiento_automatico", mode="before")
     @classmethod
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)

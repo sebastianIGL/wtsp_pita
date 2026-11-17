@@ -9,6 +9,7 @@ Reglas (acordadas con la persona dueña):
     pasó el filtro del bot (le llegó la propuesta) +10 · llamada contestada en la última semana +10.  Así un «60» es un cliente que respondió hace poco y aún no avanzó.
   · Hitos (pisos): interactúa después de recibir la propuesta → desde 70 · envía documentos → desde 85 · pide un ejecutivo → 99 (hasta que alguien le contesta una llamada).
     Sobre el piso suman la frescura (+14 si respondió en 48 h, +6 si en la semana) y una llamada contestada (+5), sin pasar de 84 (o 98 desde el piso de 85).
+  · Volvió a cotizar (el cliente ya existía y vino de nuevo en una carga de Excel: ``Cliente.recotizo_en``): cuenta como interacción renovada durante 7 días (+15 de señales, o +6 sobre un piso) y reinicia el enfriamiento.
   · Enfriamiento: sin ninguna interacción por más de 7 días resta 15; por más de 14 días, 30 (nunca baja un piso de 70 de los 40). Tres llamadas sin respuesta restan 10.
   · Sin temperatura (None): estados «Enviar a evaluar» en adelante, cerrados, archivados. Quien pidió la baja de WhatsApp queda en 0.
 """
@@ -17,6 +18,8 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Optional
+
+import httpx
 
 from app.clients.supabase import _supabase_request
 
@@ -62,12 +65,15 @@ def calcular(cliente: Dict[str, Any], prospecto: Optional[Dict[str, Any]], llama
     contestadas = sorted((t for t in (_fecha(l.get("creado_en")) for l in llamadas if l.get("resultado") == "contesto") if t), reverse=True)
     sin_respuesta = [t for t in (_fecha(l.get("creado_en")) for l in llamadas if l.get("resultado") in ("no_contesto", "buzon")) if t]
     ult_llamada_ok = contestadas[0] if contestadas else None
-    interacciones = [t for t in (ultimo_msg, ult_llamada_ok) if t]
+    recotizo = _fecha(cliente.get("recotizo_en"))
+    h_recotizo = _horas(recotizo, ahora)
+    recotizo_reciente = h_recotizo is not None and h_recotizo <= 24 * 7
+    interacciones = [t for t in (ultimo_msg, ult_llamada_ok, recotizo) if t]
     ult_interaccion = max(interacciones) if interacciones else None
     h_msg, h_int = _horas(ultimo_msg, ahora), _horas(ult_interaccion, ahora)
     h_llamada = _horas(ult_llamada_ok, ahora)
 
-    contactado = bool(cliente.get("primer_wtsp_en") or llamadas or ultimo_msg or estado in ("primer_wtsp", "primer_llamado"))
+    contactado = bool(cliente.get("primer_wtsp_en") or llamadas or ultimo_msg or recotizo or estado in ("primer_wtsp", "primer_llamado"))
     respondio = ultimo_msg is not None
     con_propuesta = estado in ESTADOS_CON_PROPUESTA or (p.get("paso") in PASOS_CON_PROPUESTA)
     llamada_reciente = h_llamada is not None and h_llamada <= 24 * 7
@@ -86,6 +92,7 @@ def calcular(cliente: Dict[str, Any], prospecto: Optional[Dict[str, Any]], llama
         return {"base": 99, "temperatura": 99, "motivo": "Pidió hablar con un ejecutivo"}
 
     extra = (14 if h_msg is not None and h_msg <= VENTANA_HORAS else 6 if h_msg is not None and h_msg <= 24 * 7 else 0) + (5 if llamada_reciente else 0)
+    extra = max(extra, 6 + (5 if llamada_reciente else 0)) if recotizo_reciente else extra
     if estado == "enviando_docs" or p.get("paso") == "ESPERA_DOCS" or atendido and p.get("quiere_contacto_ejecutivo"):
         base, tope = 85, 98
     elif con_propuesta and respondio:
@@ -97,19 +104,21 @@ def calcular(cliente: Dict[str, Any], prospecto: Optional[Dict[str, Any]], llama
         temp = max(40, temp - enfria) if base == 70 else max(55, temp - enfria)
     else:
         puntos = (10 if contactado else 0) + (15 if respondio else 0) + (20 if h_msg is not None and h_msg <= VENTANA_HORAS else 8 if h_msg is not None and h_msg <= 24 * 7 else 0) \
-            + (10 if con_propuesta else 0) + (10 if llamada_reciente else 0)
+            + (10 if con_propuesta else 0) + (10 if llamada_reciente else 0) + (15 if recotizo_reciente else 0)
         temp = max(0, min(tope, puntos) - enfria) if puntos else 0
 
-    return {"base": base, "temperatura": int(max(0, min(99, temp))), "motivo": _motivo(estado, p, base, atendido, contactado, respondio, h_msg, h_int, enfria, sin_respuesta, ult_interaccion)}
+    return {"base": base, "temperatura": int(max(0, min(99, temp))), "motivo": _motivo(estado, p, base, atendido, contactado, respondio, h_msg, h_int, enfria, sin_respuesta, ult_interaccion, recotizo_reciente)}
 
 
-def _motivo(estado, p, base, atendido, contactado, respondio, h_msg, h_int, enfria, sin_respuesta, ult_interaccion) -> str:
+def _motivo(estado, p, base, atendido, contactado, respondio, h_msg, h_int, enfria, sin_respuesta, ult_interaccion, recotizo_reciente=False) -> str:
     if atendido and p.get("quiere_contacto_ejecutivo"):
         return "Ya hablaron: dar seguimiento"
     if estado == "enviando_docs" or p.get("paso") == "ESPERA_DOCS":
         return "Está enviando documentos: ayudarlo a completarlos"
     if estado in ("sin_rsh", "creando_rsh"):
         return "Se trabó en el RSH"
+    if recotizo_reciente:
+        return "Volvió a cotizar: retomar contacto"
     if enfria >= 15 and respondio:
         return "Se está enfriando: retomar contacto"
     if len(sin_respuesta) >= 3 and (ult_interaccion is None or max(sin_respuesta) > ult_interaccion):
@@ -121,7 +130,19 @@ def _motivo(estado, p, base, atendido, contactado, respondio, h_msg, h_int, enfr
     return "Contactado, aún sin respuesta" if contactado else "Aún sin contactar"
 
 
-_COLUMNAS_CLIENTE = "id,estado_gestion,primer_wtsp_en,creado_en,asignado_en,archivado,temperatura,temperatura_base,temperatura_motivo"
+_COLUMNAS_BASE = "id,estado_gestion,primer_wtsp_en,creado_en,asignado_en,archivado,temperatura,temperatura_base,temperatura_motivo"
+_COLUMNAS_CLIENTE = _COLUMNAS_BASE + ",recotizo_en"          # recotizo_en llega con supabase/migraciones/2026-11-17_seguimiento_y_recotizacion.sql: sin ella se lee sin esa columna
+
+
+async def _leer_clientes(pedir):
+    """``pedir(select)`` con todas las columnas y, si la base responde que alguna no existe (aún no se corrió el SQL), de nuevo sin ``recotizo_en``."""
+    try:
+        return await pedir(_COLUMNAS_CLIENTE)
+    except httpx.HTTPStatusError as e:
+        if e.response is None or e.response.status_code not in (400, 404):
+            raise
+        logger.warning("Temperatura: la base no tiene aún la columna recotizo_en; se calcula sin ella")
+        return await pedir(_COLUMNAS_BASE)
 _COLUMNAS_PROSPECTO = "cliente_id,ultimo_entrante_en,paso,quiere_contacto_ejecutivo,opt_out"
 
 
@@ -139,7 +160,7 @@ def _cambio(nuevo: Optional[Dict[str, Any]], ahora: datetime) -> Dict[str, Any]:
 async def recalcular_cliente(cliente_id: Any) -> Optional[Dict[str, Any]]:
     """Recalcula y guarda la temperatura de UN cliente (se llama al pasar algo importante con él). Nunca lanza: si algo falla, lo registra y la conversación sigue."""
     try:
-        filas = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": _COLUMNAS_CLIENTE, "limit": "1"}) or []
+        filas = await _leer_clientes(lambda sel: _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": sel, "limit": "1"})) or []
         if not filas:
             return None
         pros = await _supabase_request("GET", "/Prospecto", params={"cliente_id": f"eq.{cliente_id}", "select": _COLUMNAS_PROSPECTO, "order": "ultimo_entrante_en.desc.nullslast", "limit": "1"}) or []
@@ -158,7 +179,7 @@ async def recalcular_todos() -> Dict[str, int]:
     """Recalcula la temperatura de todos los clientes y escribe SOLO los que cambiaron (agrupados por valor: pocas escrituras). Devuelve un conteo."""
     from app.services.clientes_vistas import leer_en_paginas
     ahora = datetime.now(timezone.utc)
-    clientes = await leer_en_paginas("/Cliente", {"select": _COLUMNAS_CLIENTE, "order": "id.asc"}, maximo=100_000)
+    clientes = await _leer_clientes(lambda sel: leer_en_paginas("/Cliente", {"select": sel, "order": "id.asc"}, maximo=100_000))
     prospectos = await leer_en_paginas("/Prospecto", {"select": "id," + _COLUMNAS_PROSPECTO, "cliente_id": "not.is.null", "order": "id.asc"}, maximo=100_000)
     desde = (ahora - timedelta(days=30)).isoformat()
     llamadas = await leer_en_paginas("/LlamadaCliente", {"select": "id,cliente_id,resultado,creado_en", "creado_en": f"gte.{desde}", "order": "id.asc"}, maximo=200_000)

@@ -9,6 +9,7 @@ import io
 import json
 import logging
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from typing import Any, Dict, List, Optional
 
 from app.clients.supabase import _supabase_request
@@ -18,6 +19,7 @@ from app.services.carga_clientes import asignador
 from app.services.proyectos import _buscar_id_proyecto
 
 logger = logging.getLogger("wtsp_pita")
+_TZ_CHILE = ZoneInfo("America/Santiago")
 
 TAMANO_PAQUETE = 50      # clientes que se crean de una vez (una sola consulta a la base); si un paquete falla se reintenta fila por fila
 _PREFER = {"Prefer": "return=representation"}
@@ -36,6 +38,30 @@ def acceso_de(perfil):
     if _solo_admin(perfil):
         return None
     return {"proyectos": {str(p) for p in (perfil.get("proyecto_ids") or []) if p is not None}, "inmobiliarias": {str(i) for i in (perfil.get("inmobiliaria_ids") or []) if i is not None}}
+
+
+LOTE_RECOTIZADOS = 150
+
+
+async def marcar_recotizados(ids: List[Any], lote_carga: str = "") -> None:
+    """Los clientes que YA existían y vuelven a venir en una carga volvieron a cotizar: es interés renovado. Se les anota ``recotizo_en`` (la temperatura lo usa) y una nota del sistema.
+    Es de «mejor esfuerzo»: si falla (por ejemplo, la columna aún no existe) se registra y la carga sigue igual."""
+    ids = sorted({int(i) for i in ids if str(i).lstrip("-").isdigit()})
+    if not ids:
+        return
+    ahora = datetime.now(timezone.utc)
+    texto = f"Volvió a cotizar: apareció de nuevo en una carga de Excel el {ahora.astimezone(_TZ_CHILE).strftime('%d-%m-%Y')}."
+    for i in range(0, len(ids), LOTE_RECOTIZADOS):
+        lote = ids[i:i + LOTE_RECOTIZADOS]
+        try:
+            await _supabase_request("PATCH", "/Cliente", params={"id": f"in.({','.join(str(x) for x in lote)})"}, json={"recotizo_en": ahora.isoformat()}, extra_headers={"Prefer": "return=minimal"})
+        except Exception as e:
+            logger.warning("Carga | no se pudo marcar a %d clientes como «volvió a cotizar» (%s)", len(lote), type(e).__name__)
+            continue
+        try:
+            await _supabase_request("POST", "/NotaCliente", json=[{"cliente_id": c, "autor_nombre": "Sistema", "texto": texto} for c in lote], extra_headers={"Prefer": "return=minimal"})
+        except Exception as e:
+            logger.warning("Carga | no se pudieron dejar las notas de «volvió a cotizar» de %d clientes (%s)", len(lote), type(e).__name__)
 
 
 async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False, acceso=None):
@@ -73,6 +99,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
         # Solo los teléfonos que vienen en el archivo, en lotes para no exceder
         # el largo máximo de URL que acepta el gateway de Supabase
         phones_existentes: set = set()
+        ids_existentes: Dict[str, List[Any]] = {}               # teléfono → ids de los clientes que ya existían (para marcar a los que volvieron a cotizar)
+        recotizaron: set = set()                                # teléfonos de clientes que ya existían y vienen de nuevo en el archivo
         if phones_csv:
             phones_list = list(phones_csv)
             LOTE_TELEFONOS = 250
@@ -80,9 +108,12 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                 lote = phones_list[i:i + LOTE_TELEFONOS]
                 phones_in = ",".join(lote)
                 batch = await _supabase_request("GET", "/Cliente",
-                    params={"Telefono": f"in.({phones_in})", "select": "Telefono"},
+                    params={"Telefono": f"in.({phones_in})", "select": "id,Telefono"},
                 ) or []
                 phones_existentes.update(r["Telefono"] for r in batch if r.get("Telefono"))
+                for r in batch:
+                    if r.get("Telefono") and r.get("id") is not None:
+                        ids_existentes.setdefault(r["Telefono"], []).append(r["id"])
 
         # Resolver proyecto fijo (para SERVIU y para CSVs sin columna Proyecto)
         proyecto_fijo = None
@@ -196,6 +227,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                         errores.append({"fila": fila, "nombre": nombre,
                                         "motivo": "Proyecto no encontrado", "datos": datos_raw})
                     elif telefono in phones_existentes:
+                        recotizaron.add(telefono)
                         duplicados.append({"fila": fila, "nombre": nombre,
                                            "telefono": telefono, "datos": datos_raw})
                     else:
@@ -249,6 +281,7 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
                     elif not nombre_proyecto and not proyecto_fijo:
                         errores.append({"fila": fila, "nombre": nombre, "motivo": "Proyecto vacío (agrega columna Proyecto o importa desde dentro de un proyecto)", "datos": datos_raw})
                     elif telefono in phones_existentes:
+                        recotizaron.add(telefono)
                         duplicados.append({"fila": fila, "nombre": nombre,
                                            "telefono": telefono, "datos": datos_raw})
                     else:
@@ -289,6 +322,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
             await vaciar()                               # el último paquete, aunque no esté completo
             yield f"data: {json.dumps({'t':'prog','n':n_filas,'total':total,'creados':creados,'dups':len(duplicados),'errs':len(errores)})}\n\n"
         errores.sort(key=lambda e: e["fila"])            # los de un paquete se anotan al cerrarlo: se dejan en el orden del archivo
+        if recotizaron and not simular:
+            await marcar_recotizados([i for t in recotizaron for i in ids_existentes.get(t, [])], lote_carga)
         final = {'t': 'done', 'ok': True, 'creados': creados, 'duplicados': len(duplicados), 'errores': len(errores), 'detalle_errores': errores, 'detalle_duplicados': duplicados, 'ids_creados': ids_creados}
         if reparto:
             final['asignados'] = asignados                       # cuántos le tocaron a cada persona (clave vacía = sin asignar)
