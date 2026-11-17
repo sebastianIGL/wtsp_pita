@@ -4,6 +4,7 @@
 Las listas de fuente, medio y estado de gestión son cerradas (las mismas que muestra la pantalla: ``FUENTES`` y ``MEDIOS`` de ``frontend/index.html``; una prueba las compara). Lo demás que llegue se rechaza
 con un mensaje claro en vez de guardarse.
 """
+import asyncio
 import logging
 from typing import Any, Optional
 
@@ -34,6 +35,11 @@ _PUEDE_PASAR_A = {
     "enviando_docs": _BAJOS + ("interesado", "sin_rsh", "creando_rsh"),
     "por_evaluar": _BAJOS + ("interesado", "sin_rsh", "creando_rsh", "enviando_docs"),
 }
+_ABIERTOS = _BAJOS + ("interesado", "sin_rsh", "creando_rsh", "enviando_docs", "por_evaluar")
+# Cuando el bot detecta que el cliente no califica o no está interesado, lo pasa a ese estado (si sigue «abierto») y deja una nota con el motivo y un aviso al ejecutivo. Lo ya evaluado, aprobado, cotizado o cerrado no se toca.
+CIERRE_POR_PASO = {"NO_CALIFICA": "no_califica", "NO_INTERESADO": "no_interesado"}
+_ETIQUETA_CIERRE = {"no_califica": "No califica", "no_interesado": "No interesado"}
+_PUEDE_PASAR_A.update({"no_califica": _ABIERTOS, "no_interesado": _ABIERTOS})
 ESTADO_POR_PASO = {"INICIO": "interesado", "ENTREGA": "interesado", "DOCUMENTACION": "interesado", "ESPERA_DOCS": "enviando_docs", "DOCS_RECIBIDOS": "por_evaluar"}
 
 
@@ -150,4 +156,39 @@ async def avanzar_estado_automatico(cliente_id: Optional[int], nuevo: str) -> Op
         return nuevo
     except Exception as e:
         logger.warning("Estado automático | no se pudo pasar al cliente %s a %s (%s)", cliente_id, nuevo, type(e).__name__)
+        return None
+
+
+async def nota_del_sistema(cliente_id: Optional[int], texto: str, autor: str = "Bot") -> None:
+    """Deja una nota interna en el cliente (la ve el equipo). Nunca lanza."""
+    if cliente_id is None:
+        return
+    try:
+        await _supabase_request("POST", "/NotaCliente", json={"cliente_id": cliente_id, "autor_nombre": autor, "texto": texto[:1900]}, extra_headers={"Prefer": "return=minimal"})
+    except Exception as e:
+        logger.warning("Nota del sistema | no se pudo dejar la nota en el cliente %s (%s)", cliente_id, type(e).__name__)
+
+
+async def cerrar_por_conversacion(cliente_id: Optional[int], paso: str, motivo: Optional[str]) -> Optional[str]:
+    """El bot detectó «No califica» o «No interesado»: pasa al cliente a ese estado si sigue abierto, deja una nota con el motivo y avisa al ejecutivo. Devuelve el estado nuevo si cambió. Nunca lanza."""
+    nuevo = CIERRE_POR_PASO.get(paso)
+    if cliente_id is None or nuevo is None:
+        return None
+    etiqueta = _ETIQUETA_CIERRE[nuevo]
+    motivo = " ".join(str(motivo or "").split())[:300] or "sin motivo registrado"
+    try:
+        filas = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "estado_gestion,Contacto", "limit": "1"}) or []
+        if not filas:
+            return None
+        actual, nombre = (filas[0].get("estado_gestion") or None), (filas[0].get("Contacto") or "Cliente")
+        cambia = actual in _PUEDE_PASAR_A[nuevo]
+        if cambia:
+            await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json={"estado_gestion": nuevo}, extra_headers={"Prefer": "return=minimal"})
+        await nota_del_sistema(cliente_id, f"El bot lo clasificó como «{etiqueta}». Motivo: {motivo}." + ("" if cambia else f" (No se cambió su estado porque ya está en «{actual}»: revísalo.)"))
+        if cambia:
+            from app.services.avisos import _notificar_ejecutivo_wa           # import local: evita un ciclo de módulos
+            asyncio.create_task(_notificar_ejecutivo_wa(cliente_id, nombre, f"Quedó como {etiqueta}: {motivo}"[:150]))
+        return nuevo if cambia else None
+    except Exception as e:
+        logger.warning("Estado automático | no se pudo cerrar al cliente %s como %s (%s)", cliente_id, nuevo, type(e).__name__)
         return None

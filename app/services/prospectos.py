@@ -85,7 +85,7 @@ async def actualizar_datos_prospecto(
     rows = await _supabase_request(
         "GET",
         "/Prospecto",
-        params={"id": f"eq.{prospecto_id}", "select": "datos,paso,opt_out,cliente_id"},
+        params={"id": f"eq.{prospecto_id}", "select": "datos,paso,opt_out,cliente_id,motivo_no_interesado,motivo_no_califica"},
     )
     if not rows:
         return
@@ -124,6 +124,11 @@ async def actualizar_datos_prospecto(
         json=update,
     )
 
+    if siguiente_paso in cd.CIERRE_POR_PASO:                  # el bot detectó que no califica / no está interesado: estado + nota con el motivo + aviso al ejecutivo
+        clave = "motivo_no_califica" if siguiente_paso == "NO_CALIFICA" else "motivo_no_interesado"
+        await cd.cerrar_por_conversacion(rows[0].get("cliente_id"), siguiente_paso, campos_columna.get(clave) or rows[0].get(clave))
+    if rows[0].get("paso") == "NO_INTERESADO" and siguiente_paso in ("BIENVENIDA", "SUBSIDIO"):
+        await cd.nota_del_sistema(rows[0].get("cliente_id"), "Volvió a escribir y el bot retomó la conversación (estaba como «No interesado»). Revisa su estado.")
     if siguiente_paso in cd.ESTADO_POR_PASO:                  # la conversación avanzó: el estado de gestión del cliente avanza con ella (solo hacia adelante)
         await cd.avanzar_estado_automatico(rows[0].get("cliente_id"), cd.ESTADO_POR_PASO[siguiente_paso])
 
