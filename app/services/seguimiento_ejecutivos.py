@@ -17,7 +17,7 @@ logger = logging.getLogger("wtsp_pita")
 TTL_SEGUNDOS = 60
 MAX_FILAS = 50_000
 _AVANZADOS = {"cotizacion_enviada", "aprobado", "en_evaluacion", "no_interesado", "no_califica", "cierre_perdido", "descartado"}
-_CONTACTADOS = {"primer_wtsp", "primer_llamado", "interesado", "sin_rsh", "creando_rsh", "enviando_docs"}
+_CONTACTADOS = {"primer_wtsp", "primer_llamado", "interesado", "sin_rsh", "creando_rsh", "enviando_docs", "por_evaluar"}
 _CERRADOS = {"no_interesado", "no_califica", "cierre_perdido", "descartado"}
 _cache: Dict[str, Any] = {"ts": 0.0, "datos": None}
 

@@ -57,6 +57,11 @@
     .us-card.us-baja { opacity: 0.72; }
     .us-avatar { width: 2.5rem; height: 2.5rem; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; background: #6d28d9; color: #fff; flex-shrink: 0; }
     .us-chip { display: inline-block; padding: 0.1rem 0.55rem; border-radius: 9999px; font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
+    .us-edad { display: inline-flex; align-items: center; justify-content: center; min-width: 1.45rem; height: 1.45rem; padding: 0 0.3rem; border-radius: 9999px; font-size: 0.68rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; cursor: help; border: 1.5px solid #64748b; color: #cbd5e1; background: rgba(100,116,139,.18); }
+    html:not(.dark) .us-edad { color: #475569; background: #f1f5f9; border-color: #94a3b8; }
+    .us-edad-nueva { border-color: #8b5cf6; color: #ddd6fe; background: rgba(139,92,246,.22); }
+    html:not(.dark) .us-edad-nueva { color: #5b21b6; background: #ede9fe; border-color: #8b5cf6; }
+    .us-edad-nada { opacity: .6; }
     .us-chip-ok { background: #14532d; color: #86efac; } .us-chip-aviso { background: #78350f; color: #fcd34d; } .us-chip-alerta { background: #7f1d1d; color: #fecaca; } .us-chip-neutro { background: #334155; color: #cbd5e1; }
     html:not(.dark) .us-chip-ok { background: #dcfce7; color: #166534; } html:not(.dark) .us-chip-aviso { background: #fef3c7; color: #92400e; }
     html:not(.dark) .us-chip-alerta { background: #fee2e2; color: #991b1b; } html:not(.dark) .us-chip-neutro { background: #e2e8f0; color: #475569; }
@@ -1528,11 +1533,19 @@
   const _US_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   function usAlta(iso, ahora = Date.now()) {
     const t = iso ? Date.parse(iso) : NaN;
-    if (!isFinite(t)) return { texto: 'Sin fecha', ms: null };
+    if (!isFinite(t)) return { texto: 'Sin fecha', ms: null, dias: null };
     const f = new Date(t), dias = Math.max(0, Math.floor((ahora - t) / 86400000));
     const fecha = `${f.getUTCDate()} ${_US_MESES[f.getUTCMonth()]} ${f.getUTCFullYear()}`;
     const hace = dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : dias < 30 ? `hace ${dias} días` : dias < 365 ? `hace ${Math.floor(dias / 30)} ${Math.floor(dias / 30) === 1 ? 'mes' : 'meses'}` : `hace ${Math.floor(dias / 365)} ${Math.floor(dias / 365) === 1 ? 'año' : 'años'}`;
-    return { texto: `${fecha} · ${hace}`, ms: t };
+    return { texto: `${fecha} · ${hace}`, ms: t, dias };
+  }
+
+  // Los días que lleva la cuenta, en un círculo con el número (al pasar el mouse dice la fecha). Menos de una semana: resaltado.
+  function usEdad(iso, ahora = Date.now()) {
+    const a = usAlta(iso, ahora);
+    if (a.dias == null) return '<span class="us-edad us-edad-nada" data-alta title="Sin fecha de creación" aria-label="Sin fecha de creación">?</span>';
+    const num = a.dias > 999 ? '999+' : String(a.dias), frase = a.dias === 0 ? 'hoy' : `hace ${a.dias} ${a.dias === 1 ? 'día' : 'días'}`;
+    return `<span class="us-edad ${a.dias < 7 ? 'us-edad-nueva' : ''}" data-alta title="Cuenta creada el ${esc(a.texto.split(' · ')[0])} (${frase})" aria-label="Cuenta creada ${frase}">${num}</span>`;
   }
 
   // Lo que conviene mirar de esa persona, en palabras (máximo 3), de lo más urgente a lo menos
@@ -1576,12 +1589,11 @@
         <div class="min-w-0 flex-1">
           <h3 class="font-semibold val-text truncate">${esc(u.nombre)}</h3>
           <p class="text-xs sidebar-text truncate">${esc(u.correo)}</p>
-          <div class="flex gap-1.5 mt-1.5 flex-wrap"><span class="us-chip us-chip-${rol[1]}">${rol[0]}</span>${estado}</div>
+          <div class="flex gap-1.5 mt-1.5 flex-wrap items-center"><span class="us-chip us-chip-${rol[1]}">${rol[0]}</span>${estado}${usEdad(u.created_at, ahora)}</div>
         </div>
         <button type="button" data-id="${esc(u.id)}" onclick="editarUsuarioDesdeTarjeta(this.dataset.id)" class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">Editar</button>
       </header>
       <p class="text-xs sidebar-text"><span class="us-punto ${act.nivel === 'none' ? '' : 'us-' + act.nivel}"></span>Última vez en el sistema: <b class="val-text">${esc(act.texto)}</b></p>
-      <p class="text-xs sidebar-text" data-alta>Cuenta creada: <b class="val-text">${esc(usAlta(u.created_at, ahora).texto)}</b></p>
       ${cifras ? `      <div class="us-metricas">
         ${usTile(m.leads, 'Leads activos')}${usTile(m.sin_contactar, 'Sin contactar', m.sin_contactar > 0 ? 'aviso' : '')}
         ${usTile(m.pendientes_respuesta, 'Esperan respuesta', m.pendientes_respuesta > 0 ? 'aviso' : '')}${usTile(m.seguimiento_vencido, 'Seguim. vencidos', m.seguimiento_vencido > 0 ? 'alerta' : '')}

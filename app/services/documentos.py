@@ -22,13 +22,13 @@ _DOCS_BASE: Dict[str, Dict] = {
     "carnet_identidad": {"label": "Cédula de identidad",     "cantidad": 2},
     "certificado_afp":  {"label": "Certificado de AFP",      "cantidad": 1},
     "informe_deudas":   {"label": "Informe de deudas CMF",   "cantidad": 1},
+    "liquidacion_sueldo": {"label": "Liquidaciones de sueldo", "cantidad": 6},     # las últimas 6, siempre (también para quien trabaja de forma independiente)
 }
 
 
 # Documentos condicionales: (tipo, config, función_condición)
 _DOCS_CONDICIONALES: List[tuple] = [
     ("certificado_rsh",              {"label": "Certificado RSH",                  "cantidad": 1}, lambda d: d.get("tiene_rsh") is True),
-    ("liquidacion_sueldo",           {"label": "Liquidaciones de sueldo",          "cantidad": 6}, lambda d: d.get("trabajo_indefinido") is True),
     ("antiguedad_laboral",           {"label": "Certificado de antigüedad",        "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is True),
     ("carpeta_tributaria_sii",       {"label": "Carpeta tributaria SII",           "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is False),
     ("declaracion_anual_impuestos",  {"label": "Declaración anual de impuestos",   "cantidad": 1}, lambda d: d.get("trabajo_indefinido") is False),

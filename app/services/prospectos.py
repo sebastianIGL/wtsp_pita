@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional
 
 from app.clients.supabase import _supabase_request
 from app.core.utilidades import _utc_now_iso
+from app.services import clientes_datos as cd
 from app.services.avisos import _notificar_interesado
 from app.services.documentos import _CAMPOS_CALIFICACION
 
@@ -84,7 +85,7 @@ async def actualizar_datos_prospecto(
     rows = await _supabase_request(
         "GET",
         "/Prospecto",
-        params={"id": f"eq.{prospecto_id}", "select": "datos,paso,opt_out"},
+        params={"id": f"eq.{prospecto_id}", "select": "datos,paso,opt_out,cliente_id"},
     )
     if not rows:
         return
@@ -122,6 +123,9 @@ async def actualizar_datos_prospecto(
         params={"id": f"eq.{prospecto_id}"},
         json=update,
     )
+
+    if siguiente_paso in cd.ESTADO_POR_PASO:                  # la conversación avanzó: el estado de gestión del cliente avanza con ella (solo hacia adelante)
+        await cd.avanzar_estado_automatico(rows[0].get("cliente_id"), cd.ESTADO_POR_PASO[siguiente_paso])
 
     if siguiente_paso == "DOCUMENTACION":
         asyncio.create_task(_notificar_interesado(prospecto_id))

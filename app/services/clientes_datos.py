@@ -19,9 +19,22 @@ ESTADOS_QUE_NO_RETROCEDEN = ("aprobado", "cotizacion_enviada")
 # «Estado de gestión» de quien aún no fue contactado: nada o «Sin contactar». Al enviarle el primer WhatsApp pasa solo a «Primer WA»; los demás estados los cambia la persona y no se tocan.
 ESTADOS_SIN_CONTACTO = (None, "", "sin_contactar")
 # Los únicos «Estado de gestión» que se aceptan al guardar (los mismos de ``_EG_MAP`` de ``frontend/index.html``; una prueba los compara). «Sin estado» se guarda como vacío (``None``).
-ESTADOS_GESTION = ("sin_contactar", "primer_llamado", "primer_wtsp", "interesado", "sin_rsh", "creando_rsh", "enviando_docs", "en_evaluacion", "aprobado",
+ESTADOS_GESTION = ("sin_contactar", "primer_llamado", "primer_wtsp", "interesado", "sin_rsh", "creando_rsh", "enviando_docs", "por_evaluar", "en_evaluacion", "aprobado",
                    "cotizacion_enviada", "no_interesado", "no_califica", "cierre_perdido", "descartado")
 ESTADOS_CERRADOS = ("no_interesado", "no_califica", "cierre_perdido", "descartado")        # los que salen de las listas normales
+
+
+# Estados que la CONVERSACIÓN de WhatsApp pone sola (solo avanzan, nunca retroceden ni pisan lo que ya decidió una persona o un paso posterior). «Cierre perdido» NUNCA se pone solo.
+#   Interesado     → pasó el filtro básico del bot (llegó a las preguntas de calificación)
+#   Enviando docs  → empezó a enviar documentos
+#   Enviar a evaluar → ya envió todos los documentos
+_BAJOS = (None, "", "sin_contactar", "primer_llamado", "primer_wtsp")
+_PUEDE_PASAR_A = {
+    "interesado": _BAJOS,
+    "enviando_docs": _BAJOS + ("interesado", "sin_rsh", "creando_rsh"),
+    "por_evaluar": _BAJOS + ("interesado", "sin_rsh", "creando_rsh", "enviando_docs"),
+}
+ESTADO_POR_PASO = {"INICIO": "interesado", "ENTREGA": "interesado", "DOCUMENTACION": "interesado", "ESPERA_DOCS": "enviando_docs", "DOCS_RECIBIDOS": "por_evaluar"}
 
 
 class DatoInvalido(ValueError):
@@ -122,4 +135,19 @@ async def marcar_cotizacion_enviada(cliente_id: int) -> Optional[str]:
         return "cotizacion_enviada"
     except Exception as e:
         logger.warning("Clientes | no se pudo pasar a «Cotización enviada» tras cotizar (%s)", type(e).__name__)
+        return None
+
+
+async def avanzar_estado_automatico(cliente_id: Optional[int], nuevo: str) -> Optional[str]:
+    """Pasa al cliente a ``nuevo`` solo si hoy está en un estado más atrás (ver ``_PUEDE_PASAR_A``). Devuelve el estado nuevo si cambió; ``None`` si no hizo nada. Nunca lanza: es un apoyo de la conversación."""
+    if cliente_id is None or nuevo not in _PUEDE_PASAR_A:
+        return None
+    try:
+        filas = await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "estado_gestion", "limit": "1"}) or []
+        if not filas or (filas[0].get("estado_gestion") or None) not in _PUEDE_PASAR_A[nuevo]:
+            return None
+        await _supabase_request("PATCH", "/Cliente", params={"id": f"eq.{cliente_id}"}, json={"estado_gestion": nuevo}, extra_headers={"Prefer": "return=minimal"})
+        return nuevo
+    except Exception as e:
+        logger.warning("Estado automático | no se pudo pasar al cliente %s a %s (%s)", cliente_id, nuevo, type(e).__name__)
         return None
