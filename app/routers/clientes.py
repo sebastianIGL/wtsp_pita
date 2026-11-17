@@ -154,6 +154,8 @@ async def api_crear_cliente(request: Request):
 
         from datetime import datetime, timezone
         fecha_hoy = datetime.now(timezone.utc).isoformat()
+        # Un ejecutivo siempre se queda con el cliente que crea. Administración y owner eligen: ``asignar_a_mi: false`` lo deja sin asignar (para repartirlo después); si no lo dicen, se lo quedan (como siempre).
+        usuario_dueno = perfil["id"] if (not _solo_admin(perfil) or body.get("asignar_a_mi", True) is not False) else None
 
         cliente = await _supabase_request(
             "POST", "/Cliente",
@@ -169,7 +171,7 @@ async def api_crear_cliente(request: Request):
                 "ahorro_uf":          float(body["ahorro_uf"]) if body.get("ahorro_uf") is not None else None,
                 "primer mensaje":     primer_msg,
                 "Fecha Ult. Gestión": body.get("Fecha Ult. Gestión") or fecha_hoy,
-                "usuario_id":         perfil["id"],
+                "usuario_id":         usuario_dueno,
                 "fuente":             fuente_cliente,
                 "estado_gestion":     "sin_contactar",
                 "medio":              medio_cliente,

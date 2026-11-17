@@ -249,7 +249,7 @@
       </select>
       <select id="ordenUsuarios" onchange="renderUsuarios()" aria-label="Ordenar" class="rounded-lg px-3 py-2 text-sm">
         <option value="nombre">Ordenar: nombre</option><option value="atencion">Ordenar: necesitan atención</option><option value="leads">Ordenar: más leads</option>
-        <option value="sin_contactar">Ordenar: más sin contactar</option><option value="vencidos">Ordenar: más seguimientos vencidos</option><option value="actividad">Ordenar: menos actividad reciente</option>
+        <option value="sin_contactar">Ordenar: más sin contactar</option><option value="vencidos">Ordenar: más seguimientos vencidos</option><option value="alta_nuevos">Ordenar: más nuevos primero</option><option value="alta_antiguos">Ordenar: más antiguos primero</option><option value="actividad">Ordenar: menos actividad reciente</option>
       </select>
       <button type="button" onclick="cargarUsuarios(true)" class="text-sm sidebar-text hover:text-violet-400 transition">Actualizar</button>
       <span id="usGenerado" class="text-xs sub-text"></span>
@@ -1524,6 +1524,17 @@
     return { texto, nivel: min < 1440 ? 'ok' : (min < 4320 ? 'aviso' : 'alerta'), ms: t };
   }
 
+  // Cuándo se creó la cuenta: «12 nov 2026 · hace 3 días» (sin dato = «Sin fecha»). ``ms`` sirve para ordenar.
+  const _US_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  function usAlta(iso, ahora = Date.now()) {
+    const t = iso ? Date.parse(iso) : NaN;
+    if (!isFinite(t)) return { texto: 'Sin fecha', ms: null };
+    const f = new Date(t), dias = Math.max(0, Math.floor((ahora - t) / 86400000));
+    const fecha = `${f.getUTCDate()} ${_US_MESES[f.getUTCMonth()]} ${f.getUTCFullYear()}`;
+    const hace = dias === 0 ? 'hoy' : dias === 1 ? 'ayer' : dias < 30 ? `hace ${dias} días` : dias < 365 ? `hace ${Math.floor(dias / 30)} ${Math.floor(dias / 30) === 1 ? 'mes' : 'meses'}` : `hace ${Math.floor(dias / 365)} ${Math.floor(dias / 365) === 1 ? 'año' : 'años'}`;
+    return { texto: `${fecha} · ${hace}`, ms: t };
+  }
+
   // Lo que conviene mirar de esa persona, en palabras (máximo 3), de lo más urgente a lo menos
   function usAtencion(u, m, ahora = Date.now()) {
     const av = [], plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
@@ -1542,6 +1553,8 @@
       leads: f => -f.m.leads, sin_contactar: f => -f.m.sin_contactar, vencidos: f => -f.m.seguimiento_vencido,
       atencion: f => -(f.m.seguimiento_vencido * 1000 + f.m.sin_contactar * 10 + f.m.pendientes_respuesta),
       actividad: f => { const a = usActividad(f.u.ultimo_acceso, ahora); return a.ms == null ? -Infinity : a.ms; },
+      alta_nuevos: f => { const a = usAlta(f.u.created_at, ahora); return a.ms == null ? Infinity : -a.ms; },
+      alta_antiguos: f => { const a = usAlta(f.u.created_at, ahora); return a.ms == null ? Infinity : a.ms; },
     }[criterio] || (f => 0);
     return filas.slice().sort((x, y) => { const a = llave(x), b = llave(y); return a < b ? -1 : a > b ? 1 : String(x.u.nombre || '').localeCompare(String(y.u.nombre || ''), 'es'); });
   }
@@ -1568,6 +1581,7 @@
         <button type="button" data-id="${esc(u.id)}" onclick="editarUsuarioDesdeTarjeta(this.dataset.id)" class="text-violet-400 hover:text-violet-300 text-xs font-medium transition">Editar</button>
       </header>
       <p class="text-xs sidebar-text"><span class="us-punto ${act.nivel === 'none' ? '' : 'us-' + act.nivel}"></span>Última vez en el sistema: <b class="val-text">${esc(act.texto)}</b></p>
+      <p class="text-xs sidebar-text" data-alta>Cuenta creada: <b class="val-text">${esc(usAlta(u.created_at, ahora).texto)}</b></p>
       ${cifras ? `      <div class="us-metricas">
         ${usTile(m.leads, 'Leads activos')}${usTile(m.sin_contactar, 'Sin contactar', m.sin_contactar > 0 ? 'aviso' : '')}
         ${usTile(m.pendientes_respuesta, 'Esperan respuesta', m.pendientes_respuesta > 0 ? 'aviso' : '')}${usTile(m.seguimiento_vencido, 'Seguim. vencidos', m.seguimiento_vencido > 0 ? 'alerta' : '')}

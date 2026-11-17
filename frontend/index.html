@@ -556,6 +556,12 @@
         </div>
       </div>
 
+      <fieldset id="wrap-f-asignacion" class="hidden rounded-xl px-4 py-3 mt-2" style="border:1px solid rgba(148,163,184,.3)">
+        <legend class="text-xs sidebar-text px-1">¿Quién gestiona este cliente?</legend>
+        <label class="flex items-start gap-2 text-sm val-text cursor-pointer py-1"><input type="radio" name="f-asignar" value="sin" checked class="mt-1" /><span>Dejarlo sin asignar<small class="block sidebar-text text-xs">Lo reparto después entre los ejecutivos.</small></span></label>
+        <label class="flex items-start gap-2 text-sm val-text cursor-pointer py-1"><input type="radio" name="f-asignar" value="mi" class="mt-1" /><span>Asignármelo a mí<small class="block sidebar-text text-xs">Queda en «Mis clientes» y empieza a contar desde hoy.</small></span></label>
+      </fieldset>
+
       <div class="toggle-row flex items-center justify-between rounded-xl px-4 py-3 mt-2">
         <div>
           <p class="text-sm font-medium val-text">Enviar primer mensaje</p>
@@ -2819,6 +2825,7 @@ function cambiarTabModalCliente(tab) {
 
 async function abrirModal() {
   document.getElementById('modal').classList.remove('hidden')
+  document.getElementById('wrap-f-asignacion').classList.toggle('hidden', !_esAdmin(_perfil?.rol))      // solo administración y owner eligen quién lo gestiona; un ejecutivo siempre se lo queda
   cambiarTabModalCliente('nuevo')
   document.getElementById('f-contacto').focus()
   const proyAct = JSON.parse(sessionStorage.getItem('crm_proyecto') || 'null')
@@ -2997,6 +3004,7 @@ async function crearCliente(e) {
     }
     const resp = await api('POST', '/api/clientes', {
       'proyecto_id':        _proyId,
+      ...(_esAdmin(_perfil?.rol) ? { 'asignar_a_mi': document.querySelector('input[name="f-asignar"]:checked')?.value === 'mi' } : {}),
       'Contacto':           document.getElementById('f-contacto').value.trim(),
       'Rut':                document.getElementById('f-rut').value.trim(),
       'Correo':             document.getElementById('f-correo').value.trim() || null,
