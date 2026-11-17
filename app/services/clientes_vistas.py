@@ -56,7 +56,7 @@ async def _tipologias(filas: List[Dict[str, Any]]) -> None:
     async def uno(lote: List[int]) -> List[Dict[str, Any]]:
         try:
             return await _supabase_request("GET", "/EtapaTipologia", params={
-                "id": f"in.({','.join(str(i) for i in lote)})", "select": "id,Tipologia(nombre),Etapa(nombre)"}) or []
+                "id": f"in.({','.join(str(i) for i in lote)})", "select": "id,Tipologia(nombre,valor_uf),Etapa(nombre)"}) or []
         except Exception as e:
             logger.warning("Clientes | no se pudieron leer las tipologías de un lote (%s)", type(e).__name__)
             return []
@@ -70,6 +70,8 @@ async def _tipologias(filas: List[Dict[str, Any]]) -> None:
         r = por_id.get(int(f["etapa_tipologia_id"])) if str(f.get("etapa_tipologia_id") or "").isdigit() else None
         if r:
             f["tipologia_nombre"] = (r.get("Tipologia") or {}).get("nombre")
+            if (r.get("Tipologia") or {}).get("valor_uf") is not None:
+                f["tipologia_valor_uf"] = r["Tipologia"]["valor_uf"]
             f["etapa_nombre"] = (r.get("Etapa") or {}).get("nombre")
 
 
@@ -105,6 +107,30 @@ async def _notas(filas: List[Dict[str, Any]]) -> None:
                 f["nota_ultima"] = ultima[int(f["id"])]
 
 
+async def _credito(filas: List[Dict[str, Any]]) -> None:
+    """Agrega ``credito_estado``, ``credito_motivo`` y el sueldo requerido (banco y mutuaria) de cada cliente: ver ``app/services/credito.py``. Necesita el precio de su tipología (o la más barata de su
+    proyecto) y la UF de hoy; si no se puede saber algo, ese cliente queda con «faltan datos»."""
+    from app.services import credito
+    from app.services import uf as servicio_uf
+    minimos: Dict[Any, float] = {}
+    proyectos = sorted({f["proyecto_id"] for f in filas if f.get("proyecto_id")})
+    for lote in _lotes(proyectos):
+        try:
+            for t in await _supabase_request("GET", "/Tipologia", params={"proyecto_id": f"in.({','.join(str(p) for p in lote)})", "estado": "eq.activo", "select": "proyecto_id,valor_uf"}) or []:
+                v = credito._numero(t.get("valor_uf"))
+                if v and v > 0 and (t.get("proyecto_id") not in minimos or v < minimos[t["proyecto_id"]]):
+                    minimos[t["proyecto_id"]] = v
+        except Exception as e:
+            logger.info("Clientes | no se pudieron leer los precios de un lote de proyectos (%s)", type(e).__name__)
+    uf = None
+    try:
+        hoy = await servicio_uf.uf_del_dia()
+        uf = hoy[0] if hoy else None
+    except Exception as e:
+        logger.info("Clientes | no se pudo leer la UF para el sueldo requerido (%s)", type(e).__name__)
+    credito.agregar_a_filas(filas, minimos, uf)
+
+
 async def enriquecer_clientes(filas: List[Dict[str, Any]]) -> None:
     """Agrega a cada fila ``tipologia_nombre``, ``etapa_nombre``, ``notas_n`` y ``nota_ultima`` (el comienzo de su última nota) cuando se pueden saber. Nunca lanza."""
     if not filas:
@@ -113,5 +139,6 @@ async def enriquecer_clientes(filas: List[Dict[str, Any]]) -> None:
         for r in await asyncio.gather(_tipologias(filas), _notas(filas), return_exceptions=True):      # que una parte falle no deja a la otra a medias
             if isinstance(r, Exception):
                 logger.warning("Clientes | no se pudo agregar una parte de los datos extra (%s)", type(r).__name__)
+        await _credito(filas)             # después de las tipologías: usa su precio
     except Exception as e:
         logger.warning("Clientes | no se pudieron agregar los datos extra (%s)", type(e).__name__)

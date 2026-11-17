@@ -85,7 +85,7 @@ async def api_listar_clientes(request: Request):
             async with cupo:
                 return await _supabase_request("GET", "/Prospecto",
                     params={"telefono_e164": f"in.({tel_list})",
-                            "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado,paso"}) or []
+                            "select": "telefono_e164,ultimo_entrante_en,pendiente_respuesta,estado,paso,renta_mensual,trabajo_indefinido,complemento_renta"}) or []
         lotes_tel = [",".join(telefonos[i:i + LOTE_TELEFONOS]) for i in range(0, len(telefonos), LOTE_TELEFONOS)]
         for lote in await asyncio.gather(*[_prospectos_de(t) for t in lotes_tel if t]):
             prospectos += lote
@@ -97,6 +97,8 @@ async def api_listar_clientes(request: Request):
                 r["pendiente_respuesta"] = p.get("pendiente_respuesta")
                 r["prospecto_estado"]    = p.get("estado")
                 r["prospecto_paso"]      = p.get("paso")
+                for k in ("renta_mensual", "trabajo_indefinido", "complemento_renta"):          # para «sujeto de crédito» (se evalúa en enriquecer_clientes)
+                    r[k] = p.get(k)
         await enriquecer_clientes(rows)           # tipología que busca y cantidad de notas (vistas «Tabla» y «Pipeline»)
     return rows
 
