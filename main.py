@@ -20,6 +20,7 @@ from app.services.webhook_estados import _procesar_status
 from app.services.webhook import DELAY_RESPUESTA_SEGUNDOS, _procesar_grupo, _procesar_webhook
 from app.services.recovery import _recovery_loop
 from app.services.avisos_cola import bucle_avisos
+from app.services.temperatura import bucle_temperatura
 from app.routers.paginas import router as paginas_router
 from app.routers.progreso import router as progreso_router
 from app.routers.publico import router as publico_router
@@ -38,6 +39,7 @@ from app.routers.clientes_acciones import router as clientes_acciones_router
 from app.routers.health import router as health_router
 from app.routers.directorio_admin import router as directorio_admin_router
 from app.routers.gasto import router as gasto_router
+from app.routers.llamadas import router as llamadas_router
 from app.routers.comisiones import router as comisiones_router
 from app.core.logging_config import RequestContextMiddleware, configurar_logging
 from app.core.user_cache import user_cache
@@ -60,11 +62,13 @@ async def _lifespan(app: FastAPI):
     await iniciar_http()              # cliente httpx compartido (se cierra al apagar)
     asyncio.create_task(_recovery_loop())
     tarea_avisos = asyncio.create_task(bucle_avisos())   # cola persistente de avisos (inactiva con AVISOS_PERSISTENTES apagado)
+    tarea_temperatura = asyncio.create_task(bucle_temperatura())   # temperatura de cada cliente: se recalcula cada 10 minutos
     try:
         yield
     finally:
         tarea_avisos.cancel()
-        await asyncio.gather(tarea_avisos, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
+        tarea_temperatura.cancel()
+        await asyncio.gather(tarea_avisos, tarea_temperatura, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
         await cerrar_http()
         await cerrar_anthropic()
         user_cache.vaciar()
@@ -248,6 +252,7 @@ app.include_router(documentos_router)
 app.include_router(directorio_admin_router)   # editor del directorio de subsidios (solo el dueño)
 app.include_router(comisiones_router)   # estimador de comisiones (planes por proyecto)
 app.include_router(gasto_router)   # pestaña «Gasto» del panel de administración (IA y WhatsApp por cliente)
+app.include_router(llamadas_router)   # registro de llamadas a un cliente («Registré una llamada»)
 app.include_router(paginas_router)
 
 

@@ -11,6 +11,7 @@ from app.core.utilidades import _utc_now_iso
 from app.services import clientes_datos as cd
 from app.services.avisos import _notificar_interesado
 from app.services.documentos import _CAMPOS_CALIFICACION
+from app.services.temperatura import recalcular_cliente
 
 
 # Campos que tienen columna propia en Prospecto (no van al blob datos)
@@ -131,6 +132,9 @@ async def actualizar_datos_prospecto(
         await cd.nota_del_sistema(rows[0].get("cliente_id"), "Volvió a escribir y el bot retomó la conversación (estaba como «No interesado»). Revisa su estado.")
     if siguiente_paso in cd.ESTADO_POR_PASO:                  # la conversación avanzó: el estado de gestión del cliente avanza con ella (solo hacia adelante)
         await cd.avanzar_estado_automatico(rows[0].get("cliente_id"), cd.ESTADO_POR_PASO[siguiente_paso])
+
+    if rows[0].get("cliente_id") and (siguiente_paso or campos_columna.get("quiere_contacto_ejecutivo") is not None):          # la temperatura sigue a la conversación (pidió ejecutivo → 99 al instante)
+        asyncio.create_task(recalcular_cliente(rows[0]["cliente_id"]))
 
     if siguiente_paso == "DOCUMENTACION":
         asyncio.create_task(_notificar_interesado(prospecto_id))

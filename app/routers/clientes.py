@@ -16,6 +16,7 @@ from app.services import clientes_datos as cd
 from app.services.clientes_vistas import enriquecer_clientes, leer_en_paginas
 from app.services.documentos import _CAMPOS_CALIFICACION
 from app.services.prospectos import upsert_prospecto
+from app.services.temperatura import recalcular_cliente
 from app.services.proyectos import obtener_proyecto_por_id
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict, List
@@ -248,6 +249,8 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
             params={"id": f"eq.{cliente_id}"},
             json=payload,
         )
+        if {"estado_gestion", "usuario_id", "archivado"} & payload.keys():
+            await recalcular_cliente(cliente_id)              # cambió lo que decide si tiene temperatura y cuál (nunca lanza)
         return {"ok": True}
     except cd.DatoInvalido as e:
         return Response(content=str(e), status_code=400)

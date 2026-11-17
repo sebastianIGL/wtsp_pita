@@ -245,6 +245,20 @@
     .dark a.ld-wa-abrir { color:#34d399; }
     a.ld-wa-abrir:hover { background:rgba(16,185,129,.14); }
     span.ld-wa-abrir { opacity:.5; cursor:not-allowed; }
+    .ld-temp { display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:26px; padding:0 6px; border-radius:9999px; font-size:.72rem; font-weight:700; line-height:1; border:2px solid; flex-shrink:0; font-variant-numeric:tabular-nums; }
+    .ld-temp-blanco { border-color:#94a3b8; background:#fff; color:#64748b; }
+    .ld-temp-rojo { border-color:#dc2626; background:rgba(220,38,38,.13); color:#b91c1c; }
+    .ld-temp-amarillo { border-color:#d97706; background:rgba(245,158,11,.2); color:#92400e; }
+    .ld-temp-verde { border-color:#059669; background:rgba(16,185,129,.18); color:#047857; }
+    .dark .ld-temp-blanco { background:rgba(255,255,255,.08); border-color:#cbd5e1; color:#e2e8f0; }
+    .dark .ld-temp-rojo { color:#fca5a5; border-color:#f87171; }
+    .dark .ld-temp-amarillo { color:#fcd34d; border-color:#fbbf24; }
+    .dark .ld-temp-verde { color:#6ee7b7; border-color:#34d399; }
+    .ld-motivo { font-size:.68rem; color:var(--ld-suave); margin-top:2px; }
+    .ld-llamar { width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid var(--ld-borde); color:var(--ld-suave); }
+    .ld-llamar:hover { border-color:#0ea5e9; color:#0ea5e9; }
+    .ll-res { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--ld-borde); font-size:.82rem; cursor:pointer; }
+    .ll-res:has(input:checked) { border-color:#0ea5e9; background:rgba(14,165,233,.12); }
     .ld-chat { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid var(--ld-borde); background:var(--ld-col); color:var(--ld-suave); }
     .ld-chat:hover { border-color:#10b981; color:#34d399; }
     .ld-mas { margin-left:auto; width:28px; height:28px; border-radius:8px; border:1px solid var(--ld-borde); color:var(--ld-suave); font-size:1rem; line-height:1; }
@@ -1811,7 +1825,7 @@ const COLAS = [
   { key: 'seguimiento_vencido', label: 'Seguimiento vencido' }, { key: 'cotizados', label: 'Cotizados' }, { key: 'todos', label: 'Todos' },
 ]
 const COLUMNAS_TABLA = [
-  { key: 'lead', label: 'Lead', fija: true }, { key: 'llego', label: 'Llegó' }, { key: 'etapa', label: 'Etapa' }, { key: 'contacto', label: 'Contacto' },
+  { key: 'lead', label: 'Lead', fija: true }, { key: 'temperatura', label: 'Temperatura' }, { key: 'llego', label: 'Llegó' }, { key: 'etapa', label: 'Etapa' }, { key: 'contacto', label: 'Contacto' },
   { key: 'evaluacion', label: 'Evaluación' }, { key: 'proxima', label: 'Próxima acción' }, { key: 'proyecto', label: 'Proyecto' }, { key: 'ejecutivo', label: 'Ejecutivo' },
   { key: 'telefono', label: 'Teléfono' }, { key: 'ahorro', label: 'Ahorro' }, { key: 'docs', label: 'Docs' }, { key: 'ultimo', label: 'Último mensaje' },
   { key: 'notas', label: 'Notas' }, { key: 'dias_gestion', label: 'Días sin gestión' }, { key: 'dias_estado', label: 'Días en este estado' }, { key: 'acciones', label: 'Acciones', fija: true },
@@ -1984,6 +1998,7 @@ function ordenarLeads(lista, orden) {
   const copia = [...lista]
   switch (orden) {
     case 'llegada_asc':  return copia.sort((a, b) => { const ta = _msDate(a.creado_en), tb = _msDate(b.creado_en); if (ta && tb) return ta - tb; if (ta) return -1; if (tb) return 1; return (a.id || 0) - (b.id || 0) })
+    case 'caliente':     return copia.sort((a, b) => (_temperaturaDe(b) ?? -1) - (_temperaturaDe(a) ?? -1) || _msDate(b.ultimo_entrante_en) - _msDate(a.ultimo_entrante_en) || porLlegada(a, b))
     case 'respuesta':    return copia.sort((a, b) => _msDate(b.ultimo_entrante_en) - _msDate(a.ultimo_entrante_en) || porLlegada(a, b))
     case 'proxima':      return copia.sort((a, b) => { const fa = _soloFecha(a.recordatorio_at), fb = _soloFecha(b.recordatorio_at); if (fa && fb) return fa < fb ? -1 : fa > fb ? 1 : 0; return fa ? -1 : fb ? 1 : porLlegada(a, b) })
     case 'nombre':       return copia.sort((a, b) => String(a.Contacto || '').localeCompare(String(b.Contacto || ''), 'es'))
@@ -2118,6 +2133,19 @@ function _botonAbrirWsp(c, texto = 'WhatsApp') {
   return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="ld-wa ld-wa-abrir" title="Abrir WhatsApp con ${esc(String(tel).trim())}">${_SVG_WSP}${esc(texto)}</a>`
            : `<span class="ld-wa ld-wa-abrir" title="Este cliente no tiene un teléfono válido">${_SVG_WSP}${esc(texto)}</span>`
 }
+// Temperatura (0–99): cuánto conviene contactarlo ahora. Blanco = 0 (sin interacción), rojo 1–39, amarillo 40–69, verde 70 o más. Sin número (ya pasó a evaluar o está cerrado) no se dibuja.
+function _temperaturaDe(c) { const n = c && c.temperatura; return n == null || n === '' || !Number.isFinite(Number(n)) ? null : Math.max(0, Math.min(99, Math.round(Number(n)))) }
+function _claveTemp(n) { return n === 0 ? 'blanco' : n < 40 ? 'rojo' : n < 70 ? 'amarillo' : 'verde' }
+function _circuloTemp(c) {
+  const n = _temperaturaDe(c)
+  if (n == null) return ''
+  const motivo = c.temperatura_motivo ? ` · ${c.temperatura_motivo}` : ''
+  return `<span class="ld-temp ld-temp-${_claveTemp(n)}" title="${esc(`Temperatura ${n} de 99${motivo}`)}" aria-label="${esc(`Temperatura ${n} de 99${motivo}`)}">${n}</span>`
+}
+// El teléfono: registrar una llamada a este cliente (cómo resultó y una nota).
+function _botonLlamar(c) {
+  return `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirLlamada(+this.dataset.id, this.dataset.nombre)" class="ld-llamar" title="Registré una llamada" aria-label="Registrar una llamada a ${esc(c.Contacto)}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></button>`
+}
 // El ícono de chat: la conversación del cliente con el bot (dentro del CRM).
 function _botonChatBot(c) {
   return _puedeChatbot() ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-chat" title="Ver la conversación con el bot" aria-label="Ver la conversación con el bot de ${esc(c.Contacto)}">${_SVG_CHAT}</button>` : ''
@@ -2135,12 +2163,13 @@ const _CELDAS = {
       ? `<div class="sidebar-text text-sm">—</div><div class="text-xs sub-text mt-0.5">${esc(l.fuente || 'Sin fecha de creación')}</div>`
       : `<div class="val-text text-sm whitespace-nowrap">${esc(l.fecha)}</div><div class="text-xs sidebar-text mt-0.5">${esc(l.hace)}${l.fuente ? ' · ' + esc(l.fuente) : ''}</div>` },
   etapa: (c, x) => _pillEtapa(etapaDe(c)),
+  temperatura: (c, x) => { const n = _temperaturaDe(c); return n == null ? '<span class="sub-text text-sm">—</span>' : `<div class="flex items-center gap-2" style="min-width:11rem">${_circuloTemp(c)}<span class="text-xs sidebar-text">${esc(c.temperatura_motivo || '')}</span></div>` },
   contacto: (c, x) => { const k = contactoDe(c, x.ahora); return `<div class="flex items-center gap-1.5 text-sm val-text whitespace-nowrap">${_punto(k.punto)}<span>${esc(k.titulo)}</span>${_entregaCorta(c.estado_plantilla)}</div><div class="text-xs sidebar-text mt-0.5">${esc(k.detalle)}</div>` },
   evaluacion: (c, x) => _selectEvaluacion(c),
   proxima: (c, x) => _franjaProxima(c, proximaDe(c, x.hoy)),
   proyecto: (c, x) => `<span class="sidebar-text text-sm">${esc(x.proyecto(c.proyecto_id))}</span>`,
   ejecutivo: (c, x) => c.usuario_id ? `<span class="inline-flex items-center gap-1.5 text-sm val-text"><span class="ld-avatar">${esc(_iniciales(_nombreUsuario(c.usuario_id)))}</span>${esc(_nombreUsuario(c.usuario_id))}</span>` : '<span class="sub-text text-sm">Sin asignar</span>',
-  telefono: (c, x) => c.Telefono ? `<span class="inline-flex items-center gap-2"><span class="font-mono text-xs sidebar-text">${esc(c.Telefono)}</span>${_botonAbrirWsp(c, 'Abrir')}</span>` : '<span class="font-mono text-xs sidebar-text">—</span>',
+  telefono: (c, x) => c.Telefono ? `<span class="inline-flex items-center gap-2"><span class="font-mono text-xs sidebar-text">${esc(c.Telefono)}</span>${_botonAbrirWsp(c, 'Abrir')}${_botonLlamar(c)}</span>` : '<span class="font-mono text-xs sidebar-text">—</span>',
   ahorro: (c, x) => _ahorroUF(c) ? `<span class="val-text text-sm whitespace-nowrap">${esc(_ahorroUF(c))}</span>` : '<span class="sub-text text-sm">—</span>',
   docs: (c, x) => { const d = docsDe(c); return d.clave ? `<span class="ld-docs ld-docs-${d.clave}">${esc(d.texto)}</span>` : '<span class="sub-text text-sm">—</span>' },
   ultimo: (c, x) => `<span class="sidebar-text text-sm whitespace-nowrap">${esc(haceTexto(c.ultimo_entrante_en, x.ahora) || '—')}</span>`,
@@ -2206,7 +2235,7 @@ function _htmlFiltrosLeads(base) {
     ${sel('ld-f-origen', 'Origen', [['', 'Todos'], ...fuentes.map(f => [f, FUENTES[f] || f]), ['__sin__', 'Sin origen']], _filtrosLeads.origen, 'origen')}
     <span class="flex-1"></span>
     <label class="ld-chip"><span>Ordenar</span><select id="ld-orden" onchange="setOrdenLeads(this.value)" aria-label="Ordenar">
-      ${[['llegada_desc', 'Llegada · más reciente'], ['llegada_asc', 'Llegada · más antigua'], ['respuesta', 'Última respuesta del cliente'], ['proxima', 'Próxima acción'], ['nombre', 'Nombre (A–Z)']].map(([v, t]) => opt(v, t, _ordenLeads)).join('')}
+      ${[['caliente', 'Más calientes primero'], ['llegada_desc', 'Llegada · más reciente'], ['llegada_asc', 'Llegada · más antigua'], ['respuesta', 'Última respuesta del cliente'], ['proxima', 'Próxima acción'], ['nombre', 'Nombre (A–Z)']].map(([v, t]) => opt(v, t, _ordenLeads)).join('')}
     </select></label>
     ${_vista === 'tabla' ? `<div class="relative"><button type="button" id="btn-columnas" onclick="toggleColumnas(event)" class="filtro-btn rounded-md px-2.5 py-1 text-xs flex items-center gap-1.5">Columnas ▾</button><div id="panel-columnas" class="filtro-panel hidden absolute right-0 mt-1 rounded-lg shadow-xl z-30 p-2" style="min-width:190px">
       ${COLUMNAS_TABLA.filter(c => !c.fija).map(c => `<label class="flex items-center gap-2 text-xs py-1 px-1.5 rounded cursor-pointer"><input type="checkbox" class="rounded accent-brand-600" ${_columnasTabla.includes(c.key) ? 'checked' : ''} onchange="alternarColumna('${c.key}', this.checked)">${esc(c.label)}</label>`).join('')}</div></div>` : ''}`
@@ -2354,8 +2383,9 @@ function _tarjeta(c, x) {
   const resp = c.ultimo_entrante_en ? `Respondió ${haceTexto(c.ultimo_entrante_en, x.ahora)}` : ''
   const abierta = _fichaAbierta === c.id
   return `<div class="kb-card${abierta ? ' kb-abierta' : ''}${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}" draggable="${abierta ? 'false' : 'true'}" data-kb-id="${Number(c.id)}" aria-expanded="${abierta}" aria-label="Cliente ${esc(c.Contacto)}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
-    <div class="flex items-start justify-between gap-2"><span class="font-semibold text-sm val-text kb-nombre">${esc(c.Contacto)}</span><span class="text-xs sidebar-text whitespace-nowrap">${esc(l.hace)}</span></div>
+    <div class="flex items-start justify-between gap-2"><span class="inline-flex items-center gap-1.5 min-w-0">${_circuloTemp(c)}<span class="font-semibold text-sm val-text kb-nombre">${esc(c.Contacto)}</span></span><span class="text-xs sidebar-text whitespace-nowrap">${esc(l.hace)}</span></div>
     <div class="text-xs sidebar-text mt-0.5">${esc(c.tipologia_nombre || 'Sin tipología')}${ahorro ? ' · Ahorro ' + esc(ahorro) : ''}</div>
+    ${_temperaturaDe(c) != null && c.temperatura_motivo ? `<div class="ld-motivo">${esc(c.temperatura_motivo)}</div>` : ''}
     <div class="flex flex-wrap items-center gap-1.5 mt-2">
       ${ev && ev !== e ? `<span class="ld-chip-mini eg-badge ${_egClass(ev)}">${esc((_EG_MAP[ev] || _EG_MAP['']).label)}</span>` : ''}
       ${l.fuente ? `<span class="ld-chip-mini ld-chip-gris">${esc(l.fuente)}</span>` : ''}
@@ -2439,7 +2469,7 @@ function _fichaTarjeta(c, x) {
   const eg = _EG_MAP[c.estado_gestion || ''] || _EG_MAP['']
   const px = proximaDe(c, x.hoy)
   const filas = [['RUT', c.Rut], ['Teléfono', tel, true], ['Correo', correo, true], ['Proyecto', p ? p.nombre : ''], ['Tipología', c.tipologia_nombre], ['Etapa', c.etapa_nombre],
-    ['Estado', `<span class="eg-badge ${eg.cls}">${esc(eg.label)}</span>`, true], ['Ejecutivo', c.usuario_id ? _nombreUsuario(c.usuario_id) : ''], ['Ahorro', _ahorroUF(c)],
+    ['Estado', `<span class="eg-badge ${eg.cls}">${esc(eg.label)}</span>`, true], ['Temperatura', _temperaturaDe(c) == null ? '' : `<span class="inline-flex items-center gap-2">${_circuloTemp(c)}<span>${esc(c.temperatura_motivo || '')}</span></span>`, true], ['Ejecutivo', c.usuario_id ? _nombreUsuario(c.usuario_id) : ''], ['Ahorro', _ahorroUF(c)],
     ['Próxima acción', px.tipo === 'nada' ? '' : [px.texto, px.nota].filter(Boolean).join(' · ')]]                  // cada valor se escapa dentro de _filaFicha (salvo los que ya son HTML armado aquí con esc())
   const ultima = c.nota_ultima && c.nota_ultima.texto ? c.nota_ultima : null
   const id = Number(c.id), nombre = esc(c.Contacto || '')
@@ -2547,6 +2577,7 @@ function abrirMenuLead(e, id) {
   menu.innerHTML = [
     item('evaluacion', 'Evaluación'),
     _urlWsp(c.Telefono) ? item('wsp', 'Abrir WhatsApp') : '',
+    item('llamada', 'Registré una llamada'),
     _puedeChatbot() ? item('conversacion', 'Ver conversación con el bot') : '',
     _puedeChatbot() ? item('contexto', 'Contexto del bot') : '',
     _puedeChatbot() ? item('plantilla', 'Enviar plantilla WhatsApp') : '',
@@ -2577,6 +2608,7 @@ function accionMenuLead(accion, id, etapa) {
   const admin = _esAdmin(_perfil?.rol)
   switch (accion) {
     case 'evaluacion':   return abrirEvaluacion(id)
+    case 'llamada':      return abrirLlamada(id, nombre)
     case 'wsp':          { const u = _urlWsp(c.Telefono); return u && window.open(u, '_blank', 'noopener,noreferrer') }
     case 'notas':        return abrirNotas(id, nombre)
     case 'recordatorio': return abrirRecordatorio(id, nombre, c.recordatorio_at || '')
@@ -3104,7 +3136,7 @@ function esc(str) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
-  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas(); cerrarCotizar()
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas(); cerrarCotizar(); cerrarLlamada()
 })
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
@@ -4097,6 +4129,45 @@ async function guardarNota() {
   }
 }
 
+// ─── LLAMADAS ─────────────────────────────────────────
+// «Registré una llamada»: cómo resultó y una nota. Cuenta como contacto («Sin contactar» pasa a «Primer llamado») y recalcula la temperatura.
+let _llamadaClienteId = null
+const _RESULTADO_LLAMADA = { contesto: 'Contestó', no_contesto: 'No contestó', buzon: 'Buzón de voz', numero_incorrecto: 'Número incorrecto' }
+function _errorLlamada(msg) { const el = document.getElementById('llamada-error'); el.textContent = msg || ''; el.classList.toggle('hidden', !msg) }
+async function abrirLlamada(clienteId, nombre) {
+  _llamadaClienteId = clienteId
+  document.getElementById('llamada-titulo').textContent = nombre || ''
+  document.getElementById('llamada-nota').value = ''
+  document.querySelectorAll('#modal-llamada input[name="llamada-resultado"]').forEach(i => { i.checked = false })
+  _errorLlamada('')
+  const lista = document.getElementById('llamada-historial')
+  lista.innerHTML = '<div class="flex justify-center py-3"><div class="spinner"></div></div>'
+  document.getElementById('modal-llamada').classList.remove('hidden')
+  try {
+    const filas = await api('GET', `/api/clientes/${clienteId}/llamadas`)
+    if (clienteId !== _llamadaClienteId) return
+    lista.innerHTML = filas.length ? filas.map(f => `<div class="text-xs py-1.5 border-b" style="border-color:var(--ld-borde)"><span class="val-text font-medium">${esc(_RESULTADO_LLAMADA[f.resultado] || f.resultado)}</span> · <span class="sidebar-text">${esc(f.usuario_nombre || '')} · ${esc(String(f.creado_en || '').slice(0, 16).replace('T', ' '))}</span>${f.nota ? `<div class="sidebar-text mt-0.5">${esc(f.nota)}</div>` : ''}</div>`).join('') : '<p class="text-xs sidebar-text">Aún no hay llamadas registradas.</p>'
+  } catch (e) { if (clienteId === _llamadaClienteId) lista.innerHTML = `<p class="text-xs text-red-400">${esc(e.message)}</p>` }
+}
+function cerrarLlamada() { document.getElementById('modal-llamada')?.classList.add('hidden'); _llamadaClienteId = null }
+async function guardarLlamada() {
+  const id = _llamadaClienteId
+  const marcado = document.querySelector('#modal-llamada input[name="llamada-resultado"]:checked')
+  if (!marcado) { _errorLlamada('Elige cómo resultó la llamada.'); return }
+  const nota = document.getElementById('llamada-nota').value.trim()
+  if (nota.length > 500) { _errorLlamada('La nota es demasiado larga (máximo 500 caracteres).'); return }
+  _errorLlamada('')
+  const btn = document.getElementById('btn-llamada-guardar'); btn.disabled = true; btn.textContent = 'Guardando…'
+  try {
+    const r = await api('POST', `/api/clientes/${id}/llamadas`, { resultado: marcado.value, nota })
+    const c = clientes.find(x => x.id === id)
+    if (c) { c.temperatura = r.temperatura; c.temperatura_motivo = r.motivo; if (!c.estado_gestion || c.estado_gestion === 'sin_contactar') c.estado_gestion = 'primer_llamado' }
+    toast('✅ Llamada registrada', 'success')
+    cerrarLlamada(); _repintarLeads()
+  } catch (e) { if (id === _llamadaClienteId) _errorLlamada(e.message) }
+  finally { btn.disabled = false; btn.textContent = 'Guardar llamada' }
+}
+
 // ─── ASIGNAR EJECUTIVO ────────────────────────────────
 let _asignarClienteId = null
 
@@ -5050,6 +5121,31 @@ async function guardarRegistrarInbox() {
 </div>
 
 <!-- ═══ MODAL NOTAS INTERNAS ═══ -->
+<!-- ═══ MODAL LLAMADA ═══ -->
+<div id="modal-llamada" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="llamada-titulo">
+  <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style="max-height:85vh">
+    <div class="px-5 pt-5 pb-3 flex items-center justify-between">
+      <div><p class="text-xs sidebar-text font-medium">Registré una llamada</p><p id="llamada-titulo" class="text-sm font-semibold val-text"></p></div>
+      <button onclick="cerrarLlamada()" class="sidebar-text hover:val-text transition text-xl leading-none" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="px-5 pb-3 overflow-y-auto flex flex-col gap-3">
+      <fieldset class="grid grid-cols-2 gap-2"><legend class="text-xs sidebar-text mb-1.5">¿Cómo resultó?</legend>
+        <label class="ll-res"><input type="radio" name="llamada-resultado" value="contesto" class="accent-brand-600"> Contestó</label>
+        <label class="ll-res"><input type="radio" name="llamada-resultado" value="no_contesto" class="accent-brand-600"> No contestó</label>
+        <label class="ll-res"><input type="radio" name="llamada-resultado" value="buzon" class="accent-brand-600"> Buzón de voz</label>
+        <label class="ll-res"><input type="radio" name="llamada-resultado" value="numero_incorrecto" class="accent-brand-600"> Número incorrecto</label>
+      </fieldset>
+      <textarea id="llamada-nota" rows="3" maxlength="500" aria-label="Nota de la llamada" placeholder="Nota (opcional): qué quedó de hacer…" class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"></textarea>
+      <div id="llamada-error" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
+      <div><p class="text-xs sidebar-text mb-1">Llamadas anteriores</p><div id="llamada-historial"></div></div>
+    </div>
+    <div class="px-5 pt-1 pb-5 flex gap-2">
+      <button onclick="cerrarLlamada()" class="flex-1 py-2 rounded-lg text-sm sidebar-text hover:val-text border border-slate-600 transition">Cerrar</button>
+      <button id="btn-llamada-guardar" onclick="guardarLlamada()" class="flex-1 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium transition">Guardar llamada</button>
+    </div>
+  </div>
+</div>
+
 <div id="modal-notas" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4">
   <div class="glass rounded-2xl w-full max-w-md shadow-2xl flex flex-col" style="max-height:85vh">
     <div class="px-5 pt-5 pb-3 flex items-center justify-between">
