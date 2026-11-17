@@ -240,6 +240,13 @@
     .ld-chip-gris { background:var(--ld-col); border:1px solid var(--ld-borde); color:var(--ld-suave); font-weight:500; }
     .ld-wa { font-size:.72rem; font-weight:600; padding:5px 10px; border-radius:8px; border:1px solid var(--ld-borde); background:var(--ld-col); color:var(--ld-texto); white-space:nowrap; }
     .ld-wa:hover { border-color:#10b981; color:#34d399; }
+    a.ld-wa-abrir, span.ld-wa-abrir { display:inline-flex; align-items:center; gap:5px; }
+    a.ld-wa-abrir { border-color:#10b981; color:#059669; text-decoration:none; }
+    .dark a.ld-wa-abrir { color:#34d399; }
+    a.ld-wa-abrir:hover { background:rgba(16,185,129,.14); }
+    span.ld-wa-abrir { opacity:.5; cursor:not-allowed; }
+    .ld-chat { width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; border:1px solid var(--ld-borde); background:var(--ld-col); color:var(--ld-suave); }
+    .ld-chat:hover { border-color:#10b981; color:#34d399; }
     .ld-mas { margin-left:auto; width:28px; height:28px; border-radius:8px; border:1px solid var(--ld-borde); color:var(--ld-suave); font-size:1rem; line-height:1; }
     .ld-mas:hover { border-color:#0ea5e9; color:var(--ld-texto); }
     #ld-menu { position:fixed; z-index:60; min-width:210px; max-height:70vh; overflow-y:auto; padding:6px; border-radius:12px; background:var(--ld-card); border:1px solid var(--ld-borde); box-shadow:0 12px 32px rgba(0,0,0,.28); }
@@ -1573,6 +1580,7 @@ function _accionesFila(c) {
         Evaluación
       </button>
       ${_botonCotizar(c)}
+      ${_botonAbrirWsp(c)}
       ${_puedeChatbot() ? `<button data-id="${c.id}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" title="Ver conversación"
         class="text-xs p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1714,8 +1722,8 @@ function renderTabla(data) {
       <td class="px-6 py-4 sidebar-text text-sm">${esc(np(c.proyecto_id))}</td>
       <td class="px-6 py-4 font-mono text-xs">
         ${c.Telefono
-          ? `<a href="https://api.whatsapp.com/send?phone=${esc(c.Telefono)}" target="_blank" rel="noopener"
-               class="text-emerald-400 hover:text-emerald-300 transition">${esc(c.Telefono)}</a>`
+          ? (_urlWsp(c.Telefono) ? `<a href="${esc(_urlWsp(c.Telefono))}" target="_blank" rel="noopener noreferrer" title="Abrir WhatsApp"
+               class="text-emerald-400 hover:text-emerald-300 transition">${esc(c.Telefono)}</a>` : `<span class="sidebar-text">${esc(c.Telefono)}</span>`)
           : `<span class="sidebar-text">—</span>`}
       </td>
       <td class="px-6 py-4 sidebar-text font-mono text-xs">${esc(c.Rut || '—')}</td>
@@ -2093,6 +2101,27 @@ function _selectEvaluacion(c) {
 // El chatbot de WhatsApp (ver la conversación y el contexto del bot, y enviar plantillas) está abierto a todas las personas con sesión: administración, owner y ejecutivos.
 // El servidor limita a cada ejecutivo a sus propios clientes (exigir_cliente), así que desde aquí solo se muestran los botones.
 function _puedeChatbot() { return !!_perfil }
+
+// Abrir el WhatsApp de un cliente desde cualquier vista: solo dígitos y con el 56 de Chile si falta («912345678» y «12345678» se completan).
+function _telWsp(tel) {
+  let d = String(tel == null ? '' : tel).replace(/\D/g, '')
+  if (d.length === 9 && d[0] === '9') d = '56' + d
+  else if (d.length === 8) d = '569' + d
+  return d.length >= 10 && d.length <= 15 ? d : ''
+}
+function _urlWsp(tel) { const d = _telWsp(tel); return d ? `https://api.whatsapp.com/send?phone=${d}` : '' }
+const _SVG_WSP = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2a9.9 9.9 0 00-8.46 15.05L2 22l5.1-1.34A9.9 9.9 0 1012.04 2zm0 1.8a8.1 8.1 0 11-4.13 15.06l-.3-.18-3.02.8.8-2.94-.2-.3A8.1 8.1 0 0112.04 3.8zm-3.1 3.9c-.17 0-.45.06-.69.32-.24.26-.9.88-.9 2.15s.92 2.5 1.05 2.67c.13.17 1.8 2.88 4.45 3.92 2.2.87 2.65.7 3.12.65.48-.04 1.54-.63 1.76-1.24.22-.6.22-1.13.15-1.24-.06-.1-.24-.17-.5-.3-.26-.13-1.54-.76-1.78-.85-.24-.09-.41-.13-.59.13-.17.26-.67.85-.83 1.02-.15.17-.3.2-.56.07-.26-.13-1.1-.4-2.1-1.3-.77-.69-1.3-1.55-1.45-1.8-.15-.26-.02-.4.11-.53.12-.12.26-.3.39-.46.13-.15.17-.26.26-.43.09-.17.04-.33-.02-.46-.07-.13-.59-1.42-.8-1.94-.21-.5-.43-.43-.59-.44h-.5z"/></svg>'
+const _SVG_CHAT = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>'
+// El botón «WhatsApp»: abre el chat del cliente en WhatsApp (pestaña nueva). Sin teléfono válido queda apagado.
+function _botonAbrirWsp(c, texto = 'WhatsApp') {
+  const tel = c && c.Telefono, u = _urlWsp(tel)
+  return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="ld-wa ld-wa-abrir" title="Abrir WhatsApp con ${esc(String(tel).trim())}">${_SVG_WSP}${esc(texto)}</a>`
+           : `<span class="ld-wa ld-wa-abrir" title="Este cliente no tiene un teléfono válido">${_SVG_WSP}${esc(texto)}</span>`
+}
+// El ícono de chat: la conversación del cliente con el bot (dentro del CRM).
+function _botonChatBot(c) {
+  return _puedeChatbot() ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-chat" title="Ver la conversación con el bot" aria-label="Ver la conversación con el bot de ${esc(c.Contacto)}">${_SVG_CHAT}</button>` : ''
+}
 function _puedeCotizar() { const p = _perfil?.puede_cotizar; return p === undefined ? !!_perfil : !!p }
 function _botonCotizar(c) {
   if (!_puedeCotizar()) return ''
@@ -2111,7 +2140,7 @@ const _CELDAS = {
   proxima: (c, x) => _franjaProxima(c, proximaDe(c, x.hoy)),
   proyecto: (c, x) => `<span class="sidebar-text text-sm">${esc(x.proyecto(c.proyecto_id))}</span>`,
   ejecutivo: (c, x) => c.usuario_id ? `<span class="inline-flex items-center gap-1.5 text-sm val-text"><span class="ld-avatar">${esc(_iniciales(_nombreUsuario(c.usuario_id)))}</span>${esc(_nombreUsuario(c.usuario_id))}</span>` : '<span class="sub-text text-sm">Sin asignar</span>',
-  telefono: (c, x) => `<span class="font-mono text-xs sidebar-text">${esc(c.Telefono || '—')}</span>`,
+  telefono: (c, x) => c.Telefono ? `<span class="inline-flex items-center gap-2"><span class="font-mono text-xs sidebar-text">${esc(c.Telefono)}</span>${_botonAbrirWsp(c, 'Abrir')}</span>` : '<span class="font-mono text-xs sidebar-text">—</span>',
   ahorro: (c, x) => _ahorroUF(c) ? `<span class="val-text text-sm whitespace-nowrap">${esc(_ahorroUF(c))}</span>` : '<span class="sub-text text-sm">—</span>',
   docs: (c, x) => { const d = docsDe(c); return d.clave ? `<span class="ld-docs ld-docs-${d.clave}">${esc(d.texto)}</span>` : '<span class="sub-text text-sm">—</span>' },
   ultimo: (c, x) => `<span class="sidebar-text text-sm whitespace-nowrap">${esc(haceTexto(c.ultimo_entrante_en, x.ahora) || '—')}</span>`,
@@ -2337,7 +2366,7 @@ function _tarjeta(c, x) {
     ${_notaDeTarjeta(c, x)}
     ${resp ? `<div class="text-xs sub-text mt-1.5">${esc(resp)}</div>` : ''}
     <div class="flex items-center gap-2 mt-2.5">
-      ${_puedeChatbot() ? `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirConversacion(+this.dataset.id, this.dataset.nombre)" class="ld-wa" title="Ver conversación">WhatsApp</button>` : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
+      ${_botonAbrirWsp(c)}${_botonChatBot(c)}${_puedeChatbot() ? '' : `<button type="button" onclick="abrirEvaluacion(${Number(c.id)})" class="ld-wa" title="Evaluación">Evaluación</button>`}
       ${_botonCotizar(c)}
       <button type="button" data-ld-menu="${Number(c.id)}" onclick="abrirMenuLead(event, ${Number(c.id)})" class="ld-mas" aria-label="Más acciones de ${esc(c.Contacto)}" aria-haspopup="true">⋯</button>
     </div>${abierta ? _fichaTarjeta(c, x) : ''}</div>`
@@ -2405,7 +2434,7 @@ function _filaFicha(rotulo, valor, html = false, ancha = false) {
 }
 function _fichaTarjeta(c, x) {
   const p = proyectos.find(y => y.id === c.proyecto_id)
-  const tel = c.Telefono ? `<a href="https://api.whatsapp.com/send?phone=${encodeURIComponent(c.Telefono)}" target="_blank" rel="noopener" class="text-emerald-500 hover:underline">${esc(c.Telefono)}</a>` : ''
+  const tel = c.Telefono ? (_urlWsp(c.Telefono) ? `<a href="${esc(_urlWsp(c.Telefono))}" target="_blank" rel="noopener noreferrer" class="text-emerald-500 hover:underline">${esc(c.Telefono)}</a>` : esc(c.Telefono)) : ''
   const correo = (c.Correo || c.email) ? `<a href="mailto:${encodeURIComponent(c.Correo || c.email)}" class="text-sky-500 hover:underline">${esc(c.Correo || c.email)}</a>` : ''
   const eg = _EG_MAP[c.estado_gestion || ''] || _EG_MAP['']
   const px = proximaDe(c, x.hoy)
@@ -2517,7 +2546,8 @@ function abrirMenuLead(e, id) {
   menu.setAttribute('role', 'menu')
   menu.innerHTML = [
     item('evaluacion', 'Evaluación'),
-    _puedeChatbot() ? item('conversacion', 'Ver conversación') : '',
+    _urlWsp(c.Telefono) ? item('wsp', 'Abrir WhatsApp') : '',
+    _puedeChatbot() ? item('conversacion', 'Ver conversación con el bot') : '',
     _puedeChatbot() ? item('contexto', 'Contexto del bot') : '',
     _puedeChatbot() ? item('plantilla', 'Enviar plantilla WhatsApp') : '',
     item('notas', 'Notas internas'),
@@ -2547,6 +2577,7 @@ function accionMenuLead(accion, id, etapa) {
   const admin = _esAdmin(_perfil?.rol)
   switch (accion) {
     case 'evaluacion':   return abrirEvaluacion(id)
+    case 'wsp':          { const u = _urlWsp(c.Telefono); return u && window.open(u, '_blank', 'noopener,noreferrer') }
     case 'notas':        return abrirNotas(id, nombre)
     case 'recordatorio': return abrirRecordatorio(id, nombre, c.recordatorio_at || '')
     case 'cotizar':      return _puedeCotizar() && abrirCotizar(id)
@@ -3220,7 +3251,8 @@ async function abrirEvaluacion(id) {
   document.getElementById('eval-nombre').textContent = c.Contacto || '—'
   const proy = proyectos.find(p => p.id === c.proyecto_id)
   document.getElementById('eval-proyecto-badge').textContent = proy ? proy.nombre : '—'
-  document.getElementById('eval-telefono').textContent = c.Telefono || '—'
+  { const el = document.getElementById('eval-telefono'), u = _urlWsp(c.Telefono)
+    if (u) el.innerHTML = `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="text-emerald-500 hover:underline" title="Abrir WhatsApp">${esc(c.Telefono)}</a>`; else el.textContent = c.Telefono || '—' }
   document.getElementById('eval-rut').textContent      = c.Rut      || '—'
   document.getElementById('eval-renta').textContent    = c['Tramo de renta'] || 'Sin especificar'
 
@@ -4914,7 +4946,8 @@ function renderTablaInbox() {
       <td class="px-6 py-4 sidebar-text text-xs whitespace-nowrap">${fecha}</td>
       <td class="px-6 py-4">
         <div class="flex items-center gap-2">
-          <button onclick='abrirConversacionProspecto("${esc(p.id)}", "${esc(nombre)}")' title="Ver conversación"
+          ${_botonAbrirWsp({ Telefono: p.telefono_e164 })}
+          <button onclick='abrirConversacionProspecto("${esc(p.id)}", "${esc(nombre)}")' title="Ver conversación con el bot"
             class="p-1.5 rounded-lg glass sidebar-text hover:text-emerald-400 transition">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
