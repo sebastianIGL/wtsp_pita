@@ -73,6 +73,9 @@
       box-shadow: 0 0 16px rgba(13,148,136,0.2);
     }
 
+    [data-theme="light"] .tab.active-s { color: #5b21b6; }
+    [data-theme="light"] .tab.active-h { color: #0f766e; }
+
     /* Progress ring section */
     .ring-section {
       display: flex; align-items: center; justify-content: center;
@@ -253,6 +256,82 @@
       transition: background 0.15s, color 0.15s;
     }
     .profile-item:hover { background: rgba(239,68,68,0.08); color: #f87171; }
+
+    /* ── Mi Camino: cuestionario, resultado y ruta ─────────────── */
+    [hidden] { display: none !important; }
+    .pasos { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; padding: 0; list-style: none; }
+    .paso {
+      flex: 1; text-align: center; padding: 0.5rem 0.25rem; border-radius: 0.75rem; cursor: pointer;
+      font-size: 0.78rem; font-weight: 600; color: var(--text-sub);
+      background: var(--surface); border: 1px solid var(--border);
+    }
+    .paso:disabled { opacity: 0.5; cursor: not-allowed; }
+    .paso.on { background: var(--violet); border-color: var(--violet); color: #fff; }
+    .paso:focus-visible, .q-op:focus-within, .btn-pri:focus-visible, .btn-sec:focus-visible, .q-input:focus-visible { outline: 2px solid var(--violet-l); outline-offset: 2px; }
+    .vista-tit { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.4rem; outline: none; }
+    .vista-sub { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.5; }
+    .q-card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem 1.1rem; margin-bottom: 0.85rem; }
+    .q-tit { font-size: 0.92rem; font-weight: 600; margin-bottom: 0.2rem; }
+    .q-ayuda { font-size: 0.78rem; color: var(--text-sub); margin-bottom: 0.6rem; line-height: 1.45; }
+    .q-opciones { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .q-op {
+      display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.84rem;
+      padding: 0.45rem 0.85rem; border-radius: 9999px; color: var(--text-muted);
+      background: var(--bg2); border: 1px solid var(--border);
+    }
+    .q-op input { accent-color: var(--violet); }
+    .q-op.on { background: var(--violet); border-color: var(--violet); color: #fff; }
+    .q-fila { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .q-input {
+      font: inherit; font-size: 0.9rem; color: var(--text); background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 0.6rem; padding: 0.5rem 0.7rem; min-width: 0;
+    }
+    select.q-input { max-width: 100%; }
+    .btn-pri {
+      font: inherit; font-weight: 700; font-size: 0.92rem; cursor: pointer; color: #fff; background: var(--violet);
+      border: 1px solid var(--violet); border-radius: 0.75rem; padding: 0.7rem 1.4rem;
+    }
+    .btn-pri:hover { filter: brightness(1.1); }
+    .btn-pri:disabled { opacity: 0.6; cursor: wait; }
+    .btn-sec {
+      font: inherit; font-weight: 600; font-size: 0.82rem; cursor: pointer; color: var(--text-muted); background: var(--surface);
+      border: 1px solid var(--border); border-radius: 0.75rem; padding: 0.5rem 1rem; text-decoration: none; display: inline-block;
+    }
+    .btn-sec:hover { background: var(--surface-h); color: var(--text); }
+    .acciones { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 1rem; }
+    .msg-error { color: #f87171; font-size: 0.85rem; margin-top: 0.75rem; line-height: 1.45; }
+    [data-theme="light"] .msg-error { color: #b91c1c; }
+    .res-card { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 1rem 1.1rem; margin-bottom: 0.85rem; }
+    .res-puede { border-color: rgba(16,185,129,0.6); }
+    .res-podrias { border-color: rgba(245,158,11,0.6); }
+    .res-no { opacity: 0.88; }
+    .res-cab { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .res-nombre { font-size: 1rem; font-weight: 700; }
+    .res-estado { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.2rem 0.65rem; border-radius: 9999px; border: 1px solid; }
+    .res-puede .res-estado { color: #34d399; background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.4); }
+    .res-podrias .res-estado { color: #fbbf24; background: rgba(245,158,11,0.12); border-color: rgba(245,158,11,0.4); }
+    .res-no .res-estado { color: var(--text-sub); background: var(--bg2); border-color: var(--border); }
+    [data-theme="light"] .res-puede .res-estado { color: #047857; }
+    [data-theme="light"] .res-podrias .res-estado { color: #b45309; }
+    .res-lista { list-style: none; font-size: 0.82rem; line-height: 1.5; color: var(--text-muted); }
+    .res-lista li { padding-left: 1.2rem; position: relative; margin-top: 0.2rem; }
+    .res-lista li::before { position: absolute; left: 0; font-weight: 700; }
+    .res-bien li::before { content: "✓"; color: #34d399; }
+    .res-falta li::before { content: "→"; color: #fbbf24; }
+    .res-razon li::before { content: "✕"; color: #f87171; }
+    [data-theme="light"] .res-bien li::before { color: #047857; }
+    [data-theme="light"] .res-falta li::before { color: #b45309; }
+    [data-theme="light"] .res-razon li::before { color: #b91c1c; }
+    .res-datos { font-size: 0.75rem; color: var(--text-sub); margin-top: 0.5rem; }
+    .aviso-legal { font-size: 0.75rem; color: var(--text-sub); line-height: 1.5; margin-top: 1rem; text-align: center; }
+    .ruta-bar {
+      display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; justify-content: space-between;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem;
+    }
+    .ruta-et { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-sub); }
+    .nota-cuenta { text-align: center; margin-top: 1.5rem; font-size: 0.78rem; color: var(--text-sub); line-height: 1.55; }
+    .nota-cuenta a { color: var(--violet-l); font-weight: 600; }
+    .nota-cuenta button { font: inherit; font-size: 0.78rem; background: none; border: none; color: var(--violet-l); text-decoration: underline; cursor: pointer; padding: 0; }
   </style>
 <link rel="stylesheet" href="/css/sitio.css" />
 </head>
@@ -304,14 +383,28 @@
       <h1 class="page-title">Mi Camino</h1>
     </div>
 
-    <!-- Tabs -->
-    <div class="tabs">
-      <div class="tab active-s" id="tab-s" onclick="cambiarMundo('s')">🏠 Subsidios Habitacionales</div>
-      <div class="tab" id="tab-h" onclick="cambiarMundo('h')">🏦 Crédito Hipotecario</div>
-    </div>
+    <!-- Pasos: 1 Cuéntanos de ti → 2 Tus subsidios → 3 Tu ruta -->
+    <ol class="pasos" id="pasos" aria-label="Pasos de Mi Camino"></ol>
 
-    <!-- World panel -->
-    <div id="panel"></div>
+    <!-- Paso 1: cuestionario -->
+    <section id="vista-cuestionario" hidden aria-labelledby="tit-cuestionario"></section>
+
+    <!-- Paso 2: a qué subsidios puede acceder -->
+    <section id="vista-resultado" hidden aria-labelledby="tit-resultado"></section>
+
+    <!-- Paso 3: tu ruta (la lista de requisitos de siempre) -->
+    <section id="vista-ruta" hidden aria-label="Tu ruta">
+      <div class="ruta-bar" id="ruta-bar"></div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <div class="tab active-s" id="tab-s" onclick="cambiarMundo('s')">🏠 Subsidios Habitacionales</div>
+        <div class="tab" id="tab-h" onclick="cambiarMundo('h')">🏦 Crédito Hipotecario</div>
+      </div>
+
+      <!-- World panel -->
+      <div id="panel"></div>
+    </section>
 
   </div>
 
@@ -334,6 +427,7 @@
     document.getElementById('profileName').textContent       = nombre;
     document.getElementById('profileEmail').textContent      = user.email;
     document.getElementById('profileBtn').classList.add('visible');
+    if (typeof iniciarNube === 'function') iniciarNube(session);
   })();
 
   // Toggle dropdown
@@ -363,7 +457,8 @@
 
   // ── Tema ──────────────────────────────────────────────────────
   const htmlEl = document.documentElement;
-  const savedT = localStorage.getItem('crm-theme');
+  let savedT = null;
+  try { savedT = localStorage.getItem('crm-theme'); } catch (e) { savedT = null; }       // almacenamiento bloqueado: la página igual funciona
   const sysDrk = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const initT  = savedT || (sysDrk ? 'dark' : 'light');
   htmlEl.setAttribute('data-theme', initT);
@@ -372,7 +467,7 @@
   document.getElementById('themeToggle').addEventListener('click', () => {
     const n = htmlEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
     htmlEl.setAttribute('data-theme', n);
-    localStorage.setItem('crm-theme', n);
+    try { localStorage.setItem('crm-theme', n); } catch (e) { /* nada */ }
     document.getElementById('iconMoon').classList.toggle('hidden', n === 'light');
     document.getElementById('iconSun').classList.toggle('hidden',  n === 'dark');
   });
@@ -432,16 +527,15 @@
       const r = await fetch('/api/mi-camino/subsidios', { headers: { Accept: 'application/json' } });
       if (!r.ok) return;
       DATOS = leerDatos(await r.json());
-      let guardado = '';
-      try { guardado = localStorage.getItem(SEL_KEY) || ''; } catch (e) { guardado = ''; }
-      elegido = DATOS.subsidios.some(x => x.slug === guardado) ? guardado : '';
+      elegido = DATOS.subsidios.some(x => x.slug === eleccion.subsidio) ? eleccion.subsidio : '';
     } catch (e) { /* sin datos de fichas: lista general */ }
-    render();
+    mostrar();
   }
   function fichaElegida() { return DATOS.subsidios.find(x => x.slug === elegido) || null; }
   function elegirSubsidio(slug) {
     elegido = DATOS.subsidios.some(x => x.slug === slug) ? slug : '';
-    try { elegido ? localStorage.setItem(SEL_KEY, elegido) : localStorage.removeItem(SEL_KEY); } catch (e) { /* sin almacenamiento: vale solo en esta visita */ }
+    eleccion = { subsidio: elegido, ruta: 'subsidio', objetivo: eleccion.objetivo || (respuestas ? respuestas.objetivo : null), t: Date.now() };
+    guardarEleccion();
     render();
   }
   function textoFicha(f, d) {
@@ -504,6 +598,8 @@
     if (i >= 0) p[mundoActual].splice(i, 1);
     else p[mundoActual].push(id);
     guardar(p);
+    const tm = leerTiempos(); tm[mundoActual][id] = Date.now(); lsSet(TIEMPO_KEY, tm);       // la hora del cambio: sirve para no pisar cambios entre dispositivos
+    programarSync();
     render();
   }
 
@@ -577,9 +673,7 @@
         ${selectorHtml()}
         <div class="cards-grid">${cardsHtml}</div>
         ${pieFichaHtml()}
-        <p style="text-align:center;margin-top:1.5rem;font-size:0.75rem;color:var(--text-sub)">
-          Tu progreso se guarda automáticamente en este dispositivo
-        </p>
+        ${notaCuentaHtml()}
         <p style="text-align:center;margin-top:0.5rem;font-size:0.75rem;color:var(--text-sub)">
           Esta lista es orientativa: confirma cada requisito en las fuentes oficiales (<a href="/subsidios" style="color:inherit;text-decoration:underline">ver subsidios</a>) y con tu banco.
         </p>
@@ -587,8 +681,256 @@
     `;
   }
 
-  render();
-  cargarFichas();
+
+  // ── Mi Camino: cuestionario → tus subsidios → tu ruta, y avance guardado en la cuenta ──────────────
+  // Las respuestas del cuestionario quedan SOLO en este dispositivo. A la cuenta (si hay sesión) van únicamente los requisitos marcados y el subsidio/ruta elegidos.
+  const RESP_KEY = 'quesubsidio-respuestas-c';
+  const ELEC_KEY = 'quesubsidio-eleccion-c';
+  const TIEMPO_KEY = 'quesubsidio-progreso-t';
+  const OBJETIVOS = [['comprar', 'Comprar una vivienda'], ['construir', 'Construir en mi sitio'], ['arrendar', 'Arrendar'], ['mejorar', 'Mejorar mi vivienda'], ['rural', 'Vivienda en zona rural']];
+  const VIVIENDAS = [['sin', 'No tengo vivienda ni sitio'], ['sitio', 'Tengo un sitio (terreno), sin vivienda'], ['propia', 'Tengo vivienda propia']];
+  const TRAMOS = [['40', 'Del 0 al 40 %'], ['50', 'Del 41 al 50 %'], ['60', 'Del 51 al 60 %'], ['70', 'Del 61 al 70 %'], ['80', 'Del 71 al 80 %'], ['90', 'Del 81 al 90 %'], ['100', 'Del 91 al 100 %'], ['ns', 'No sé o no tengo RSH']];
+  const ESTADOS = { puede: 'Puedes acceder', podrias: 'Podrías acceder si…', no: 'Por ahora no' };
+
+  function lsGet(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return def; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sin almacenamiento: vale solo en esta visita */ } }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { /* nada */ } }
+  function leerTiempos() { const t = lsGet(TIEMPO_KEY, null); return t && typeof t === 'object' ? { s: t.s || {}, h: t.h || {} } : { s: {}, h: {} }; }
+
+  let vista = 'cuestionario';
+  let respuestas = lsGet(RESP_KEY, null);       // lo que marcó en el formulario (para poder editarlo)
+  let resultado = null;                         // la última respuesta de /api/mi-camino/evaluar
+  let evaluando = false, errorForm = '', borrador = null;      // borrador: lo que va escribiendo en el formulario (no se pierde si hay un error)
+  let eleccion = lsGet(ELEC_KEY, null) || { subsidio: '', ruta: null, objetivo: null, t: 0 };
+  if (!eleccion.subsidio) { try { eleccion.subsidio = localStorage.getItem(SEL_KEY) || ''; } catch (e) { /* nada */ } }
+
+  function hayProgreso() { const p = cargar(); return (p.s || []).length + (p.h || []).length > 0; }
+  function vistaInicial() {
+    if (!eleccion.ruta && (eleccion.subsidio || hayProgreso())) eleccion.ruta = 'subsidio';   // quien ya venía usando la lista sigue en ella
+    return eleccion.ruta ? 'ruta' : respuestas ? 'resultado' : 'cuestionario';
+  }
+  function ponerVista(v) { vista = v; mostrar(); const h = document.querySelector('#vista-' + v + ' [data-foco]'); if (h) h.focus(); }
+
+  // ── Pasos ──
+  function pasosHtml() {
+    const hay2 = !!respuestas, hay3 = !!eleccion.ruta;
+    const p = (n, v, txt, ok) => '<li><button type="button" class="paso' + (vista === v ? ' on' : '') + '" data-vista="' + v + '"' + (ok ? '' : ' disabled') + (vista === v ? ' aria-current="step"' : '') + '>' + n + '. ' + txt + '</button></li>';
+    return p(1, 'cuestionario', 'Cuéntanos de ti', true) + p(2, 'resultado', 'Tus subsidios', hay2) + p(3, 'ruta', 'Tu ruta', hay3);
+  }
+
+  // ── Paso 1: cuestionario ──
+  function radiosHtml(nombre, opciones, valor) {
+    return '<div class="q-opciones" role="radiogroup">' + opciones.map(o => '<label class="q-op' + (String(valor) === String(o[0]) ? ' on' : '') + '"><input type="radio" name="' + nombre + '" value="' + esc(o[0]) + '"' + (String(valor) === String(o[0]) ? ' checked' : '') + '><span>' + esc(o[1]) + '</span></label>').join('') + '</div>';
+  }
+  function cuestionarioHtml() {
+    const r = borrador || respuestas || {};
+    const q = (tit, ayuda, cuerpo, id) => '<fieldset class="q-card" style="border:1px solid var(--border)"><legend class="q-tit" style="padding:0">' + tit + '</legend>' + (ayuda ? '<p class="q-ayuda">' + ayuda + '</p>' : '') + cuerpo + '</fieldset>';
+    return '<h2 class="vista-tit" id="tit-cuestionario" data-foco tabindex="-1">Cuéntanos de ti</h2>' +
+      '<p class="vista-sub">Seis preguntas, un minuto. Con tus respuestas te decimos a qué subsidios podrías acceder y qué te falta. No guardamos estas respuestas en nuestros servidores: quedan solo en tu dispositivo.</p>' +
+      '<form id="form-q" novalidate>' +
+      q('¿Qué quieres hacer?', '', radiosHtml('objetivo', OBJETIVOS, r.objetivo || '')) +
+      q('¿Tienes 18 años o más y cédula de identidad vigente?', 'Si eres extranjero, cuenta tu residencia definitiva.', radiosHtml('adulto', [['si', 'Sí'], ['no', 'No']], r.adulto || '')) +
+      q('¿Qué tienes hoy?', 'Cuenta a tu grupo familiar declarado.', radiosHtml('vivienda', VIVIENDAS, r.vivienda || '')) +
+      q('¿En qué tramo del Registro Social de Hogares estás?', 'Se consulta gratis en registrosocial.gob.cl' + (DATOS.guias.includes(GUIA_RSH) ? ' (<a href="/guias/' + GUIA_RSH + '" style="color:var(--violet-l)">te explicamos cómo</a>)' : '') + '.', radiosHtml('rsh', TRAMOS, r.rsh || '')) +
+      q('¿Ya usaste alguna vez un subsidio habitacional?', '', radiosHtml('previo', [['no', 'No'], ['si', 'Sí'], ['ns', 'No sé']], r.previo || '')) +
+      q('¿Cuánto tienes ahorrado en tu cuenta para la vivienda?', 'Si aún no tienes cuenta o no tienes ahorro, déjalo vacío.',
+        '<div class="q-fila"><input class="q-input" type="text" inputmode="decimal" name="ahorro" autocomplete="off" aria-label="Monto ahorrado" placeholder="Ej.: 25" value="' + esc(r.ahorro || '') + '" style="width:9rem">' +
+        '<select class="q-input" name="unidad" aria-label="Unidad del ahorro"><option value="uf"' + (r.unidad !== 'clp' ? ' selected' : '') + '>UF</option><option value="clp"' + (r.unidad === 'clp' ? ' selected' : '') + '>Pesos ($)</option></select></div>') +
+      (errorForm ? '<p class="msg-error" role="alert">' + esc(errorForm) + '</p>' : '') +
+      '<div class="acciones"><button type="submit" class="btn-pri" id="btn-evaluar"' + (evaluando ? ' disabled' : '') + '>' + (evaluando ? 'Revisando…' : 'Ver mis subsidios') + '</button>' +
+      '<button type="button" class="btn-sec" data-accion="lista">Prefiero ver la lista general de requisitos</button></div></form>';
+  }
+  function leerFormulario() {
+    const f = document.getElementById('form-q');
+    const v = n => { const x = f.querySelector('input[name="' + n + '"]:checked'); return x ? x.value : ''; };
+    return { objetivo: v('objetivo'), adulto: v('adulto'), vivienda: v('vivienda'), rsh: v('rsh'), previo: v('previo'), ahorro: f.elements.ahorro.value.trim(), unidad: f.elements.unidad.value };
+  }
+  function cuerpoEvaluar(r) {
+    const faltan = [];
+    if (!r.objetivo) faltan.push('qué quieres hacer');
+    if (!r.adulto) faltan.push('si tienes 18 años o más y cédula vigente');
+    if (!r.vivienda) faltan.push('qué tienes hoy');
+    if (!r.rsh) faltan.push('tu tramo del Registro Social de Hogares');
+    if (!r.previo) faltan.push('si ya usaste un subsidio');
+    if (faltan.length) return { error: 'Falta responder: ' + faltan.join('; ') + '.' };
+    const cuerpo = { objetivo: r.objetivo, adulto: r.adulto === 'si', vivienda: r.vivienda, rsh: r.rsh === 'ns' ? null : Number(r.rsh), subsidio_previo: r.previo === 'ns' ? null : r.previo === 'si' };
+    if (r.ahorro) {
+      const n = Number(r.unidad === 'clp' ? r.ahorro.replace(/[.\s$]/g, '').replace(',', '.') : r.ahorro.replace(/\s/g, '').replace(',', '.'));
+      if (!Number.isFinite(n) || n < 0) return { error: 'El ahorro debe ser un número (por ejemplo 25 UF o 1.500.000 pesos).' };
+      cuerpo[r.unidad === 'clp' ? 'ahorro_clp' : 'ahorro_uf'] = n;
+    } else cuerpo.ahorro_uf = 0;
+    return { cuerpo: cuerpo };
+  }
+  async function evaluar(r, irAResultado) {
+    const c = cuerpoEvaluar(r);
+    if (irAResultado) borrador = r;
+    if (c.error) { errorForm = c.error; mostrar(); return; }
+    evaluando = true; errorForm = ''; mostrar();
+    try {
+      const resp = await fetch('/api/mi-camino/evaluar', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(c.cuerpo) });
+      let j = null; try { j = await resp.json(); } catch (e) { j = null; }
+      if (!resp.ok || !j || j.error) { errorForm = (j && j.error) || (resp.status === 429 ? 'Hiciste muchas consultas seguidas. Espera un minuto e inténtalo de nuevo.' : 'No pudimos revisar tus subsidios ahora. Inténtalo de nuevo en unos minutos.'); evaluando = false; mostrar(); return; }
+      respuestas = r; lsSet(RESP_KEY, r); resultado = j; borrador = null;
+      evaluando = false;
+      if (irAResultado) ponerVista('resultado'); else mostrar();
+    } catch (e) {
+      errorForm = 'No pudimos conectarnos. Revisa tu internet e inténtalo de nuevo.'; evaluando = false; mostrar();
+    }
+  }
+
+  // ── Paso 2: a qué subsidios puede acceder ──
+  function tarjetaResultadoHtml(x) {
+    const lis = (cls, arr) => arr && arr.length ? '<ul class="res-lista ' + cls + '">' + arr.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>' : '';
+    const datos = [x.ahorro && datoOk(x.ahorro) ? 'Ahorro mínimo: ' + x.ahorro.valor : '', x.rsh && datoOk(x.rsh) ? 'RSH: ' + x.rsh.valor : ''].filter(Boolean).join(' · ');
+    const comprar = respuestas && respuestas.objetivo === 'comprar';
+    const ficha = typeof x.ruta === 'string' && x.ruta.indexOf('/subsidios/') === 0 ? '<a class="btn-sec" href="' + esc(x.ruta) + '">Ver la ficha completa</a>' : '';
+    const seguir = x.estado !== 'no' && comprar && SLUG_OK.test(String(x.slug)) ? '<button type="button" class="btn-pri" data-ruta="subsidio" data-slug="' + esc(x.slug) + '">Seguir esta ruta →</button>' : '';
+    return '<article class="res-card res-' + esc(x.estado) + '"><div class="res-cab"><h3 class="res-nombre">' + esc(x.nombre) + '</h3><span class="res-estado">' + esc(ESTADOS[x.estado] || '') + '</span></div>' +
+      lis('res-bien', x.bien) + lis('res-falta', x.faltan) + lis('res-razon', x.razones) +
+      (datos ? '<p class="res-datos">' + esc(datos) + (x.revisado ? ' · ficha revisada el ' + esc(x.revisado) : '') + '</p>' : '') +
+      '<div class="acciones">' + seguir + ficha + '</div></article>';
+  }
+  function resultadoHtml() {
+    const cab = '<h2 class="vista-tit" id="tit-resultado" data-foco tabindex="-1">A qué subsidios puedes acceder</h2>';
+    if (evaluando && !resultado) return cab + '<p class="vista-sub">Revisando tus subsidios…</p>';
+    const comprar = respuestas && respuestas.objetivo === 'comprar';
+    if (!resultado) return cab + '<p class="vista-sub">' + esc(errorForm || 'Cuéntanos de ti primero y te mostramos tus subsidios.') + '</p><div class="acciones"><button type="button" class="btn-sec" data-vista="cuestionario">Ir al cuestionario</button><button type="button" class="btn-sec" data-accion="lista">Ver la lista general de requisitos</button></div>';
+    const lista = Array.isArray(resultado.resultados) ? resultado.resultados : [];
+    const n = k => lista.filter(x => x.estado === k).length;
+    const resumen = lista.length ? 'Según lo que nos contaste: ' + n('puede') + (n('puede') === 1 ? ' subsidio al que puedes acceder' : ' subsidios a los que puedes acceder') + ', ' + n('podrias') + ' al que podrías acceder si completas algo, y ' + n('no') + ' por ahora no.' : 'No pudimos evaluar subsidios para lo que elegiste. Revisa la lista general o la página de subsidios.';
+    const credito = comprar ? '<article class="res-card"><div class="res-cab"><h3 class="res-nombre">Comprar sin subsidio</h3></div><p class="q-ayuda" style="margin:0">Para una vivienda usada, seminueva o si prefieres no postular a un subsidio: tu ruta es directo el crédito hipotecario y el pie que tengas ahorrado.</p><div class="acciones"><button type="button" class="btn-pri" data-ruta="credito" data-slug="">Ver mi ruta de crédito →</button></div></article>' : '';
+    const nota = comprar ? '' : '<p class="q-ayuda">Para este objetivo te mostramos qué subsidios calzan; cada ficha explica los pasos y requisitos completos.</p>';
+    const sinVer = resultado.sin_verificar ? '<p class="q-ayuda">' + resultado.sin_verificar + (resultado.sin_verificar === 1 ? ' subsidio no se muestra' : ' subsidios no se muestran') + ' mientras revisamos sus datos.</p>' : '';
+    return cab + '<p class="vista-sub">' + esc(resumen) + '</p>' + nota + lista.map(tarjetaResultadoHtml).join('') + sinVer + credito +
+      '<div class="acciones"><button type="button" class="btn-sec" data-vista="cuestionario">Cambiar mis respuestas</button><button type="button" class="btn-sec" data-accion="lista">Ver la lista general de requisitos</button></div>' +
+      '<p class="aviso-legal">' + esc(resultado.aviso || 'Es una orientación según lo que nos contaste; no es una postulación ni asegura el subsidio. Confirma los requisitos en las fuentes oficiales.') + '</p>' + notaCuentaHtml();
+  }
+
+  // ── Paso 3: tu ruta ──
+  function rutaBarHtml() {
+    const f = fichaElegida();
+    const nombre = eleccion.ruta === 'credito' ? 'Solo crédito hipotecario (sin subsidio)' : f ? 'Con subsidio: ' + f.nombre : 'Lista general de requisitos';
+    return '<div><span class="ruta-et">Tu ruta</span><strong>' + esc(nombre) + '</strong></div><div class="acciones" style="margin:0">' +
+      (respuestas ? '<button type="button" class="btn-sec" data-vista="resultado">Ver mis subsidios</button>' : '<button type="button" class="btn-sec" data-vista="cuestionario">Cuéntanos de ti</button>') + '</div>';
+  }
+  function elegirRuta(ruta, slug) {
+    eleccion = { subsidio: ruta === 'subsidio' && DATOS.subsidios.some(x => x.slug === slug) ? slug : '', ruta: ruta, objetivo: respuestas ? respuestas.objetivo : null, t: Date.now() };
+    elegido = eleccion.subsidio; mundoActual = ruta === 'credito' ? 'h' : 's';
+    guardarEleccion(); ponerVista('ruta');
+  }
+  function guardarEleccion() {
+    lsSet(ELEC_KEY, eleccion);
+    try { elegido ? localStorage.setItem(SEL_KEY, elegido) : localStorage.removeItem(SEL_KEY); } catch (e) { /* nada */ }
+    programarSync();
+  }
+
+  // ── Mostrar la vista que toca ──
+  function mostrar() {
+    document.getElementById('pasos').innerHTML = pasosHtml();
+    ['cuestionario', 'resultado', 'ruta'].forEach(v => { document.getElementById('vista-' + v).hidden = vista !== v; });
+    if (vista === 'cuestionario') document.getElementById('vista-cuestionario').innerHTML = cuestionarioHtml();
+    else if (vista === 'resultado') document.getElementById('vista-resultado').innerHTML = resultadoHtml();
+    else {
+      const soloCredito = eleccion.ruta === 'credito';
+      if (soloCredito) mundoActual = 'h';
+      document.getElementById('tab-s').hidden = soloCredito;
+      document.getElementById('tab-h').className = 'tab' + (mundoActual === 'h' ? ' active-h' : '');
+      document.getElementById('tab-s').className = 'tab' + (mundoActual === 's' ? ' active-s' : '');
+      document.getElementById('ruta-bar').innerHTML = rutaBarHtml();
+      render();
+    }
+  }
+
+  // ── Cuenta: guardar el avance ──
+  let sesion = null, estadoNube = '', tSync = null, sincronizando = false, pendiente = false, fichasPromesa = null;
+  function notaCuentaHtml() {
+    if (!sesion) return '<p class="nota-cuenta">Tu avance se guarda solo en este dispositivo. <a href="/?acceso=1">Crea tu cuenta o inicia sesión</a> para no perderlo y retomarlo desde otro dispositivo.</p>';
+    const estado = estadoNube === 'no_disponible' ? 'No pudimos guardar en tu cuenta por ahora; tu avance sigue guardado en este dispositivo.' : 'Tu avance se guarda en tu cuenta.';
+    return '<p class="nota-cuenta">' + estado + ' Guardamos los requisitos que marcas y el subsidio que eliges; no guardamos tus respuestas del cuestionario. <button type="button" data-accion="borrar">Borrar mi avance guardado</button></p>';
+  }
+  function programarSync() { if (!sesion) return; clearTimeout(tSync); tSync = setTimeout(sincronizar, 700); }
+  async function sincronizar() {
+    if (!sesion) return;
+    if (sincronizando) { pendiente = true; return; }
+    sincronizando = true;
+    try {
+      const p = cargar(), tm = leerTiempos(), items = [];
+      ['s', 'h'].forEach(m => REQS[m].forEach(r => { const hecho = (p[m] || []).includes(r.id), t = tm[m][r.id]; if (t || hecho) items.push({ mundo: m, req_id: r.id, completado: hecho, t: t || 1 }); }));
+      const cuerpo = { items: items };
+      if (eleccion.t) cuerpo.eleccion = { subsidio: eleccion.subsidio || '', ruta: eleccion.ruta, objetivo: eleccion.objetivo, t: eleccion.t };
+      const r = await fetch('/api/mi-camino/avance', { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + sesion.access_token }, body: JSON.stringify(cuerpo) });
+      if (!r.ok) throw new Error('http ' + r.status);
+      estadoNube = 'guardado'; aplicarNube(await r.json());
+    } catch (e) { estadoNube = 'no_disponible'; }
+    sincronizando = false;
+    if (pendiente) { pendiente = false; programarSync(); }
+    if (vista !== 'cuestionario') mostrar();
+  }
+  // Lo guardado en la cuenta manda cuando es más reciente que lo de este dispositivo (se compara requisito por requisito).
+  function aplicarNube(j) {
+    if (!j || !Array.isArray(j.items)) return;
+    const p = cargar(), tm = leerTiempos(); let cambio = false;
+    j.items.forEach(i => {
+      if (!REQS[i.mundo] || !REQS[i.mundo].some(r => r.id === i.req_id) || typeof i.t !== 'number') return;
+      if (i.t > (tm[i.mundo][i.req_id] || 0)) {
+        p[i.mundo] = p[i.mundo] || []; const k = p[i.mundo].indexOf(i.req_id);
+        if (i.completado && k < 0) p[i.mundo].push(i.req_id);
+        if (!i.completado && k >= 0) p[i.mundo].splice(k, 1);
+        tm[i.mundo][i.req_id] = i.t; cambio = true;
+      }
+    });
+    if (cambio) { guardar(p); lsSet(TIEMPO_KEY, tm); }
+    const e = j.eleccion;
+    if (e && typeof e.t === 'number' && e.t > (eleccion.t || 0) && (e.ruta === 'subsidio' || e.ruta === 'credito')) {
+      eleccion = { subsidio: typeof e.subsidio === 'string' ? e.subsidio : '', ruta: e.ruta, objetivo: e.objetivo || null, t: e.t };
+      elegido = DATOS.subsidios.some(x => x.slug === eleccion.subsidio) ? eleccion.subsidio : '';
+      lsSet(ELEC_KEY, eleccion);
+      if (vista === 'cuestionario' && !respuestas) vista = 'ruta';
+    }
+  }
+  async function iniciarNube(s) {
+    sesion = s;
+    try { if (fichasPromesa) await fichasPromesa; } catch (e) { /* sin fichas: igual se sincroniza */ }
+    sincronizar();
+  }
+  async function borrarAvance() {
+    if (!sesion || !confirm('¿Borrar tu avance guardado en tu cuenta y en este dispositivo? No se puede deshacer.')) return;
+    try {
+      const r = await fetch('/api/mi-camino/avance', { method: 'DELETE', headers: { Authorization: 'Bearer ' + sesion.access_token } });
+      if (!r.ok) throw new Error('http ' + r.status);
+    } catch (e) { alert('No pudimos borrar tu avance ahora. Inténtalo de nuevo en unos minutos.'); return; }
+    [STORE_KEY, TIEMPO_KEY, ELEC_KEY, RESP_KEY, SEL_KEY].forEach(lsDel);
+    respuestas = null; resultado = null; elegido = ''; mundoActual = 's'; eleccion = { subsidio: '', ruta: null, objetivo: null, t: 0 }; estadoNube = '';
+    ponerVista('cuestionario');
+  }
+
+  // ── Clics y envío del formulario ──
+  document.addEventListener('click', e => {
+    const t = e.target.closest && e.target.closest('[data-vista],[data-accion],[data-ruta]');
+    if (!t) return;
+    if (t.hasAttribute('data-ruta')) return elegirRuta(t.getAttribute('data-ruta'), t.getAttribute('data-slug') || '');
+    if (t.hasAttribute('data-vista')) {
+      const v = t.getAttribute('data-vista');
+      if (v === 'resultado' && respuestas && !resultado) { vista = 'resultado'; evaluar(respuestas, true); return; }
+      return ponerVista(v);
+    }
+    const a = t.getAttribute('data-accion');
+    if (a === 'lista') { if (!eleccion.ruta) { eleccion.ruta = 'subsidio'; lsSet(ELEC_KEY, eleccion); } ponerVista('ruta'); }
+    if (a === 'borrar') borrarAvance();
+  });
+  document.addEventListener('submit', e => {
+    if (e.target && e.target.id === 'form-q') { e.preventDefault(); evaluar(leerFormulario(), true); }
+  });
+  document.addEventListener('change', e => {
+    if (e.target && e.target.matches && e.target.matches('#form-q input[type="radio"]')) {
+      document.querySelectorAll('#form-q input[name="' + e.target.name + '"]').forEach(i => i.parentElement.classList.toggle('on', i.checked));
+    }
+  });
+
+  vista = vistaInicial();
+  if (vista === 'resultado' && respuestas) { evaluar(respuestas, false); }
+  mostrar();
+  fichasPromesa = cargarFichas();
 </script>
 </body>
 </html>

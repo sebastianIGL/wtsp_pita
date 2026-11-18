@@ -3,7 +3,7 @@
 Movido sin cambios desde main.py (Fase 6, tramo 1b).
   * ``_get_usuario_actual``: valida el JWT con ``/auth/v1/user`` y trae su perfil de ``Usuario``; recuerda el resultado
     30 s en ``app.core.user_cache`` (solo éxitos). El JWT lo verifica Supabase, no se valida localmente.
-  * ``_uid_desde_jwt``: lo mismo con la clave anónima, solo para obtener el id (progreso "Mi Camino").
+  * ``_uid_desde_jwt``: lo mismo con la clave anónima (o, si no está, con la del servidor), solo para obtener el id (familias en «Mi Camino»).
 """
 import logging
 from datetime import datetime, timedelta, timezone
@@ -102,7 +102,7 @@ async def _uid_desde_jwt(request: Request) -> Optional[str]:
         sb_url = _supabase_url()
         if not sb_url:
             return None
-        anon_key = get_settings().supabase_anon_key
+        anon_key = get_settings().supabase_anon_key or _supabase_service_role_key()      # sin clave pública se verifica con la del servidor (como el CRM)
         if not anon_key:
             return None
         async with http_client(10) as client:

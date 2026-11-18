@@ -1374,6 +1374,9 @@ Como referencia aproximada (es una estimación nuestra, no un plazo oficial), el
     if (_prevFocus) _prevFocus.focus();
   }
 
+  // «/?acceso=1» abre directo el cuadro de acceso (lo usa Mi Camino: «Crea tu cuenta o inicia sesión»).
+  if (new URLSearchParams(location.search).has('acceso')) window.addEventListener('load', () => abrirLogin());
+
   function limpiarModalLogin() {
     document.getElementById('modalAlerta').className = 'modal-alert';
     document.getElementById('modalAlerta').textContent = '';

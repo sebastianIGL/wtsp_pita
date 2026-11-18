@@ -23,6 +23,7 @@ from app.services.avisos_cola import bucle_avisos
 from app.services.temperatura import bucle_temperatura
 from app.services.seguimiento_auto import bucle_seguimiento
 from app.routers.paginas import router as paginas_router
+from app.routers.mi_camino import router as mi_camino_router
 from app.routers.progreso import router as progreso_router
 from app.routers.publico import router as publico_router
 from app.routers.formulario import router as formulario_router
@@ -269,6 +270,7 @@ app.include_router(formulario_router)
 
 
 app.include_router(progreso_router)
+app.include_router(mi_camino_router)
 
 
 app.mount("/", FrontendEstatico(directory="frontend", html=True), name="frontend")   # sin las plantillas internas (app/core/estaticos.py)

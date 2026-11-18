@@ -170,7 +170,14 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **Datos:** `GET /api/mi-camino/subsidios` (público, solo lectura, caché de 5 minutos; `app/services/mi_camino.py`). Solo viajan las fichas completas, publicadas, verificadas y al día con un dato de ahorro mínimo o de tope del RSH
   (dos datos por ficha + fecha de revisión) y los nombres de las guías publicadas. Si la base falla o faltan las tablas responde listas vacías y la página muestra su lista general. La página escapa todo lo que llega de la lectura,
   valida los nombres y arma el enlace a la ficha ella misma (no usa la ruta que venga en los datos).
-- Fuera de alcance (opción C, no hecha): guardar el avance en la cuenta. `/api/progreso` ya existe pero la página no lo usa.
+- **Mi Camino v2 (2026-11-18): cuestionario → tus subsidios → tu ruta, y avance en la cuenta.** `/perfil` ahora parte con 6 preguntas (qué quiere hacer, mayor de 18 con cédula, qué tiene hoy —sin vivienda / sitio / vivienda—,
+  tramo del RSH, si ya usó un subsidio, ahorro en UF o pesos). `POST /api/mi-camino/evaluar` (público, límite 30/min por IP, **no guarda ni registra las respuestas**) compara con las reglas de `app/services/elegibilidad.py` y devuelve
+  por subsidio **puede / podría (y qué falta) / por ahora no (y por qué)**. Las reglas están en el código pero llevan un **candado**: si el ahorro o el tope del RSH de la ficha publicada ya no coinciden con la regla, ese subsidio no recibe
+  veredicto (`sin_verificar`) hasta revisarlo. Solo «comprar» tiene ruta con lista de requisitos (subsidio elegido, o «solo crédito hipotecario» para seminuevos/usados); los demás objetivos (construir, arrendar, mejorar, rural) muestran las tarjetas y
+  enlazan a la ficha. Quien ya venía usando la lista (avance o subsidio guardados) sigue en ella; «lista general» siempre está a un clic.
+  **Con sesión** (familia, no CRM): `GET/PUT/DELETE /api/mi-camino/avance` (`app/services/avance_camino.py`, tablas `progreso_usuario` y `camino_eleccion`, SQL `supabase/migraciones/2026-11-18_mi_camino_cuenta.sql`) guardan solo los requisitos marcados y el
+  subsidio/ruta/objetivo elegidos, cada uno con la hora del cambio: **gana lo más reciente por requisito** entre dispositivos; las respuestas del cuestionario **nunca** se suben. Botón «Borrar mi avance guardado». La sesión se verifica con la clave del servidor
+  (`_uid_desde_jwt` usa la anónima si existe y si no la del servidor). Sin el SQL, las rutas de avance responden 503 y la página sigue guardando en el dispositivo. `/?acceso=1` abre el cuadro de acceso. Política de privacidad actualizada (2026-11-18).
 
 ## Rol revisor en el panel del directorio (persona administradora)
 - Editar, publicar, ocultar, archivar, borrar y manejar fuentes sigue siendo **solo del dueño**. Una persona con rol **administrador** actúa como **revisora**: ve todo (borradores y vista previa) y puede **verificar datos**
