@@ -24,6 +24,28 @@ _CAMPOS_COLUMNA_PROPIA: set = {
 }
 
 
+def _limpiar_credito(nuevos: Dict) -> Dict[str, Any]:
+    """Valida lo que el modelo extrae sobre antigüedad y deudas (viaja en el blob ``datos``): un valor absurdo se descarta (None) en vez de guardarse."""
+    def entero(v: Any, maximo: int) -> Optional[int]:
+        if isinstance(v, bool) or not isinstance(v, (int, float, str)):
+            return None
+        try:
+            n = float(str(v).strip().replace(",", ".")) if isinstance(v, str) else float(v)
+        except ValueError:
+            return None
+        return int(n) if n == n and 0 <= n <= maximo else None
+    salida: Dict[str, Any] = {}
+    if "antiguedad_meses" in nuevos:
+        salida["antiguedad_meses"] = entero(nuevos["antiguedad_meses"], 720)
+    if "tiene_deudas" in nuevos:
+        salida["tiene_deudas"] = nuevos["tiene_deudas"] if isinstance(nuevos["tiene_deudas"], bool) else None
+    if "deuda_mensual" in nuevos:
+        salida["deuda_mensual"] = entero(nuevos["deuda_mensual"], 100_000_000)
+    if salida.get("tiene_deudas") is False:
+        salida["deuda_mensual"] = 0                      # dice que no tiene deudas: no paga nada al mes
+    return salida
+
+
 async def upsert_prospecto(
     *,
     telefono_e164: str,
@@ -93,6 +115,7 @@ async def actualizar_datos_prospecto(
 
     campos_columna: Dict[str, Any] = {}
     campos_blob:    Dict[str, Any] = {}
+    nuevos_datos = {**nuevos_datos, **_limpiar_credito(nuevos_datos)}
 
     for k, v in nuevos_datos.items():
         if v is None:

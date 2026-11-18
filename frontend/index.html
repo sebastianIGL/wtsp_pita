@@ -1830,7 +1830,7 @@ const COLAS = [
   { key: 'seguimiento_vencido', label: 'Seguimiento vencido' }, { key: 'cotizados', label: 'Cotizados' }, { key: 'todos', label: 'Todos' },
 ]
 const COLUMNAS_TABLA = [
-  { key: 'lead', label: 'Lead', fija: true }, { key: 'temperatura', label: 'Temperatura' }, { key: 'credito', label: 'Crédito' }, { key: 'llego', label: 'Llegó' }, { key: 'etapa', label: 'Etapa' }, { key: 'contacto', label: 'Contacto' },
+  { key: 'temperatura', label: 'Temperatura', corta: 'Temp.', titulo: 'Temperatura (0 a 99): cuánto conviene contactarlo ahora' }, { key: 'lead', label: 'Lead', fija: true }, { key: 'credito', label: 'Crédito' }, { key: 'llego', label: 'Llegó' }, { key: 'etapa', label: 'Etapa' }, { key: 'contacto', label: 'Contacto' },
   { key: 'evaluacion', label: 'Evaluación' }, { key: 'proxima', label: 'Próxima acción' }, { key: 'proyecto', label: 'Proyecto' }, { key: 'ejecutivo', label: 'Ejecutivo' },
   { key: 'telefono', label: 'Teléfono' }, { key: 'ahorro', label: 'Ahorro' }, { key: 'docs', label: 'Docs' }, { key: 'ultimo', label: 'Último mensaje' },
   { key: 'notas', label: 'Notas' }, { key: 'dias_gestion', label: 'Días sin gestión' }, { key: 'dias_estado', label: 'Días en este estado' }, { key: 'acciones', label: 'Acciones', fija: true },
@@ -2135,8 +2135,8 @@ const _SVG_CHAT = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBo
 // El botón «WhatsApp»: abre el chat del cliente en WhatsApp (pestaña nueva). Sin teléfono válido queda apagado.
 function _botonAbrirWsp(c, texto = 'WhatsApp') {
   const tel = c && c.Telefono, u = _urlWsp(tel)
-  return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="ld-wa ld-wa-abrir" title="Abrir WhatsApp con ${esc(String(tel).trim())}">${_SVG_WSP}${esc(texto)}</a>`
-           : `<span class="ld-wa ld-wa-abrir" title="Este cliente no tiene un teléfono válido">${_SVG_WSP}${esc(texto)}</span>`
+  return u ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" class="ld-wa ld-wa-abrir" title="Abrir WhatsApp con ${esc(String(tel).trim())}" aria-label="Abrir WhatsApp con ${esc(String(tel).trim())}">${_SVG_WSP}${esc(texto)}</a>`
+           : `<span class="ld-wa ld-wa-abrir" title="Este cliente no tiene un teléfono válido" aria-label="Sin teléfono válido">${_SVG_WSP}${esc(texto)}</span>`
 }
 // Temperatura (0–99): cuánto conviene contactarlo ahora. Blanco = 0 (sin interacción), rojo 1–39, amarillo 40–69, verde 70 o más. Sin número (ya pasó a evaluar o está cerrado) no se dibuja.
 function _temperaturaDe(c) { const n = c && c.temperatura; return n == null || n === '' || !Number.isFinite(Number(n)) ? null : Math.max(0, Math.min(99, Math.round(Number(n)))) }
@@ -2159,6 +2159,20 @@ function _sueldoRequerido(c) {
   const b = f(c && c.sueldo_requerido_banco), m = f(c && c.sueldo_requerido_mutuaria)
   return b && m ? `Banco ${b} · Mutuaria ${m}` : ''
 }
+// Lo que el bot averigua sobre su trabajo y sus deudas (para el ejecutivo): «2 años y 3 meses» y «Sin deudas / Con deudas ($150.000 al mes)».
+function _antiguedadTexto(c) {
+  const n = c && c.antiguedad_meses, m = Number(n)
+  if (n == null || n === '' || !Number.isFinite(m) || m < 0) return ''
+  const a = Math.floor(m / 12), r = Math.round(m % 12)
+  return [a ? a + (a === 1 ? ' año' : ' años') : '', r || !a ? r + (r === 1 ? ' mes' : ' meses') : ''].filter(Boolean).join(' y ')
+}
+function _deudasTexto(c) {
+  const k = c && c.credito_deudas, m = Number(c && c.deuda_mensual)
+  if (k === 'sin') return 'Sin deudas'
+  if (k === 'con_monto' && Number.isFinite(m) && m > 0) return 'Con deudas ($' + Math.round(m).toLocaleString('es-CL') + ' al mes)'
+  if (k === 'monto_desconocido') return 'Con deudas (monto por confirmar)'
+  return ''
+}
 // El teléfono: registrar una llamada a este cliente (cómo resultó y una nota).
 function _botonLlamar(c) {
   return `<button type="button" data-id="${Number(c.id)}" data-nombre="${esc(c.Contacto)}" onclick="abrirLlamada(+this.dataset.id, this.dataset.nombre)" class="ld-llamar" title="Registré una llamada" aria-label="Registrar una llamada a ${esc(c.Contacto)}"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></button>`
@@ -2180,14 +2194,14 @@ const _CELDAS = {
       ? `<div class="sidebar-text text-sm">—</div><div class="text-xs sub-text mt-0.5">${esc(l.fuente || 'Sin fecha de creación')}</div>`
       : `<div class="val-text text-sm whitespace-nowrap">${esc(l.fecha)}</div><div class="text-xs sidebar-text mt-0.5">${esc(l.hace)}${l.fuente ? ' · ' + esc(l.fuente) : ''}</div>` },
   etapa: (c, x) => _pillEtapa(etapaDe(c)),
-  temperatura: (c, x) => { const n = _temperaturaDe(c); return n == null ? '<span class="sub-text text-sm">—</span>' : `<div class="flex items-center gap-2" style="min-width:11rem">${_circuloTemp(c)}<span class="text-xs sidebar-text">${esc(c.temperatura_motivo || '')}</span></div>` },
+  temperatura: (c, x) => _temperaturaDe(c) == null ? '<span class="sub-text text-sm">—</span>' : _circuloTemp(c),          // solo el círculo (entre la casilla y el nombre); el motivo sale al pasar el mouse
   credito: (c, x) => _chipCredito(c) || '<span class="sub-text text-sm">—</span>',
   contacto: (c, x) => { const k = contactoDe(c, x.ahora); return `<div class="flex items-center gap-1.5 text-sm val-text whitespace-nowrap">${_punto(k.punto)}<span>${esc(k.titulo)}</span>${_entregaCorta(c.estado_plantilla)}</div><div class="text-xs sidebar-text mt-0.5">${esc(k.detalle)}</div>` },
   evaluacion: (c, x) => _selectEvaluacion(c),
   proxima: (c, x) => _franjaProxima(c, proximaDe(c, x.hoy)),
   proyecto: (c, x) => `<span class="sidebar-text text-sm">${esc(x.proyecto(c.proyecto_id))}</span>`,
   ejecutivo: (c, x) => c.usuario_id ? `<span class="inline-flex items-center gap-1.5 text-sm val-text"><span class="ld-avatar">${esc(_iniciales(_nombreUsuario(c.usuario_id)))}</span>${esc(_nombreUsuario(c.usuario_id))}</span>` : '<span class="sub-text text-sm">Sin asignar</span>',
-  telefono: (c, x) => c.Telefono ? `<span class="inline-flex items-center gap-2"><span class="font-mono text-xs sidebar-text">${esc(c.Telefono)}</span>${_botonAbrirWsp(c, 'Abrir')}${_botonLlamar(c)}</span>` : '<span class="font-mono text-xs sidebar-text">—</span>',
+  telefono: (c, x) => c.Telefono ? `<span class="inline-flex items-center gap-2"><span class="font-mono text-xs sidebar-text">${esc(c.Telefono)}</span>${_botonAbrirWsp(c, '')}${_botonLlamar(c)}</span>` : '<span class="font-mono text-xs sidebar-text">—</span>',
   ahorro: (c, x) => _ahorroUF(c) ? `<span class="val-text text-sm whitespace-nowrap">${esc(_ahorroUF(c))}</span>` : '<span class="sub-text text-sm">—</span>',
   docs: (c, x) => { const d = docsDe(c); return d.clave ? `<span class="ld-docs ld-docs-${d.clave}">${esc(d.texto)}</span>` : '<span class="sub-text text-sm">—</span>' },
   ultimo: (c, x) => `<span class="sidebar-text text-sm whitespace-nowrap">${esc(haceTexto(c.ultimo_entrante_en, x.ahora) || '—')}</span>`,
@@ -2288,7 +2302,7 @@ function _renderLeadsTabla(lista, x) {
   const todosMarcados = pagina.length > 0 && pagina.every(c => _seleccionLeads.has(c.id))
   const encabezado = `<tr class="thead-row text-xs uppercase tracking-wider border-b">
     <th class="px-4 py-3 text-left"><input type="checkbox" aria-label="Seleccionar todos los de esta página" ${todosMarcados ? 'checked' : ''} onchange="seleccionarPaginaLeads(this.checked)"></th>
-    ${cols.map(c => `<th class="px-4 py-3 text-left whitespace-nowrap ld-c-${c.key}">${esc(c.label)}</th>`).join('')}</tr>`
+    ${cols.map(c => `<th class="px-4 py-3 text-left whitespace-nowrap ld-c-${c.key}"${c.titulo ? ` title="${esc(c.titulo)}"` : ''}>${esc(c.corta || c.label)}</th>`).join('')}</tr>`
   const filas = pagina.map(c => `<tr class="trow border-b transition${_ocultoPorEstado(c) ? ' fila-oculta-estado' : ''}" data-lead="${Number(c.id)}"${_ocultoPorEstado(c) ? ` title="${esc(_AVISO_OCULTO)}"` : ''}>
     <td class="px-4 py-3 align-top"><input type="checkbox" aria-label="Seleccionar a ${esc(c.Contacto)}" ${_seleccionLeads.has(c.id) ? 'checked' : ''} onchange="alternarSeleccionLead(${Number(c.id)}, this.checked)"></td>
     ${cols.map(col => `<td class="px-4 py-3 align-top ld-c-${col.key}">${_CELDAS[col.key](c, x)}</td>`).join('')}</tr>`).join('')
@@ -2487,7 +2501,7 @@ function _fichaTarjeta(c, x) {
   const eg = _EG_MAP[c.estado_gestion || ''] || _EG_MAP['']
   const px = proximaDe(c, x.hoy)
   const filas = [['RUT', c.Rut], ['Teléfono', tel, true], ['Correo', correo, true], ['Proyecto', p ? p.nombre : ''], ['Tipología', c.tipologia_nombre], ['Etapa', c.etapa_nombre],
-    ['Estado', `<span class="eg-badge ${eg.cls}">${esc(eg.label)}</span>`, true], ['Sujeto de crédito', _chipCredito(c) ? `<span class="inline-flex items-center gap-2">${_chipCredito(c)}<span class="text-xs">${esc(c.credito_motivo || '')}</span></span>` : '', true], ['Sueldo requerido', _sueldoRequerido(c)],
+    ['Estado', `<span class="eg-badge ${eg.cls}">${esc(eg.label)}</span>`, true], ['Sujeto de crédito', _chipCredito(c) ? `<span class="inline-flex items-center gap-2">${_chipCredito(c)}<span class="text-xs">${esc(c.credito_motivo || '')}</span></span>` : '', true], ['Sueldo requerido', _sueldoRequerido(c)], ['Antigüedad laboral', _antiguedadTexto(c)], ['Deudas', _deudasTexto(c)],
     ['Temperatura', _temperaturaDe(c) == null ? '' : `<span class="inline-flex items-center gap-2">${_circuloTemp(c)}<span>${esc(c.temperatura_motivo || '')}</span></span>`, true], ['Ejecutivo', c.usuario_id ? _nombreUsuario(c.usuario_id) : ''], ['Ahorro', _ahorroUF(c)],
     ['Próxima acción', px.tipo === 'nada' ? '' : [px.texto, px.nota].filter(Boolean).join(' · ')]]                  // cada valor se escapa dentro de _filaFicha (salvo los que ya son HTML armado aquí con esc())
   const ultima = c.nota_ultima && c.nota_ultima.texto ? c.nota_ultima : null

@@ -342,6 +342,15 @@ c) trabajo_indefinido:
      Campo: false
      Continuar flujo (documentos cambiarán según esto)
 
+   ANTIGÜEDAD LABORAL (solo si trabaja; no si está sin trabajo):
+   Si aún no está registrada, pregunta UNA vez, en un mensaje corto:
+   "¿Hace cuánto tiempo estás en ese trabajo? (por ejemplo: 8 meses o 2 años)"
+   Registrar: antiguedad_meses = número entero de MESES (2 años = 24;
+   en independientes, los meses que lleva con boletas o actividad).
+   Si ya lo dijo antes ("llevo 3 años en la empresa"), regístralo sin
+   volver a preguntar. Si no sabe con exactitud, acepta una estimación.
+   ⚠️ No cambia siguiente_paso ni descalifica: es un dato para el ejecutivo.
+
    → SIN TRABAJO ACTUALMENTE:
 
      ⚠️ REGLA: El bot determina el caso según
@@ -402,7 +411,7 @@ c) trabajo_indefinido:
         cambia, escríbenos y con gusto te asesoramos."
        siguiente_paso: "NO_INTERESADO"
 
-d) renta_mensual + complemento_renta (se resuelven juntos en 2-3 turnos):
+d) renta_mensual + complemento_renta + deudas (se resuelven juntos en 3-4 turnos):
 
    TURNO 1 — Confirmar el rango registrado:
    "Tengo registrado que tu renta está en el rango de
@@ -423,6 +432,19 @@ d) renta_mensual + complemento_renta (se resuelven juntos en 2-3 turnos):
    ⚠️ NO preguntes quiénes son esas personas ni
       qué relación tienen contigo. Solo si hay
       complemento o no.
+
+   TURNO 4 — Deudas:
+   "¿Tienes deudas o créditos vigentes? (tarjetas, crédito de
+    consumo, automotriz u otros)"
+   Registrar: tiene_deudas = true/false
+   → Si tiene deudas: "¿Cuánto pagas al mes en total por esas
+     deudas, más o menos?"
+     Registrar: deuda_mensual = número entero en pesos (sin puntos ni $).
+     Si no sabe el monto, deja deuda_mensual = null y sigue.
+   ⚠️ Una pregunta a la vez. NO preguntes con qué banco ni el detalle de
+      cada deuda. Tener deudas NO descalifica ni cambia siguiente_paso:
+      solo di, con naturalidad, que el banco las considera al evaluar.
+   ⚠️ Si ya contó sus deudas antes, regístralas sin volver a preguntar.
 
    ⚠️ Si el cliente dice "no tengo rango registrado" o
    {rango_sueldo} = "no registrado":
@@ -601,6 +623,11 @@ datos_extraidos:
   "renta_mensual": número entero en pesos SIN puntos ni símbolos
                    ej: 950000 (null si aún no lo mencionó)
   "complemento_renta": true/false/null
+  "antiguedad_meses": número entero de MESES en el trabajo actual
+                      (null si aún no lo mencionó)
+  "tiene_deudas": true/false/null
+  "deuda_mensual": número entero en pesos que paga al mes por sus
+                   deudas (null si no lo sabe o no tiene)
   "tipo_trabajo": "dependiente_indefinido" /
                   "dependiente_plazo_fijo" /
                   "independiente" /
