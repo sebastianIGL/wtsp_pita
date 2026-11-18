@@ -1,22 +1,29 @@
 """Ficha pública de un proyecto (``/viviendas/{slug}``): el slug, qué datos se muestran y cómo se presentan.
 
-Alcance mínimo, sin columna nueva en la base: el slug se calcula desde el nombre del proyecto. Nuevos: ``nombre`` (p. ej.
-``mirador-del-sol``). Semi-nuevos (una propiedad por publicación, con la dirección como nombre): ``nombre`` + un identificador
-corto (el de la fuente, o el del proyecto), porque dos publicaciones pueden tener la misma dirección. Si dos proyectos dan el
-mismo slug, ambos reciben un sufijo con el comienzo de su id. **Límite conocido:** si se cambia el nombre de un proyecto, o
-aparece otro con el mismo nombre, su URL cambia; la versión completa guardará el slug en la base para que sea estable.
+El slug (la dirección de la ficha) se guarda en ``Proyecto.slug`` la primera vez que el proyecto sale en el sitio y desde entonces NO cambia,
+aunque se renombre el proyecto o aparezca otro con el mismo nombre: así los enlaces ya compartidos (WhatsApp, Google, el bot) siguen
+funcionando. La primera vez se calcula desde el nombre (igual que antes, de modo que las direcciones ya publicadas no cambian). Nuevos:
+``nombre`` (p. ej. ``mirador-del-sol``). Semi-nuevos (una propiedad por publicación, con la dirección como nombre): ``nombre`` + un
+identificador corto (el de la fuente, o el del proyecto). Si dos proyectos dan el mismo slug, ambos reciben un sufijo con el comienzo de
+su id. Si la base aún no tiene la columna ``slug`` (falta correr el SQL), todo funciona como antes: el slug se calcula desde el nombre.
 
 Solo se muestran proyectos activos. De cada tipología solo las que están activas y tienen stock; del stock nunca el número
 exacto, solo «Disponible» o «Últimas unidades». Todo valor es referencial (aviso legal en la página).
 """
+import asyncio
+import logging
 import re
 import time
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
+
 from app.clients.supabase import _supabase_request
 from app.core import interruptores
 from app.core.cache_proyectos import _CACHE_TTL
+
+logger = logging.getLogger("wtsp_pita")
 
 SLUG_VALIDO = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SLUG_MAX = 90
@@ -24,7 +31,9 @@ ULTIMAS_UNIDADES = 3          # hasta este stock total se dice «Últimas unidad
 ORIGENES = ("viviendas", "bot")
 
 _RELACION_DUENO = "Inmobiliaria(nombre,Empresa(nombre))"      # para saber a qué inmobiliaria y empresa pertenece (ver oculto_en_sitio)
-_SELECT_INDICE = f"id,nombre,activo,condicion_propiedad,fuente_externo_id,{_RELACION_DUENO}"
+_SELECT_INDICE = f"id,nombre,slug,activo,condicion_propiedad,fuente_externo_id,{_RELACION_DUENO}"
+_SELECT_INDICE_SIN_SLUG = f"id,nombre,activo,condicion_propiedad,fuente_externo_id,{_RELACION_DUENO}"      # si la base aún no tiene la columna slug
+MAX_SLUGS_POR_VEZ = 100          # cuántos slugs nuevos se guardan en cada lectura del índice (el resto, en la siguiente)
 _SELECT_FICHA = (
     "id,nombre,ubicacion,imagen_url,imagenes,activo,condicion_propiedad,fuente_externo_id,"
     "acepta_ds19,acepta_ds1_t23,ahorro_minimo_uf,valor_reserva_clp,valor_reserva_uf,tiene_piloto,"
@@ -33,7 +42,7 @@ _SELECT_FICHA = (
     "EtapaTipologia(stock,Etapa(nombre,estado,fecha_entrega,tipo_ahorro,num_cuotas)))"
 )
 
-_indice: Dict[str, Any] = {"fichas": None, "ts": 0.0}               # slug → {"id", "nuevo"} de cada proyecto público, 5 min
+_indice: Dict[str, Any] = {"fichas": None, "ts": 0.0, "por_id": {}}   # fichas: slug → {"id", "nuevo"} de cada proyecto público; por_id: id → slug; 5 min
 _fichas: Dict[str, Tuple[float, Dict[str, Any]]] = {}              # id → (hora, fila de la base), 5 min
 _MAX_FICHAS = 300
 
@@ -82,19 +91,44 @@ def _slug_base(p: Dict[str, Any]) -> str:
     return base
 
 
+def _slug_guardado(p: Dict[str, Any]) -> Optional[str]:
+    g = p.get("slug")
+    return g if isinstance(g, str) and len(g) <= SLUG_MAX and SLUG_VALIDO.match(g) else None
+
+
 def asignar_slugs(proyectos: List[Dict[str, Any]]) -> Dict[str, str]:
-    """id → slug de los proyectos públicos (con nombre y no desactivados). Si dos dan el mismo slug, ambos llevan el
-    comienzo de su id al final; el resultado no depende del orden de la lista."""
+    """id → slug de los proyectos públicos (con nombre y no desactivados). Un proyecto que ya tiene su slug guardado (``slug``) lo conserva
+    siempre; los demás lo reciben calculado desde el nombre. Si dos calculados dan lo mismo, o uno coincide con un slug guardado (de cualquier
+    proyecto, también de uno desactivado), los calculados llevan el comienzo de su id al final. El resultado no depende del orden de la lista."""
+    reservados = {g for g in (_slug_guardado(p) for p in proyectos if p.get("id")) if g}
+    slugs: Dict[str, str] = {}
     bases: Dict[str, List[Dict[str, Any]]] = {}
     for p in proyectos:
         if not es_publico(p) or not p.get("id"):
             continue
-        bases.setdefault(_slug_base(p), []).append(p)
-    slugs: Dict[str, str] = {}
+        guardado = _slug_guardado(p)
+        if guardado:
+            slugs[str(p["id"])] = guardado
+        else:
+            bases.setdefault(_slug_base(p), []).append(p)
     for base, grupo in bases.items():
         for p in grupo:
-            slugs[str(p["id"])] = base if len(grupo) == 1 else f"{base[:SLUG_MAX - 7]}-{_id_corto(p, 6)}"
+            slugs[str(p["id"])] = base if len(grupo) == 1 and base not in reservados else f"{base[:SLUG_MAX - 7]}-{_id_corto(p, 6)}"
     return slugs
+
+
+async def _guardar_slugs(filas: List[Dict[str, Any]], slugs: Dict[str, str]) -> None:
+    """Guarda el slug de los proyectos públicos que aún no lo tienen (solo si la base ya tiene la columna). Nunca pisa uno ya guardado
+    (``slug=is.null``) y nunca rompe la lectura: si falla (p. ej. dos iguales), se reintenta en la próxima lectura del índice."""
+    pendientes = [(str(p["id"]), slugs[str(p["id"])]) for p in filas if "slug" in p and not p.get("slug") and str(p.get("id")) in slugs][:MAX_SLUGS_POR_VEZ]
+
+    async def uno(pid: str, slug: str) -> None:
+        try:
+            await _supabase_request("PATCH", "/Proyecto", params={"id": f"eq.{pid}", "slug": "is.null"}, json={"slug": slug})
+        except Exception as e:
+            logger.warning("Ficha de proyecto | no se pudo guardar el slug de un proyecto (%s)", type(e).__name__)
+    for i in range(0, len(pendientes), 10):
+        await asyncio.gather(*(uno(pid, slug) for pid, slug in pendientes[i:i + 10]))
 
 
 # ── formato (es-CL) ──────────────────────────────────────────────────────────
@@ -212,14 +246,34 @@ def armar_ficha(p: Dict[str, Any], slug: str) -> Dict[str, Any]:
 
 # ── lectura (con caché de 5 minutos) ─────────────────────────────────────────
 
+async def _leer_proyectos_del_indice() -> List[Dict[str, Any]]:
+    params = {"select": _SELECT_INDICE, "order": "nombre.asc", "limit": "1000"}
+    try:
+        return await _supabase_request("GET", "/Proyecto", params=params) or []
+    except httpx.HTTPStatusError as e:
+        if e.response is None or e.response.status_code not in (400, 404):
+            raise
+        logger.warning("Ficha de proyecto | la base aún no tiene la columna slug; se calcula desde el nombre")
+        return await _supabase_request("GET", "/Proyecto", params={**params, "select": _SELECT_INDICE_SIN_SLUG}) or []
+
+
 async def _indice_fichas() -> Dict[str, Dict[str, Any]]:
     ahora = time.time()
     if _indice["fichas"] is None or ahora - _indice["ts"] >= _CACHE_TTL:
-        filas = await _supabase_request("GET", "/Proyecto", params={"select": _SELECT_INDICE, "order": "nombre.asc", "limit": "1000"}) or []
+        filas = await _leer_proyectos_del_indice()
         nuevo = {str(p.get("id")): (p.get("condicion_propiedad") or "nueva") == "nueva" for p in filas}
-        _indice["fichas"] = {slug: {"id": pid, "nuevo": nuevo[pid]} for pid, slug in asignar_slugs(filas).items()}
+        por_id = asignar_slugs(filas)
+        await _guardar_slugs(filas, por_id)
+        _indice["fichas"] = {slug: {"id": pid, "nuevo": nuevo[pid]} for pid, slug in por_id.items()}
+        _indice["por_id"] = por_id
         _indice["ts"] = ahora
     return _indice["fichas"]
+
+
+async def slugs_por_id() -> Dict[str, str]:
+    """id → slug de cada proyecto público (el mismo que abre la ficha), con la caché de 5 minutos del índice."""
+    await _indice_fichas()
+    return dict(_indice["por_id"])
 
 
 async def slugs_de_proyectos_nuevos() -> List[str]:

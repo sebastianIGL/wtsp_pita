@@ -71,9 +71,11 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
   **activas con stock** («Disponible» o «Últimas unidades» hasta 3 unidades; el número exacto nunca se muestra), «Cómo se paga»
   (ahorro mínimo, reserva, estacionamiento, sala piloto, solo lo que tenga dato), la inmobiliaria y el aviso de valores
   referenciales. Solo proyectos activos; si no existe o está inactivo responde 404 con página amable y `noindex`.
-- **El slug se calcula del nombre, sin columna nueva** (`mirador-del-sol`; en los semi-nuevos, la dirección + el identificador de la
-  fuente). Si dos proyectos dan el mismo slug, ambos llevan el comienzo de su id. **Límite conocido:** si se cambia el nombre de
-  un proyecto su URL cambia; la versión completa guardará el slug en la base.
+- **El slug es estable** (`Proyecto.slug`, SQL `supabase/migraciones/2026-11-18_proyecto_slug_estable.sql`): la primera vez que un proyecto
+  sale en el sitio se calcula del nombre (`mirador-del-sol`; en los semi-nuevos, la dirección + el identificador de la fuente; si dos dan lo
+  mismo, ambos llevan el comienzo de su id), la aplicación lo guarda sola (`slug=is.null`: nunca pisa uno existente) y desde entonces **no
+  cambia** aunque se renombre el proyecto o aparezca otro con el mismo nombre; un slug guardado queda reservado aunque el proyecto se
+  desactive. Si la base aún no tiene la columna, todo funciona como antes (calculado del nombre).
 - **Indexación:** las fichas de proyectos nuevos se indexan; las de semi-nuevos (copias de publicaciones de terceros) llevan
   `noindex, follow` y no van en el sitemap, pero **no** se bloquean en `robots.txt` (para que el buscador pueda leer el noindex).
   La cabecera común acepta la variable `robots` (por defecto `index, follow`).

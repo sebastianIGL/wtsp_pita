@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.core.rate_limit import _rate_limit_ok, ip_cliente
 from app.services import calculadora, mi_camino
 from app.services.consentimientos import registrar_consentimiento
-from app.services.ficha_proyecto import asignar_slugs, es_publico
+from app.services.ficha_proyecto import asignar_slugs, es_publico, slugs_por_id
 from fastapi import APIRouter, Request, Response
 from typing import Any, Dict, List
 
@@ -65,7 +65,11 @@ async def api_proyectos_landing(limite: int = 12):
             "order": "nombre.asc",
             "limit": "1000",
         }) or []
-        slugs = asignar_slugs(rows)          # el mismo cálculo que usa la ficha (/viviendas/{slug}): el enlace siempre coincide
+        try:
+            slugs = await slugs_por_id()      # los slugs guardados: el mismo enlace que abre la ficha (/viviendas/{slug}) y que no cambia
+        except Exception as e:
+            logger.warning("Vitrina | no se pudieron leer los slugs guardados (%s); se calculan desde el nombre", type(e).__name__)
+            slugs = asignar_slugs(rows)
         nuevos: List[Dict[str, Any]] = []
         semi: List[Dict[str, Any]] = []
         for r in rows:
