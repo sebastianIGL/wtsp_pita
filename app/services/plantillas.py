@@ -92,23 +92,28 @@ async def _pool_plantilla(nombre: str, proyecto: Optional[Dict], tipologia_id: O
     else:
         reserva_fmt = "a consultar"
 
-    # Monto del subsidio en pesos: UF del subsidio × valor UF del día (cacheado 24h)
-    monto_subsidio_uf_val = tip_monto or 700
-    uf_valor              = await _obtener_valor_uf()
-    monto_subsidio_clp    = round(monto_subsidio_uf_val * uf_valor)
+    # Monto del subsidio en pesos: UF del subsidio × valor UF del día (cacheado 24h). Si la tipología no tiene monto cargado NO se inventa uno
+    # (antes salían 700 UF): se dice «a consultar», igual que el precio y la reserva sin dato.
+    if tip_monto and tip_monto > 0:
+        uf_valor           = await _obtener_valor_uf()
+        monto_uf_txt       = f"{int(tip_monto) if float(tip_monto).is_integer() else tip_monto} UF"
+        monto_uf_num       = f"{tip_monto:,.0f}".replace(",", ".")
+        monto_clp_num      = f"{round(tip_monto * uf_valor):,}".replace(",", ".")
+    else:
+        monto_uf_txt = monto_uf_num = monto_clp_num = "a consultar"
 
     return {
         "cliente_nombre":     nombre                      or "cliente",
         "proyecto_nombre":    p.get("nombre")             or "nuestro proyecto",
         "proyecto_ubicacion": p.get("ubicacion")          or "Santiago",
         "subsidio_tipo":      subsidio_tipo,
-        "monto_subsidio_uf":  f"{int(monto_subsidio_uf_val) if float(monto_subsidio_uf_val).is_integer() else monto_subsidio_uf_val} UF",
+        "monto_subsidio_uf":  monto_uf_txt,
         "valor_reserva_clp":  reserva_fmt,
         "precio_desde_uf":    precio_desde,
         "fecha_entrega":      fecha_entrega_pool,
         # Versiones "_num" sin símbolo de unidad: para plantillas que ya traen
         # "UF"/"$" escritos literalmente en el texto aprobado en Meta (evita duplicarlos).
-        "monto_subsidio_uf_num": f"{monto_subsidio_uf_val:,.0f}".replace(",", "."),
-        "monto_subsidio_clp_num": f"{monto_subsidio_clp:,}".replace(",", "."),
+        "monto_subsidio_uf_num": monto_uf_num,
+        "monto_subsidio_clp_num": monto_clp_num,
         "precio_desde_uf_num": precio_desde_num,
     }
