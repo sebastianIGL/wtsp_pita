@@ -23,8 +23,9 @@ from app.services.clientes_datos import marcar_en_evaluacion
 from app.services.documentos import _CAMPOS_CALIFICACION, documentos_pendientes
 from app.services.documentos_prospecto import insertar_documento, obtener_documentos_prospecto
 from app.services.evaluacion_email import CONDICION_LABEL, _enviar_email_evaluacion
+from app.services import recordatorios
 from app.services.prospectos import actualizar_datos_prospecto, upsert_prospecto
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from typing import Dict, Optional
 
@@ -530,6 +531,17 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
     try:
         body   = await request.json()
         motivo = (body.get("motivo") or "Sin motivo especificado").strip()
+        if body.get("hora") not in (None, ""):                      # recordatorio con hora: el aviso se programa (hora de la acción menos X minutos); si ya llegó la hora, sale ahora
+            enviar_en = recordatorios.momento_del_aviso(body.get("fecha"), body.get("hora"), body.get("minutos_antes"))
+            if enviar_en is None:
+                return Response(content="La fecha, la hora o los minutos de aviso no son válidos", status_code=400, media_type="text/plain")
+            if enviar_en > datetime.now(timezone.utc) + timedelta(seconds=30):
+                try:
+                    await recordatorios.programar(cliente_id, perfil["id"], enviar_en, motivo)
+                except Exception as e:
+                    logger.warning("Recordatorio programado | no se pudo guardar el aviso (%s)", type(e).__name__)
+                    return Response(content="No pudimos programar el aviso por WhatsApp ahora. Inténtalo de nuevo en unos minutos.", status_code=503, media_type="text/plain")
+                return {"ok": True, "programado": True, "enviar_en": enviar_en.astimezone(recordatorios.TZ).isoformat()}
         rows   = await _supabase_request("GET", "/Cliente",
             params={"id": f"eq.{cliente_id}", "select": "Contacto,Telefono,Proyecto(nombre)", "limit": "1"})
         if not rows:
@@ -554,3 +566,20 @@ async def api_recordatorio_wa(cliente_id: int, request: Request):
         return respuesta_error(e, contexto="api_recordatorio_wa")
     except Exception as e:
         return respuesta_error(e, contexto="api_recordatorio_wa")
+
+
+@router.delete("/api/clientes/{cliente_id}/recordatorio-wa")
+async def api_cancelar_recordatorio_wa(cliente_id: int, request: Request):
+    """Cancela el aviso por WhatsApp programado (pendiente) de este cliente para la persona que llama; se usa al quitar o cambiar un recordatorio."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    denegado = await exigir_cliente(perfil, cliente_id)
+    if denegado:
+        return denegado
+    try:
+        await recordatorios.cancelar(cliente_id, perfil["id"])
+    except Exception as e:
+        logger.warning("Recordatorio programado | no se pudo cancelar el aviso (%s)", type(e).__name__)      # sin la tabla no hay nada que cancelar
+    return {"ok": True}
+

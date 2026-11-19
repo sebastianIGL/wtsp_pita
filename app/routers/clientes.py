@@ -4,6 +4,7 @@ cliente) y conversaciones y contexto del bot de un cliente o prospecto.
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
 import asyncio
+import re
 import logging
 import httpx
 from app.clients.supabase import _supabase_request
@@ -235,6 +236,11 @@ async def api_actualizar_cliente(cliente_id: int, request: Request):
             payload["recordatorio_nota"] = cd.nota_recordatorio(payload["recordatorio_nota"])
         if "recordatorio_at" in payload and not payload["recordatorio_at"]:
             payload["recordatorio_nota"] = None                         # sin fecha no queda una nota suelta
+        elif payload.get("recordatorio_at") and body.get("recordatorio_hora") not in (None, ""):
+            hora = cd.hora_recordatorio(body.get("recordatorio_hora"))   # «llamar a las 14:00»: la hora se guarda junto a la fecha, tal como se escribió (hora de Chile)
+            fecha = str(payload["recordatorio_at"])[:10]
+            if hora and re.fullmatch(r"\d{4}-\d{2}-\d{2}", fecha):
+                payload["recordatorio_at"] = f"{fecha}T{hora}:00+00:00"
         if "etapa_tipologia_id" in payload or "proyecto_id" in payload:        # la tipología y etapa del cliente tienen que ser de SU proyecto (el nuevo, si lo cambia)
             actual_cli = (await _supabase_request("GET", "/Cliente", params={"id": f"eq.{cliente_id}", "select": "proyecto_id,etapa_tipologia_id", "limit": "1"}) or [{}])[0]
             proyecto_final = payload["proyecto_id"] if "proyecto_id" in payload else actual_cli.get("proyecto_id")

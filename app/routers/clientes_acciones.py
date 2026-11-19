@@ -3,6 +3,7 @@ WhatsApp a un cliente eligiendo la plantilla.
 
 Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada ruta es el decorador (@app → @router).
 """
+import asyncio
 import json
 import re
 from app.clients.supabase import _supabase_request
@@ -19,6 +20,7 @@ from app.services.prospectos import upsert_prospecto
 from app.services import clientes_datos as cd
 from app.services.carga_clientes import RECOMENDADO_POR_PERSONA, contar_filas, ejecutivos_disponibles, exige_confirmacion, leer_archivo, recomendar, validar_asignado, validar_reparto
 from app.services.importacion_csv import acceso_de, importar_clientes_stream
+from app.services.aviso_leads_nuevos import avisar as avisar_leads_nuevos
 from app.services.reparto_existentes import bloques, encontrar_clientes, exige_confirmacion_reparto, ids_del_cuerpo, reasignar
 from app.services.proyectos import obtener_proyecto_por_id
 from datetime import datetime, timedelta, timezone
@@ -114,7 +116,10 @@ async def api_repartir_clientes(request: Request):
     if aviso:
         return Response(content=aviso, status_code=409, media_type="text/plain")
     await encontrar_clientes(ids)
-    return await reasignar(ids, reparto)
+    resultado = await reasignar(ids, reparto)
+    if resultado.get("asignados"):
+        asyncio.create_task(avisar_leads_nuevos(dict(resultado["asignados"]), perfil["id"]))      # «tienes N leads nuevos que puedes contactar»
+    return resultado
 
 
 @router.post("/api/clientes/importar")
@@ -156,7 +161,7 @@ async def api_importar_clientes(request: Request, file: UploadFile = File(...), 
     return _SR(
         importar_clientes_stream(
             text=text, delimiter=delimiter, is_serviu=is_serviu, empresa_id=empresa_id, proyecto_id=proyecto_id,
-            usuario_id=usuario_id, lote_carga=lote_carga, total=total, reparto=reparto_validado, acceso=acceso_de(perfil)),
+            usuario_id=usuario_id, lote_carga=lote_carga, total=total, reparto=reparto_validado, acceso=acceso_de(perfil), actor_id=perfil["id"]),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )

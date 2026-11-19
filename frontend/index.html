@@ -1925,11 +1925,11 @@ function proximaDe(c, hoy) {
   const f = _soloFecha(c.recordatorio_at)
   if (!_fechaValida(f)) return { tipo: 'nada', texto: '', nota: '' }
   const nota = String(c.recordatorio_nota || '').trim()
-  const d = _diasEntre(hoy, f)
-  if (d === 0) return { tipo: 'hoy', fecha: f, texto: 'Hoy', nota }
+  const d = _diasEntre(hoy, f), h = _horaRecordatorio(c.recordatorio_at), con = t => h ? `${t} ${h}` : t
+  if (d === 0) return { tipo: 'hoy', fecha: f, texto: con('Hoy'), nota }
   if (d < 0)   return { tipo: 'vencida', fecha: f, texto: `Vencido · ${_fechaCorta(f)}`, nota }
-  if (d === 1) return { tipo: 'futura', fecha: f, texto: 'Mañana', nota }
-  return { tipo: 'futura', fecha: f, texto: _diaSemanaCorto(f), nota }
+  if (d === 1) return { tipo: 'futura', fecha: f, texto: con('Mañana'), nota }
+  return { tipo: 'futura', fecha: f, texto: con(_diaSemanaCorto(f)), nota }
 }
 
 function llegoDe(c, ahora) {
@@ -2677,6 +2677,7 @@ async function abrirCotizar(id) {
   const c = clientes.find(x => x.id === id)
   _cotId = id
   _cotDatos = null
+  _cotEstac = false
   document.getElementById('cot-titulo').textContent = c ? (c.Contacto || 'Cliente') : 'Cliente'
   document.getElementById('cot-subtitulo').textContent = ''
   document.getElementById('cot-resultado').classList.add('hidden')
@@ -2696,13 +2697,44 @@ async function abrirCotizar(id) {
   }
 }
 
-function _dibujarCotizacion(d) {
-  const cot = d.cotizacion
-  document.getElementById('cot-subtitulo').textContent = [cot.proyecto.nombre, cot.tipologia.nombre, cot.proyecto.entrega].filter(Boolean).join(' · ')
+// Estacionamiento: con un clic se agrega a la cotización (valor final y crédito lo incluyen). Solo aparece si el proyecto tiene valor de estacionamiento; si lo exige, ya va incluido.
+let _cotEstac = false
+function _dibujarMontosCotizacion(d) {
+  const cot = d.cotizacion, m = cot.montos || {}
   document.getElementById('cot-resumen').innerHTML = d.resumen.map(f => `<li class="flex items-center justify-between gap-3 px-4 py-2 border-b eval-divider last:border-b-0 ${f.destacada ? 'font-semibold' : ''}" ${f.destacada ? 'style="background:rgba(14,165,233,.10)"' : ''}>
       <span class="val-text">${esc(f.rotulo)}</span> <span class="text-right val-text">${esc(f.uf)}${f.pesos ? ` <span class="block text-xs font-normal sub-text">aprox. ${esc(f.pesos)}</span>` : ''}</span></li>`).join('')
   document.getElementById('cot-otros').innerHTML = d.otros.map(o => `<li>${esc(o.rotulo)}: <b class="val-text">${esc(o.valor)}</b></li>`).join('')
   document.getElementById('cot-avisos').innerHTML = cot.avisos.map(a => `<li>⚠ ${esc(a)}</li>`).join('')
+  const tiene = Number(m.estacionamiento_uf) > 0, caja = document.getElementById('cot-estac-caja'), chk = document.getElementById('cot-estac')
+  caja.classList.toggle('hidden', !tiene)
+  _cotEstac = !!(tiene && m.con_estacionamiento && !m.estacionamiento_obligatorio)
+  if (tiene) {
+    const uf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 }).format(Number(m.estacionamiento_uf))
+    chk.checked = !!m.con_estacionamiento
+    chk.disabled = !!m.estacionamiento_obligatorio
+    document.getElementById('cot-estac-texto').textContent = m.estacionamiento_obligatorio ? 'Estacionamiento incluido' : `Agregar el estacionamiento (+${uf} UF)`
+    document.getElementById('cot-estac-ayuda').textContent = m.estacionamiento_obligatorio ? 'Este proyecto lo exige: va sumado al valor final y al crédito.' : 'Se suma al valor de la vivienda y al crédito, y sale en el PDF y en los mensajes.'
+  }
+}
+async function cambiarEstacionamientoCotizacion(on) {
+  const id = _cotId, chk = document.getElementById('cot-estac')
+  if (id == null) return
+  chk.disabled = true
+  try {
+    const d = await api('GET', `/api/clientes/${id}/cotizacion?estacionamiento=${on ? 1 : 0}`)
+    if (_cotId !== id) return
+    _cotDatos = d
+    _dibujarMontosCotizacion(d)
+  } catch (e) {
+    chk.checked = !on
+    toast('No se pudo actualizar la cotización: ' + (e.message || 'error'), 'error')
+  } finally { if (_cotId === id && !(_cotDatos?.cotizacion?.montos?.estacionamiento_obligatorio)) chk.disabled = false }
+}
+
+function _dibujarCotizacion(d) {
+  const cot = d.cotizacion
+  document.getElementById('cot-subtitulo').textContent = [cot.proyecto.nombre, cot.tipologia.nombre, cot.proyecto.entrega].filter(Boolean).join(' · ')
+  _dibujarMontosCotizacion(d)
   document.getElementById('cot-uf').textContent = cot.uf ? `UF usada: $${new Intl.NumberFormat('es-CL').format(Math.round(cot.uf.valor))}` : 'Sin valor de la UF: la cotización sale solo en UF'
   const correo = document.getElementById('cot-correo')
   correo.value = d.canales.correo.destino || ''
@@ -2759,7 +2791,7 @@ async function verPdfCotizacion() {
   const ventana = window.open('', '_blank')                           // se abre de inmediato (con el clic) para que el navegador no la bloquee
   if (!ventana) { toast('Tu navegador bloqueó la ventana del PDF. Permítela e inténtalo de nuevo.', 'error'); return }
   try {
-    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${id}/cotizacion/pdf`, { headers: { Authorization: `Bearer ${_token}` } })
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/${id}/cotizacion/pdf${_cotEstac ? '?estacionamiento=1' : ''}`, { headers: { Authorization: `Bearer ${_token}` } })
     if (!res.ok) throw new Error(await res.text())
     ventana.location.href = URL.createObjectURL(await res.blob())
   } catch (e) {
@@ -2780,7 +2812,7 @@ async function enviarCotizacion() {
   btn.innerHTML = '<span class="spinner"></span> Enviando…'
   const caja = document.getElementById('cot-resultado')
   try {
-    const r = await api('POST', `/api/clientes/${id}/cotizar`, { canales, correo: canales.includes('correo') ? correo : undefined })
+    const r = await api('POST', `/api/clientes/${id}/cotizar`, { canales, correo: canales.includes('correo') ? correo : undefined, estacionamiento: _cotEstac })
     const nombres = { correo: 'Correo', whatsapp: 'WhatsApp' }
     caja.innerHTML = Object.entries(r.resultados).map(([canal, x]) => x.ok
       ? `<p style="color:#16a34a">✅ ${nombres[canal]} enviado a ${esc(x.destino)}</p>`
@@ -3910,13 +3942,19 @@ function _esRecordatorioVencido(fecha) {
   if (!fecha) return false
   return fecha.slice(0, 10) <= new Date().toISOString().slice(0, 10)
 }
+// La hora del recordatorio («14:00») viaja pegada a la fecha («2026-11-20T14:00:00+00:00»); sin hora o a las 00:00 no hay hora.
+function _horaRecordatorio(fecha) {
+  const m = /T([01]\d|2[0-3]):([0-5]\d)/.exec(String(fecha || ''))
+  return m && !(m[1] === '00' && m[2] === '00') ? `${m[1]}:${m[2]}` : ''
+}
 function _formatFechaRecordatorio(fecha) {
   if (!fecha) return ''
   const d   = fecha.slice(0, 10)
   const hoy = new Date().toISOString().slice(0, 10)
-  if (d === hoy) return 'Hoy'
-  if (d < hoy)   return `Vencido (${d})`
-  return d
+  const h   = _horaRecordatorio(fecha)
+  if (d === hoy) return h ? `Hoy ${h}` : 'Hoy'
+  if (d < hoy)   return `Vencido (${d}${h ? ' ' + h : ''})`
+  return h ? `${d} ${h}` : d
 }
 
 // ─── RECORDATORIO DE CONTACTO ─────────────────────────
@@ -3925,6 +3963,8 @@ function abrirRecordatorio(clienteId, nombre, fechaActual) {
   _recId = clienteId
   document.getElementById('rec-titulo').textContent = nombre
   document.getElementById('rec-fecha').value = fechaActual ? fechaActual.slice(0, 10) : ''
+  document.getElementById('rec-hora').value = _horaRecordatorio(fechaActual)
+  document.getElementById('rec-antes').value = '10'
   document.getElementById('rec-motivo').value = (clientes.find(x => x.id === clienteId) || {}).recordatorio_nota || ''
   document.getElementById('rec-wa-check').checked = false
   document.getElementById('rec-error').classList.add('hidden')
@@ -3937,7 +3977,16 @@ function abrirRecordatorio(clienteId, nombre, fechaActual) {
     waWrap.classList.add('hidden')
     waWrap.classList.remove('flex')
   }
+  actualizarAvisoRecordatorio()
   document.getElementById('modal-recordatorio').classList.remove('hidden')
+}
+// Con hora, el aviso por WhatsApp se programa («avisarme 10 min antes»); sin hora sale ahora, como siempre.
+function actualizarAvisoRecordatorio() {
+  const hora = document.getElementById('rec-hora').value, marcado = document.getElementById('rec-wa-check').checked
+  document.getElementById('rec-wa-texto').textContent = hora ? 'Avisarme por WhatsApp antes de la hora' : 'Enviarme recordatorio por WhatsApp'
+  const antes = document.getElementById('rec-antes-wrap')
+  antes.classList.toggle('hidden', !(hora && marcado))
+  antes.classList.toggle('flex', !!(hora && marcado))
 }
 function cerrarRecordatorio() {
   document.getElementById('modal-recordatorio').classList.add('hidden')
@@ -3945,24 +3994,31 @@ function cerrarRecordatorio() {
 }
 async function guardarRecordatorio() {
   const fecha  = document.getElementById('rec-fecha').value
+  const hora   = fecha ? document.getElementById('rec-hora').value : ''
   const motivo = document.getElementById('rec-motivo').value.trim()
   const enviarWA = document.getElementById('rec-wa-check').checked && fecha
   const btn    = document.getElementById('btn-rec-guardar')
   btn.disabled = true; btn.textContent = 'Guardando…'
   try {
     const nota = fecha ? (motivo || null) : null                  // sin fecha no queda una nota suelta
-    await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null, recordatorio_nota: nota })
+    await api('PATCH', `/api/clientes/${_recId}`, { recordatorio_at: fecha || null, recordatorio_hora: hora || null, recordatorio_nota: nota })
     const c = clientes.find(x => x.id === _recId)
-    if (c) { c.recordatorio_at = fecha || null; c.recordatorio_nota = nota }
+    if (c) { c.recordatorio_at = fecha ? (hora ? `${fecha}T${hora}:00+00:00` : fecha) : null; c.recordatorio_nota = nota }
     if (enviarWA) {
       try {
-        await api('POST', `/api/clientes/${_recId}/recordatorio-wa`, { motivo: motivo || 'Sin motivo especificado' })
-        toast(`✅ Recordatorio guardado y WA enviado a tu celular`, 'success')
+        const r = await api('POST', `/api/clientes/${_recId}/recordatorio-wa`, hora
+          ? { motivo: motivo || 'Sin motivo especificado', fecha, hora, minutos_antes: Number(document.getElementById('rec-antes').value) }
+          : { motivo: motivo || 'Sin motivo especificado' })
+        if (r && r.programado) {
+          const t = String(r.enviar_en || '').slice(11, 16), dia = String(r.enviar_en || '').slice(0, 10), hoyChile = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Santiago' }).format(new Date())
+          toast(`✅ Recordatorio guardado. Te avisaré por WhatsApp ${dia === hoyChile ? 'hoy' : 'el ' + dia} a las ${t}`, 'success')
+        } else toast(`✅ Recordatorio guardado y WA enviado a tu celular`, 'success')
       } catch(waErr) {
         toast(`✅ Recordatorio guardado, pero falló el WA: ${waErr.message}`, 'error')
       }
     } else {
-      toast(fecha ? `✅ Recordatorio guardado: ${_formatFechaRecordatorio(fecha)}` : '✅ Recordatorio eliminado', 'success')
+      api('DELETE', `/api/clientes/${_recId}/recordatorio-wa`).catch(() => {})      // si había un aviso programado y ya no se pide (o se quitó el recordatorio), se cancela
+      toast(fecha ? `✅ Recordatorio guardado: ${_formatFechaRecordatorio(c ? c.recordatorio_at : fecha)}` : '✅ Recordatorio eliminado', 'success')
     }
     _preservarPagina = true
     aplicarFiltros()
@@ -5243,6 +5299,13 @@ async function guardarRegistrarInbox() {
         <p class="text-xs sidebar-text mt-1">Deja vacío para eliminar el recordatorio.</p>
       </div>
       <div>
+        <label class="block text-xs sidebar-text mb-1.5" for="rec-hora">Hora (opcional)</label>
+        <input id="rec-hora" type="time" oninput="actualizarAvisoRecordatorio()"
+          class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100
+                 focus:outline-none focus:ring-2 focus:ring-amber-500" />
+        <p class="text-xs sidebar-text mt-1">Por ejemplo «llamar a las 14:00». Hora de Chile.</p>
+      </div>
+      <div>
         <label class="block text-xs sidebar-text mb-1.5">Próxima acción</label>
         <textarea id="rec-motivo" rows="2" maxlength="300" placeholder="ej: Llamar para confirmar visita a sala de ventas"
           class="w-full rounded-lg px-3 py-2 text-sm bg-slate-700 border border-slate-600 text-slate-100
@@ -5251,9 +5314,16 @@ async function guardarRegistrarInbox() {
       </div>
       <!-- Enviar WA (solo si el perfil tiene celular configurado) -->
       <label id="rec-wa-wrap" class="hidden items-center gap-2.5 cursor-pointer select-none">
-        <input type="checkbox" id="rec-wa-check" class="accent-amber-500 w-4 h-4" />
-        <span class="text-xs val-text">Enviarme recordatorio por WhatsApp</span>
+        <input type="checkbox" id="rec-wa-check" class="accent-amber-500 w-4 h-4" onchange="actualizarAvisoRecordatorio()" />
+        <span class="text-xs val-text" id="rec-wa-texto">Enviarme recordatorio por WhatsApp</span>
       </label>
+      <div id="rec-antes-wrap" class="hidden items-center gap-2 text-xs val-text" style="padding-left:1.6rem">
+        <label for="rec-antes">Avisarme</label>
+        <select id="rec-antes" class="rounded-lg px-2 py-1 text-xs bg-slate-700 border border-slate-600 text-slate-100">
+          <option value="0">a la hora</option><option value="5">5 min antes</option><option value="10" selected>10 min antes</option>
+          <option value="15">15 min antes</option><option value="30">30 min antes</option><option value="60">1 hora antes</option>
+        </select>
+      </div>
       <div id="rec-error" class="hidden text-xs text-red-400 bg-red-900/20 border border-red-800 rounded-lg px-3 py-2"></div>
       <div class="flex gap-2 pt-1">
         <button onclick="cerrarRecordatorio()"
@@ -5287,6 +5357,12 @@ async function guardarRegistrarInbox() {
         <button type="button" id="cot-btn-editar" onclick="cotizarEditarCliente()" class="mt-3 text-xs px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-white font-medium transition">Editar cliente</button>
       </div>
       <div id="cot-contenido" class="hidden space-y-4">
+        <div id="cot-estac-caja" class="hidden rounded-xl border eval-divider" style="padding:.6rem 1rem">
+          <label class="flex items-start gap-2.5 cursor-pointer select-none">
+            <input type="checkbox" id="cot-estac" class="mt-1 accent-sky-500 w-4 h-4" onchange="cambiarEstacionamientoCotizacion(this.checked)" />
+            <span class="flex-1"><span class="text-sm val-text" id="cot-estac-texto">Agregar el estacionamiento</span><span class="block text-xs sub-text" id="cot-estac-ayuda"></span></span>
+          </label>
+        </div>
         <ul id="cot-resumen" class="rounded-xl border eval-divider overflow-hidden text-sm"></ul>
         <ul id="cot-otros" class="text-xs sidebar-text space-y-0.5"></ul>
         <ul id="cot-avisos" class="text-xs space-y-0.5" style="color:#d97706"></ul>

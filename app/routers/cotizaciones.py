@@ -57,7 +57,12 @@ async def _autorizar(request: Request, cliente_id: int):
     return perfil, None
 
 
-async def _armar(cliente_id: int, perfil: Dict[str, Any]) -> Dict[str, Any]:
+def _quiere_estacionamiento(v: Any) -> bool:
+    """«Agregar el estacionamiento»: ``?estacionamiento=1`` en la dirección o ``"estacionamiento": true`` en el cuerpo."""
+    return v is True or str(v).lower() in ("1", "true", "si", "sí")
+
+
+async def _armar(cliente_id: int, perfil: Dict[str, Any], con_estacionamiento: bool = False) -> Dict[str, Any]:
     datos = await cz.cargar(cliente_id)
     uf = None
     try:
@@ -66,7 +71,7 @@ async def _armar(cliente_id: int, perfil: Dict[str, Any]) -> Dict[str, Any]:
             uf = {"valor": hoy_uf[0], "fecha": hoy_uf[1].isoformat()}
     except Exception:
         logger.warning("Cotizar | no se pudo leer la UF del día: la cotización sale sin pesos")
-    return cz.armar(datos, perfil, uf, datetime.now(ZoneInfo("America/Santiago")).date())
+    return cz.armar(datos, perfil, uf, datetime.now(ZoneInfo("America/Santiago")).date(), con_estacionamiento)
 
 
 def ventana_abierta(ultimo_entrante_en: Optional[str], ahora: Optional[datetime] = None) -> bool:
@@ -109,7 +114,7 @@ async def api_ver_cotizacion(cliente_id: int, request: Request):
     if error:
         return error
     try:
-        cot = await _armar(cliente_id, perfil)
+        cot = await _armar(cliente_id, perfil, _quiere_estacionamiento(request.query_params.get("estacionamiento")))
         telefono = _normalize_phone(cot["cliente"].get("telefono") or "") or None
         prospecto = await _prospecto(telefono)
         abierta = ventana_abierta((prospecto or {}).get("ultimo_entrante_en"))
@@ -127,7 +132,7 @@ async def api_pdf_cotizacion(cliente_id: int, request: Request):
     if error:
         return error
     try:
-        cot = await _armar(cliente_id, perfil)
+        cot = await _armar(cliente_id, perfil, _quiere_estacionamiento(request.query_params.get("estacionamiento")))
         return Response(content=cz.generar_pdf(cot), media_type="application/pdf",
                         headers={"Content-Disposition": f'inline; filename="{cz.nombre_archivo(cot)}"', "Cache-Control": "no-store"})
     except Exception as e:
@@ -219,7 +224,7 @@ async def api_cotizar(cliente_id: int, request: Request):
         if "correo" in canales and not _CORREO.match(correo):
             return Response(content="Escribe un correo válido para enviar la cotización.", status_code=400, media_type="text/plain")
 
-        cot = await _armar(cliente_id, perfil)
+        cot = await _armar(cliente_id, perfil, _quiere_estacionamiento(body.get("estacionamiento")))
         pdf = cz.generar_pdf(cot)
         resultados: Dict[str, Dict[str, Any]] = {}
         if "correo" in canales:

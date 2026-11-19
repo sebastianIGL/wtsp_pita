@@ -4,6 +4,7 @@
 Las listas de fuente, medio y estado de gestión son cerradas (las mismas que muestra la pantalla: ``FUENTES`` y ``MEDIOS`` de ``frontend/index.html``; una prueba las compara). Lo demás que llegue se rechaza
 con un mensaje claro en vez de guardarse.
 """
+import re
 import asyncio
 import logging
 from typing import Any, Optional
@@ -94,6 +95,16 @@ async def validar_tipologia_de_proyecto(etapa_tipologia_id: Any, proyecto_id: An
     de_etapa = str(((fila or {}).get("Etapa") or {}).get("proyecto_id") or "")
     if not fila or de_tipologia != str(proyecto_id) or de_etapa != str(proyecto_id):
         raise DatoInvalido(MSG_CAMBIO_DE_PROYECTO if cambia_proyecto else MSG_TIPOLOGIA_AJENA)
+
+
+def hora_recordatorio(valor: Any) -> Optional[str]:
+    """La hora de un recordatorio («14:00», hora de Chile): ``None`` si viene vacía o es «00:00» (sin hora). Lanza ``DatoInvalido`` si no es una hora."""
+    if valor is None or valor == "":
+        return None
+    if not isinstance(valor, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", valor.strip()):
+        raise DatoInvalido("La hora del recordatorio no es válida (usa el formato 14:30)")
+    hora = valor.strip()
+    return None if hora == "00:00" else hora
 
 
 def nota_recordatorio(valor: Any) -> Optional[str]:

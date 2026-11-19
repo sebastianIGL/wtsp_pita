@@ -93,8 +93,10 @@ def _positivo(v: Any) -> Optional[float]:
     return n if n is not None and n > 0 else None
 
 
-def armar(datos: Dict[str, Any], usuario: Optional[Dict[str, Any]], uf: Optional[Dict[str, Any]], hoy: date) -> Dict[str, Any]:
-    """La cotización lista para mostrar, enviar y guardar. Si falta algo imprescindible lanza ``AppError`` con el mensaje para la persona."""
+def armar(datos: Dict[str, Any], usuario: Optional[Dict[str, Any]], uf: Optional[Dict[str, Any]], hoy: date, con_estacionamiento: bool = False) -> Dict[str, Any]:
+    """La cotización lista para mostrar, enviar y guardar. Si falta algo imprescindible lanza ``AppError`` con el mensaje para la persona.
+    ``con_estacionamiento``: la persona eligió agregarlo (solo cuenta si el proyecto tiene valor de estacionamiento); si el proyecto lo exige, va siempre. Con estacionamiento el valor final es
+    vivienda + estacionamiento y el crédito se calcula sobre ese valor."""
     c, p, et = datos["cliente"], datos.get("proyecto") or {}, datos.get("et")
     if not et or not (et.get("Tipologia") or {}):
         raise AppError("El cliente no tiene tipología y etapa asignadas. Edítalo y elige la tipología y la etapa antes de cotizar.", 400)
@@ -105,8 +107,12 @@ def armar(datos: Dict[str, Any], usuario: Optional[Dict[str, Any]], uf: Optional
     subsidio = _positivo(tip.get("monto_subsidio"))
     ahorro = fp._a_numero(c.get("ahorro_uf"))
     ahorro = ahorro if ahorro is not None and ahorro >= 0 else None
+    estac = _positivo(p.get("valor_estacionamiento_uf"))
+    obligatorio = bool(p.get("estacionamiento_obligatorio"))
+    incluye_estac = bool(estac) and (obligatorio or bool(con_estacionamiento))
+    valor_final = valor + (estac if incluye_estac else 0.0)
     pie = None if ahorro is None else ahorro + (subsidio or 0.0)
-    credito = None if pie is None else max(0.0, valor - pie)
+    credito = None if pie is None else max(0.0, valor_final - pie)
     minimo = _positivo(p.get("ahorro_minimo_uf"))
     falta = None if (minimo is None or ahorro is None) else max(0.0, minimo - ahorro)
 
@@ -134,7 +140,7 @@ def armar(datos: Dict[str, Any], usuario: Optional[Dict[str, Any]], uf: Optional
         "tipologia": {"nombre": _limpio(tip.get("nombre")) or "Tipología", "detalle": detalle_tip or None},
         "montos": {"valor_uf": valor, "subsidio_uf": subsidio, "ahorro_uf": ahorro, "pie_uf": pie, "credito_uf": credito, "ahorro_minimo_uf": minimo, "falta_ahorro_uf": falta,
                    "reserva_clp": _positivo(p.get("valor_reserva_clp")), "reserva_uf": _positivo(p.get("valor_reserva_uf")),
-                   "estacionamiento_uf": _positivo(p.get("valor_estacionamiento_uf")), "estacionamiento_obligatorio": bool(p.get("estacionamiento_obligatorio"))},
+                   "estacionamiento_uf": estac, "estacionamiento_obligatorio": obligatorio, "con_estacionamiento": incluye_estac, "valor_final_uf": valor_final},
         "uf": ufv,
         "ejecutivo": {"nombre": _limpio(usuario.get("nombre")) or None, "correo": _limpio(usuario.get("email_alias") or usuario.get("correo"), 120) or None,
                       "celular": _limpio(usuario.get("celular"), 30) or None},
@@ -151,8 +157,11 @@ def filas_resumen(cot: Dict[str, Any]) -> List[Dict[str, Any]]:
             return None
         pesos = clp_aprox(valor, ufv)
         return {"rotulo": rotulo, "uf": signo + fmt_uf(valor), "pesos": signo + fmt_clp(pesos) if pesos is not None else None, "destacada": destacada}
+    con = bool(m.get("con_estacionamiento") and m.get("estacionamiento_uf"))          # las cotizaciones guardadas antes de este cambio no traen la clave: salen como siempre
     filas = [fila("Valor de la vivienda", m["valor_uf"]), fila("Subsidio", m["subsidio_uf"], signo="– "), fila("Ahorro del cliente", m["ahorro_uf"], signo="– "),
-             fila("Pie (ahorro + subsidio)", m["pie_uf"], destacada=True), fila("Crédito hipotecario estimado", m["credito_uf"], destacada=True)]
+             fila("Pie (ahorro + subsidio)", m["pie_uf"], destacada=True), fila("Crédito hipotecario estimado" + (" (incluye estacionamiento)" if con else ""), m["credito_uf"], destacada=True)]
+    if con:                                                                           # el estacionamiento va al final del desglose, con el valor final que ya lo incluye
+        filas += [fila("Estacionamiento", m["estacionamiento_uf"], signo="+ "), fila("Valor final con estacionamiento", m.get("valor_final_uf"), destacada=True)]
     return [f for f in filas if f]
 
 
@@ -161,7 +170,7 @@ def otros_costos(cot: Dict[str, Any]) -> List[Dict[str, str]]:
     filas: List[Dict[str, str]] = []
     if m.get("reserva_clp") or m.get("reserva_uf"):
         filas.append({"rotulo": "Reserva", "valor": fmt_clp(m["reserva_clp"]) if m.get("reserva_clp") else fmt_uf(m["reserva_uf"])})
-    if m.get("estacionamiento_uf"):
+    if m.get("estacionamiento_uf") and not m.get("con_estacionamiento"):             # si ya va en el resumen, no se repite aquí
         filas.append({"rotulo": "Estacionamiento" + (" (obligatorio)" if m.get("estacionamiento_obligatorio") else " (opcional)"), "valor": fmt_uf(m["estacionamiento_uf"])})
     return filas
 
@@ -221,6 +230,9 @@ def texto_whatsapp(cot: Dict[str, Any]) -> str:
     quien = f"Soy {e['nombre']}" if e.get("nombre") else "Te escribo"
     lineas = [f"Hola {cot['cliente']['nombre']} 👋 {quien}. Te envío la cotización de {_linea_vivienda(cot)} en {cot['proyecto']['nombre']}.", "",
               f"• Valor: {fmt_uf(m['valor_uf'])}"]
+    if m.get("con_estacionamiento") and m.get("estacionamiento_uf"):
+        lineas.append(f"• Estacionamiento: + {fmt_uf(m['estacionamiento_uf'])}")
+        lineas.append(f"• Valor final con estacionamiento: {fmt_uf(m['valor_final_uf'])}")
     if m.get("subsidio_uf") is not None:
         lineas.append(f"• Subsidio: {fmt_uf(m['subsidio_uf'])}")
     if m.get("ahorro_uf") is not None:

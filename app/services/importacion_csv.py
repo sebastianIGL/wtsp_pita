@@ -4,6 +4,7 @@ los clientes, detecta duplicados y junta los errores por fila. Soporta el format
 Extraído de ``api_importar_clientes`` (Fase 6, tramo 3, lote L8): el cuerpo del generador es el mismo; solo sale de la ruta y recibe
 como parámetros lo que antes tomaba del entorno de la ruta.
 """
+import asyncio
 import csv
 import io
 import json
@@ -16,6 +17,7 @@ from app.clients.supabase import _supabase_request
 from app.core.errors import mensaje_publico
 from app.core.utilidades import _norm_row, _norm_row_keys, _normalize_phone
 from app.services.carga_clientes import asignador
+from app.services.aviso_leads_nuevos import avisar as avisar_leads_nuevos
 from app.services.proyectos import _buscar_id_proyecto
 
 logger = logging.getLogger("wtsp_pita")
@@ -64,7 +66,7 @@ async def marcar_recotizados(ids: List[Any], lote_carga: str = "") -> None:
             logger.warning("Carga | no se pudieron dejar las notas de «volvió a cotizar» de %d clientes (%s)", len(lote), type(e).__name__)
 
 
-async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False, acceso=None):
+async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, proyecto_id, usuario_id, lote_carga, total, reparto=None, simular=False, acceso=None, actor_id=None):
     """``reparto`` = [(usuario_id, cantidad)…]: los clientes creados se asignan en bloques seguidos, en el orden del archivo (sin reparto, todos a ``usuario_id``).
     ``acceso`` = ``None`` (administración: cualquier proyecto) o ``{"proyectos": {...}, "inmobiliarias": {...}}`` con los ids que el ejecutivo puede usar: una fila que apunte (por el nombre de la
     columna «Proyecto») a otro proyecto se rechaza con su propio mensaje.
@@ -329,6 +331,8 @@ async def importar_clientes_stream(*, text, delimiter, is_serviu, empresa_id, pr
             final['asignados'] = asignados                       # cuántos le tocaron a cada persona (clave vacía = sin asignar)
         if simular:
             final['por_proyecto'] = por_proyecto                 # a qué proyecto irían
+        if actor_id is not None and not simular and asignados:                 # «tienes N leads nuevos que puedes contactar» a cada persona a la que le tocaron (menos a quien cargó, si se los asignó a sí misma)
+            asyncio.create_task(avisar_leads_nuevos(dict(asignados), actor_id))
         yield f"data: {json.dumps(final)}\n\n"
 
     except Exception as e:
