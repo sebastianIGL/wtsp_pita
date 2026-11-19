@@ -257,7 +257,7 @@ app.include_router(documentos_router)
 
 
 app.include_router(directorio_admin_router)   # editor del directorio de subsidios (solo el dueño)
-app.include_router(comisiones_router)   # estimador de comisiones (planes por proyecto)
+app.include_router(comisiones_router)   # calculadora de comisiones (planes por proyecto)
 app.include_router(gasto_router)   # pestaña «Gasto» del panel de administración (IA y WhatsApp por cliente)
 app.include_router(llamadas_router)   # registro de llamadas a un cliente («Registré una llamada»)
 app.include_router(paginas_router)

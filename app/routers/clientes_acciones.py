@@ -5,6 +5,7 @@ Movido desde main.py (Fase 6, tramo 3). Lo único que cambia del código de cada
 """
 import asyncio
 import json
+import logging
 import re
 from app.clients.supabase import _supabase_request
 from app.clients.supabase_auth import _get_usuario_actual
@@ -20,12 +21,15 @@ from app.services.prospectos import upsert_prospecto
 from app.services import clientes_datos as cd
 from app.services.carga_clientes import RECOMENDADO_POR_PERSONA, contar_filas, ejecutivos_disponibles, exige_confirmacion, leer_archivo, recomendar, validar_asignado, validar_reparto
 from app.services.importacion_csv import acceso_de, importar_clientes_stream
+from app.services import exportar_clientes as exportar
 from app.services.aviso_leads_nuevos import avisar as avisar_leads_nuevos
 from app.services.reparto_existentes import bloques, encontrar_clientes, exige_confirmacion_reparto, ids_del_cuerpo, reasignar
 from app.services.proyectos import obtener_proyecto_por_id
 from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger("wtsp_pita")
 
 router = APIRouter()
 
@@ -294,3 +298,34 @@ async def api_enviar_primer_wtsp(cliente_id: int, request: Request):
         return {"ok": True, "wa": wa}
     except Exception as e:
         return respuesta_error(e, contexto="api_enviar_primer_wtsp")
+
+
+@router.post("/api/clientes/exportar")
+async def api_exportar_clientes(request: Request):
+    """Descarga el listado de clientes pedidos en Excel o CSV: ``{ids: [...], formato: "xlsx"|"csv", incluir_baja?: bool}``. Un ejecutivo solo recibe sus propios clientes. Por defecto no incluye a quien pidió la baja de WhatsApp."""
+    perfil = await _get_usuario_actual(request)
+    if not perfil:
+        return Response(content="Unauthorized", status_code=401)
+    try:
+        cuerpo = await request.json()
+    except Exception:
+        cuerpo = None
+    if not isinstance(cuerpo, dict):
+        return Response(content="No se pudo leer la solicitud.", status_code=400, media_type="text/plain")
+    formato = cuerpo.get("formato")
+    if formato not in exportar.FORMATOS:
+        return Response(content="Elige el formato: Excel (.xlsx) o CSV.", status_code=400, media_type="text/plain")
+    try:
+        ids = exportar.ids_validos(cuerpo.get("ids"))
+    except ValueError as e:
+        return Response(content=str(e), status_code=400, media_type="text/plain")
+    try:
+        datos = await exportar.construir(perfil, ids, incluir_baja=cuerpo.get("incluir_baja") is True)
+        contenido = exportar.a_xlsx(datos) if formato == "xlsx" else exportar.a_csv(datos)
+    except Exception as e:
+        return respuesta_error(e, contexto="api_exportar_clientes")
+    logger.info("Exportar clientes | usuario=%s | formato=%s | pedidos=%d | exportados=%d | excluidos_por_baja=%d", perfil.get("id"), formato, len(ids), datos["exportados"], datos["excluidos"])
+    tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if formato == "xlsx" else "text/csv; charset=utf-8"
+    return Response(content=contenido, media_type=tipo, headers={"Content-Disposition": f'attachment; filename="{exportar.nombre_archivo(formato)}"', "Cache-Control": "no-store",
+                                                                "X-Clientes-Exportados": str(datos["exportados"]), "X-Clientes-Excluidos": str(datos["excluidos"]),
+                                                                "Access-Control-Expose-Headers": "X-Clientes-Exportados, X-Clientes-Excluidos, Content-Disposition"})

@@ -2269,6 +2269,7 @@ function _htmlFiltrosLeads(base) {
     <label class="ld-chip"><span>Ordenar</span><select id="ld-orden" onchange="setOrdenLeads(this.value)" aria-label="Ordenar">
       ${[['caliente', 'Más calientes primero'], ['llegada_desc', 'Llegada · más reciente'], ['llegada_asc', 'Llegada · más antigua'], ['respuesta', 'Última respuesta del cliente'], ['proxima', 'Próxima acción'], ['nombre', 'Nombre (A–Z)']].map(([v, t]) => opt(v, t, _ordenLeads)).join('')}
     </select></label>
+    ${_vista === 'tabla' ? `<button type="button" id="btn-descargar" onclick="abrirDescarga('lista')" class="filtro-btn rounded-md px-2.5 py-1 text-xs flex items-center gap-1.5" title="Descargar la lista que ves en Excel o CSV">Descargar</button>` : ''}
     ${_vista === 'tabla' ? `<div class="relative"><button type="button" id="btn-columnas" onclick="toggleColumnas(event)" class="filtro-btn rounded-md px-2.5 py-1 text-xs flex items-center gap-1.5">Columnas ▾</button><div id="panel-columnas" class="filtro-panel hidden absolute right-0 mt-1 rounded-lg shadow-xl z-30 p-2" style="min-width:190px">
       ${COLUMNAS_TABLA.filter(c => !c.fija).map(c => `<label class="flex items-center gap-2 text-xs py-1 px-1.5 rounded cursor-pointer"><input type="checkbox" class="rounded accent-brand-600" ${_columnasTabla.includes(c.key) ? 'checked' : ''} onchange="alternarColumna('${c.key}', this.checked)">${esc(c.label)}</label>`).join('')}</div></div>` : ''}`
 }
@@ -2350,6 +2351,7 @@ function _dibujarSeleccion() {
     <label class="ld-bk">Cambiar etapa <select onchange="accionMasiva('etapa', this.value); this.value=''" aria-label="Cambiar el estado de gestión de los seleccionados"><option value="">…</option>${Object.entries(_EG_MAP).map(([k, d]) => k === '' ? '' : `<option value="${esc(k)}">${esc(d.label)}</option>`).join('')}<option value="__sin__">Sin estado</option></select></label>
     ${admin ? `<label class="ld-bk">Asignar ejecutivo <select onchange="accionMasiva('asignar', this.value); this.value=''" aria-label="Asignar los seleccionados a un ejecutivo"><option value="">…</option>${_usuariosParaClientes(clientes.filter(c => _seleccionLeads.has(c.id))).map(u => `<option value="${esc(u.id)}">${esc(u.nombre)}</option>`).join('')}<option value="__sin__">Sin asignar</option></select></label>` : ''}
     <label class="ld-bk">Programar recordatorio <input type="date" onchange="accionMasiva('recordatorio', this.value); this.value=''" aria-label="Programar un recordatorio para los seleccionados"></label>
+    <button type="button" onclick="abrirDescarga('seleccion')" class="ld-bk" title="Descarga a los seleccionados en Excel o CSV">Descargar…</button>
     ${admin ? '<button type="button" onclick="repartirSeleccion()" class="ld-bk" title="Reparte los seleccionados entre varios ejecutivos">Repartir…</button>' : ''}
     ${admin ? '<button type="button" onclick="accionMasiva(\'descartar\')" class="ld-bk">Descartar</button>' : ''}
     <button type="button" onclick="_seleccionLeads.clear(); _repintarLeads()" class="ld-bk ml-auto">Quitar selección</button>`
@@ -3201,7 +3203,7 @@ function esc(str) {
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return
-  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas(); cerrarCotizar(); cerrarLlamada()
+  cerrarModal(); cerrarEvaluacion(); cerrarSelectorTemplate(); cerrarConversacion(); cerrarContexto(); cerrarRecordatorio(); cerrarNotas(); cerrarCotizar(); cerrarLlamada(); cerrarDescarga()
 })
 
 // ─── MODAL EVALUACIÓN ────────────────────────────
@@ -4238,6 +4240,41 @@ async function abrirLlamada(clienteId, nombre) {
     lista.innerHTML = filas.length ? filas.map(f => `<div class="text-xs py-1.5 border-b" style="border-color:var(--ld-borde)"><span class="val-text font-medium">${esc(_RESULTADO_LLAMADA[f.resultado] || f.resultado)}</span> · <span class="sidebar-text">${esc(f.usuario_nombre || '')} · ${esc(String(f.creado_en || '').slice(0, 16).replace('T', ' '))}</span>${f.nota ? `<div class="sidebar-text mt-0.5">${esc(f.nota)}</div>` : ''}</div>`).join('') : '<p class="text-xs sidebar-text">Aún no hay llamadas registradas.</p>'
   } catch (e) { if (clienteId === _llamadaClienteId) lista.innerHTML = `<p class="text-xs text-red-400">${esc(e.message)}</p>` }
 }
+// ── Descargar el listado (Excel o CSV) ────────────────
+let _descAlcance = 'lista', _descandoClientes = false
+function _idsParaDescargar() { return _descAlcance === 'seleccion' ? [..._seleccionLeads] : _listaTablaCompleta().map(c => c.id) }
+function abrirDescarga(alcance) {
+  _descAlcance = alcance === 'seleccion' ? 'seleccion' : 'lista'
+  const n = _idsParaDescargar().length
+  if (!n) { toast('No hay clientes para descargar', 'error'); return }
+  document.getElementById('desc-resumen').textContent = `${n.toLocaleString('es-CL')} ${n === 1 ? 'cliente' : 'clientes'} ${_descAlcance === 'seleccion' ? (n === 1 ? 'seleccionado' : 'seleccionados') : 'de la lista que ves (con tus filtros)'}`
+  document.getElementById('desc-formato-xlsx').checked = true
+  document.getElementById('desc-baja').checked = false
+  document.getElementById('desc-error').classList.add('hidden')
+  document.getElementById('modal-descarga').classList.remove('hidden')
+}
+function cerrarDescarga() { document.getElementById('modal-descarga')?.classList.add('hidden') }
+async function descargarClientes() {
+  if (_descandoClientes) return
+  const ids = _idsParaDescargar(), formato = document.getElementById('desc-formato-csv').checked ? 'csv' : 'xlsx', incluirBaja = document.getElementById('desc-baja').checked
+  const btn = document.getElementById('btn-desc-descargar'), err = document.getElementById('desc-error')
+  if (ids.length > 10000) { err.textContent = 'Se pueden descargar hasta 10.000 clientes a la vez. Filtra la lista e inténtalo de nuevo.'; err.classList.remove('hidden'); return }
+  _descandoClientes = true; btn.disabled = true; btn.textContent = 'Preparando…'; err.classList.add('hidden')
+  try {
+    const res = await fetch(`${CONFIG.RAILWAY_URL}/api/clientes/exportar`, { method: 'POST', headers: { Authorization: `Bearer ${_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, formato, incluir_baja: incluirBaja }) })
+    if (!res.ok) throw new Error((await res.text()) || 'No se pudo preparar la descarga.')
+    const blob = await res.blob(), nombre = (/filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '') || [])[1] || `clientes.${formato}`
+    const enlace = document.createElement('a')
+    enlace.href = URL.createObjectURL(blob); enlace.download = nombre.replace(/[^\w.-]/g, '_'); document.body.appendChild(enlace); enlace.click(); enlace.remove()
+    setTimeout(() => URL.revokeObjectURL(enlace.href), 2000)
+    const hechos = Number(res.headers.get('X-Clientes-Exportados') || 0), fuera = Number(res.headers.get('X-Clientes-Excluidos') || 0)
+    toast(`✅ Descargados ${hechos.toLocaleString('es-CL')} ${hechos === 1 ? 'cliente' : 'clientes'}${fuera ? ` · ${fuera.toLocaleString('es-CL')} no se incluyeron porque pidieron no recibir WhatsApp` : ''}`, 'success')
+    cerrarDescarga()
+  } catch (e) {
+    err.textContent = e.message || 'No se pudo preparar la descarga.'; err.classList.remove('hidden')
+  } finally { _descandoClientes = false; btn.disabled = false; btn.textContent = 'Descargar' }
+}
+
 function cerrarLlamada() { document.getElementById('modal-llamada')?.classList.add('hidden'); _llamadaClienteId = null }
 async function guardarLlamada() {
   const id = _llamadaClienteId
@@ -5270,6 +5307,29 @@ async function guardarRegistrarInbox() {
           Agregar nota
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL DESCARGAR LISTADO ═══ -->
+<div id="modal-descarga" class="hidden fixed inset-0 modal-bg flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="desc-titulo">
+  <div class="glass rounded-2xl w-full max-w-sm shadow-2xl p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div><p class="text-xs sidebar-text font-medium">Descargar listado</p><p id="desc-titulo" class="text-sm font-semibold val-text">Clientes con sus datos</p></div>
+      <button type="button" onclick="cerrarDescarga()" class="sidebar-text hover:val-text transition text-xl leading-none" aria-label="Cerrar">✕</button>
+    </div>
+    <p id="desc-resumen" class="text-sm val-text mb-3"></p>
+    <fieldset class="space-y-1.5 mb-3">
+      <legend class="text-xs sidebar-text mb-1">Formato</legend>
+      <label class="flex items-center gap-2 text-sm val-text cursor-pointer"><input type="radio" name="desc-formato" id="desc-formato-xlsx" class="accent-sky-500" checked> Excel (.xlsx)</label>
+      <label class="flex items-center gap-2 text-sm val-text cursor-pointer"><input type="radio" name="desc-formato" id="desc-formato-csv" class="accent-sky-500"> CSV (.csv)</label>
+    </fieldset>
+    <label class="flex items-start gap-2 text-xs sidebar-text cursor-pointer mb-1"><input type="checkbox" id="desc-baja" class="mt-0.5 accent-sky-500"><span>Incluir también a quienes pidieron no recibir WhatsApp (por defecto no salen, para no escribirles sin querer)</span></label>
+    <p class="text-xs sub-text mb-3">Trae nombre, teléfono, «Teléfono WhatsApp» (con el 56), correo, RUT, proyecto, estado, ejecutivo, fuente y más.</p>
+    <div id="desc-error" class="hidden text-xs text-red-400 mb-2" role="alert"></div>
+    <div class="flex gap-2">
+      <button type="button" onclick="cerrarDescarga()" class="flex-1 py-2 rounded-lg text-sm sidebar-text hover:val-text border border-slate-600 transition">Cancelar</button>
+      <button type="button" id="btn-desc-descargar" onclick="descargarClientes()" class="flex-1 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-medium transition">Descargar</button>
     </div>
   </div>
 </div>

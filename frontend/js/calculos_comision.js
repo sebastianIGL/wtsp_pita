@@ -1,4 +1,4 @@
-/* Cálculo del estimador de comisiones (frontend/herramientas.html): la comisión que gana un broker por cada venta y los bonos por cantidad de ventas.
+/* Cálculo de la calculadora de comisiones (frontend/herramientas.html): la comisión que gana un broker por cada venta y los bonos por cantidad de ventas.
  * Son funciones puras (sin pantalla) para poder probarlas contra la planilla «Estimador de Comisión Broker — Venta de Propiedades Valores BRUTOS».
  *
  *   comisión por venta ($) = ticket (UF) × porcentaje ÷ 100 × valor de la UF
@@ -26,7 +26,7 @@
     return { nivel, total: nivel === 3 ? b3 : (nivel === 2 ? b2 : 0) }
   }
 
-  // Una fila del estimador. ``porVenta`` y ``total`` son null si falta el valor de la UF.
+  // Una fila de la calculadora. ``porVenta`` y ``total`` son null si falta el valor de la UF.
   function calcularPlan(plan, ventas, uf) {
     const n = ventasValidas(ventas), pv = comisionPorVenta(plan, uf), b = bonos(plan, n)
     return { ventas: n, porVenta: pv, comisiones: pv == null ? null : pv * n, bonos: b, total: pv == null ? null : pv * n + b.total }

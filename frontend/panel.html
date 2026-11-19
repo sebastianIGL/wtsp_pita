@@ -94,7 +94,7 @@
       <div id="sub-herramientas" class="hidden ml-5 pl-2 mt-0.5 space-y-0.5 border-l header-border">
         <button type="button" data-h="credito" onclick="abrirHerramienta(this.dataset.h)" class="atajo-herr w-full text-left px-3 py-1.5 rounded-lg text-sm transition sidebar-text hover:text-violet-400">Simulador de crédito</button>
         <button type="button" data-h="ds1" onclick="abrirHerramienta(this.dataset.h)" class="atajo-herr w-full text-left px-3 py-1.5 rounded-lg text-sm transition sidebar-text hover:text-violet-400">Subsidio DS1 (tramos 2 y 3)</button>
-        <button type="button" data-h="comisiones" onclick="abrirHerramienta(this.dataset.h)" class="atajo-herr w-full text-left px-3 py-1.5 rounded-lg text-sm transition sidebar-text hover:text-violet-400">Estimador de comisiones</button>
+        <button type="button" data-h="comisiones" onclick="abrirHerramienta(this.dataset.h)" class="atajo-herr w-full text-left px-3 py-1.5 rounded-lg text-sm transition sidebar-text hover:text-violet-400">Calculadora de comisiones</button>
       </div>
     </div>
 
@@ -963,7 +963,7 @@
 
   // ═══════════════════════════ MARCO: el CRM y las herramientas dentro del panel ═══════════════════════════
   let _marco = null          // { url, titulo, atajo } de lo que se está mostrando dentro del marco; null = la vista normal del panel
-  const _HERRAMIENTAS = { credito: 'Simulador de crédito', ds1: 'Subsidio DS1 (tramos 2 y 3)', comisiones: 'Estimador de comisiones' }
+  const _HERRAMIENTAS = { credito: 'Simulador de crédito', ds1: 'Subsidio DS1 (tramos 2 y 3)', comisiones: 'Calculadora de comisiones' }
 
   function pintarAtajos() {
     document.getElementById('atajo-todos-clientes').firstElementChild.classList.toggle('atajo-activo', _marco?.atajo === 'todos')

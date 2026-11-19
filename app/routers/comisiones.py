@@ -1,4 +1,4 @@
-"""Estimador de comisiones: ``GET /api/comisiones/planes`` entrega los planes de comisión (ticket, porcentaje, bonos) que aplican a los proyectos que la persona puede ver.
+"""Calculadora de comisiones: ``GET /api/comisiones/planes`` entrega los planes de comisión (ticket, porcentaje, bonos) que aplican a los proyectos que la persona puede ver.
 Cualquier persona con sesión; un ejecutivo solo ve los planes de sus proyectos. La lógica está en ``app/services/comisiones.py``."""
 from fastapi import APIRouter, Request, Response
 

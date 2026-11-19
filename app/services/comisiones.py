@@ -1,8 +1,11 @@
-"""Estimador de comisiones: qué planes de comisión aplican a los proyectos que cada persona puede ver.
+"""Calculadora de comisiones: qué planes de comisión aplican a los proyectos que cada persona puede ver.
 
 Los planes (ticket en UF, porcentaje, bonos) viven en la tabla ``PlanComision`` y a qué proyectos se aplican, en ``PlanComisionAsignacion`` (una fila por proyecto o por inmobiliaria entera).
 Un proyecto SIN asignación usa el plan de «entrega futura» o «entrega inmediata» según el estado de sus etapas. El cálculo de la comisión lo hace la pantalla
 (``frontend/js/calculos_comision.js``) para recalcular al instante; aquí solo se arma qué planes ve cada persona y a qué proyectos corresponde cada uno.
+
+Cada plan trae además las ``propiedades`` a las que aplica (proyecto + tipología con su valor en UF) para que la calculadora pueda elegir la propiedad que se vende en vez de usar un solo valor
+promedio; la pantalla también deja escribir el precio a mano.
 
 Solo lectura. Si las tablas aún no existen, el servicio responde ``{"disponible": False}`` en vez de fallar.
 """
@@ -19,6 +22,7 @@ logger = logging.getLogger("wtsp_pita")
 PLAN_ENTREGA_FUTURA = "subsidios_futura"
 PLAN_ENTREGA_INMEDIATA = "subsidios_inmediata"
 MAX_PROYECTOS_POR_PLAN = 12             # nombres que se listan por plan (si hay más, se cuenta cuántos más)
+MAX_PROPIEDADES_POR_PLAN = 600          # propiedades que se ofrecen para elegir en cada plan
 _PAGINA = 1000
 _MAX_PROYECTOS = 5000
 
@@ -78,6 +82,23 @@ def _numero(v: Any) -> Optional[float]:
     return n if n == n else None
 
 
+async def _propiedades_por_proyecto(ids: List[str]) -> Dict[str, List[Dict[str, Any]]]:
+    """Tipologías con valor en UF de cada proyecto (activas): ``{proyecto_id: [{id, tipologia, valor_uf}]}``. Si la lectura falla, la calculadora sigue funcionando sin la lista (se escribe el precio)."""
+    salida: Dict[str, List[Dict[str, Any]]] = {}
+    try:
+        for i in range(0, len(ids), 100):
+            filas = await _leer("/Tipologia", {"proyecto_id": f"in.({','.join(ids[i:i + 100])})", "select": "id,proyecto_id,nombre,valor_uf,estado", "order": "id.asc"})
+            for t in filas:
+                valor = _numero(t.get("valor_uf"))
+                if valor is None or valor <= 0 or t.get("estado") in ("agotado", "inactivo"):
+                    continue
+                salida.setdefault(str(t.get("proyecto_id")), []).append({"id": t.get("id"), "tipologia": str(t.get("nombre") or "").strip(), "valor_uf": valor})
+    except Exception as e:
+        logger.warning("Comisiones | no se pudieron leer las tipologías para elegir propiedad (%s)", type(e).__name__)
+        return {}
+    return salida
+
+
 async def planes_para(perfil: Dict[str, Any]) -> Dict[str, Any]:
     """Los planes que ve esta persona, cada uno con los proyectos a los que aplica, y (solo administración) los proyectos que quedaron sin plan."""
     try:
@@ -100,7 +121,9 @@ async def planes_para(perfil: Dict[str, Any]) -> Dict[str, Any]:
             estados.setdefault(str(e.get("proyecto_id")), []).append(str(e.get("estado") or ""))
 
     activos = {p["clave"]: p for p in planes if p.get("activo") is not False}
+    tipologias = await _propiedades_por_proyecto(ids)
     por_plan: Dict[str, List[str]] = {}
+    propiedades_plan: Dict[str, List[Dict[str, Any]]] = {}
     sin_plan: List[str] = []
     for pr in proyectos:
         claves = [c for c in planes_de_proyecto(pr, asignaciones, estados.get(str(pr["id"]), [])) if c in activos]
@@ -108,6 +131,8 @@ async def planes_para(perfil: Dict[str, Any]) -> Dict[str, Any]:
             sin_plan.append(pr.get("nombre") or "Proyecto sin nombre")
         for c in claves:
             por_plan.setdefault(c, []).append(pr.get("nombre") or "Proyecto sin nombre")
+            for t in tipologias.get(str(pr["id"]), []):
+                propiedades_plan.setdefault(c, []).append({"id": t["id"], "proyecto": pr.get("nombre") or "Proyecto sin nombre", "tipologia": t["tipologia"], "valor_uf": t["valor_uf"]})
     salida = []
     for p in planes:
         nombres = por_plan.get(p["clave"], [])
@@ -115,5 +140,6 @@ async def planes_para(perfil: Dict[str, Any]) -> Dict[str, Any]:
             continue
         salida.append({"clave": p["clave"], "nombre": p["nombre"], "ticket_uf": _numero(p.get("ticket_uf")), "porcentaje": _numero(p.get("porcentaje")),
                        "bono_2_clp": _numero(p.get("bono_2_clp")), "bono_3_clp": _numero(p.get("bono_3_clp")), "condicion": p.get("condicion"),
-                       "proyectos": nombres[:MAX_PROYECTOS_POR_PLAN], "proyectos_total": len(nombres)})
+                       "proyectos": nombres[:MAX_PROYECTOS_POR_PLAN], "proyectos_total": len(nombres),
+                       "propiedades": sorted(propiedades_plan.get(p["clave"], []), key=lambda x: (x["proyecto"].lower(), x["tipologia"].lower(), str(x["id"])))[:MAX_PROPIEDADES_POR_PLAN]})
     return {"disponible": True, "planes": salida, "sin_plan": sorted(set(sin_plan))[:50] if _solo_admin(perfil) else []}
