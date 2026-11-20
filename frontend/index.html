@@ -2714,7 +2714,7 @@ function _dibujarMontosCotizacion(d) {
     const uf = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 1 }).format(Number(m.estacionamiento_uf))
     chk.checked = !!m.con_estacionamiento
     chk.disabled = !!m.estacionamiento_obligatorio
-    document.getElementById('cot-estac-texto').textContent = m.estacionamiento_obligatorio ? 'Estacionamiento incluido' : `Agregar el estacionamiento (+${uf} UF)`
+    document.getElementById('cot-estac-texto').textContent = m.estacionamiento_obligatorio ? 'Estacionamiento incluido' : `Agregar el estacionamiento de este proyecto (+${uf} UF)`
     document.getElementById('cot-estac-ayuda').textContent = m.estacionamiento_obligatorio ? 'Este proyecto lo exige: va sumado al valor final y al crédito.' : 'Se suma al valor de la vivienda y al crédito, y sale en el PDF y en los mensajes.'
   }
 }
