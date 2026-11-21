@@ -23,6 +23,7 @@ from app.services.avisos_cola import bucle_avisos
 from app.services.temperatura import bucle_temperatura
 from app.services.seguimiento_auto import bucle_seguimiento
 from app.services.recordatorios import bucle_recordatorios
+from app.services.buydepa import bucle_buydepa
 from app.routers.paginas import router as paginas_router
 from app.routers.mi_camino import router as mi_camino_router
 from app.routers.progreso import router as progreso_router
@@ -68,6 +69,7 @@ async def _lifespan(app: FastAPI):
     tarea_temperatura = asyncio.create_task(bucle_temperatura())   # temperatura de cada cliente: se recalcula cada 10 minutos
     tarea_recordatorios = asyncio.create_task(bucle_recordatorios())   # avisos por WhatsApp de los recordatorios con hora (cada minuto)
     tarea_seguimiento = asyncio.create_task(bucle_seguimiento())   # sin atender 24 h / remarketing 7 días (apagado con SEGUIMIENTO_AUTOMATICO apagado)
+    tarea_buydepa = asyncio.create_task(bucle_buydepa())   # seminuevos de Buydepa: sincronización automática cada BUYDEPA_SYNC_INTERVAL_HOURS (0 = apagada)
     try:
         yield
     finally:
@@ -75,7 +77,8 @@ async def _lifespan(app: FastAPI):
         tarea_temperatura.cancel()
         tarea_seguimiento.cancel()
         tarea_recordatorios.cancel()
-        await asyncio.gather(tarea_avisos, tarea_temperatura, tarea_seguimiento, tarea_recordatorios, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
+        tarea_buydepa.cancel()
+        await asyncio.gather(tarea_avisos, tarea_temperatura, tarea_seguimiento, tarea_recordatorios, tarea_buydepa, return_exceptions=True)   # un envío a medias termina de cancelarse antes de cerrar el cliente HTTP
         await cerrar_http()
         await cerrar_anthropic()
         user_cache.vaciar()

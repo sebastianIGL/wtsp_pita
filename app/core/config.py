@@ -22,6 +22,20 @@ from pydantic import AliasChoices, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+MAX_BAJAS_PCT_DEFECTO = 25
+
+
+def leer_max_bajas_pct(valor) -> Tuple[int, bool]:
+    """``(porcentaje, válido)``: un entero de 1 a 100 («25» y «25.0» valen; «12.5», «0», «150», texto y vacío no). Si no es válido devuelve ``(25, False)``."""
+    try:
+        n = float(str(valor).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return MAX_BAJAS_PCT_DEFECTO, False
+    if n != n or n != int(n) or not 1 <= n <= 100:
+        return MAX_BAJAS_PCT_DEFECTO, False
+    return int(n), True
+
+
 _HORA_INVALIDA = -1
 RECOVERY_MAX_ANTIGUEDAD_DEFECTO = 24
 
@@ -88,6 +102,13 @@ class Settings(BaseSettings):
     seguimiento_automatico: bool = Field(False, validation_alias=_alias("SEGUIMIENTO_AUTOMATICO"))
     template_sin_atender_wa: str = Field("", validation_alias=_alias("TEMPLATE_SIN_ATENDER_WA"))
     template_remarketing_wa: str = Field("", validation_alias=_alias("TEMPLATE_REMARKETING_WA"))
+    # Seminuevos de Buydepa (app/services/buydepa.py). Contrato público documentado: GET {BASE}/_web/apartments?page=N&pageSize=1000. La llave es OPCIONAL (cabecera X-Api-Key, solo se envía si tiene
+    # valor: con una llave inválida Buydepa responde 401). Intervalo de la corrida automática en horas: 3 por defecto, 0 la apaga (la corrida manual del panel sigue funcionando).
+    buydepa_api_base_url: str = Field("https://sales.core.buydepa.com/api", validation_alias=_alias("BUYDEPA_API_BASE_URL"))
+    buydepa_api_key: Optional[str] = Field(None, validation_alias=_alias("BUYDEPA_API_KEY"))
+    buydepa_sync_interval_hours: float = Field(3.0, validation_alias=_alias("BUYDEPA_SYNC_INTERVAL_HOURS"))
+    # Freno de la baja: si en una corrida dejarían de aparecer más de este porcentaje (entero de 1 a 100) de los departamentos activos, no se da de baja ninguno. Vacía o inválida = 25.
+    buydepa_max_bajas_pct: int = Field(25, validation_alias=_alias("BUYDEPA_MAX_BAJAS_PCT"))
     # ID del contenedor de Google Tag Manager (GTM-XXXXXXX) para la medición del sitio PÚBLICO. Sin él (o con un valor que no tenga ese
     # formato) no se carga nada de Google ni se muestra el aviso de cookies. Con él, Tag Manager solo se carga si la persona lo acepta.
     gtm_id: Optional[str] = Field(None, validation_alias=_alias("GTM_ID"))
@@ -130,6 +151,21 @@ class Settings(BaseSettings):
     def _enable_docs_laxo(cls, v):
         # Igual que antes: cualquier cosa distinta de 1/true/yes/on es False (nunca error)
         return str(v).strip().lower() in _VERDADERO
+
+    @field_validator("buydepa_max_bajas_pct", mode="before")
+    @classmethod
+    def _tope_bajas_buydepa(cls, v):
+        return leer_max_bajas_pct(v)[0]
+
+    @field_validator("buydepa_sync_interval_hours", mode="before")
+    @classmethod
+    def _intervalo_buydepa(cls, v):
+        # Un valor ilegible no debe impedir el arranque: vuelve a las 3 horas. Negativo = 0 (apagada).
+        try:
+            n = float(str(v).strip().replace(",", "."))
+        except (TypeError, ValueError):
+            return 3.0
+        return n if n == n and n > 0 else 0.0
 
     @field_validator("gtm_id", mode="before")
     @classmethod
